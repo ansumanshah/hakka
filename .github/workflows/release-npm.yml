@@ -1,0 +1,92 @@
+name: Release npm
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g., 0.1.0). Must match package.json.'
+        required: true
+
+jobs:
+  release:
+    name: Build, Test & Publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # npm provenance attestation
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+
+      - name: Verify all npm package versions match the input
+        run: |
+          # Every packages/* directory is named for the package it publishes, so
+          # the glob is the list — nothing to keep in sync by hand. private:true
+          # packages (hakka-bench) never publish, so their versions don't track
+          # the release and are skipped here.
+          for dir in packages/*/; do
+            if [ "$(node -e "console.log(require('./$dir/package.json').private === true)")" = "true" ]; then continue; fi
+            PKG_VERSION=$(node -e "console.log(require('./$dir/package.json').version)")
+            if [ "$PKG_VERSION" != "${{ inputs.version }}" ]; then
+              echo "Version mismatch in $dir: $PKG_VERSION != ${{ inputs.version }}"
+              echo "Run 'bun run version-packages' (changesets), commit, then re-run."
+              exit 1
+            fi
+          done
+      - name: Verify all JS package + native versions are in lockstep
+        run: node scripts/version-audit.mjs
+
+      - run: bun run build
+      - run: bun run test
+      - run: bun run pack:npm:dry-run
+      - name: Verify Android Maven dependencies are published
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          for artifact in \
+            hakka-common \
+            hakka-network \
+            hakka-network-noop \
+            hakka-performance \
+            hakka-performance-noop \
+            hakka-ui
+          do
+            url="https://repo1.maven.org/maven2/com/noodleapps/hakka/${artifact}/${VERSION}/${artifact}-${VERSION}.pom"
+            if ! curl --fail --silent --head "$url" >/dev/null; then
+              echo "Missing Maven Central artifact required by npm Android bridge: $url"
+              echo "Publish Android artifacts before publishing hakka-react-native."
+              exit 1
+            fi
+          done
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Publish to npm (dependency order — core, then its dependents, then leaves)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          # Seven packages after the ADR 0005 consolidation, in dependency order —
+          # this is the one list that can't be a glob. Each directory under
+          # packages/ is named for the package it publishes, so these are both.
+          # hakka-core has no internal deps. hakka-bridge and hakka-browser depend
+          # only on core. hakka-node depends on core + bridge (browser is an
+          # optional peer, for its ./next/client entry only). hakka-react-native
+          # depends on core. hakka-rozenite depends on core + browser
+          # (hakka-react-native is a peer, so ordering against it is not required).
+          # hakka (CLI) depends on core + bridge — it gained bridge when hakka-mcp
+          # merged in. Each package's prepublishOnly rebuilds its dist first.
+          for pkg in \
+            hakka-core \
+            hakka-bridge \
+            hakka-browser \
+            hakka-node \
+            hakka-react-native \
+            hakka-rozenite \
+            hakka
+          do
+            echo "::group::Publishing $pkg"
+            (cd "packages/$pkg" && npm publish --access public --provenance)
+            echo "::endgroup::"
+          done

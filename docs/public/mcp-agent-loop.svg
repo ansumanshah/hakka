@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 604" role="img" aria-label="Agent transcript: diagnose finds a failing checkout request, create_mock installs a fix, and generate_repro packages a bundle with a regression test.">
+  <defs>
+    <style>
+      .sans { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      .text { fill: #ECE7DE; }
+      .muted { fill: #9C9184; }
+      .flame { fill: #E7622F; }
+      .red { fill: #E2604A; }
+      .amber { fill: #E0A63E; }
+      .green { fill: #5CB673; }
+    </style>
+  </defs>
+
+  <rect x="1" y="1" width="898" height="602" rx="16" fill="#17140F" stroke="#2C261E" stroke-width="1.5"/>
+
+  <!-- header -->
+  <circle cx="34" cy="40" r="6" fill="#C4563F"/>
+  <circle cx="54" cy="40" r="6" fill="#C79A3A"/>
+  <circle cx="74" cy="40" r="6" fill="#4F9E63"/>
+  <text x="102" y="45" class="sans text" font-size="15" font-weight="600" xml:space="preserve">Claude Code<tspan class="muted" font-weight="400">   ·   Hakka MCP</tspan></text>
+  <text x="866" y="45" text-anchor="end" class="sans flame" font-size="14" font-weight="700">hakka</text>
+  <line x1="24" y1="66" x2="876" y2="66" stroke="#2C261E" stroke-width="1"/>
+
+  <!-- turn 1: you -->
+  <text x="34" y="104" class="sans" font-size="14.5"><tspan class="flame" font-weight="700">You</tspan><tspan class="text" dx="12">Checkout is failing. Find the request and tell me why.</tspan></text>
+
+  <!-- turn 1: claude -> diagnose -->
+  <text x="34" y="146" class="sans flame" font-size="14.5" font-weight="700">Claude</text>
+  <text x="96" y="146" class="sans muted" font-size="14.5">calls</text>
+  <rect x="140" y="132" width="82" height="20" rx="6" fill="#2A2118" stroke="#3A2E22"/>
+  <text x="181" y="146" text-anchor="middle" class="mono flame" font-size="12.5">diagnose</text>
+
+  <rect x="34" y="160" width="818" height="96" rx="8" fill="#201B15" stroke="#33291F"/>
+  <text x="50" y="186" class="mono" font-size="13" xml:space="preserve"><tspan class="red">✗ POST /api/checkout → 500</tspan><tspan class="muted">   server error</tspan></text>
+  <text x="50" y="210" class="mono muted" font-size="13">{"error":"tax_service_timeout"}</text>
+  <text x="50" y="234" class="mono" font-size="13" xml:space="preserve"><tspan class="amber">◷ 4200ms</tspan><tspan class="muted">   slowest call in the session (&gt; 1000ms)</tspan></text>
+
+  <text x="34" y="282" class="sans text" font-size="14">3 requests, 1 failed. Likely an upstream timeout, not a client bug.</text>
+
+  <!-- turn 2: you -->
+  <text x="34" y="322" class="sans" font-size="14.5"><tspan class="flame" font-weight="700">You</tspan><tspan class="text" dx="12">Mock a successful checkout so I can keep building the confirmation screen.</tspan></text>
+
+  <!-- turn 2: claude -> create_mock -->
+  <text x="34" y="364" class="sans flame" font-size="14.5" font-weight="700">Claude</text>
+  <text x="96" y="364" class="sans muted" font-size="14.5">calls</text>
+  <rect x="140" y="350" width="104" height="20" rx="6" fill="#2A2118" stroke="#3A2E22"/>
+  <text x="192" y="364" text-anchor="middle" class="mono flame" font-size="12.5">create_mock</text>
+
+  <rect x="34" y="378" width="818" height="46" rx="8" fill="#201B15" stroke="#33291F"/>
+  <text x="50" y="406" class="mono" font-size="13" xml:space="preserve"><tspan class="green">✓ mock live</tspan><tspan class="muted">   { "id": "mcp-mock-1", "sent": true }</tspan></text>
+
+  <text x="34" y="450" class="sans text" font-size="14">POST /api/checkout now returns 200 in your app. Retry the flow.</text>
+
+  <!-- turn 3: you -->
+  <text x="34" y="490" class="sans" font-size="14.5"><tspan class="flame" font-weight="700">You</tspan><tspan class="text" dx="12">Now hand the backend team a reproducible bug.</tspan></text>
+
+  <!-- turn 3: claude -> generate_repro -->
+  <text x="34" y="532" class="sans flame" font-size="14.5" font-weight="700">Claude</text>
+  <text x="96" y="532" class="sans muted" font-size="14.5">calls</text>
+  <rect x="140" y="518" width="120" height="20" rx="6" fill="#2A2118" stroke="#3A2E22"/>
+  <text x="200" y="532" text-anchor="middle" class="mono flame" font-size="12.5">generate_repro</text>
+
+  <rect x="34" y="546" width="818" height="42" rx="8" fill="#201B15" stroke="#33291F"/>
+  <text x="50" y="572" class="mono" font-size="13" xml:space="preserve"><tspan class="text">Wrote </tspan><tspan class="flame">checkout-500.hakka-repro</tspan><tspan class="muted">   — 1 request, mock </tspan><tspan class="text">mcp-repro-1</tspan><tspan class="muted">, + a regression test</tspan></text>
+</svg>

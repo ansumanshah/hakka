@@ -1,0 +1,37 @@
+pre-commit:
+  parallel: true
+  commands:
+    lint:
+      # Lint the whole repo (oxlint is fast and respects .oxlintrc ignorePatterns,
+      # which excludes the standalone, uninstalled Next example). Linting only
+      # {staged_files} breaks when every staged JS/TS file is ignored.
+      run: bunx oxlint
+    format:
+      glob: '*.{ts,tsx,js,jsx,json}'
+      # oxfmt exits 2 ("no target files") when every staged file is covered by
+      # its ignore rules (e.g. the generated docs embed bundle) — that's a pass.
+      # Real format issues exit 1 and still fail the hook.
+      run: sh -c 'bunx oxfmt --check "$@" || test $? -eq 2' -- {staged_files}
+    typecheck:
+      run: bun run typecheck
+    sync-ios:
+      run: node scripts/sync-rn-ios.mjs --check
+    sync-tokens:
+      run: node scripts/sync-design-tokens.mjs --check
+    ui-tokens:
+      run: node scripts/ui-token-check.mjs
+    file-size:
+      run: node scripts/file-size-check.mjs
+
+# Native suites are skipped by pre-commit and `just test` (RN-only), so run all
+# three on push to catch a red iOS/Android suite before it lands. Requires Xcode
+# + Android SDK locally; skip with `git push --no-verify`. CI is the cross-platform gate.
+pre-push:
+  parallel: true
+  commands:
+    test-rn:
+      run: bun run test
+    test-ios:
+      run: bun run test:ios
+    test-android:
+      run: bun run test:android

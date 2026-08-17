@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Backs the ${applicationId}.hakka.fileprovider authority declared in AndroidManifest.xml.
+     Scoped to cacheDir/hakka-exports/ only — HAR/OTel export files, nothing else. -->
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <cache-path name="hakka_exports" path="hakka-exports/" />
+</paths>

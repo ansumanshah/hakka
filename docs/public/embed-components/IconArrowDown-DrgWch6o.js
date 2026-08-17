@@ -1,0 +1,1 @@
+import{M as s}from"./shared-tags-BUZYyeZE.js";import{t as a}from"./svg-CKddBB20.js";var t=/*#__PURE__*/s('<svg><path d="M12 19V5m-7 7 7-7 7 7"></svg>',!1,!0,!1),r=s=>a(s,t()),v=/*#__PURE__*/s('<svg><path d="M12 5v14m7-7-7 7-7-7"></svg>',!1,!0,!1),g=s=>a(s,v());export{r as n,g as t};

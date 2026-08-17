@@ -1,0 +1,16 @@
+{
+  "name": "hakka-bench",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Comparative capture-overhead benchmarks (hakka vs eruda/vConsole) and the CI per-request budget gate. Never published.",
+  "type": "module",
+  "scripts": {
+    "bench": "bun run.mjs",
+    "bench:check": "bun run.mjs --check"
+  },
+  "devDependencies": {
+    "eruda": "^3.4.3",
+    "happy-dom": "^20.11.0",
+    "vconsole": "^3.15.1"
+  }
+}

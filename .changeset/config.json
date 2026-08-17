@@ -1,0 +1,13 @@
+{
+  "$schema": "https://unpkg.com/@changesets/config@3.1.1/schema.json",
+  "changelog": false,
+  "commit": false,
+  "fixed": [
+    ["hakka-core", "hakka-browser", "hakka-bridge", "hakka-react-native", "hakka-node", "hakka", "hakka-rozenite"]
+  ],
+  "linked": [],
+  "access": "public",
+  "baseBranch": "main",
+  "updateInternalDependencies": "patch",
+  "ignore": ["@hakka/docs", "react-native-example"]
+}

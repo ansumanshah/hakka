@@ -1,0 +1,140 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  // Public source entrypoints and React Native autolinking/codegen files.
+  // Knip should still analyze them, but they are not removable "unused files".
+  "ignoreFiles": [
+    "packages/hakka-react-native/react-native.config.js",
+    "packages/hakka-react-native/src/monitors/index.ts",
+    "packages/hakka-react-native/src/ui/index.ts",
+    "packages/hakka-react-native/src/utils/index.ts",
+    // CLI tools invoked by the justfile (knip can't see justfile recipes).
+    "scripts/benchmark-artifact-metadata.mjs",
+    "scripts/benchmark-verify.mjs",
+    "scripts/benchmark-verify-fixture-test.mjs",
+    "scripts/device-readiness.mjs",
+    "scripts/ios-runtime-summary.mjs",
+    "scripts/rn-mode-benchmark.mjs",
+    // Manual capture-overhead benchmark (packages/hakka-bench, run via
+    // `bun run.mjs`; run.mjs spawns capture-overhead.mjs by string path).
+    "packages/hakka-bench/capture-overhead.mjs",
+    // Same benchmark pair for hakka-node, driven by `just bench-node`.
+    // run.mjs builds the path as a string, so knip can't see the link.
+    "packages/hakka-node/bench/capture-overhead.mjs",
+    // Vendored, minified overlay bundles for the docs hero/demo + component embeds
+    // (refreshed via `just sync-embed` / `just sync-embed-components`, never imported).
+    "docs/public/embed/**",
+    "docs/public/embed-components/**",
+    // Standalone consumer app, deliberately outside the workspace graph (it resolves
+    // hakka packages like a real npm consumer). Next's app-router files are framework
+    // entry points knip has no plugin wiring for here.
+    "examples/next-fullstack/**",
+    // Worker string-path — instantiated via `new Worker('./traced-worker.js')`, knip
+    // can't trace a bare string specifier to its target file.
+    "packages/hakka-browser/demo/traced-worker.js",
+    // Manual docs-screenshot script, run ad hoc, never imported.
+    "packages/hakka-browser/scripts/capture-next-runtime.mjs",
+    // Declared `exports["./elements"]` entrypoint — resolved by package.json exports,
+    // not an in-repo import.
+    "packages/hakka-browser/src/ui/elements/index.ts",
+    // Rozenite convention-loaded: read directly by the Rozenite CLI/host, not imported.
+    "packages/hakka-rozenite/react-native.ts",
+    "packages/hakka-rozenite/rozenite.config.ts",
+    "packages/hakka-rozenite/src/react-native/useHakkaRozeniteDevTools.ts",
+    // Driven by justfile recipes (knip can't see justfile recipes).
+    "scripts/bench-heap.mjs",
+    "scripts/smoke-tarball-install.mjs",
+    // Chained from verify-smoke.sh, not imported directly.
+    "scripts/smoke-bridge-replay.mjs",
+    "scripts/smoke-mcp-handshake.mjs",
+    "scripts/smoke-trace-correlation.mjs",
+  ],
+  // Dependencies below are consumed by package scripts, RN native build files,
+  // codegen/autolinking, Jest config, or optional feature imports that must stay
+  // optional peer dependencies.
+  "ignoreDependencies": [
+    // Loaded only by the capture-overhead benchmark (capture-overhead.mjs is
+    // ignoreFiles'd — spawned by string path — so its imports aren't traced).
+    "eruda",
+    "vconsole",
+    "happy-dom",
+    "@babel/preset-env",
+    "@babel/runtime",
+    "@react-native-async-storage/async-storage",
+    "@react-native/codegen",
+    "@react-native/gradle-plugin",
+    "@tanstack/react-query",
+    "expo",
+    "jest-environment-node",
+    "react-native-builder-bob",
+    "react-native-gesture-handler",
+    "react-native-mmkv",
+    "react-native-reanimated",
+    "react-native-safe-area-context",
+    // Optional peers referenced only behind runtime guards (try/catch dynamic require,
+    // or an optional-native-module check) — same "referenced optional peer, not a real
+    // devDependency" pattern as the RN entries above.
+    "html-webpack-plugin",
+    "webpack",
+    "expo-haptics",
+    // CSS @import in docs/src/styles/starlight.css, not a JS import.
+    "@fontsource-variable/jetbrains-mono",
+    "@fontsource-variable/manrope",
+    "@fontsource-variable/space-grotesk",
+    // hakka-rozenite's peer-mirror devDep (mirrors its own peerDependencies entry).
+    "hakka-react-native",
+    // Solid 2.0 RC pins: solid-js's own runtime deps, pinned exactly in
+    // hakka-browser so the carried @solidjs/web patch and the RC dedupe stay
+    // stable (ADR 0007) — not imported first-party.
+    "@solidjs/signals",
+    // examples/next-fullstack is ignoreFiles'd, but its generated
+    // next-env.d.ts triple-slash reference still surfaces here.
+    "next",
+    // Optional runtime requires behind guards in SettingsViewModel (same
+    // optional-peer pattern as the RN entries above).
+    "react-native-device-info",
+    "@react-native-community/netinfo",
+    // Used by root smoke scripts (scripts/smoke-control-roundtrip.mjs),
+    // resolved via workspace hoisting from hakka-bridge's own dependency.
+    "ws",
+  ],
+  // `swift` is invoked by package scripts (not an npm binary); run.mjs is
+  // executed by ci.yml with an explicit working-directory.
+  "ignoreBinaries": ["swift", "run.mjs"],
+  "ignoreIssues": {
+    // Bundler-plugin entries deliberately export the plugin BOTH as default and
+    // named `hakka`, so `import hakka from` and `import { hakka } from` both work.
+    "packages/hakka-browser/src/plugin/vite.ts": ["duplicates"],
+    "packages/hakka-browser/src/plugin/webpack.ts": ["duplicates"],
+    "packages/hakka-browser/src/plugin/rspack.ts": ["duplicates"],
+    "packages/hakka-react-native/src/native/NativeHakkaMonitor.ts": ["exports", "types"],
+    // Generated token mirror — full export set is intentional (not all consumed by RN yet).
+    "packages/hakka-react-native/src/ui/styles/tokens.generated.ts": ["exports"],
+    // Mandated design-system kit awaiting screen migration.
+    "packages/hakka-react-native/src/ui/components/primitives.tsx": ["exports", "types"],
+    // MV-pattern viewmodel barrel: each VM's State/Intents interfaces are the package's
+    // public embedding contract (mirrors hakka-browser's viewmodel pattern) — consumers
+    // destructure these shapes even though nothing in-repo imports them yet.
+    "packages/hakka-react-native/src/ui/viewModels/SettingsViewModel.ts": ["types"],
+    "packages/hakka-react-native/src/ui/viewModels/StatsViewModel.ts": ["types"],
+    // Barrel tracked separately from declarations — see FilterViewModel.ts/SelectionViewModel.ts.
+    "packages/hakka-react-native/src/ui/viewModels/FilterViewModel.ts": ["types"],
+    "packages/hakka-react-native/src/ui/viewModels/SelectionViewModel.ts": ["types"],
+    "packages/hakka-react-native/src/ui/viewModels/index.ts": ["types"],
+    // Browser is the original of the MV contract RN mirrors — same public-embedding-contract
+    // reasoning as the RN viewmodel suppressions above.
+    "packages/hakka-browser/src/ui/viewModels/index.ts": ["types"],
+    "packages/hakka-browser/src/ui/viewModels/FilterViewModel.ts": ["types"],
+    "packages/hakka-browser/src/ui/viewModels/RequestListViewModel.ts": ["types"],
+    "packages/hakka-browser/src/ui/viewModels/RequestDetailViewModel.ts": ["types"],
+    "packages/hakka-browser/src/ui/viewModels/SelectionViewModel.ts": ["types"],
+    "packages/hakka-browser/src/ui/viewModels/StatsViewModel.ts": ["types"],
+    // ADR 0006's CaptureSource contract (@experimental, design-doc-only slice of ADR 0003) —
+    // types + conformance harness ship ahead of any real implementation. Frozen only after
+    // its third real consumer (ADR 0003's rule-of-three condition); until then some exported
+    // members (e.g. CaptureSourceIdentity, CaptureCorrelation, ConformanceCheck) are only
+    // referenced structurally within these same files, not imported elsewhere. Do not delete
+    // as "unused" — remove this suppression once a migration lands and imports them directly.
+    "packages/hakka-core/src/contract/captureSource.ts": ["types"],
+    "packages/hakka-core/src/contract/conformance.ts": ["types"],
+  },
+}

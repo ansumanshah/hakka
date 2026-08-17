@@ -1,0 +1,62 @@
+name: Release Android SDK
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g., 0.1.0)'
+        required: true
+
+jobs:
+  release:
+    name: Build, Test & Publish to Maven Central
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            android/.gradle
+          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle.kts', 'android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: gradle-${{ runner.os }}-
+      - name: Verify version matches
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          for file in \
+            hakka-common/build.gradle.kts \
+            hakka-network/build.gradle.kts \
+            hakka-network-noop/build.gradle.kts \
+            hakka-performance/build.gradle.kts \
+            hakka-performance-noop/build.gradle.kts \
+            hakka-ui/build.gradle.kts
+          do
+            if ! grep -q "version = \"${VERSION}\"" "$file"; then
+              echo "Version mismatch in $file: expected version = \"${VERSION}\""
+              exit 1
+            fi
+            if ! grep -q ", \"${VERSION}\")" "$file"; then
+              echo "Maven coordinate mismatch in $file: expected ${VERSION}"
+              exit 1
+            fi
+          done
+      - run: ./gradlew :hakka-common:build :hakka-network:build :hakka-network-noop:build :hakka-performance:build :hakka-performance-noop:build :hakka-ui:build
+      - run: ./gradlew :hakka-common:test :hakka-network:test :hakka-network-noop:test :hakka-performance:test :hakka-performance-noop:test :hakka-ui:test
+      - run: ../scripts/android-size-gate.sh
+      - name: Publish to Maven Central
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.ORG_GRADLE_PROJECT_mavenCentralUsername }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.ORG_GRADLE_PROJECT_mavenCentralPassword }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.ORG_GRADLE_PROJECT_signingInMemoryKey }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.ORG_GRADLE_PROJECT_signingInMemoryKeyId }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.ORG_GRADLE_PROJECT_signingInMemoryKeyPassword }}
+        run: ./gradlew :hakka-common:publishAndReleaseToMavenCentral :hakka-network:publishAndReleaseToMavenCentral :hakka-network-noop:publishAndReleaseToMavenCentral :hakka-performance:publishAndReleaseToMavenCentral :hakka-performance-noop:publishAndReleaseToMavenCentral :hakka-ui:publishAndReleaseToMavenCentral

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Hakka — live inspector</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #0b1326; overflow: hidden; }
+    /* the seeded host page is invisible — the inspector fills the frame */
+    #host { position: fixed; inset: 0; }
+  </style>
+</head>
+<body>
+  <div id="host"></div>
+  <!-- Refresh this bundle with `just sync-embed` after changing hakka-browser. -->
+  <script src="./hakka-browser.global.js"></script>
+  <script>
+    (function () {
+      var J = function (o) { return JSON.stringify(o) }
+      var t = Date.now()
+      var reqs = [
+        { id: 'r1', url: 'https://api.example.com/users/42', method: 'GET', status: 200, startTime: t - 5200, duration: 145, source: 'fetch', requestHeaders: { accept: 'application/json' }, responseHeaders: { 'content-type': 'application/json' }, responseBody: J({ id: 42, name: 'Ada Lovelace', email: 'ada@example.com', roles: ['admin', 'user'] }), responseBodySize: 96, contentType: 'application/json', networkProtocol: 'h2', timing: { dnsMs: 12, connectMs: 18, tlsMs: 22, ttfbMs: 70, downloadMs: 23 } },
+        { id: 'r2', url: 'https://api.example.com/auth/login', method: 'POST', status: 200, startTime: t - 4800, duration: 320, source: 'fetch', requestHeaders: { 'content-type': 'application/json' }, requestBody: J({ email: 'ada@example.com', password: '[REDACTED]' }), responseHeaders: { 'content-type': 'application/json' }, responseBody: J({ token: 'eyJhbGci...', expiresIn: 3600 }), contentType: 'application/json', timing: { dnsMs: 0, connectMs: 0, tlsMs: 0, ttfbMs: 280, downloadMs: 40 } },
+        { id: 'r3', url: 'https://api.example.com/feed?page=2', method: 'GET', status: 200, startTime: t - 4200, duration: 89, source: 'fetch', responseHeaders: { 'content-type': 'application/json' }, responseBody: J({ items: [1, 2, 3], nextPage: 3 }), contentType: 'application/json' },
+        { id: 'r4', url: 'https://cdn.example.com/img/avatar.png', method: 'GET', status: 200, startTime: t - 3800, duration: 210, source: 'fetch', responseHeaders: { 'content-type': 'image/png' }, contentType: 'image/png', responseBodySize: 18244 },
+        { id: 'r5', url: 'https://api.example.com/posts/9', method: 'DELETE', status: 204, startTime: t - 3000, duration: 64, source: 'fetch' },
+        { id: 'r6', url: 'https://api.example.com/search?q=hakka', method: 'GET', status: 500, startTime: t - 2400, duration: 512, source: 'fetch', responseHeaders: { 'content-type': 'application/json' }, responseBody: J({ error: 'internal_error', traceId: 'abc123' }), contentType: 'application/json' },
+        { id: 'r7', url: 'https://api.example.com/graphql', method: 'POST', status: 200, startTime: t - 1800, duration: 176, source: 'fetch', requestHeaders: { 'content-type': 'application/json' }, requestBody: J({ query: 'query GetUser { user { id name } }' }), responseHeaders: { 'content-type': 'application/json' }, responseBody: J({ data: { user: { id: 42, name: 'Ada' } } }), contentType: 'application/json', graphql: { operationType: 'query', operationName: 'GetUser' } },
+        { id: 'r8', url: 'https://analytics.example.com/collect', method: 'POST', status: 202, startTime: t - 900, duration: 0, source: 'fetch', library: 'sendBeacon', requestBody: J({ event: 'page_view', path: '/' }) },
+      ]
+
+      Hakka.start({ overlay: false, resourceTiming: false, captureBeacons: false, console: false })
+      reqs.forEach(function (r) { Hakka.ingest(r) })
+      Hakka.show()
+
+      // Map ?tab= to a tab label.
+      var TAB = { network: 'Network', stats: 'Stats', mock: 'Mock', breaks: 'Breaks', breakpoints: 'Breaks', throttle: 'Throttle', logs: 'Logs', storage: 'Storage', info: 'Info', settings: 'Settings' }
+      var want = TAB[(new URLSearchParams(location.search).get('tab') || 'network').toLowerCase()] || 'Network'
+
+      // Once the (lazily-loaded) panel mounts: fill the frame, drop the launcher,
+      // and select the requested tab. The host page owns the overlay it created.
+      var tries = 0
+      var iv = setInterval(function () {
+        var host = document.querySelector('hakka-inspector')
+        var root = host && host.shadowRoot
+        var panel = root && root.querySelector('.hakka-panel')
+        if (!panel) { if (++tries > 120) clearInterval(iv); return }
+        if (!root.getElementById('hakka-embed-style')) {
+          var s = document.createElement('style')
+          s.id = 'hakka-embed-style'
+          s.textContent =
+            '.hakka-panel{height:100%!important;max-height:100%!important;border-radius:0!important;box-shadow:none!important;border-top:0!important}' +
+            '.hakka-toggle{display:none!important}' +
+            // Hide scrollbars inside the embedded inspector (scroll still works) — clean demo look.
+            '*{scrollbar-width:none!important;-ms-overflow-style:none!important}' +
+            '*::-webkit-scrollbar{width:0!important;height:0!important;display:none!important}'
+          root.appendChild(s)
+        }
+        var tab = [].slice.call(root.querySelectorAll('.hakka-tab')).find(function (b) { return b.textContent.trim() === want })
+        if (tab && !tab.classList.contains('active')) tab.click()
+        clearInterval(iv)
+      }, 60)
+    })()
+  </script>
+</body>
+</html>

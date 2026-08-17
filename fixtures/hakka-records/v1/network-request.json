@@ -1,0 +1,33 @@
+{
+  "id": "hakka-1",
+  "kind": "network.request",
+  "schemaVersion": 1,
+  "timestamp": 1700000000001,
+  "sessionId": "session-1",
+  "tags": {
+    "tier": "internal"
+  },
+  "otelSemconvVersion": "1.40.0",
+  "request": {
+    "id": "request-1",
+    "url": "https://api.example.com/users?token=redacted",
+    "method": "POST",
+    "status": 201,
+    "startTime": 1700000000000,
+    "duration": 128,
+    "requestBodySize": 42,
+    "responseBodySize": 84,
+    "source": "native",
+    "networkProtocol": "h2",
+    "graphqlOperationName": "CreateUser"
+  },
+  "attributes": {
+    "http.request.method": "POST",
+    "url.full": "https://api.example.com/users?token=redacted",
+    "hakka.source": "native",
+    "http.response.status_code": "201",
+    "network.protocol.name": "h2",
+    "hakka.duration_ms": "128",
+    "graphql.operation.name": "CreateUser"
+  }
+}

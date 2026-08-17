@@ -1,0 +1,130 @@
+---
+title: Expo
+description: Use Hakka in Expo development builds.
+---
+
+import { Tabs, TabItem, Steps, Aside, CardGrid, LinkCard } from '@astrojs/starlight/components'
+
+<Aside type="caution" title="Expo Go is not supported">
+  Hakka includes native code. Expo Go cannot load it — use a development build (`npx expo run:ios` / `npx expo
+  run:android`).
+</Aside>
+
+<Aside type="tip" title="What you'll have">
+  By the end of this page, your Expo app captures network requests and shows them in the Hakka inspector. No proxy, no
+  certificate, no cloud account.
+</Aside>
+
+## Install
+
+<Tabs syncKey="pkg-manager">
+  <TabItem label="npm">```bash npm install hakka-react-native ```</TabItem>
+  <TabItem label="pnpm">```bash pnpm add hakka-react-native ```</TabItem>
+  <TabItem label="yarn">```bash yarn add hakka-react-native ```</TabItem>
+  <TabItem label="bun">```bash bun add hakka-react-native ```</TabItem>
+</Tabs>
+
+Then install the required Expo peers:
+
+```bash title="Terminal"
+npx expo install @react-native-clipboard/clipboard expo-dev-client
+```
+
+## Setup
+
+<Steps>
+
+1. **Add the plugin to `app.json`**
+
+   ```json title="app.json"
+   {
+     "expo": {
+       "plugins": [["hakka-react-native", {}]]
+     }
+   }
+   ```
+
+   The plugin adds Android debug/release Hakka network artifacts during prebuild. iOS dependencies are handled by React Native autolinking and CocoaPods.
+
+2. **Opt in to Android performance collectors** _(optional)_
+
+   ```json title="app.json"
+   {
+     "expo": {
+       "plugins": [["hakka-react-native", { "androidPerformance": true }]]
+     }
+   }
+   ```
+
+   Performance collectors stay opt-in so the base native capture setup stays small.
+
+3. **Rebuild native projects**
+
+   ```bash title="Terminal"
+   npx expo prebuild --clean
+   npx expo run:ios
+   npx expo run:android
+   ```
+
+4. **Verify it works**
+
+   Shake the device or press `m` in the Expo CLI to open the dev menu, then open the Hakka overlay. Make any network request in your app — you should see it appear in the inspector with method, status, and timing.
+
+   ![The Hakka inspector on iOS showing a captured request: GET https://httpbin.org/get, status 200, 840ms, with Mock this / Export / Replay actions and Overview / Request / Response / Timing tabs. The floating bubble above shows live request, error, UI-FPS and JS-FPS counters.](../../../assets/screenshots/hakka-rn-bubble.png)
+
+</Steps>
+
+## Day-to-Day Development
+
+After your development build is installed, JS-only changes do not require a rebuild:
+
+```bash title="Terminal"
+npx expo start
+```
+
+You only need to rebuild (`npx expo run:ios` / `npx expo run:android`) when you change native dependencies or plugin configuration.
+
+## Optional UI Peers
+
+If you import `hakka-react-native/ui`, install the UI peers:
+
+```bash title="Terminal"
+npx expo install react-native-gesture-handler react-native-reanimated react-native-safe-area-context react-native-svg react-native-worklets
+```
+
+Then add the Worklets Babel plugin **last** in `babel.config.js`:
+
+```js title="babel.config.js"
+module.exports = function (api) {
+  api.cache(true)
+
+  return {
+    presets: ['babel-preset-expo'],
+    plugins: ['react-native-worklets/plugin'],
+  }
+}
+```
+
+## SDK 56 Note
+
+Expo SDK 56's Apple native-module improvements do not change Hakka's current integration path. Hakka remains a standalone React Native package with a TurboModule/codegen bridge over native Android and Swift SDKs.
+
+## Next steps
+
+<CardGrid>
+  <LinkCard
+    title="Capture modes"
+    href="/react-native/capture-modes/"
+    description="Choose between auto, native, and JS capture for your setup."
+  />
+  <LinkCard
+    title="Production safety"
+    href="/guides/production-safety/"
+    description="Strip Hakka from release builds without changing call sites."
+  />
+  <LinkCard
+    title="Breakpoints"
+    href="/features/breakpoints/"
+    description="Pause and edit requests or responses at runtime."
+  />
+</CardGrid>

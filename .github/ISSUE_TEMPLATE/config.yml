@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Feature Request
+    url: https://github.com/ansumanshah/hakka/discussions/categories/ideas
+    about: Suggest a feature or improvement
+  - name: Question
+    url: https://github.com/ansumanshah/hakka/discussions/categories/q-a
+    about: Ask a question about using Hakka

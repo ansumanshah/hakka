@@ -1,0 +1,65 @@
+# OS
+.DS_Store
+*.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.xcuserstate
+xcuserdata/
+
+# Build
+*.tsbuildinfo
+**/build/
+**/dist/
+**/lib/
+# …but docs/src/lib is committed source (the icon module HakkaIcon.astro imports), not build output
+!docs/src/lib/
+!docs/src/lib/**
+**/bin/
+DerivedData/
+**/.build/
+
+# Dependencies
+node_modules/
+**/node_modules/
+**/.gradle/
+
+# Caches
+**/.expo/
+**/.astro/
+**/.bundle/
+**/Pods/
+**/.next/
+.playwright-mcp/
+
+# Playwright (e2e) outputs
+**/test-results/
+**/playwright-report/
+**/.playwright/
+
+# Scratch output from scripts/gen-brand-frame.mjs's default (no --out) run
+scripts/.out/
+
+# Project
+.claude/
+.codex/
+.stitch/
+.references/
+.ramen/
+**/.ramen/
+.worktrees/
+artifacts/
+CLAUDE.md
+
+# env files — never commit
+.env
+.env.*
+!.env.example
+
+# generated e2e fixture bundles (copied from hakka-browser/elements dist at test time)
+packages/hakka-browser/e2e/fixtures/components-dist/
+
+# render-bench.spec.ts writes its measured JSON here on every run (machine-dependent numbers)
+packages/hakka-browser/e2e/render-bench-results.json

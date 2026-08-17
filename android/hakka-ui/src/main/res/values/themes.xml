@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      android:Theme.DeviceDefault.DayNight only exists since API 29 — below that, inflating
+      an Activity with it crashes. hakka-ui's minSdk is 24 (example's is 26), so it can't be
+      used directly. Theme.DeviceDefault.Light.NoActionBar / .NoActionBar (the plain, dark
+      variant) have both existed since API 14, so this base (values/) theme picks the Light
+      one and values-night/themes.xml overrides it to the dark one — the resource-qualifier
+      equivalent of DayNight, giving identical follow-system behavior on every supported API.
+      Every inspector Activity builds its own header row, so both variants still need to hide
+      the action bar and title explicitly.
+    -->
+    <style name="Theme.Hakka.DayNight.NoActionBar" parent="android:Theme.DeviceDefault.Light.NoActionBar">
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+</resources>

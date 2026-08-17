@@ -1,0 +1,22 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{js,jsx,ts,tsx,mjs,cjs,json,jsonc,yaml,yml,md,mdx,css,html}]
+indent_style = space
+indent_size = 2
+
+[*.{swift,kt,kts,gradle}]
+indent_style = space
+indent_size = 4
+
+[Makefile]
+indent_style = tab
+
+[*.{png,jpg,jpeg,gif,ico,svg,webp}]
+insert_final_newline = false
+trim_trailing_whitespace = false

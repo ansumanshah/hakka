@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Storage tab icon — stacked database glyph. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#FF000000">
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M2,20h20v-4H2V20z M4,17h2v2H4V17z M2,4v4h20V4H2z M4,6h2v2H4V6z M2,12h20v-4H2V12z M4,10h2v2H4V10z" />
+</vector>

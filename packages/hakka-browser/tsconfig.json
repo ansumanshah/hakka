@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "preserve",
+    "jsxImportSource": "@solidjs/web",
+    "types": [],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "forceConsistentCasingInFileNames": true,
+    "verbatimModuleSyntax": false,
+    // `src/react/*` self-imports its own `hakka-browser/elements/*` subpaths
+    // (the specifier the built dist re-exports through at runtime — see
+    // `tsdown.config.ts`'s `react` entry). Resolving that through package.json
+    // `exports` here would point at `dist/types/...`, which doesn't exist
+    // yet mid-build (this same `tsc` pass is what emits it) — a circular
+    // dependency a plain in-repo package can't have on itself. `paths`
+    // resolves the specifier straight to source instead, sidestepping the
+    // cycle; the emitted dist import specifier is untouched by this (paths
+    // only affects module resolution during type-checking).
+    "paths": {
+      "hakka-browser/elements": ["./src/ui/elements/index.ts"],
+      "hakka-browser/elements/*": ["./src/ui/elements/*"]
+    }
+  },
+  "include": ["src", "vite.config.ts"],
+  "exclude": ["dist", "node_modules"]
+}

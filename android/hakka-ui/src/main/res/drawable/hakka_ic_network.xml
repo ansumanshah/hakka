@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Network tab icon — up/down arrows read as request/response traffic,
+     distinct from the Logs document glyph at small size. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#FF000000">
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M9,3L5,7h3v11h2V7h3L9,3z M16,17V6h-2v11h-3l4,4l4,-4H16z" />
+</vector>

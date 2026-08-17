@@ -1,0 +1,245 @@
+---
+title: Build your own devtools
+description: Mount one piece of Hakka — a request list, a waterfall, a stats panel — into your own admin page, E2E report, or dashboard, instead of the full overlay.
+---
+
+import { Tabs, TabItem, Aside, CardGrid, LinkCard } from '@astrojs/starlight/components'
+
+[`hakka-browser/elements`](/embedding/components/) ships the six pieces the floating `hakka-inspector`
+overlay is built from — `<hakka-request-list>`, `<hakka-request-detail>`, `<hakka-waterfall>`,
+`<hakka-filter-bar>`, `<hakka-stats>`, `<hakka-json-tree>` — as standalone, framework-agnostic
+custom elements. Same SolidJS source the overlay renders, same Shadow DOM styling, no panel
+shell, no launcher, no command palette around it.
+
+That means you don't have to choose between "the whole overlay" and "roll your own network
+table." Drop the one piece you need wherever you're already building UI:
+
+- **An internal admin page** — a `<hakka-request-list>` + `<hakka-request-detail>` pair, wired to
+  your own capture store, sitting next to your other ops tooling. No iframe, no Hakka branding
+  chrome.
+- **A CI/E2E report** — a `<hakka-waterfall>` rendering one trace group from a failed test run,
+  embedded in the static HTML report your test runner already publishes.
+- **An internal dashboard** — a lone `<hakka-stats>` panel next to your other health widgets.
+
+<Aside type="tip" title="Install">
+  ```sh bun add hakka-browser ```
+</Aside>
+
+## Three ways to consume it
+
+Straight from `hakka-browser/elements`, registration is always explicit — importing a subpath
+never touches `customElements` on its own. Call `register()` (or `registerAll()` from the root
+import) once, then use the tag like any other HTML element. `hakka-browser/react`'s wrappers
+(the third tab below) handle that call for you.
+
+<Tabs>
+<TabItem label="Script tag">
+
+No build step. Import straight from a CDN and register on demand:
+
+```html title="admin.html"
+<script type="module">
+  import { registerAll } from 'https://esm.sh/hakka-browser/elements'
+  registerAll()
+</script>
+
+<hakka-request-list compact="true"></hakka-request-list>
+```
+
+`registerAll()` defines all six tags at once. Import a single subpath (e.g.
+`hakka-browser/elements/request-list`) instead if you only want one — every subpath is its own
+bundler entry point, so importing one never pulls in another element's Solid tree.
+
+</TabItem>
+<TabItem label="ESM import">
+
+Same registration call, through your own bundler (Vite, webpack, esbuild, ...). This is the shape
+for the "admin page" and "E2E report" recipes below — register once at module load, then mount
+tags anywhere in server-rendered or static HTML:
+
+```ts title="admin/hakka.ts"
+import { register as registerList } from 'hakka-browser/elements/request-list'
+import { register as registerDetail } from 'hakka-browser/elements/request-detail'
+
+registerList()
+registerDetail()
+```
+
+```html
+<hakka-request-list></hakka-request-list>
+<hakka-request-detail></hakka-request-detail>
+
+<script type="module">
+  document.querySelector('hakka-request-list').addEventListener('hakka:select', (e) => {
+    document.querySelector('hakka-request-detail').setAttribute('request-id', e.detail.id)
+  })
+</script>
+```
+
+</TabItem>
+<TabItem label="React">
+
+[`hakka-browser/react`](/embedding/react/) ships thin React 19 wrappers over all six
+elements — typed props and `onX` callback props instead of raw DOM attributes and
+`addEventListener`:
+
+```sh
+bun add hakka-browser
+```
+
+```tsx title="RequestListPanel.tsx"
+import { RequestList } from 'hakka-browser/react'
+
+export function RequestListPanel({ store }: { store?: unknown }) {
+  return <RequestList compact store={store} onSelect={({ id }) => console.log('selected', id)} />
+}
+```
+
+Registration is automatic — each component calls the underlying element's `register()` for you
+on mount, SSR-safe (see [React → Usage](/embedding/react/#usage) for how) — no separate
+`registerRequestList()` call needed, unlike the two tabs above.
+
+| Component         | Underlying element       | Event prop       |
+| ----------------- | ------------------------ | ---------------- |
+| `<RequestList>`   | `<hakka-request-list>`   | `onSelect`       |
+| `<RequestDetail>` | `<hakka-request-detail>` | `onBack`         |
+| `<Waterfall>`     | `<hakka-waterfall>`      | `onSelect`       |
+| `<FilterBar>`     | `<hakka-filter-bar>`     | `onFilterChange` |
+| `<Stats>`         | `<hakka-stats>`          | —                |
+| `<JsonTree>`      | `<hakka-json-tree>`      | —                |
+
+Every prop other than an `onX` callback forwards straight through as a real DOM property — no
+ref escape hatch needed for `store`/`viewModel`/`group`/`request` (both typed `unknown` today).
+See [React → The interop contract](/embedding/react/#the-interop-contract) for how that
+forwarding works, what `ref` itself exposes, and why `store`/`viewModel` aren't typed any
+tighter yet.
+
+</TabItem>
+</Tabs>
+
+## Composition recipes
+
+### Admin page: a request list that opens a detail view
+
+The default, zero-config wiring: both elements default to the same module-scoped capture store, so
+dropping them next to each other is enough — no store to construct, no prop to pass.
+
+```html
+<hakka-request-list id="list"></hakka-request-list>
+<hakka-request-detail id="detail"></hakka-request-detail>
+
+<script type="module">
+  import { registerRequestList } from 'hakka-browser/elements/request-list'
+  import { registerRequestDetail } from 'hakka-browser/elements/request-detail'
+
+  registerRequestList()
+  registerRequestDetail()
+
+  document.getElementById('list').addEventListener('hakka:select', (e) => {
+    document.getElementById('detail').setAttribute('request-id', e.detail.id)
+  })
+</script>
+```
+
+`<hakka-request-detail>`'s `request-id` attribute always resolves against the shared store
+singleton — so this exact pairing only works when the list ALSO uses the shared store (the
+default). If you inject a custom `store` into the list, set `.request` on the detail element
+directly instead — see [Components → `<hakka-request-detail>` resolution
+order](/embedding/components/#hakka-request-detail-resolution-order) for the full precedence
+rules.
+
+### E2E report: a waterfall for one failed trace
+
+Group your session's captured requests by trace with `hakka-core`'s own `groupRequests`, then hand
+the one group you care about straight to `<hakka-waterfall>` — no store involved, it's a pure
+props-in renderer:
+
+```ts title="report/build.ts"
+import { groupRequests } from 'hakka-core'
+import type { NetworkRequest } from 'hakka-core'
+import { registerWaterfall } from 'hakka-browser/elements/waterfall'
+
+registerWaterfall()
+
+declare function loadSessionRequests(): NetworkRequest[] // however your report loads them
+
+const groups = groupRequests(loadSessionRequests(), 'trace')
+const failedTrace = groups.find((g) => g.items.some((r) => (r.status ?? 0) >= 500))
+
+if (failedTrace) {
+  const el = document.createElement('hakka-waterfall') as HTMLElement & { group: unknown }
+  el.group = failedTrace
+  document.getElementById('report-root')!.appendChild(el)
+}
+```
+
+### Dashboard: a stats panel next to your other widgets
+
+`<hakka-stats>` has no attributes and no events — point it at a store (or leave it on the shared
+default) and it renders:
+
+```html
+<div class="widget-grid">
+  <hakka-stats></hakka-stats>
+  <!-- your other dashboard widgets -->
+</div>
+
+<script type="module">
+  import { registerStats } from 'hakka-browser/elements/stats'
+  registerStats()
+</script>
+```
+
+<Aside type="note" title="Pointer events on a bare host">
+  The shared stylesheet these elements reuse from the overlay sets `pointer-events: none` on `:host` (it's how the
+  floating overlay avoids intercepting clicks on your page). Every standalone element re-enables pointer events and
+  `display: block` on its own host, so clicks work with zero CSS from you. If you override host styles yourself, keep
+  `pointer-events: auto`.
+</Aside>
+
+## Theming
+
+Every element themes the same way `hakka-browser`'s overlay does — `--hakka-*` CSS custom
+properties, six curated presets, and per-element overrides, all reusing `presets.ts`'s exact
+mechanism verbatim. Full details — the preset list, per-element override syntax, and what does
+and doesn't stay in sync with a separately installed `hakka-browser` — are on [Components →
+Theming](/embedding/components/#theming).
+
+If your page **also** runs a `hakka-browser` Inspector, drive both from **its** exported
+`setPreset()` — `hakka-browser/elements` doesn't ship a `setPreset()` of its own, by design
+(there's no settings UI in these six elements; that lives in the Inspector shell, out of this
+entry point's scope):
+
+```ts
+import { setPreset } from 'hakka-browser'
+setPreset('paper')
+```
+
+Otherwise, reproduce the preset's token values yourself with a per-element override — see the
+reference page above for the full themable token set.
+
+## See also
+
+<CardGrid>
+  <LinkCard
+    title="Components"
+    href="/embedding/components/"
+    description="Full attribute/property/event reference for the six elements used above."
+  />
+  <LinkCard title="React" href="/embedding/react/" description="Typed React wrappers over these same six elements." />
+  <LinkCard
+    title="Web overview"
+    href="/web/overview/"
+    description="The full floating overlay these elements are built from."
+  />
+  <LinkCard
+    title="Production safety"
+    href="/guides/production-safety/"
+    description="Keep either the overlay or standalone elements out of your release build."
+  />
+  <LinkCard
+    title="Core overview"
+    href="/core/overview/"
+    description="hakka-core: the platform-neutral capture engine underneath every element."
+  />
+</CardGrid>

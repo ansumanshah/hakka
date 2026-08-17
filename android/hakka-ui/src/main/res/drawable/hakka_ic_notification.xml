@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Monochrome, alpha-only notification smallIcon (Android status-bar icons render as a
+     silhouette from the alpha channel only — a shaded/gradient bitmap like the legacy
+     android.R.drawable.ic_menu_info_details renders as a solid gray blob). A simplified
+     broadcast/signal mark: dot + two arcs, echoing the bowl+broadcast brand mark
+     (AppIconView) at a size that survives the status bar. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M10,19.5m-2,0a2,2 0,1 1,4 0a2,2 0,1 1,-4 0" />
+    <path
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round"
+        android:pathData="M5.5,14.3C7,12.6 8.4,11.8 10,11.8s3,0.8 4.5,2.5" />
+    <path
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round"
+        android:pathData="M2,10.7C4.4,8 7,6.6 10,6.6s5.6,1.4 8,4.1" />
+</vector>

@@ -1,0 +1,19 @@
+* text=auto eol=lf
+
+# Xcode project files — keep as-is (CR+LF would corrupt them)
+*.pbxproj -text
+
+# Generated lockfiles
+bun.lock linguist-generated
+
+# Binary assets
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary

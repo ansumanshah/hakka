@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Night-mode counterpart to values/themes.xml — see that file for why this
+      resource-qualifier pair replaces android:Theme.DeviceDefault.DayNight (API 29+) below
+      API 29. Same theme name, same attribute overrides; only the parent differs so this
+      variant renders as the dark DeviceDefault instead of the light one.
+    -->
+    <style name="Theme.Hakka.DayNight.NoActionBar" parent="android:Theme.DeviceDefault.NoActionBar">
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+</resources>

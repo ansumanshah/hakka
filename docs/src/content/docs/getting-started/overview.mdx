@@ -1,0 +1,130 @@
+---
+title: Overview
+description: The 3-minute tour — what Hakka is, what it doesn't require, and where to go next.
+---
+
+import { CardGrid, LinkCard, Aside, Badge } from '@astrojs/starlight/components'
+
+Hakka is a local-first network inspector. One engine ([`hakka-core`](/core/overview/)) powers every target — React Native, the web, Next.js, Android, and iOS — so the capture model, record contract, panels, and exports stay identical while rendering stays native.
+
+<Aside type="tip" title="In-process, on-device">
+  Capture happens inside your app: no proxy, no CA certificate, no cloud, no accounts. Nothing leaves your machine.
+</Aside>
+
+## Set up with your AI agent
+
+Paste this into Claude Code, Cursor, Codex, or any coding agent working in your repo. It detects your framework, wires up the right integration, and verifies the result instead of guessing.
+
+```text
+Set up Hakka (local-first network inspector, https://github.com/ansumanshah/hakka) in this project.
+
+1. Detect the framework by checking package.json / config files:
+   - Next.js (next.config.* or "next" dependency) -> step 2.
+   - React Native or Expo ("react-native" or "expo" dependency) -> step 3.
+   - Anything else (plain web / bundler app) -> step 4.
+
+2. Next.js:
+   - Install: `npm i -D hakka-node` and `npm i hakka-browser` (hakka-browser is a
+     required peer once the client overlay below is wired, not optional).
+   - Create instrumentation.ts at the project root (or src/):
+     export { register } from 'hakka-node/next'
+   - Create instrumentation-client.ts next to it (Next 15.3+):
+     import 'hakka-node/next/client'
+   - Optional, for Server Component/Route Handler/Server Action spans: install
+     `npm i @vercel/otel @opentelemetry/api`, then in instrumentation.ts:
+       import { registerOTel } from '@vercel/otel'
+       import { hakkaSpanProcessor } from 'hakka-node'
+       import { register as hakkaRegister } from 'hakka-node/next'
+       export function register() {
+         registerOTel({ serviceName: 'app', spanProcessors: [hakkaSpanProcessor()] })
+         return hakkaRegister()
+       }
+   - If the project builds with webpack, not Turbopack, add to next.config.js:
+       serverExternalPackages: ['hakka-node', 'hakka-bridge', 'hakka-core', 'ws']
+     (Turbopack, the Next 16 default, doesn't need this. Skip it if unsure.)
+   - Don't touch anything else. register() is dev-only, production is untouched.
+
+3. React Native / Expo:
+   - Install `hakka-react-native` and follow its README setup exactly (config
+     plugin for Expo, manual native linking otherwise). Don't improvise the native steps.
+
+4. Plain web or any other framework:
+   - Install `hakka-browser`, call `start()` once from the app's entry file
+     (or drop the CDN <script> tag from its README if there's no bundler).
+
+5. Verify. Do not report success without doing this:
+   - Start the dev server.
+   - Next.js: `curl -s http://localhost:8989` should connect (not "connection
+     refused"). That's the embedded bridge hub. Or check with `lsof -i :8989`.
+   - Web/RN: load the app and confirm a floating bubble/launcher renders, or
+     curl the page and check the bundle references `hakka-inspector` / `hakka-browser`.
+   - State exactly which check passed. If none did, report the real error, don't guess.
+```
+
+No agent handy? Run `npx hakka init`, same framework detection, same files, no prose. It detects Next.js, Vite, Expo, React Native, or plain web, creates whatever's missing, and prints the install command. It never edits or overwrites a file that already exists.
+
+Want this as a reusable, installable skill instead of a paste? Once this repo is public: `npx skills add ansumanshah/hakka@hakka-setup`.
+
+## Where to go next
+
+<CardGrid>
+  <LinkCard
+    title="React Native"
+    href="/react-native/package/"
+    description="Capture fetch, XHR, WebSocket, and native OkHttp/URLSession."
+  />
+  <LinkCard title="Expo" href="/react-native/expo/" description="Use a development build. Expo Go is not supported." />
+  <LinkCard title="Web" href="/web/overview/" description="A Shadow-DOM overlay for any browser app." />
+  <LinkCard title="Next.js" href="/nextjs/overview/" description="Server + client traffic in one inspector." />
+  <LinkCard title="Android" href="/android/sdk/" description="Maven artifacts with a debug/release no-op split." />
+  <LinkCard title="iOS" href="/ios/sdk/" description="Swift Package products with a no-op release variant." />
+</CardGrid>
+
+| Platform     | Status                                    |
+| ------------ | ----------------------------------------- |
+| Web          | <Badge text="Stable" variant="success" /> |
+| Next.js      | <Badge text="Stable" variant="success" /> |
+| React Native | <Badge text="Beta" variant="caution" />   |
+| Android      | <Badge text="Alpha" variant="note" />     |
+| iOS          | <Badge text="Alpha" variant="note" />     |
+
+<p style="font-size:0.85em;opacity:0.75">
+  Beta: works and ships on npm, with less production soak time than the Stable platforms. Alpha: works from source in
+  this repo; published packages (Maven Central, the SPM tag) aren't out yet.
+</p>
+
+## How it fits together
+
+Hakka has four layers:
+
+1. **Capture adapters** collect raw facts from platform networking APIs.
+2. **Capture processors** redact, normalize, bound, and map facts into records.
+3. **Stores and sinks** retain records locally and expose snapshots to UI, export, or the desktop bridge.
+4. **Optional UI surfaces** inspect records inside the app.
+
+The core SDK is UI-less. UI and performance collectors are explicit add-ons. For the deep version, see [Architecture](/contributing/architecture/).
+
+## Repository map
+
+```text
+packages/
+  hakka-core/           hakka-core — platform-neutral capture engine (one dep: fflate)
+                        + /test subpath — assert-on-captured-traffic helpers
+  hakka-react-native/   hakka-react-native — RN SDK + native bridge + UI + example app
+  hakka-browser/        hakka-browser — browser overlay (Solid, Shadow DOM, Web Worker)
+                        + /elements/*, /react subpaths — standalone elements + React wrappers
+  hakka-node/           hakka-node — framework-agnostic Node server capture
+                        + /next, /next/server, /next/client subpaths — full-stack Next.js capture
+  hakka-bridge/         hakka-bridge — desktop WebSocket hub
+  hakka-rozenite/       hakka-rozenite — EXPERIMENTAL React Native DevTools panel via Rozenite
+  hakka/                hakka — `npx hakka init` setup
+                        + /mcp subpath, `hakka mcp` — MCP server for AI agents
+                        + /cdp subpath, `hakka cdp` — Chrome DevTools Protocol capture
+  hakka-bench/          internal capture-overhead bench (private, never published)
+android/                Android SDK modules and native harness
+ios/                    Swift Package products and Swift tests
+```
+
+## The record contract
+
+The shared model is the Hakka record contract — OpenTelemetry-convertible, but with no OpenTelemetry dependency in the base SDK. Network records include method, URL, status, timing, redacted headers, bounded body previews, byte counts, source labels, and TLS/protocol metadata where available. The desktop [bridge](/bridge/overview/) streams this same contract between the web, Next.js, RN, and MCP peers.

@@ -1,0 +1,239 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint & Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bunx oxlint .
+      - run: bunx oxfmt --check .
+      - run: node scripts/sync-rn-ios.mjs --check
+      - run: node scripts/sync-design-tokens.mjs --check
+      - run: node scripts/file-size-check.mjs
+
+  ts-build-test:
+    name: TypeScript
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun run build
+      # Cheap correctness gates, run right after build: spec-drift-check reads
+      # only markdown (docs/spec cards vs SPEC.md §5); smoke-control-roundtrip
+      # imports packages/{bridge,cli,core}/src directly under bun (it
+      # re-execs itself under bun when invoked via `node`), so neither needs
+      # `bun run build`'s dist output — placed after it only per convention.
+      - run: node scripts/spec-drift-check.mjs
+      - run: node scripts/smoke-control-roundtrip.mjs
+      - run: bun run test
+      # Per-module perf gate: fails on a >~2-3× regression in any core hot path.
+      - run: bun run --cwd packages/hakka-core bench:check
+      # Server capture perf gate: fetch()/node:http added-latency budgets (generous
+      # first cut — see packages/hakka-node/bench/run.mjs).
+      - run: bun run --cwd packages/hakka-node bench:check
+      # Web capture perf gate: hakka-browser's Worker-model per-request budget, small
+      # body and a ~200KB near-cap body (see packages/hakka-bench/run.mjs).
+      - name: Web capture-overhead gate
+        working-directory: packages/hakka-bench
+        run: bun run.mjs --check
+      # Bundle-size gate: fails if a hakka-browser bundle exceeds its gzip budget.
+      - run: node scripts/web-size-gate.mjs
+
+  web-e2e:
+    name: Web E2E (mobile)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+      - run: bun install --frozen-lockfile
+      # Full build so the web bundle (and its hakka-core dep) are present for the demo page.
+      - run: bun run build
+      - run: bunx playwright install --with-deps chromium
+      - name: Mobile E2E (Pixel 5)
+        working-directory: packages/hakka-browser
+        run: bunx playwright test
+
+  test-e2e-just:
+    name: Web E2E (just test-e2e)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+      - run: bun install --frozen-lockfile
+      - uses: extractions/setup-just@v4
+      # Playwright's documented CI caching convention (playwright.dev/docs/ci#caching-browsers):
+      # cache ~/.cache/ms-playwright keyed on the lockfile, skip the browser
+      # download on a hit, but still run install-deps (fast, no download) so
+      # OS-level dependencies stay present on a fresh runner image.
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+      - name: Install Playwright Chromium (+ OS deps)
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: bunx playwright install --with-deps chromium
+      - name: Install Playwright OS deps only (browser cached)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: bunx playwright install-deps chromium
+      - name: just test-e2e
+        run: just test-e2e
+
+  android-sdk:
+    name: Android SDK
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            android/.gradle
+          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle', 'android/**/*.gradle.kts', 'android/**/*.properties', 'packages/hakka-react-native/android/build.gradle', 'packages/hakka-react-native/android/gradle.properties', 'packages/hakka-react-native/examples/react-native-example/android/build.gradle', 'packages/hakka-react-native/examples/react-native-example/android/gradle.properties', 'scripts/android-size-gate.sh') }}
+          restore-keys: gradle-${{ runner.os }}-
+      - run: ./gradlew :hakka-common:build :hakka-network:build :hakka-network-noop:build :hakka-performance:build :hakka-performance-noop:build :hakka-ui:build
+      - run: ./gradlew :hakka-common:test :hakka-network:test :hakka-network-noop:test :hakka-performance:test :hakka-performance-noop:test :hakka-ui:test
+      - run: ../scripts/android-size-gate.sh
+
+  ios-sdk:
+    name: iOS SDK
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: ios
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: ios/.build
+          key: spm-${{ runner.os }}-${{ hashFiles('ios/Package.swift') }}
+          restore-keys: spm-${{ runner.os }}-
+      - run: swift build
+      - run: swift test
+      # The RN package ships its own copy of these sources (synced from ios/Sources)
+      # and compiles them as one flattened module. Typecheck that here — nothing else
+      # in CI compiles the RN Swift, so drift used to ship silently to users.
+      - name: Typecheck RN iOS copy (flattened single module)
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          SDK=$(xcrun --sdk iphonesimulator --show-sdk-path)
+          find packages/hakka-react-native/ios/Core packages/hakka-react-native/ios/Performance -name '*.swift' -print0 \
+            | xargs -0 xcrun swiftc -typecheck -sdk "$SDK" -target arm64-apple-ios16.0-simulator
+
+  # ── Example-app builds: the drift catchers. ─────────────────────────────────
+  # `swift build` targets macOS and skips every canImport(UIKit) file, so HakkaUI
+  # bugs ship invisibly without these. One session's worth of evidence: a missing
+  # HakkaCommon import, iOS-17-only APIs on an iOS-16 target, sync-manifest gaps,
+  # and an RN Android wrapper that never compiled — all caught only by example builds.
+
+  ios-demo-app:
+    name: iOS Demo App (HakkaUI on simulator)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: ~/Library/Developer/Xcode/DerivedData
+          key: demoapp-${{ runner.os }}-${{ hashFiles('ios/Package.swift') }}
+          restore-keys: demoapp-${{ runner.os }}-
+      - name: Build HakkaDemoApp for iOS Simulator
+        working-directory: ios/Example
+        run: |
+          xcodebuild -project HakkaDemoApp.xcodeproj -scheme HakkaDemoApp \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build
+
+  rn-example-ios:
+    name: RN Example (iOS pods + xcodebuild)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+      - run: bun install --frozen-lockfile
+      - uses: actions/cache@v4
+        with:
+          path: packages/hakka-react-native/examples/react-native-example/ios/Pods
+          key: pods-${{ runner.os }}-${{ hashFiles('packages/hakka-react-native/examples/react-native-example/ios/Podfile') }}
+          restore-keys: pods-${{ runner.os }}-
+      - name: Pod install (runs RN codegen against the vendored sources)
+        working-directory: packages/hakka-react-native/examples/react-native-example/ios
+        run: pod install
+      - name: Build example app for iOS Simulator
+        working-directory: packages/hakka-react-native/examples/react-native-example/ios
+        env:
+          SKIP_BUNDLING: '1'
+        run: |
+          xcodebuild -workspace HakkaRNExample.xcworkspace -scheme HakkaRNExample \
+            -configuration Debug -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build
+
+  rn-example-android:
+    name: RN Example (Android gradle)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+      - run: bun install --frozen-lockfile
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-rnexample-${{ runner.os }}-${{ hashFiles('packages/hakka-react-native/examples/react-native-example/android/**/*.gradle', 'packages/hakka-react-native/android/build.gradle') }}
+          restore-keys: gradle-rnexample-${{ runner.os }}-
+      - name: Assemble debug APK (compiles the RN bridge Kotlin)
+        working-directory: packages/hakka-react-native/examples/react-native-example/android
+        run: ./gradlew assembleDebug

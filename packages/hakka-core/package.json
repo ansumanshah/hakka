@@ -1,0 +1,75 @@
+{
+  "name": "hakka-core",
+  "version": "0.1.0",
+  "description": "Platform-neutral network-capture engine for Hakka — fetch/XHR/WebSocket interceptors, bounded ring buffer, mock engine, throttling, HAR + OpenTelemetry export. Framework-agnostic, one runtime dependency (fflate).",
+  "keywords": [
+    "devtools",
+    "fetch",
+    "hakka",
+    "har",
+    "inspector",
+    "mock",
+    "network",
+    "opentelemetry",
+    "websocket",
+    "xhr"
+  ],
+  "homepage": "https://hakka.noodleapps.com",
+  "bugs": {
+    "url": "https://github.com/ansumanshah/hakka/issues"
+  },
+  "license": "MIT",
+  "author": "Ansuman Shah",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ansumanshah/hakka.git",
+    "directory": "packages/hakka-core"
+  },
+  "files": [
+    "dist",
+    "src",
+    "!src/**/*.test.ts",
+    "!src/**/__tests__",
+    "LICENSE",
+    "README.md"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "react-native": "./src/index.ts",
+      "types": "./dist/index.d.mts",
+      "default": "./dist/index.mjs"
+    },
+    "./test": {
+      "source": "./src/test/index.ts",
+      "types": "./dist/test.d.mts",
+      "default": "./dist/test.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "prepublishOnly": "npm run build",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "test": "bun test",
+    "bench": "bun bench/run.mjs",
+    "bench:check": "bun bench/run.mjs --check"
+  },
+  "dependencies": {
+    "fflate": "^0.8.3"
+  },
+  "devDependencies": {
+    "tsdown": "^0.22.12",
+    "typescript": "^7.0.2"
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "$comment": "Canonical Hakka design tokens \u2014 single source of truth for COLORS across all platforms. Mirrored to RN (tokens.ts), iOS (Theme.swift), and Android (ViewHelpers.kt) by scripts/sync-design-tokens.mjs. Hex values are RRGGBB (no #). Identity: 'Wok Hei' \u2014 warm graphite ground, flame accent, jade/chili/turmeric semantics, heat-ramp timing (dns cold -> download hot). status/method/timing are single-valued (picked mid-luminance to survive both grounds); accent lives per-theme in dark/light. Spacing/radii/type stay per-platform (tuned to each layout) and are intentionally NOT unified here.",
+  "status": {
+    "success": "3AA981",
+    "info": "6D9BC9",
+    "warning": "D9A514",
+    "error": "E2554A",
+    "pending": "8D8778",
+    "on": "FFFFFF",
+    "onWarm": "171310"
+  },
+  "method": {
+    "get": "3AA981",
+    "post": "EE8320",
+    "put": "6D9BC9",
+    "patch": "A87FC4",
+    "delete": "E2554A",
+    "other": "8D8778"
+  },
+  "timing": {
+    "dns": "6D9BC9",
+    "tcp": "4FB3A3",
+    "tls": "3AA981",
+    "ttfb": "D9A514",
+    "download": "EE8320"
+  },
+  "dark": {
+    "background": "121110",
+    "surface": "1A1816",
+    "surfaceRaised": "23201C",
+    "border": "35302A",
+    "text": "EDEAE4",
+    "textSecondary": "A8A296",
+    "textTertiary": "6E695F",
+    "accent": "EE8320"
+  },
+  "light": {
+    "background": "FAF8F4",
+    "surface": "F2EFE8",
+    "surfaceRaised": "FFFFFF",
+    "border": "E2DDD2",
+    "text": "21201C",
+    "textSecondary": "57534A",
+    "textTertiary": "8B857A",
+    "accent": "E0761A"
+  },
+  "codeDark": {
+    "string": "DE8D68",
+    "number": "7FB3E8",
+    "boolean": "C08FD9",
+    "null": "C08FD9",
+    "highlight": "4D3D10"
+  },
+  "codeLight": {
+    "string": "B4552A",
+    "number": "2B6CB0",
+    "boolean": "8548AB",
+    "null": "8548AB",
+    "highlight": "F5E5C0"
+  }
+}

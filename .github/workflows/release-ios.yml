@@ -1,0 +1,36 @@
+name: Release iOS SDK
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., 0.1.0)'
+        required: true
+
+jobs:
+  release:
+    name: Build, Test & Release
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: ios
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify version matches
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          PODSPEC_VERSION=$(ruby -e 'text = File.read("Hakka.podspec"); puts text[/s\.version\s*=\s*"([^"]+)"/, 1]')
+          if [ "$PODSPEC_VERSION" != "$VERSION" ]; then
+            echo "Version mismatch: ios/Hakka.podspec has $PODSPEC_VERSION but workflow input is $VERSION"
+            exit 1
+          fi
+      - run: swift build
+      - run: swift test
+      - name: Validate podspec
+        run: pod ipc spec Hakka.podspec >/dev/null
+      - name: Create GitHub Release
+        env:
+          VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "${VERSION}" --title "Hakka ${VERSION}" --generate-notes

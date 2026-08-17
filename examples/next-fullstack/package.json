@@ -1,0 +1,36 @@
+{
+  "name": "hakka-next-fullstack-example",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Next.js App Router example showing server + client API calls in one Hakka inspector.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "hakka-browser": "file:../../packages/hakka-browser",
+    "hakka-node": "file:../../packages/hakka-node",
+    "next": "^16.3.1",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/api-logs": "^0.221.0",
+    "@opentelemetry/instrumentation": "^0.221.0",
+    "@opentelemetry/resources": "^2.10.0",
+    "@opentelemetry/sdk-logs": "^0.221.0",
+    "@opentelemetry/sdk-metrics": "^2.10.0",
+    "@opentelemetry/sdk-trace-base": "^2.10.0",
+    "@types/node": "^26.2.0",
+    "@types/react": "^19.2.18",
+    "@vercel/otel": "^2.1.3",
+    "typescript": "^7.0.2"
+  },
+  "overrides": {
+    "hakka-bridge": "file:../../packages/hakka-bridge",
+    "hakka-core": "file:../../packages/hakka-core"
+  },
+  "//overrides": "The hakka-* packages aren't published yet, so direct deps use file: paths and the transitive pair (hakka-core, hakka-bridge) is overridden to the same directories. This example lives outside the root workspace on purpose (it must resolve like a real consumer, not through hoisted monorepo node_modules). Install with npm — bun lays file: deps out as per-file symlinks, and Turbopack rejects a symlinked package.json."
+}

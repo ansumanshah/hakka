@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- NsdBridgeHostBrowser (zero-config bridge discovery over _hakka._tcp) -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+
+    <application>
+        <activity
+            android:name=".HakkaActivity"
+            android:exported="true"
+            android:label="Hakka"
+            android:launchMode="singleTask"
+            android:taskAffinity="com.noodleapps.hakka.inspector"
+            android:theme="@style/Theme.Hakka.DayNight.NoActionBar" />
+
+        <activity
+            android:name=".DetailActivity"
+            android:exported="false"
+            android:label="Request Detail"
+            android:taskAffinity="com.noodleapps.hakka.inspector"
+            android:theme="@style/Theme.Hakka.DayNight.NoActionBar" />
+
+        <!-- Monitor/Console/Logs/Storage/Rules are tabs inside HakkaActivity's
+             bottom bar, not separate Activities — see NavTab + the *TabController
+             classes. -->
+
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="false"
+            android:label="Settings"
+            android:taskAffinity="com.noodleapps.hakka.inspector"
+            android:theme="@style/Theme.Hakka.DayNight.NoActionBar" />
+
+        <receiver
+            android:name=".HakkaNotificationReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.noodleapps.hakka.CLEAR" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Scoped to ".hakka.fileprovider" (not the common ".fileprovider" suffix) so it
+             can't collide with a host app's own FileProvider authority — a real
+             crash-on-install risk for a library. Serves HAR/OTel export attachments only,
+             from the dedicated cacheDir/hakka-exports/ subdirectory. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.hakka.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/hakka_file_paths" />
+        </provider>
+    </application>
+
+</manifest>

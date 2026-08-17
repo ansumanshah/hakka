@@ -1,0 +1,11 @@
+{
+  "id": "health-minimal",
+  "kind": "health.report",
+  "schemaVersion": 1,
+  "timestamp": 1200,
+  "tags": {},
+  "windowStart": 1000,
+  "windowEnd": 1200,
+  "totalRequests": 10,
+  "errorRate": 0.1
+}

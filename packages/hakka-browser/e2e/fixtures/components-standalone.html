@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hakka standalone-components fixture</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #121110;
+      }
+      #list {
+        display: block;
+        width: 100%;
+        height: 480px;
+        pointer-events: auto;
+      }
+      #bar {
+        display: block;
+        width: 100%;
+        pointer-events: auto;
+      }
+      /* "Strip" scenario (P5 B2 audit, Finding 1) — a consumer docking
+         <hakka-filter-bar> sticky above a scrolling <hakka-request-list>
+         instead of plain document flow (the #list/#bar setup above). Proves
+         two things that regressed silently: the filter-bar host's own
+         background (shared.ts's STANDALONE_HOST_STYLES) stays opaque so
+         scrolled-past rows never bleed through the seam, and
+         <hakka-request-list>'s max-height cap actually takes effect (see
+         shared.ts's sharedStylesSheet() doc comment for the solid-element
+         mount bug both were silently failing on). */
+      #strip-wrap {
+        position: relative;
+        height: 300px;
+        overflow-y: auto;
+        margin-top: 24px;
+      }
+      #strip-bar {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        display: block;
+        width: 100%;
+      }
+      #strip-list {
+        display: block;
+        width: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <!--
+    Fixture for e2e/components-standalone.spec.ts — P5 B4's proof that the six
+    hakka-browser/elements custom elements work standalone (no
+    <hakka-inspector> overlay, no panel shell).
+
+    Loads the BUILT components bundle from ./components-dist/ (copied there by
+    the spec's own beforeAll from packages/hakka-browser/dist/elements — see that
+    file for why). Mounts <hakka-request-list> + <hakka-filter-bar> against a
+    custom in-memory store injected via the `store` property (the documented
+    escape hatch — see docs/src/content/docs/embedding/components.md's "Theming"
+    section and elements/shared.ts's `StoreClient`
+    type) since these six elements ship with no fetch/XHR interceptors of
+    their own (that lives in hakka-core's capture/ layer, outside this
+    package). The spec streams synthetic requests into `window.__store`
+    directly, the same way overlay-open-latency.spec.ts / scale-10k.spec.ts
+    stream into `window.Hakka`.
+  -->
+    <div id="list"></div>
+    <div id="bar"></div>
+    <!-- "Strip" scenario — see the #strip-wrap CSS comment above. -->
+    <div id="strip-wrap">
+      <div id="strip-bar"></div>
+      <div id="strip-list"></div>
+    </div>
+    <script type="module">
+      // Each subpath's own export is plain `register`/`TAG` (matching
+      // request-list.tsx's/filter-bar.tsx's own export names) — the aliased
+      // `registerRequestList`/`registerFilterBar` names only exist on the ROOT
+      // `index.js` entry (elements/index.ts's re-export), not on the subpaths.
+      import { register as registerRequestList } from './components-dist/request-list.js'
+      import { register as registerFilterBar } from './components-dist/filter-bar.js'
+
+      registerRequestList()
+      registerFilterBar()
+
+      // Minimal StoreClient-shaped adapter — only the methods RequestListViewModel
+      // actually calls (ingest/subscribe/getSnapshot; matchIds is reached only by
+      // body/"all"-scoped filter queries, which this fixture never issues since
+      // every filter the spec sends uses a `status:`-scoped token). getSnapshot
+      // defers the array read to resolution time (not eagerly at call time) —
+      // an eager read here would freeze at whatever `logs` held the instant
+      // getSnapshot() was first called (construction time, before any ingest),
+      // then clobber later live upserts once that stale promise resolves.
+      function makeStore() {
+        const logs = new Map()
+        const listeners = new Set()
+        return {
+          ingest(req) {
+            logs.set(req.id, req)
+            for (const cb of listeners) cb(req)
+          },
+          update(partial) {
+            const cur = logs.get(partial.id)
+            if (!cur) return
+            const merged = { ...cur, ...partial }
+            logs.set(partial.id, merged)
+            for (const cb of listeners) cb(merged)
+          },
+          subscribe(cb) {
+            listeners.add(cb)
+            return () => listeners.delete(cb)
+          },
+          getSnapshot() {
+            return Promise.resolve().then(() => [...logs.values()])
+          },
+          matchIds() {
+            return Promise.resolve([])
+          },
+          clear() {
+            logs.clear()
+          },
+          configure() {},
+          applyResourceTiming() {},
+          exportHar: () => Promise.resolve('{}'),
+          exportOtel: () => Promise.resolve('{}'),
+          exportPostman: () => Promise.resolve('{}'),
+          getBody: () => Promise.resolve(null),
+          getBodies: () => Promise.resolve(new Map()),
+          bridgeConnect() {},
+          bridgeDisconnect() {},
+          onBridgeStatus: () => () => {},
+          getBridgeStatus: () => ({ state: 'disconnected' }),
+          usingWorker: false,
+          destroy() {
+            listeners.clear()
+            logs.clear()
+          },
+        }
+      }
+
+      const store = makeStore()
+      window.__store = store
+
+      window.__lastSelect = null
+      document.addEventListener('hakka:select', (e) => {
+        window.__lastSelect = e.detail
+      })
+
+      // Set `.store` BEFORE connecting — request-list.tsx's own view-model is
+      // constructed once, lazily, on first read of `props.store`; a property
+      // assigned after the element has already upgraded/connected doesn't
+      // retroactively rebuild it (see request-list.test.tsx's identical
+      // "set the property BEFORE connecting" ordering).
+      const list = document.createElement('hakka-request-list')
+      list.id = 'the-list'
+      list.store = store
+      document.getElementById('list').replaceWith(list)
+      list.id = 'list'
+
+      // <hakka-filter-bar> needs no store injection to filter the list above —
+      // it mutates the SHARED FilterViewModel singleton both elements read from
+      // by default (same bundle => same module singleton), independent of
+      // whichever store backs the list's own data.
+      const bar = document.createElement('hakka-filter-bar')
+      document.getElementById('bar').replaceWith(bar)
+      bar.id = 'bar'
+
+      // "Strip" scenario — a second, independent pair backed by the SAME
+      // store (multiple standalone elements reading one store is exactly
+      // what the shared `store`/`viewModel` escape hatch supports), with the
+      // filter bar docked `position: sticky` over the list instead of plain
+      // flow. Reproduces Finding 1 (P5 B2 audit): before the shared.ts fix,
+      // <hakka-request-list>'s max-height cap never actually took effect
+      // (solid-element wiped the `<style>` tag adoptSharedStyles appended),
+      // so the list overflowed #strip-wrap's 300px box unclipped and the
+      // sticky bar's own host had no opaque background to occlude the
+      // scrolled-past rows passing underneath it.
+      const stripList = document.createElement('hakka-request-list')
+      stripList.store = store
+      document.getElementById('strip-list').replaceWith(stripList)
+      stripList.id = 'strip-list'
+
+      const stripBar = document.createElement('hakka-filter-bar')
+      document.getElementById('strip-bar').replaceWith(stripBar)
+      stripBar.id = 'strip-bar'
+
+      window.__fixtureReady = true
+    </script>
+  </body>
+</html>

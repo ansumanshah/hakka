@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hakka perf fixture — 10k scale</title>
+  </head>
+  <body>
+    <!--
+      Fixture for e2e/scale-10k.spec.ts.
+
+      Panel opens immediately (`overlay: true`) — this fixture is not about open
+      latency (see perf-open.html for that), it's the harness the spec streams
+      10,000 synthetic requests into via `Hakka.ingest()` (the same public
+      store-ingest API the demo page and `Hakka.start()`'s own interceptors use
+      — see src/index.ts `ingest()`).
+
+      `maxRequests` is raised well above 10,000 so the store's ring buffer
+      (default cap 500, see hakka-core DEFAULT_CONFIG.maxRequests) doesn't
+      evict any of the synthetic records the spec streams in.
+    -->
+    <script src="../../dist/hakka-browser.global.js"></script>
+    <script>
+      Hakka.start({
+        overlay: true,
+        maxRequests: 20000,
+        resourceTiming: false,
+        captureBeacons: false,
+        console: false,
+      })
+    </script>
+  </body>
+</html>

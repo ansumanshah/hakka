@@ -1,0 +1,122 @@
+diff --git a/dist/dev.cjs b/dist/dev.cjs
+index cd93011712d1eede7a1e49e2e006b5ef4598b385..12e8c7696c4f891f4331e28dda1ffcd407a2c552 100644
+--- a/dist/dev.cjs
++++ b/dist/dev.cjs
+@@ -1486,9 +1486,21 @@ function insertExpression(parent, value, current, marker) {
+   const t = typeof value,
+     multi = marker !== undefined;
+   if (t === "string" || t === "number") {
++    // See @solidjs/web dev.js insertExpression for the full explanation:
++    // 1.x stringified numbers before any DOM write; 2.0 dropped that, so a
++    // falsy-but-non-empty number like 0 can silently create no node on a
++    // host whose textContent setter tests raw truthiness (e.g. happy-dom).
++    // Stringify first, matching 1.x, and re-run the dedup check.
++    if (t === "number") {
++      value = "" + value;
++      if (value === current) return value;
++    }
+     const tc = typeof current;
+     if (tc === "string" || tc === "number") {
+-      parent.firstChild.data = value;
++      // current being string/number doesn't guarantee a text node exists
++      // (empty-string writes create none by spec, on every DOM). Recreate
++      // instead of dereferencing null.
++      if (parent.firstChild) parent.firstChild.data = value;else parent.appendChild(document.createTextNode(value));
+     } else {
+       if (ownsAllChildren(parent, current)) parent.textContent = value;else {
+         removeOwnedChildren(parent, current);
+diff --git a/dist/dev.js b/dist/dev.js
+index c8ecb2dee61b4ff98f51cd72b510de3aeb5eeefc..1ca51338db818acf454f88e25709e4ebc4b2f92f 100644
+--- a/dist/dev.js
++++ b/dist/dev.js
+@@ -1485,9 +1485,37 @@ function insertExpression(parent, value, current, marker) {
+   const t = typeof value,
+     multi = marker !== undefined;
+   if (t === "string" || t === "number") {
++    // 1.x stringified numbers before ever handing them to the DOM
++    // (`value = value.toString()`); 2.0 dropped that and passes the raw
++    // number straight to `parent.textContent =` / `.data =`. Some hosts'
++    // `textContent` setter tests the *raw* assigned value for JS truthiness
++    // instead of coercing to string first (observed: happy-dom, via a bare
++    // `if (textContent) appendChild(...)`), so a falsy-but-non-empty number
++    // like `0` silently creates no text node at all — desyncing this
++    // function's own `current` bookkeeping (still `0`, typeof "number") from
++    // the real DOM (no child). Stringify first, matching 1.x, so every DOM
++    // write this function makes always receives a non-empty-when-meaningful
++    // string. Re-run the dedup check after stringifying (1.x did the same)
++    // so an unchanged numeric value that now differs in type from `current`
++    // (e.g. current "1" from a prior string render, value 1 the number)
++    // doesn't force a redundant DOM write.
++    if (t === "number") {
++      value = "" + value;
++      if (value === current) return value;
++    }
+     const tc = typeof current;
+     if (tc === "string" || tc === "number") {
+-      parent.firstChild.data = value;
++      // `current` being a string/number only means insertExpression previously
++      // *asked* the DOM to hold a single text node with that data — it does not
++      // guarantee the node still exists. `current === ""` is the one case
++      // stringification above can't help with: by spec (every DOM
++      // implementation, not just happy-dom) `parent.textContent = ""` creates
++      // no text node at all, so the very next non-empty update finds
++      // parent.firstChild === null although current is a "string one" per the
++      // bookkeeping above. Recreate the node instead of dereferencing null —
++      // this keeps the common case a single property write and only takes
++      // the slow path when the invariant this fast path assumes doesn't hold.
++      if (parent.firstChild) parent.firstChild.data = value;else parent.appendChild(document.createTextNode(value));
+     } else {
+       if (ownsAllChildren(parent, current)) parent.textContent = value;else {
+         removeOwnedChildren(parent, current);
+diff --git a/dist/web.cjs b/dist/web.cjs
+index 85a7bc193c44cbe467b4e02a8ca7d0ad2446e087..d590960729c48122f3caa5fa5a8905bc86b6169d 100644
+--- a/dist/web.cjs
++++ b/dist/web.cjs
+@@ -1425,9 +1425,20 @@ function insertExpression(parent, value, current, marker) {
+   const t = typeof value,
+     multi = marker !== undefined;
+   if (t === "string" || t === "number") {
++    // 1.x stringified numbers before any DOM write; 2.0 dropped that, so a
++    // falsy-but-non-empty number like 0 can silently create no node on a
++    // host whose textContent setter tests raw truthiness (e.g. happy-dom).
++    // Stringify first, matching 1.x, and re-run the dedup check.
++    if (t === "number") {
++      value = "" + value;
++      if (value === current) return value;
++    }
+     const tc = typeof current;
+     if (tc === "string" || tc === "number") {
+-      parent.firstChild.data = value;
++      // current being string/number doesn't guarantee a text node exists
++      // (empty-string writes create none by spec, on every DOM). Recreate
++      // instead of dereferencing null.
++      if (parent.firstChild) parent.firstChild.data = value;else parent.appendChild(document.createTextNode(value));
+     } else {
+       if (ownsAllChildren(parent, current)) parent.textContent = value;else {
+         removeOwnedChildren(parent, current);
+diff --git a/dist/web.js b/dist/web.js
+index baf594d01795b0278b6851736a138fdd8166bbb6..bac52b553f69c0c91bf9e446c586f38c7e67e621 100644
+--- a/dist/web.js
++++ b/dist/web.js
+@@ -1424,9 +1424,20 @@ function insertExpression(parent, value, current, marker) {
+   const t = typeof value,
+     multi = marker !== undefined;
+   if (t === "string" || t === "number") {
++    // 1.x stringified numbers before any DOM write; 2.0 dropped that, so a
++    // falsy-but-non-empty number like 0 can silently create no node on a
++    // host whose textContent setter tests raw truthiness (e.g. happy-dom).
++    // Stringify first, matching 1.x, and re-run the dedup check.
++    if (t === "number") {
++      value = "" + value;
++      if (value === current) return value;
++    }
+     const tc = typeof current;
+     if (tc === "string" || tc === "number") {
+-      parent.firstChild.data = value;
++      // current being string/number doesn't guarantee a text node exists
++      // (empty-string writes create none by spec, on every DOM). Recreate
++      // instead of dereferencing null.
++      if (parent.firstChild) parent.firstChild.data = value;else parent.appendChild(document.createTextNode(value));
+     } else {
+       if (ownsAllChildren(parent, current)) parent.textContent = value;else {
+         removeOwnedChildren(parent, current);

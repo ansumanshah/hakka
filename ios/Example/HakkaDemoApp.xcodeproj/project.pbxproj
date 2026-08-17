@@ -1,0 +1,352 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		07112281E717E7137213AE5A /* HakkaUI in Frameworks */ = {isa = PBXBuildFile; productRef = 2A777F6F0A3158B334A488D7 /* HakkaUI */; };
+		18E8871927D11E5B0C5B2B10 /* HakkaNetwork in Frameworks */ = {isa = PBXBuildFile; productRef = A189346FA2D29BD261B65EB4 /* HakkaNetwork */; };
+		486E31D100DABFB306EFF57B /* HakkaDemoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87FB1B2F90A485040C05DB5A /* HakkaDemoApp.swift */; };
+		A142DC7FD94809BF1655CCB6 /* DemoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27FD45121E928B482713D26F /* DemoView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		27FD45121E928B482713D26F /* DemoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoView.swift; sourceTree = "<group>"; };
+		4E375CF19449631E35EE838A /* HakkaDemoApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = HakkaDemoApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		87FB1B2F90A485040C05DB5A /* HakkaDemoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HakkaDemoApp.swift; sourceTree = "<group>"; };
+		A79366BD6EED089E469C2BD7 /* hakka-ios */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "hakka-ios"; path = ..; sourceTree = SOURCE_ROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		E884B01DED9A2A249D94DC00 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				18E8871927D11E5B0C5B2B10 /* HakkaNetwork in Frameworks */,
+				07112281E717E7137213AE5A /* HakkaUI in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		1DB7910979037E98414E55EA /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				A79366BD6EED089E469C2BD7 /* hakka-ios */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		39E91F7C1526849A1EB8DBE5 = {
+			isa = PBXGroup;
+			children = (
+				1DB7910979037E98414E55EA /* Packages */,
+				3F23283500259D2774032C32 /* Sources */,
+				9B3F94F0BB015D86CB1C373C /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		3F23283500259D2774032C32 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				27FD45121E928B482713D26F /* DemoView.swift */,
+				87FB1B2F90A485040C05DB5A /* HakkaDemoApp.swift */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		9B3F94F0BB015D86CB1C373C /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				4E375CF19449631E35EE838A /* HakkaDemoApp.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		3C4A24DFC7D03FA46EB7E0D4 /* HakkaDemoApp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6DC4FA579ECBF37F2A38E341 /* Build configuration list for PBXNativeTarget "HakkaDemoApp" */;
+			buildPhases = (
+				EB0B1FD1BB1601B8618DECD7 /* Sources */,
+				E884B01DED9A2A249D94DC00 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = HakkaDemoApp;
+			packageProductDependencies = (
+				A189346FA2D29BD261B65EB4 /* HakkaNetwork */,
+				2A777F6F0A3158B334A488D7 /* HakkaUI */,
+			);
+			productName = HakkaDemoApp;
+			productReference = 4E375CF19449631E35EE838A /* HakkaDemoApp.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		CFFA38142C2D9F85B9755D5D /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+				};
+			};
+			buildConfigurationList = 6EB098BD178EA36CA939A690 /* Build configuration list for PBXProject "HakkaDemoApp" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 39E91F7C1526849A1EB8DBE5;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				BDC02A13088AA9548EA259A8 /* XCLocalSwiftPackageReference "..//" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 9B3F94F0BB015D86CB1C373C /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				3C4A24DFC7D03FA46EB7E0D4 /* HakkaDemoApp */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		EB0B1FD1BB1601B8618DECD7 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A142DC7FD94809BF1655CCB6 /* DemoView.swift in Sources */,
+				486E31D100DABFB306EFF57B /* HakkaDemoApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		286A5098F649659766212344 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_IDENTITY = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 0.1.0;
+				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_KEY_CFBundleDisplayName = "Hakka iOS";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.noodleapps.hakka.ios;
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		A978BC610C560D3A95E6C376 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_IDENTITY = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 0.1.0;
+				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_KEY_CFBundleDisplayName = "Hakka iOS";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.noodleapps.hakka.ios;
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		C8D2DDB80433090BB55E1798 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		F732D369F9B91DD627383E9C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		6DC4FA579ECBF37F2A38E341 /* Build configuration list for PBXNativeTarget "HakkaDemoApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A978BC610C560D3A95E6C376 /* Debug */,
+				286A5098F649659766212344 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		6EB098BD178EA36CA939A690 /* Build configuration list for PBXProject "HakkaDemoApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F732D369F9B91DD627383E9C /* Debug */,
+				C8D2DDB80433090BB55E1798 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		BDC02A13088AA9548EA259A8 /* XCLocalSwiftPackageReference "..//" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "..//";
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		2A777F6F0A3158B334A488D7 /* HakkaUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = HakkaUI;
+		};
+		A189346FA2D29BD261B65EB4 /* HakkaNetwork */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = HakkaNetwork;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = CFFA38142C2D9F85B9755D5D /* Project object */;
+}

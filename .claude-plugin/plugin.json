@@ -1,0 +1,13 @@
+{
+  "name": "hakka",
+  "description": "Hakka network inspector integration skills for React Native, Expo, Android, and iOS — installs the SDK, configures capture modes, sets up the UI overlay, and adds mock rules with privacy filtering.",
+  "version": "0.1.0",
+  "license": "MIT",
+  "keywords": ["react-native", "expo", "android", "ios", "network", "inspector", "debugging", "mocking"],
+  "author": {
+    "name": "Ansuman Shah",
+    "email": "ansumanshah@gmail.com"
+  },
+  "homepage": "https://github.com/ansumanshah/hakka",
+  "repository": "https://github.com/ansumanshah/hakka"
+}

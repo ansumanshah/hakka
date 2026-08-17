@@ -1,0 +1,169 @@
+{
+  "name": "hakka-browser",
+  "version": "0.1.0",
+  "description": "Hakka network inspector for the web — a framework-agnostic, self-contained overlay for mobile and desktop browsers where devtools aren't available. Captures fetch/XHR/WebSocket + real Resource Timing, exports HAR. Drop-in via one <script> tag or npm. Also ships the six Inspector panels as standalone, individually tree-shakeable custom elements (`hakka-browser/elements/*`) and a thin React wrapper (`hakka-browser/react`) for embedding one piece of the UI instead of the full overlay.",
+  "keywords": [
+    "custom-elements",
+    "debugging",
+    "devtools",
+    "fetch",
+    "hakka",
+    "har",
+    "inspector",
+    "mobile-web",
+    "network",
+    "react",
+    "web-components",
+    "websocket",
+    "xhr"
+  ],
+  "homepage": "https://hakka.noodleapps.com",
+  "bugs": {
+    "url": "https://github.com/ansumanshah/hakka/issues"
+  },
+  "license": "MIT",
+  "author": "Ansuman Shah",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ansumanshah/hakka.git",
+    "directory": "packages/hakka-browser"
+  },
+  "files": [
+    "dist",
+    "src",
+    "!src/**/*.test.ts",
+    "!src/**/*.test.tsx",
+    "!src/**/__tests__",
+    "LICENSE",
+    "README.md"
+  ],
+  "type": "module",
+  "sideEffects": [
+    "**/*.css",
+    "./src/register.ts"
+  ],
+  "main": "./dist/hakka-browser.js",
+  "module": "./dist/hakka-browser.js",
+  "types": "./dist/types/index.d.ts",
+  "unpkg": "./dist/hakka-browser.global.js",
+  "jsdelivr": "./dist/hakka-browser.global.js",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "default": "./dist/hakka-browser.js"
+    },
+    "./worker": {
+      "types": "./dist/types/workerCapture.d.ts",
+      "default": "./dist/worker.js"
+    },
+    "./global": "./dist/hakka-browser.global.js",
+    "./vite": {
+      "types": "./dist/plugin/vite.d.mts",
+      "default": "./dist/plugin/vite.mjs"
+    },
+    "./webpack": {
+      "types": "./dist/plugin/webpack.d.mts",
+      "default": "./dist/plugin/webpack.mjs"
+    },
+    "./rspack": {
+      "types": "./dist/plugin/rspack.d.mts",
+      "default": "./dist/plugin/rspack.mjs"
+    },
+    "./elements": {
+      "types": "./dist/types/ui/elements/index.d.ts",
+      "default": "./dist/elements/index.js"
+    },
+    "./elements/request-list": {
+      "types": "./dist/types/ui/elements/request-list.d.ts",
+      "default": "./dist/elements/request-list.js"
+    },
+    "./elements/request-detail": {
+      "types": "./dist/types/ui/elements/request-detail.d.ts",
+      "default": "./dist/elements/request-detail.js"
+    },
+    "./elements/waterfall": {
+      "types": "./dist/types/ui/elements/waterfall.d.ts",
+      "default": "./dist/elements/waterfall.js"
+    },
+    "./elements/filter-bar": {
+      "types": "./dist/types/ui/elements/filter-bar.d.ts",
+      "default": "./dist/elements/filter-bar.js"
+    },
+    "./elements/stats": {
+      "types": "./dist/types/ui/elements/stats.d.ts",
+      "default": "./dist/elements/stats.js"
+    },
+    "./elements/json-tree": {
+      "types": "./dist/types/ui/elements/json-tree.d.ts",
+      "default": "./dist/elements/json-tree.js"
+    },
+    "./react": {
+      "types": "./dist/react/index.d.mts",
+      "default": "./dist/react/index.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && vite build --mode worker && vite build --mode elements && tsc -p tsconfig.build.json && tsdown",
+    "prepublishOnly": "npm run build",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "test": "vitest run",
+    "test:e2e": "bun run build && playwright test",
+    "test:e2e:install": "playwright install chromium",
+    "bench:render": "bun run build && playwright test render-bench.spec.ts"
+  },
+  "dependencies": {
+    "@solidjs/element": "2.0.0-rc.0",
+    "@solidjs/signals": "2.0.0-rc.0",
+    "@solidjs/web": "2.0.0-rc.0",
+    "unplugin": "^3.3.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.1",
+    "@solidjs/testing-library": "1.0.0-beta.2",
+    "@solidjs/vite-plugin": "3.0.0-next.28",
+    "@types/node": "^26.1.1",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "hakka-core": "0.1.0",
+    "happy-dom": "^20.11.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "solid-js": "2.0.0-rc.0",
+    "terser": "^5.49.0",
+    "tsdown": "^0.22.12",
+    "typescript": "^7.0.2",
+    "vite": "^8.1.5",
+    "vitest": "^4.1.10"
+  },
+  "peerDependencies": {
+    "html-webpack-plugin": ">=5.0.0",
+    "react": ">=19.2.3",
+    "react-dom": ">=19.2.3",
+    "vite": ">=5.0.0",
+    "webpack": ">=5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "html-webpack-plugin": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    },
+    "vite": {
+      "optional": true
+    },
+    "webpack": {
+      "optional": true
+    }
+  }
+}

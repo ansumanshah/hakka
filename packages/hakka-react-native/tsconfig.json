@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.json",
+  "include": ["src/**/*", "../hakka-core/src/**/*"],
+  "exclude": ["src/**/__tests__", "src/**/__mocks__", "../hakka-core/src/**/*.test.ts"],
+  "compilerOptions": {
+    "paths": {
+      "hakka-core": ["../hakka-core/src/index.ts"]
+    },
+    "strict": false,
+    "noUncheckedIndexedAccess": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "verbatimModuleSyntax": false,
+    "noImplicitAny": false,
+    "noImplicitReturns": false,
+    "lib": ["ES2022", "DOM"],
+    "types": ["react", "react-native"]
+  }
+}

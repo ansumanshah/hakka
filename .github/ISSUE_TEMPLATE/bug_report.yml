@@ -1,0 +1,84 @@
+name: Bug Report
+description: Report a bug in Hakka
+labels: ['bug']
+body:
+  - type: dropdown
+    id: sdk
+    attributes:
+      label: SDK
+      options:
+        - hakka-react-native
+        - hakka-ios (Swift)
+        - hakka-android (Kotlin)
+        - hakka-core
+        - hakka-browser
+        - hakka-node
+        - hakka-bridge
+        - hakka (CLI)
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: SDK Version
+      placeholder: e.g. 0.1.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - iOS
+        - Android
+        - Both
+    validations:
+      required: true
+
+  - type: input
+    id: rn-version
+    attributes:
+      label: React Native Version (if applicable)
+      placeholder: e.g. 0.83.4
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear description of what the bug is.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to Reproduce
+      description: Minimal steps to reproduce the behavior.
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Any additional context (OS version, device, Xcode/Android Studio version).

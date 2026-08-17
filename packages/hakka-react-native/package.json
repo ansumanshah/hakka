@@ -1,0 +1,194 @@
+{
+  "name": "hakka-react-native",
+  "version": "0.1.0",
+  "description": "React Native network inspector — capture fetch/XHR/WebSocket requests, mock responses, export HAR, shake-to-open overlay",
+  "keywords": [
+    "debugging",
+    "devtools",
+    "flipper",
+    "har",
+    "inspector",
+    "mock",
+    "network",
+    "react-native",
+    "websocket"
+  ],
+  "homepage": "https://hakka.noodleapps.com",
+  "bugs": {
+    "url": "https://github.com/ansumanshah/hakka/issues"
+  },
+  "license": "MIT",
+  "author": "Ansuman Shah",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ansumanshah/hakka.git",
+    "directory": "packages/hakka-react-native"
+  },
+  "source": "src/index",
+  "files": [
+    "src",
+    "!src/**/__tests__",
+    "!src/**/*.test.ts",
+    "!src/**/*.test.tsx",
+    "app.plugin.js",
+    "react-native.config.js",
+    "lib",
+    "docs/EXPO.md",
+    "android/build.gradle",
+    "android/gradle.properties",
+    "android/src",
+    "!android/src/test/**",
+    "ios/**/*.h",
+    "ios/**/*.m",
+    "ios/**/*.mm",
+    "ios/**/*.cpp",
+    "ios/**/*.swift",
+    "*.podspec",
+    "LICENSE",
+    "README.md"
+  ],
+  "main": "lib/module/index.js",
+  "module": "lib/module/index.js",
+  "types": "lib/typescript/src/index.d.ts",
+  "react-native": "src/index",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "react-native": "./src/index.ts",
+      "types": "./lib/typescript/src/index.d.ts",
+      "default": "./lib/module/index.js"
+    },
+    "./ui": {
+      "source": "./src/ui.ts",
+      "react-native": "./src/ui.ts",
+      "types": "./lib/typescript/src/ui.d.ts",
+      "default": "./lib/module/ui.js"
+    },
+    "./monitors": {
+      "source": "./src/monitors.ts",
+      "react-native": "./src/monitors.ts",
+      "types": "./lib/typescript/src/monitors.d.ts",
+      "default": "./lib/module/monitors.js"
+    },
+    "./app.plugin": "./app.plugin.js",
+    "./app.plugin.js": "./app.plugin.js",
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "scripts": {
+    "build": "bun run typecheck && bunx react-native-builder-bob build",
+    "prepublishOnly": "npm run build",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf android/build ios/build lib",
+    "test": "NODE_ENV=test jest --forceExit"
+  },
+  "dependencies": {
+    "@gorhom/bottom-sheet": "5.2.14",
+    "@shopify/flash-list": "2.3.2",
+    "hakka-core": "0.1.0"
+  },
+  "devDependencies": {
+    "@babel/preset-env": "7.29.7",
+    "@babel/preset-react": "7.28.5",
+    "@babel/preset-typescript": "7.29.7",
+    "@react-native-clipboard/clipboard": "1.16.3",
+    "@types/jest": "30.0.0",
+    "@types/react": "19.2.17",
+    "@types/react-test-renderer": "19.1.0",
+    "babel-jest": "30.4.1",
+    "jest": "30.4.2",
+    "jest-environment-node": "30.4.1",
+    "react-native-builder-bob": "^0.43.0",
+    "react-native-svg": "15.15.5",
+    "react-test-renderer": "19.2.3",
+    "typescript": "^7.0.2"
+  },
+  "peerDependencies": {
+    "@react-native-async-storage/async-storage": ">=1.0.0",
+    "@react-native-clipboard/clipboard": ">=1.16.3",
+    "@tanstack/react-query": ">=5.0.0",
+    "expo": ">=56.0.0",
+    "expo-haptics": ">=56.0.0",
+    "react": ">=19.2.3",
+    "react-native": ">=0.78.0",
+    "react-native-gesture-handler": ">=3.0.0",
+    "react-native-mmkv": ">=3.0.0",
+    "react-native-reanimated": ">=4.0.0 <5.0.0",
+    "react-native-safe-area-context": ">=5.8.0",
+    "react-native-svg": ">=15.0.0",
+    "react-native-worklets": ">=0.9.0 <0.11.0"
+  },
+  "peerDependenciesMeta": {
+    "@react-native-async-storage/async-storage": {
+      "optional": true
+    },
+    "@tanstack/react-query": {
+      "optional": true
+    },
+    "expo": {
+      "optional": true
+    },
+    "expo-haptics": {
+      "optional": true
+    },
+    "react-native-mmkv": {
+      "optional": true
+    },
+    "react-native-gesture-handler": {
+      "optional": true
+    },
+    "react-native-reanimated": {
+      "optional": true
+    },
+    "react-native-safe-area-context": {
+      "optional": true
+    },
+    "react-native-worklets": {
+      "optional": true
+    },
+    "react-native-svg": {
+      "optional": true
+    }
+  },
+  "codegenConfig": {
+    "name": "HakkaMonitorSpec",
+    "type": "modules",
+    "jsSrcsDir": "src/native",
+    "android": {
+      "javaPackageName": "com.noodleapps.hakka.rn"
+    }
+  },
+  "react-native-builder-bob": {
+    "source": "src",
+    "output": "lib",
+    "targets": [
+      [
+        "module",
+        {
+          "esm": true,
+          "babelrc": false
+        }
+      ],
+      [
+        "typescript",
+        {
+          "project": "tsconfig.build.json"
+        }
+      ]
+    ]
+  },
+  "reactDoctor": {
+    "ignore": {
+      "files": [
+        "react-native.config.js",
+        "src/native/NativeHakkaMonitor.ts",
+        "src/monitors/index.ts",
+        "src/ui/index.ts",
+        "src/utils/index.ts"
+      ]
+    }
+  }
+}

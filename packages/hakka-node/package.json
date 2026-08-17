@@ -1,0 +1,111 @@
+{
+  "name": "hakka-node",
+  "version": "0.1.0",
+  "description": "Framework-agnostic server-side network capture for Node backends — instruments fetch + Node http/https in any Express/Fastify/Hono/raw-http server and streams captures into the Hakka inspector, with W3C traceparent-compatible trace correlation. Includes a `./next` entry for Next.js instrumentation. No proxy, no CA cert.",
+  "keywords": [
+    "devtools",
+    "fetch",
+    "hakka",
+    "instrumentation",
+    "network",
+    "next",
+    "nextjs",
+    "node",
+    "server",
+    "traceparent",
+    "tracing"
+  ],
+  "homepage": "https://hakka.noodleapps.com",
+  "bugs": {
+    "url": "https://github.com/ansumanshah/hakka/issues"
+  },
+  "license": "MIT",
+  "author": "Ansuman Shah",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ansumanshah/hakka.git",
+    "directory": "packages/hakka-node"
+  },
+  "files": [
+    "dist",
+    "src",
+    "!src/**/*.test.ts",
+    "!src/**/__tests__",
+    "LICENSE",
+    "README.md"
+  ],
+  "type": "module",
+  "sideEffects": [
+    "./dist/index.mjs",
+    "./dist/next/client.mjs"
+  ],
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.mts",
+      "default": "./dist/index.mjs"
+    },
+    "./prod": {
+      "source": "./src/prod.ts",
+      "types": "./dist/prod.d.mts",
+      "default": "./dist/prod.mjs"
+    },
+    "./next": {
+      "source": "./src/next/index.ts",
+      "types": "./dist/next/index.d.mts",
+      "default": "./dist/next/index.mjs"
+    },
+    "./next/server": {
+      "source": "./src/next/server.ts",
+      "types": "./dist/next/server.d.mts",
+      "default": "./dist/next/server.mjs"
+    },
+    "./next/client": {
+      "source": "./src/next/client.ts",
+      "types": "./dist/next/client.d.mts",
+      "default": "./dist/next/client.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "prepublishOnly": "npm run build",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "test": "bun test",
+    "bench": "bun bench/run.mjs",
+    "bench:check": "bun bench/run.mjs --check"
+  },
+  "dependencies": {
+    "hakka-bridge": "0.1.0",
+    "hakka-core": "0.1.0",
+    "ws": "^8.21.1"
+  },
+  "devDependencies": {
+    "@opentelemetry/api": "^1.9.1",
+    "@types/node": "^26.1.1",
+    "@types/ws": "^8.18.1",
+    "hakka-browser": "0.1.0",
+    "tsdown": "^0.22.12",
+    "typescript": "^7.0.2"
+  },
+  "peerDependencies": {
+    "@opentelemetry/api": ">=1.0.0",
+    "hakka-browser": ">=0.1.0"
+  },
+  "peerDependenciesMeta": {
+    "@opentelemetry/api": {
+      "optional": true
+    },
+    "hakka-browser": {
+      "optional": true
+    }
+  }
+}

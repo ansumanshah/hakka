@@ -1,0 +1,129 @@
+---
+title: Production safety
+description: Ship Hakka in development without shipping it in production.
+sidebar:
+  badge:
+    text: Prod-safe
+    variant: success
+---
+
+import { Tabs, TabItem, Aside, CardGrid, LinkCard } from '@astrojs/starlight/components'
+
+<Aside type="tip" title="What you'll have">
+  Confidence that Hakka adds zero overhead to your release builds.
+</Aside>
+
+Hakka is a development tool. None of its capture, storage, or UI code should run — or even link — in a production build. Each platform has a different mechanism for guaranteeing this.
+
+<Tabs syncKey="platform">
+  <TabItem label="JS / RN / Web">
+
+Gate `start()` behind the runtime dev flag for your environment. Hakka is a no-op until `start()` is called, so a skipped call is a skipped capture — no interceptors installed, no memory allocated.
+
+**React Native**
+
+```ts title="instrumentation.ts"
+import { Hakka } from 'hakka-react-native'
+
+if (__DEV__) {
+  Hakka.start({ mode: 'auto' })
+}
+```
+
+`__DEV__` is `true` in debug builds and `false` in release builds. Metro strips the unreachable branch from the production bundle.
+
+**Vite / web**
+
+```ts title="src/hakka.ts"
+import { start } from 'hakka-browser'
+
+if (import.meta.env.DEV) {
+  start()
+}
+```
+
+`import.meta.env.DEV` is replaced at build time. The `if` body is tree-shaken out of production bundles.
+
+  </TabItem>
+  <TabItem label="Next.js">
+
+The `register()` call lives in `instrumentation.ts`. Re-export it directly — `register()` self-guards: in production Next.js builds `process.env.NODE_ENV` is `"production"` and it returns before any interceptors are installed.
+
+```ts title="instrumentation.ts"
+export { register } from 'hakka-node/next'
+```
+
+`register()` is called once per runtime process startup. In production it short-circuits to zero initialization — no fetch patching, no node `http`/`https` hooks, no storage. (It also skips the Edge runtime automatically, so nothing here reaches an Edge bundle.)
+
+  </TabItem>
+  <TabItem label="Android">
+
+Android uses Gradle's `debugImplementation` / `releaseImplementation` split. The `hakka-network-noop` artifact provides the same public API as `hakka-network` but every method is a no-op. The real capture code is never compiled into the release APK or AAB.
+
+```kotlin title="app/build.gradle.kts"
+dependencies {
+    // Network capture — real impl in debug, no-op stub in release
+    debugImplementation("com.noodleapps.hakka:hakka-network:0.1.0")
+    releaseImplementation("com.noodleapps.hakka:hakka-network-noop:0.1.0")
+
+    // Optional performance collectors — same pattern
+    debugImplementation("com.noodleapps.hakka:hakka-performance:0.1.0")
+    releaseImplementation("com.noodleapps.hakka:hakka-performance-noop:0.1.0")
+}
+```
+
+The no-op variants have no OkHttp dependency, no storage, and no UI. R8/ProGuard can inline the empty stubs away entirely.
+
+Do not add `hakka-ui` to `releaseImplementation` — the inspector overlay has no no-op counterpart and should not ship in production.
+
+  </TabItem>
+  <TabItem label="iOS">
+
+iOS uses Swift Package Manager conditional product selection. Link `HakkaNetworkNoop` in release configurations and `HakkaNetwork` in debug. The no-op product compiles to a handful of empty stubs with no URLProtocol registration, no storage, and no URLSession swizzling.
+
+```swift title="YourApp (Debug).xcconfig"
+// Debug — full capture
+// Add HakkaNetwork to your target's linked frameworks
+```
+
+```swift title="YourApp (Release).xcconfig"
+// Release — no-op stub
+// Link HakkaNetworkNoop instead of HakkaNetwork
+```
+
+The `HakkaUI` SwiftUI inspector overlay is a separate product. Gate the import and any `HakkaUI.show()` call behind a compile-time flag so it never links into release:
+
+```swift title="AppDelegate.swift"
+#if DEBUG
+import HakkaUI
+
+HakkaUI.show()
+#endif
+```
+
+  </TabItem>
+</Tabs>
+
+## What each guard prevents
+
+| Guard                             | Capture runs? | Code linked in release? | Binary size impact                      |
+| --------------------------------- | ------------- | ----------------------- | --------------------------------------- |
+| `__DEV__` / `import.meta.env.DEV` | No            | Yes (tree-shaken)       | Negligible after bundling               |
+| Next.js `NODE_ENV` guard          | No            | Yes (dead branch)       | Zero — `register()` returns immediately |
+| Android `debugImplementation`     | No            | No — noop artifact only | Zero                                    |
+| iOS `HakkaNetworkNoop`            | No            | No — noop product only  | Zero                                    |
+
+{/* TODO(screenshot): the Hakka overlay showing a captured request + timing waterfall */}
+
+## Next steps
+
+<CardGrid>
+  <LinkCard
+    title="React Native package"
+    href="/react-native/package/"
+    description="Install and configure the RN package."
+  />
+  <LinkCard title="Web overview" href="/web/overview/" description="Capture fetch, XHR, and WebSocket in web apps." />
+  <LinkCard title="Android SDK" href="/android/sdk/" description="OkHttp capture and artifact details." />
+  <LinkCard title="iOS SDK" href="/ios/sdk/" description="URLProtocol capture and Swift products." />
+</CardGrid>

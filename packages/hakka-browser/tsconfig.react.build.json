@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Clears tsconfig.json's `paths` (which resolves `hakka-browser/elements/*`
+    // straight to source, for `tsc -p tsconfig.build.json`'s whole-program
+    // pass — see that field's own doc comment). `tsdown.config.ts`'s `react` entry
+    // uses this tsconfig instead specifically to AVOID that: with `paths` in
+    // effect, rolldown resolves the self-referenced specifier to a real file
+    // inside the project and no longer treats it as external (`neverBundle`
+    // matches the bare specifier, not a resolved path), pulling the six
+    // elements' entire Solid tree into `dist/react` a second time. Without
+    // `paths`, resolution falls through to this package's own `exports` map
+    // — real self-referencing package resolution, same as any consumer gets
+    // — which requires `dist/elements` and `dist/types/ui/elements` to
+    // already exist (built earlier in the same `bun run build` sequence).
+    "paths": {}
+  },
+  "include": ["src/react"],
+  "exclude": ["dist", "node_modules", "src/react/**/*.test.ts", "src/react/**/*.test.tsx", "src/react/**/__tests__"]
+}

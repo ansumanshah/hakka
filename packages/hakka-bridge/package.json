@@ -1,0 +1,70 @@
+{
+  "name": "hakka-bridge",
+  "version": "0.1.0",
+  "description": "Desktop bridge server for Hakka — receives captured requests from hakka-browser over WebSocket and relays them to connected viewers.",
+  "keywords": [
+    "bridge",
+    "cli",
+    "devtools",
+    "hakka",
+    "network",
+    "websocket"
+  ],
+  "homepage": "https://hakka.noodleapps.com",
+  "bugs": {
+    "url": "https://github.com/ansumanshah/hakka/issues"
+  },
+  "license": "MIT",
+  "author": "Ansuman Shah",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ansumanshah/hakka.git",
+    "directory": "packages/hakka-bridge"
+  },
+  "bin": {
+    "hakka-bridge": "./dist/cli.mjs"
+  },
+  "files": [
+    "dist",
+    "src",
+    "!src/**/*.test.ts",
+    "!src/**/__tests__",
+    "LICENSE",
+    "README.md"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.mts",
+      "default": "./dist/index.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "prepublishOnly": "npm run build",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "bonjour-service": "^1.4.3",
+    "ws": "^8.21.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "@types/ws": "^8.18.1",
+    "hakka-core": "0.1.0",
+    "tsdown": "^0.22.12",
+    "typescript": "^7.0.2"
+  }
+}

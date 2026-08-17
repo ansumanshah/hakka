@@ -1,0 +1,346 @@
+// @generated — do not edit. Synced from ios/Sources/Network/WebSocketMonitor.swift
+// by scripts/sync-rn-ios.mjs. Edit the canonical source, then run `just sync-ios`.
+
+import Foundation
+#if canImport(HakkaCommon)
+import HakkaCommon
+#endif
+
+// MARK: - Constants
+
+/// Binary frames larger than this threshold are stored as a byte count only.
+private let wsBinaryCap = 32 * 1024  // 32KB
+
+// MARK: - HakkaWebSocketMonitor
+
+/// Intercepts native `URLSessionWebSocketTask` connections and emits a
+/// `NetworkRequest` (source: `.nativeWebSocket`) when the connection closes.
+/// Every frame (sent + received) is captured into `messages`:
+///   - text frames store the payload string
+///   - binary frames ≤32KB are base64-encoded; larger frames store the byte count only
+/// The negotiated sub-protocol is recorded in `wsProtocol`.
+///
+/// Requires iOS 13+ (URLSessionWebSocketTask debut).  The class compiles
+/// but is a no-op on older OS versions; the `@available` guard ensures
+/// no runtime crash on iOS 12.
+@available(iOS 13.0, macOS 10.15, *)
+public final class HakkaWebSocketMonitor: @unchecked Sendable {
+
+    // MARK: - Public API
+
+    /// Install WS monitoring globally by swizzling URLSession's webSocketTask
+    /// factory methods.  Safe to call multiple times — swizzles only once.
+    public static func installGlobally(interceptor: HakkaInterceptor) {
+        globalInterceptor = interceptor
+        swizzleOnce()
+    }
+
+    /// Remove the global interceptor reference (does not un-swizzle).
+    public static func uninstall() {
+        globalInterceptor = nil
+    }
+
+    // MARK: - Internals
+
+    nonisolated(unsafe) static weak var globalInterceptor: HakkaInterceptor?
+
+    /// Guards one-time swizzle.
+    nonisolated(unsafe) private static var swizzled = false
+    private static let swizzleLock = NSLock()
+
+    // MARK: - Swizzle
+
+    private static func swizzleOnce() {
+        swizzleLock.lock()
+        defer { swizzleLock.unlock() }
+        guard !swizzled else { return }
+        swizzled = true
+
+        // Swizzle URLSession.webSocketTask(with url:) — URL variant
+        let urlSel = #selector(URLSession.webSocketTask(with:) as (URLSession) -> (URL) -> URLSessionWebSocketTask)
+        let urlSwizzleSel = #selector(URLSession.hakka_webSocketTask(with:) as (URLSession) -> (URL) -> URLSessionWebSocketTask)
+        if let orig = class_getInstanceMethod(URLSession.self, urlSel),
+           let swiz = class_getInstanceMethod(URLSession.self, urlSwizzleSel) {
+            method_exchangeImplementations(orig, swiz)
+        }
+
+        // Swizzle URLSession.webSocketTask(with request:) — URLRequest variant
+        let reqSel = #selector(URLSession.webSocketTask(with:) as (URLSession) -> (URLRequest) -> URLSessionWebSocketTask)
+        let reqSwizzleSel = #selector(URLSession.hakka_webSocketTask(withRequest:))
+        if let orig = class_getInstanceMethod(URLSession.self, reqSel),
+           let swiz = class_getInstanceMethod(URLSession.self, reqSwizzleSel) {
+            method_exchangeImplementations(orig, swiz)
+        }
+
+        // Swizzle URLSessionWebSocketTask.send for outbound frame capture
+        swizzleWebSocketSend()
+    }
+}
+
+// MARK: - URLSession extension (swizzled methods)
+
+@available(iOS 13.0, macOS 10.15, *)
+extension URLSession {
+    /// Associated-object key: marks a task already wrapped by Hakka.
+    /// `nonisolated(unsafe)` suppresses the Swift Concurrency global-mutable warning;
+    /// access is protected by the value itself being used only as an ObjC key address.
+    nonisolated(unsafe) private static var hakkaWrappedKey: UInt8 = 0
+
+    @objc func hakka_webSocketTask(with url: URL) -> URLSessionWebSocketTask {
+        // Calls the original (names are swapped at runtime)
+        let task = self.hakka_webSocketTask(with: url)
+        wrapIfNeeded(task, urlString: url.absoluteString)
+        return task
+    }
+
+    @objc func hakka_webSocketTask(withRequest request: URLRequest) -> URLSessionWebSocketTask {
+        let task = self.hakka_webSocketTask(withRequest: request)
+        let urlString = request.url?.absoluteString ?? ""
+        wrapIfNeeded(task, urlString: urlString)
+        return task
+    }
+
+    private func wrapIfNeeded(_ task: URLSessionWebSocketTask, urlString: String) {
+        guard HakkaWebSocketMonitor.globalInterceptor?.isRunning == true else { return }
+
+        // Prevent double-wrap
+        let alreadyWrapped = objc_getAssociatedObject(task, &URLSession.hakkaWrappedKey) as? Bool ?? false
+        guard !alreadyWrapped else { return }
+        objc_setAssociatedObject(task, &URLSession.hakkaWrappedKey, true, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+
+        let startTime = Int64(Date().timeIntervalSince1970 * 1000)
+        let taskId = UUID().uuidString
+        let tracker = HakkaWSTracker(taskId: taskId, url: urlString, startTime: startTime)
+        // Attach tracker to task so it lives as long as the task
+        objc_setAssociatedObject(task, &hakkaWSTrackerKey, tracker, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+
+        chainReceive(task: task, tracker: tracker)
+    }
+
+    private func chainReceive(task: URLSessionWebSocketTask, tracker: HakkaWSTracker) {
+        guard HakkaWebSocketMonitor.globalInterceptor?.isRunning == true else { return }
+        task.receive { [weak self, weak task] result in
+            switch result {
+            case .success(let message):
+                // Negotiated sub-protocol is only populated after the handshake, so it's
+                // read per-frame via KVC (no public API exposes it on the task).
+                let negotiated = task?.value(forKey: "_protocol") as? String
+                    ?? task?.value(forKey: "subprotocol") as? String
+                tracker.frameReceived(message: message, negotiatedProtocol: negotiated)
+                if let self, let task {
+                    self.chainReceive(task: task, tracker: tracker)
+                }
+            case .failure:
+                // Task ended — emit what's been captured so far
+                if let task {
+                    tracker.emitClose(
+                        closeCode: task.closeCode.rawValue,
+                        reason: task.closeReason.map { String(data: $0, encoding: .utf8) } ?? nil
+                    )
+                } else {
+                    tracker.emitClose(closeCode: URLSessionWebSocketTask.CloseCode.abnormalClosure.rawValue, reason: nil)
+                }
+                HakkaWebSocketMonitor.globalInterceptor.map { tracker.flush(interceptor: $0) }
+            }
+        }
+    }
+}
+
+// MARK: - URLSessionWebSocketTask send swizzle
+//
+// URLSessionWebSocketTask.send(_:completionHandler:) takes a Swift enum
+// (URLSessionWebSocketTask.Message) which is not ObjC-representable, so
+// method_exchangeImplementations on an @objc-annotated Swift method is not
+// possible for the Message parameter.
+//
+// Strategy: use the ObjC IMP-based swizzle via unsafeBitCast so the compiler
+// does not see the un-bridgeable enum type.  The actual ABI layout for
+// URLSessionWebSocketTask.Message on Darwin ObjC is an NSObject pointer
+// (the concrete private class __NSURLSessionWebSocketMessage), so casting
+// through UnsafeRawPointer is ABI-safe on the targeted platforms (iOS 13+,
+// macOS 10.15+).
+//
+// The captured IMP (pointer to the original implementation) is stored in a
+// file-scope nonisolated(unsafe) variable — identical to how URLSession
+// swizzling works throughout this file.
+
+typealias WSSendIMP = @convention(c) (
+    AnyObject,          // self (URLSessionWebSocketTask)
+    Selector,           // _cmd  (sendMessage:completionHandler:)
+    AnyObject,          // message (opaque __NSURLSessionWebSocketMessage)
+    AnyObject           // completionHandler (block bridged from Swift closure)
+) -> Void
+
+nonisolated(unsafe) private var originalWSSendIMP: WSSendIMP?
+
+@available(iOS 13.0, macOS 10.15, *)
+private func swizzleWebSocketSend() {
+    let sel = NSSelectorFromString("sendMessage:completionHandler:")
+    guard
+        let method = class_getInstanceMethod(URLSessionWebSocketTask.self, sel),
+        let hookMethod = class_getInstanceMethod(URLSessionWebSocketTask.self,
+                                                 #selector(URLSessionWebSocketTask.hakka_sendMessage(_:completionHandler:)))
+    else { return }
+
+    originalWSSendIMP = unsafeBitCast(method_getImplementation(method), to: WSSendIMP.self)
+    method_exchangeImplementations(method, hookMethod)
+}
+
+@available(iOS 13.0, macOS 10.15, *)
+extension URLSessionWebSocketTask {
+    // This @objc method is the swizzled replacement.  Its selector is
+    // `hakka_sendMessage:completionHandler:` — at runtime the implementations
+    // are exchanged so this runs when app code calls `send(_:completionHandler:)`.
+    //
+    // The `completionHandler:` block can't be declared with the typed Swift
+    // closure here (ObjC-bridge constraint), so it's accepted as AnyObject (the
+    // bridged block). The original IMP is called via the saved function
+    // pointer, avoiding re-bridging through Swift's type system.
+    @objc func hakka_sendMessage(_ messageObj: AnyObject, completionHandler: AnyObject) {
+        if let tracker = objc_getAssociatedObject(self, &hakkaWSTrackerKey) as? HakkaWSTracker {
+            // Detect text vs. data frames from the private class name.
+            // The underlying concrete type is __NSURLSessionWebSocketMessage.
+            // It responds to -type (returns 0=text,1=data) and either -string or -data.
+            if let typeVal = (messageObj as? NSObject)?.value(forKey: "type") as? Int {
+                if typeVal == 0, let text = (messageObj as? NSObject)?.value(forKey: "string") as? String {
+                    tracker.frameSent(message: .string(text))
+                } else if typeVal == 1, let data = (messageObj as? NSObject)?.value(forKey: "data") as? Data {
+                    tracker.frameSent(message: .data(data))
+                }
+            }
+        }
+
+        if let imp = originalWSSendIMP {
+            imp(self, #selector(hakka_sendMessage(_:completionHandler:)), messageObj, completionHandler)
+        }
+    }
+}
+
+// MARK: - Tracker
+
+nonisolated(unsafe) private var hakkaWSTrackerKey: UInt8 = 0
+
+/// Thread-safe per-task state collector. Records every frame payload.
+final class HakkaWSTracker: @unchecked Sendable {
+    let taskId: String
+    let url: String
+    let startTime: Int64
+
+    private let lock = NSLock()
+    private var messageCount: Int = 0
+    private var frames: [WsMessage] = []
+    private var negotiatedProtocol: String?
+    private var closeCode: Int?
+    private var emitted = false
+
+    init(taskId: String, url: String, startTime: Int64) {
+        self.taskId = taskId
+        self.url = url
+        self.startTime = startTime
+    }
+
+    func frameReceived(message: URLSessionWebSocketTask.Message, negotiatedProtocol: String?) {
+        let ts = Int64(Date().timeIntervalSince1970 * 1000)
+        let wsMsg = buildWsMessage(message: message, direction: .received, timestamp: ts)
+        lock.lock()
+        messageCount += 1
+        frames.append(wsMsg)
+        if self.negotiatedProtocol == nil, let p = negotiatedProtocol, !p.isEmpty {
+            self.negotiatedProtocol = p
+        }
+        lock.unlock()
+    }
+
+    func frameSent(message: URLSessionWebSocketTask.Message) {
+        let ts = Int64(Date().timeIntervalSince1970 * 1000)
+        let wsMsg = buildWsMessage(message: message, direction: .sent, timestamp: ts)
+        lock.lock()
+        messageCount += 1
+        frames.append(wsMsg)
+        lock.unlock()
+    }
+
+    func emitClose(closeCode: Int, reason: String?) {
+        lock.lock()
+        if self.closeCode == nil {
+            self.closeCode = closeCode
+        }
+        lock.unlock()
+    }
+
+    func flush(interceptor: HakkaInterceptor) {
+        lock.lock()
+        guard !emitted else {
+            lock.unlock()
+            return
+        }
+        emitted = true
+        let count = messageCount
+        let code = closeCode ?? URLSessionWebSocketTask.CloseCode.abnormalClosure.rawValue
+        let capturedFrames = frames
+        let proto = negotiatedProtocol
+        lock.unlock()
+
+        let now = Int64(Date().timeIntervalSince1970 * 1000)
+        let request = NetworkRequest(
+            id: taskId,
+            url: url,
+            method: .get,
+            status: code == URLSessionWebSocketTask.CloseCode.normalClosure.rawValue ? 101 : nil,
+            startTime: startTime,
+            duration: now - startTime,
+            source: .nativeWebSocket,
+            wsMessageCount: count,
+            wsCloseCode: code,
+            messages: capturedFrames.isEmpty ? nil : capturedFrames,
+            wsProtocol: proto
+        )
+        interceptor.didCapture(request)
+    }
+}
+
+// MARK: - Frame encoding
+
+private func buildWsMessage(
+    message: URLSessionWebSocketTask.Message,
+    direction: WsDirection,
+    timestamp: Int64
+) -> WsMessage {
+    switch message {
+    case .string(let text):
+        return WsMessage(
+            timestamp: timestamp,
+            direction: direction,
+            data: .text(text),
+            size: text.utf8.count,
+            binary: false
+        )
+    case .data(let data):
+        let size = data.count
+        if size <= wsBinaryCap {
+            return WsMessage(
+                timestamp: timestamp,
+                direction: direction,
+                data: .text(data.base64EncodedString()),
+                size: size,
+                binary: true
+            )
+        } else {
+            return WsMessage(
+                timestamp: timestamp,
+                direction: direction,
+                data: .byteCount(size),
+                size: size,
+                binary: true
+            )
+        }
+    @unknown default:
+        return WsMessage(
+            timestamp: timestamp,
+            direction: direction,
+            data: .text(""),
+            size: 0,
+            binary: false
+        )
+    }
+}

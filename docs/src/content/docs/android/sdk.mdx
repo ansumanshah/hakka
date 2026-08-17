@@ -1,0 +1,82 @@
+---
+title: Android SDK
+description: Android artifacts, capture path, and size policy.
+---
+
+import { Badge } from '@astrojs/starlight/components'
+
+<Badge text="Alpha" variant="note" /> Works from source today; Maven Central artifacts aren't published yet.
+
+Android capture starts in `HakkaInterceptor`. The hot path captures immutable
+facts, then post-processing runs through `CaptureProcessor` so OkHttp threads do
+not perform expensive redaction, store mutation, export mapping, or subscriber
+work inline.
+
+:::caution[WebSocket frame capture not supported]
+`HakkaInterceptor` is an OkHttp `Interceptor`, which sees the HTTP/1.1 Upgrade handshake for WebSocket connections but does **not** receive WebSocket frame data after the protocol switch. Only the initial upgrade request and response are recorded. If you need individual WebSocket message capture, use the React Native package with `mode: 'js'` or `mode: 'auto'`.
+:::
+
+## Artifacts
+
+| Artifact                 | Purpose                                             |
+| ------------------------ | --------------------------------------------------- |
+| `hakka-common`           | shared records, config, storage, and sinks          |
+| `hakka-network`          | OkHttp capture and export helpers                   |
+| `hakka-network-noop`     | release-safe no-op network API                      |
+| `hakka-performance`      | optional frame, memory, CPU, and network collectors |
+| `hakka-performance-noop` | no-op performance API                               |
+| `hakka-ui`               | optional Android inspector                          |
+
+## Recommended Debug/Release Split
+
+```kotlin
+dependencies {
+    debugImplementation("com.noodleapps.hakka:hakka-network:0.1.0")
+    releaseImplementation("com.noodleapps.hakka:hakka-network-noop:0.1.0")
+}
+```
+
+Add performance collectors only when you need them:
+
+```kotlin
+dependencies {
+    debugImplementation("com.noodleapps.hakka:hakka-performance:0.1.0")
+    releaseImplementation("com.noodleapps.hakka:hakka-performance-noop:0.1.0")
+}
+```
+
+## Inspector UI (`hakka-ui`)
+
+Three entry points, all wired in the demo app: `Hakka.open(context)` (fullscreen),
+`HakkaUI.getInstance(context).showSheet(context)` (bottom sheet), and
+`HakkaUI.getInstance(context).show(context)` (floating bubble).
+
+- **Theming follows the system DayNight setting**, not the host app's Material
+  theme attributes — the inspector renders the shared Wok Hei tokens (dark warm
+  graphite / light warm cream) on every host app, checked directly against
+  `Configuration.uiMode` rather than any theme applied to the current
+  Activity/Context. Works down to API 24 (`minSdk`): `Theme.DeviceDefault.DayNight`
+  itself needs API 29+, so the base/`values-night` resource-qualifier split gives
+  the same follow-system behavior on every supported API instead.
+- The request list is a `RecyclerView` with view-holder recycling, 64dp two-line
+  rows (method + path, then status + host).
+- Icons are a small vector-drawable set (`hakka_ic_*`) — no more system icons.
+- Action menus (the overflow "..." button, the top-bar icon row) are themed
+  custom sheets built from Wok Hei tokens, not raw `AlertDialog.setItems(...)`.
+- Empty states use a shared `buildEmptyState()` helper (icon + title + subtitle)
+  instead of a blank surface.
+- **Non-Network surfaces (Stats/Logs/Console/Storage/Rules/Info) are reached
+  through an overflow "tools" menu**, not a bottom tab bar — a persistent
+  bottom nav across all surfaces (matching iOS's 5-tab layout) is a future wave,
+  not shipped yet.
+
+## Size Policy
+
+The base Android SDK must stay small. Hakka measures Android deltas against an
+OkHttp host baseline and keeps optional UI out of the base budget.
+
+Run:
+
+```bash
+bun run size:android
+```

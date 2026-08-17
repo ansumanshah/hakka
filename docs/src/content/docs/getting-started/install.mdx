@@ -1,0 +1,98 @@
+---
+title: Install
+description: Pick your platform and capture your first request — React Native, Expo, Web, Next.js, Android, or iOS.
+---
+
+import { Tabs, TabItem, CardGrid, LinkCard, Aside, Badge } from '@astrojs/starlight/components'
+
+<Aside type="tip" title="Fastest path">
+Run the setup CLI — it detects your framework (Next.js, Vite, Expo, React Native, or plain web) and wires Hakka up for you. Dependency-free and idempotent.
+
+```bash title="Terminal"
+npx hakka init
+```
+
+</Aside>
+
+## Pick your platform
+
+Each platform page has a copy-paste quickstart that ends with a captured request.
+
+<CardGrid>
+  <LinkCard
+    title="React Native"
+    href="/react-native/package/"
+    description="fetch, XHR, WebSocket + native OkHttp/URLSession."
+  />
+  <LinkCard
+    title="Expo"
+    href="/react-native/expo/"
+    description="Development build required — Expo Go is not supported."
+  />
+  <LinkCard title="Web" href="/web/overview/" description="A drop-in overlay for any browser app." />
+  <LinkCard title="Next.js" href="/nextjs/overview/" description="Server + client traffic in one inspector." />
+  <LinkCard title="Android" href="/android/sdk/" description="Maven artifacts, debug/release no-op split." />
+  <LinkCard title="iOS" href="/ios/sdk/" description="Swift Package products + no-op release variant." />
+</CardGrid>
+
+| Platform     | Status                                    |
+| ------------ | ----------------------------------------- |
+| Web          | <Badge text="Stable" variant="success" /> |
+| Next.js      | <Badge text="Stable" variant="success" /> |
+| React Native | <Badge text="Beta" variant="caution" />   |
+| Android      | <Badge text="Alpha" variant="note" />     |
+| iOS          | <Badge text="Alpha" variant="note" />     |
+
+<p style="font-size:0.85em;opacity:0.75">
+  Beta: works and ships on npm, with less production soak time than the Stable platforms. Alpha: works from source in
+  this repo; published packages (Maven Central, the SPM tag) aren't out yet.
+</p>
+
+## Install commands
+
+The npm packages, if you'd rather wire them up by hand. Follow the platform page for the full setup.
+
+<Tabs syncKey="pkg-manager">
+  <TabItem label="npm">
+
+```bash
+npm install hakka-react-native   # React Native / Expo
+npm install hakka-browser            # Web
+npm install hakka-node           # Next.js
+```
+
+  </TabItem>
+  <TabItem label="pnpm">
+
+```bash
+pnpm add hakka-react-native   # React Native / Expo
+pnpm add hakka-browser            # Web
+pnpm add hakka-node           # Next.js
+```
+
+  </TabItem>
+  <TabItem label="yarn">
+
+```bash
+yarn add hakka-react-native   # React Native / Expo
+yarn add hakka-browser            # Web
+yarn add hakka-node           # Next.js
+```
+
+  </TabItem>
+  <TabItem label="bun">
+
+```bash
+bun add hakka-react-native   # React Native / Expo
+bun add hakka-browser            # Web
+bun add hakka-node           # Next.js
+```
+
+  </TabItem>
+</Tabs>
+
+Native SDKs install through their own package managers — see [Android](/android/sdk/) (Maven) and [iOS](/ios/sdk/) (Swift Package Manager).
+
+<Aside type="tip" title="Local-first, always">
+  Whichever path you pick, Hakka runs on-device. No account, no cloud, no data leaves your machine.
+</Aside>

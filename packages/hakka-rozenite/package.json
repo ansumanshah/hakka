@@ -1,0 +1,94 @@
+{
+  "name": "hakka-rozenite",
+  "version": "0.1.0",
+  "description": "EXPERIMENTAL — Hakka network inspector as a React Native DevTools panel via Rozenite. Renders hakka-browser/elements' <hakka-request-list>/<hakka-request-detail>/<hakka-filter-bar> (through hakka-browser/react) inside the panel, fed live from hakka-react-native's capture stream over Rozenite's own plugin messaging bridge.",
+  "keywords": [
+    "debugging",
+    "devtools",
+    "hakka",
+    "network",
+    "react-native",
+    "react-native-devtools",
+    "rozenite"
+  ],
+  "homepage": "https://hakka.noodleapps.com",
+  "bugs": {
+    "url": "https://github.com/ansumanshah/hakka/issues"
+  },
+  "license": "MIT",
+  "author": "Ansuman Shah",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ansumanshah/hakka.git",
+    "directory": "packages/hakka-rozenite"
+  },
+  "files": [
+    "dist",
+    "react-native.ts",
+    "rozenite.config.ts",
+    "LICENSE",
+    "README.md"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/react-native/index.cjs",
+  "module": "./dist/react-native/index.js",
+  "types": "./dist/react-native/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/react-native/index.d.ts",
+        "default": "./dist/react-native/index.js"
+      },
+      "require": {
+        "types": "./dist/react-native/index.d.cts",
+        "default": "./dist/react-native/index.cjs"
+      }
+    },
+    "./react-native": {
+      "import": {
+        "types": "./dist/react-native/index.d.ts",
+        "default": "./dist/react-native/index.js"
+      },
+      "require": {
+        "types": "./dist/react-native/index.d.cts",
+        "default": "./dist/react-native/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "scripts": {
+    "build": "rozenite build && node scripts/postbuild-dual-types.mjs",
+    "dev": "rozenite dev",
+    "prepublishOnly": "npm run build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "rm -rf dist",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@rozenite/plugin-bridge": "^1.13.0",
+    "hakka-browser": "0.1.0",
+    "hakka-core": "0.1.0"
+  },
+  "devDependencies": {
+    "@rozenite/vite-plugin": "^1.13.0",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "hakka-react-native": "0.1.0",
+    "happy-dom": "^20.11.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "rozenite": "^1.13.0",
+    "typescript": "^7.0.2",
+    "vite": "^7.3.6",
+    "vitest": "^4.1.10"
+  },
+  "peerDependencies": {
+    "hakka-react-native": "0.1.0",
+    "react": ">=19.2.3"
+  }
+}

@@ -1,0 +1,223 @@
+---
+title: Plugins
+description: Extend Hakka with custom panels, capture sinks, and context-menu actions — one contract, ported per platform.
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components'
+
+Hakka's plugin system is the seam every platform extends the engine through. A plugin
+registers with the local `Hakka`/`HakkaInterceptor` instance, gets a context object with
+capture primitives (`ingest`, `update`, `onRequest`, `getLogs`, `registerSink`), and
+optionally contributes UI. The contract is the same shape on web, React Native, iOS, and
+Android — but each platform ported it independently, and the ports have diverged in a few
+places.
+
+The canonical contract lives in `packages/hakka-core/src/engine/plugins.ts` (TypeScript). iOS
+(`ios/Sources/Common/Plugin.swift`) and Android (`android/hakka-common/.../Plugin.kt`) are
+hand-ported mirrors, not codegen — see [Reference: Plugin API](/reference/plugin-api/) for
+exact per-platform signatures.
+
+## What a plugin can do
+
+| Contribution         | Field              | What it's for                                                                                                        |
+| -------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| Capture / sinks      | `setup(ctx)`       | Wire listeners, inject synthetic requests, subscribe to the export stream.                                           |
+| Custom panel         | `panels`           | Add a tab to the inspector UI.                                                                                       |
+| Custom body renderer | `bodyRenderers`    | Declared in the TS contract only — no host renders it yet. See the [capability matrix](#platform-capability-matrix). |
+| Context-menu action  | `contextMenuItems` | Add a button to the request detail's action row.                                                                     |
+
+A plugin needs only a stable, unique `id`. Everything else is optional.
+
+### The plugin context (`setup(ctx)`)
+
+| Method                    | Does                                                                                                                                                                |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ctx.ingest(request)`     | Push a request through the normal dedup/retention/sink path — the same path real captures use.                                                                      |
+| `ctx.update(id, ...)`     | Mutate an existing logged request by id. The shape of the mutation differs per platform — see [reference](/reference/plugin-api/#update-shape-differs-by-platform). |
+| `ctx.onRequest(listener)` | Subscribe to every request as it's committed. Returns an unsubscribe handle.                                                                                        |
+| `ctx.getLogs()`           | Snapshot of everything currently in the buffer.                                                                                                                     |
+| `ctx.registerSink(sink)`  | Subscribe to the serialized export stream (`ContractRecord` — the same shape HAR/OTel/the desktop bridge consume), not the raw `NetworkRequest`.                    |
+
+## Lifecycle: setup and teardown
+
+Registration always calls `setup(ctx)` — but **when**, and what happens to the return
+value, differs by platform:
+
+- **TypeScript core (web + React Native, same engine)** — `Hakka.use(plugin)` calls
+  `setup(ctx)` immediately _only if capture is already running_; otherwise it's deferred
+  until the next `Hakka.start()`. `setup()` may return a teardown function, which runs on
+  `Hakka.stop()`.
+- **iOS** — `HakkaInterceptor.shared.use(plugin)` calls `setup(ctx:)` synchronously at
+  registration, with no running/not-running gate. The protocol has no teardown return value
+  yet — the doc comment on `HakkaPlugin` marks it "reserved" for a future version. Whatever
+  you wire in `setup` stays wired for the interceptor's lifetime.
+- **Android** — `interceptor.plugins.use(plugin)` also calls `setup(ctx)` synchronously at
+  registration. `setup()` may return a teardown lambda; it runs when the plugin is removed
+  via `plugins.remove(id)` or when the interceptor is closed (`interceptor.close()` calls
+  `plugins.removeAll()`).
+
+**Registering the same plugin twice is meant to be a no-op**, but the de-duplication key
+differs: TypeScript checks by **object identity** (`Array.includes`, so define your plugin
+object once at module scope — don't build a fresh object literal per call); iOS and Android
+check by the **`id` string**. A second `Hakka.use({ id: 'x', ... })` call with a _new_
+object literal double-registers on web/RN but is rejected as a duplicate on iOS/Android.
+
+<Aside type="caution" title="iOS: hold your subscription">
+  `ctx.onRequest(...)` and `ctx.registerSink(...)` on iOS return a `HakkaPluginSubscription` whose `deinit` calls
+  `unsubscribe()`. If you don't store the returned value, it deallocates immediately after `setup(ctx:)` returns and
+  your listener is cancelled before it ever fires. Store it as a property on a `class`-based plugin (see the example
+  below) — not a `struct`, since the protocol's `setup(ctx:)` requirement is non-mutating.
+</Aside>
+
+## Minimal working example
+
+<Tabs syncKey="platform">
+  <TabItem label="Web / React Native">
+
+Both targets share the same `hakka-core` engine and plugin types — import the type from
+`hakka-core` (a direct dependency of both `hakka-browser` and `hakka-react-native`, so it
+resolves even though you don't install it yourself) and register through whichever `Hakka`
+you already import.
+
+```ts title="acmeLoggerPlugin.ts"
+import type { HakkaPlugin } from 'hakka-core'
+import { Hakka } from 'hakka-browser' // or: from 'hakka-react-native'
+
+// Define once at module scope — Hakka.use() dedups by object identity, not id.
+export const acmeLoggerPlugin: HakkaPlugin = {
+  id: 'acme.request-logger',
+  panels: [{ id: 'acme-logger', title: 'Logger', order: 100 }],
+  setup(ctx) {
+    const unsubscribe = ctx.onRequest((req) => {
+      console.log(`[acme] ${req.method} ${req.url} -> ${req.status ?? 'pending'}`)
+    })
+    return unsubscribe // torn down on Hakka.stop()
+  },
+}
+
+Hakka.use(acmeLoggerPlugin)
+```
+
+The `setup()` capture code (ingest/update/onRequest/getLogs/registerSink) works identically
+on both targets. The `panels` tab does not — see the [capability matrix](#platform-capability-matrix).
+
+  </TabItem>
+  <TabItem label="iOS (Swift)">
+
+```swift title="RequestLoggerPlugin.swift"
+import SwiftUI
+import HakkaCommon
+import HakkaNetwork
+import HakkaUI // only needed if you contribute a panel
+
+final class RequestLoggerPlugin: HakkaPlugin, @unchecked Sendable {
+    let id = "acme.request-logger"
+
+    // Held here — HakkaPluginSubscription cancels itself in deinit.
+    private var subscription: HakkaPluginSubscription?
+
+    var panels: [HakkaPanel] {
+        [HakkaPanel(id: "acme-logger", title: "Logger", icon: "text.alignleft") {
+            Text("Logger panel")
+        }]
+    }
+
+    func setup(ctx: any HakkaPluginContext) {
+        subscription = ctx.onRequest { request in
+            print("[acme] \(request.method) \(request.url) -> \(request.status ?? -1)")
+        }
+    }
+}
+
+HakkaInterceptor.shared.use(RequestLoggerPlugin())
+```
+
+  </TabItem>
+  <TabItem label="Android (Kotlin)">
+
+Panels require `HakkaAndroidPlugin` (in `hakka-ui`), a superset of the platform-neutral
+`HakkaPlugin` (in `hakka-common`) that adds `androidPanels`. A capture-only plugin with no
+UI only needs `HakkaPlugin`.
+
+```kotlin title="RequestLoggerPlugin.kt"
+import android.widget.TextView
+import com.noodleapps.hakka.HakkaPluginContext
+import com.noodleapps.hakka.ui.HakkaAndroidPlugin
+import com.noodleapps.hakka.ui.HakkaPanel
+
+class RequestLoggerPlugin : HakkaAndroidPlugin {
+    override val id = "acme.request-logger"
+
+    override val androidPanels: List<HakkaPanel> = listOf(
+        HakkaPanel(id = "acme-logger", title = "Logger") { ctx ->
+            TextView(ctx).apply { text = "Logger panel" }
+        },
+    )
+
+    override fun setup(ctx: HakkaPluginContext): (() -> Unit) {
+        val unsubscribe = ctx.onRequest { request ->
+            android.util.Log.d("acme", "${request.method} ${request.url} -> ${request.status}")
+        }
+        return unsubscribe // invoked on plugins.remove(id) or interceptor.close()
+    }
+}
+```
+
+```kotlin title="Registration — Hakka.install(context) already wires the plugin provider"
+val interceptor = com.noodleapps.hakka.ui.Hakka.install(context)
+interceptor.plugins.use(RequestLoggerPlugin())
+```
+
+  </TabItem>
+</Tabs>
+
+## Platform capability matrix
+
+Legend: ● works as documented · ◐ partial / conditional · — not available on this platform.
+
+| Capability                                  | Web                                                                                                                                                                                                                                        | React Native                                                                                | iOS                                                                   | Android                                                                        |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Register a plugin                           | ● `Hakka.use()`                                                                                                                                                                                                                            | ● `Hakka.use()` (same engine as web)                                                        | ● `HakkaInterceptor.shared.use()`                                     | ● `interceptor.plugins.use()`                                                  |
+| `setup(ctx)` capture primitives             | ● ingest/update/onRequest/getLogs/registerSink                                                                                                                                                                                             | ● identical (shared engine)                                                                 | ● same five, different method shapes                                  | ● same five, different method shapes                                           |
+| Teardown on unregister                      | ● returned fn runs on `Hakka.stop()`                                                                                                                                                                                                       | ● same                                                                                      | — protocol has no return value; reserved                              | ● runs on `plugins.remove(id)` / `interceptor.close()`                         |
+| Custom panel — tab appears                  | ● via `Hakka.getPanels()`                                                                                                                                                                                                                  | ◐ aggregated by the engine, but `HakkaInspector` never calls `getPanels()` — no tab appears | ●                                                                     | ● — only if the plugin implements `HakkaAndroidPlugin`, not bare `HakkaPlugin` |
+| Custom panel — tab renders **your** content | ◐ only if you also add an entry to hakka-browser's internal `PANEL_REGISTRY`. That map isn't publicly exported, so today only the 5 built-in panel ids render; a third-party id shows the tab with a "No renderer registered" placeholder. | —                                                                                           | ● view builder is embedded directly on the `HakkaPanel` you construct | ● `viewFactory` is embedded directly on the `HakkaPanel` you construct         |
+| Body renderers (`bodyRenderers`)            | — declared and aggregated, not rendered by any host                                                                                                                                                                                        | — same                                                                                      | — not part of the protocol                                            | — not part of the protocol                                                     |
+| Context-menu items (`contextMenuItems`)     | ● rendered as buttons in the request Detail action row                                                                                                                                                                                     | — not part of the RN UI surface (the engine has it; the UI never calls it)                  | — not part of the protocol                                            | — not part of the protocol                                                     |
+| Plugin de-duplication key                   | object identity                                                                                                                                                                                                                            | object identity (same engine)                                                               | `id` string                                                           | `id` string                                                                    |
+| `setup()` fires...                          | immediately if running, else deferred to `start()`                                                                                                                                                                                         | same                                                                                        | immediately at registration                                           | immediately at registration                                                    |
+
+The two rows worth internalizing: **body renderers are reserved everywhere** — build against
+them only if you're prepared for zero visible effect until a host adds a lookup — and **web
+panel content is closed** unless your panel id happens to match a built-in one. id + title +
+order gets you a tab, not a renderer, unless you fork `hakka-browser`.
+
+## Limits & non-goals
+
+- **No sandboxing.** Plugin code runs with full access to the context object and, on
+  iOS/Android, the full host-app process. There's no permission scoping.
+- **No dynamic loading.** Plugins are compiled/bundled into your app at build time — there's
+  no marketplace, no remote code, no runtime install.
+- **No inter-plugin contract.** Plugins can't discover or call each other; only the host
+  engine mediates.
+- **Panel content is platform-native, not portable.** A panel's actual rendered content is a
+  Solid component (web, and only for built-in ids today), a SwiftUI view (iOS), or an
+  Android `View` (Android) — there's no shared UI descriptor beyond `id`/`title`/`order`/`icon`.
+  Write it three times if you need it on three platforms.
+- **Exceptions during `setup()` aren't handled consistently.** TypeScript and iOS let a
+  throwing `setup()` propagate. Android's `PluginRegistry.use()` catches and discards the
+  exception — the plugin still registers, with no teardown and whatever partial state
+  the throw left behind.
+- **Panel ordering is opt-in, not automatic, on Android.** `interceptor.plugins.registeredPlugins()`
+  returns plugins in registration order — nothing sorts it. Android's own `HakkaBottomSheet`
+  sorts `androidPanels` by `order` after collecting them; a custom host that reads
+  `registeredPlugins()` directly must sort itself.
+- **Namespace your `id`.** There's no conflict check beyond dedup. Built-in panel ids already
+  in use include `network`, `console`, `storage`, `stats`, `rules`, `settings` on web, and
+  `network`/`console`/`structuredLogs`/`rules`/`storage`/`settings` as iOS's built-in tabs.
+  Reverse-DNS-style ids (`acme.request-logger`) avoid collisions.
+
+## Next steps
+
+See [Reference: Plugin API](/reference/plugin-api/) for exact per-platform type signatures,
+including the three different shapes `ctx.update()` takes.

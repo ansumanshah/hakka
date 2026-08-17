@@ -1,0 +1,17 @@
+{
+  "id": "health-1",
+  "kind": "health.report",
+  "schemaVersion": 1,
+  "timestamp": 1200,
+  "sessionId": "session-1",
+  "tags": {
+    "tier": "internal"
+  },
+  "windowStart": 1000,
+  "windowEnd": 1200,
+  "totalRequests": 10,
+  "errorRate": 0.1,
+  "slowFrameRate": 0.05,
+  "frozenFrameCount": 1,
+  "summary": "healthy"
+}

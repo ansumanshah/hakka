@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hakka Web — demo</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 0;
+        padding: 32px;
+        background: #f4f4f6;
+        color: #1c1c1e;
+      }
+      h1 {
+        font-size: 20px;
+      }
+      p {
+        color: #555;
+        max-width: 40ch;
+      }
+      code {
+        background: #e6e6ea;
+        padding: 2px 6px;
+        border-radius: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Hakka Web — demo</h1>
+    <p>
+      The inspector overlay is the floating button (bottom-right). This page seeds fake traffic so you can see the list,
+      detail, timing waterfall, JSON viewer, and HAR export.
+    </p>
+    <p>
+      Drop into any page with <code>&lt;script src="hakka-browser.global.js"&gt;&lt;/script&gt;</code> then
+      <code>Hakka.start()</code>.
+    </p>
+
+    <script src="../dist/hakka-browser.global.js"></script>
+    <script>
+      Hakka.start({ overlay: true, resourceTiming: false, captureBeacons: false, captureWorkers: true })
+      const t = Date.now()
+      const J = (o) => JSON.stringify(o)
+      const reqs = [
+        {
+          id: 'r1',
+          url: 'https://api.example.com/users/42',
+          method: 'GET',
+          status: 200,
+          startTime: t - 5200,
+          duration: 145,
+          source: 'fetch',
+          requestHeaders: { accept: 'application/json' },
+          responseHeaders: { 'content-type': 'application/json' },
+          responseBody: J({ id: 42, name: 'Ada Lovelace', email: 'ada@example.com', roles: ['admin', 'user'] }),
+          responseBodySize: 96,
+          contentType: 'application/json',
+          networkProtocol: 'h2',
+          timing: { dnsMs: 12, connectMs: 18, tlsMs: 22, ttfbMs: 70, downloadMs: 23 },
+        },
+        {
+          id: 'r2',
+          url: 'https://api.example.com/auth/login',
+          method: 'POST',
+          status: 200,
+          startTime: t - 4800,
+          duration: 320,
+          source: 'fetch',
+          requestHeaders: { 'content-type': 'application/json' },
+          requestBody: J({ email: 'ada@example.com', password: '[REDACTED]' }),
+          responseHeaders: { 'content-type': 'application/json' },
+          responseBody: J({ token: 'eyJhbGci...', expiresIn: 3600 }),
+          contentType: 'application/json',
+          timing: { dnsMs: 0, connectMs: 0, tlsMs: 0, ttfbMs: 280, downloadMs: 40 },
+        },
+        {
+          id: 'r3',
+          url: 'https://api.example.com/feed?page=2',
+          method: 'GET',
+          status: 200,
+          startTime: t - 4200,
+          duration: 89,
+          source: 'fetch',
+          responseHeaders: { 'content-type': 'application/json' },
+          responseBody: J({ items: [1, 2, 3], nextPage: 3 }),
+          contentType: 'application/json',
+        },
+        {
+          id: 'r4',
+          url: 'https://cdn.example.com/img/avatar.png',
+          method: 'GET',
+          status: 200,
+          startTime: t - 3800,
+          duration: 210,
+          source: 'fetch',
+          responseHeaders: { 'content-type': 'image/png' },
+          contentType: 'image/png',
+          responseBodySize: 18244,
+        },
+        {
+          id: 'r5',
+          url: 'https://api.example.com/posts/9',
+          method: 'DELETE',
+          status: 204,
+          startTime: t - 3000,
+          duration: 64,
+          source: 'fetch',
+        },
+        {
+          id: 'r6',
+          url: 'https://api.example.com/search?q=hakka',
+          method: 'GET',
+          status: 500,
+          startTime: t - 2400,
+          duration: 512,
+          source: 'fetch',
+          error: null,
+          responseHeaders: { 'content-type': 'application/json' },
+          responseBody: J({ error: 'internal_error', traceId: 'abc123' }),
+          contentType: 'application/json',
+        },
+        {
+          id: 'r7',
+          url: 'https://api.example.com/graphql',
+          method: 'POST',
+          status: 200,
+          startTime: t - 1800,
+          duration: 176,
+          source: 'fetch',
+          requestHeaders: { 'content-type': 'application/json' },
+          requestBody: J({ query: 'query GetUser { user { id name } }' }),
+          responseHeaders: { 'content-type': 'application/json' },
+          responseBody: J({ data: { user: { id: 42, name: 'Ada' } } }),
+          contentType: 'application/json',
+          graphql: { operationType: 'query', operationName: 'GetUser' },
+        },
+        {
+          id: 'r8',
+          url: 'https://analytics.example.com/collect',
+          method: 'POST',
+          status: 202,
+          startTime: t - 900,
+          duration: 0,
+          source: 'fetch',
+          library: 'sendBeacon',
+          requestBody: J({ event: 'page_view', path: '/' }),
+        },
+        {
+          id: 'r9',
+          url: 'https://app.example.com/api/checkout',
+          method: 'POST',
+          status: 200,
+          runtime: 'client',
+          correlationId: 'trace_checkout',
+          startTime: t - 700,
+          duration: 420,
+          source: 'fetch',
+          requestHeaders: { 'content-type': 'application/json' },
+          requestBody: J({ cartId: 'cart_9', total: 42.5 }),
+          responseHeaders: { 'content-type': 'application/json' },
+          responseBody: J({ orderId: 'ord_9', status: 'confirmed' }),
+          contentType: 'application/json',
+        },
+        {
+          id: 'r10',
+          url: 'https://payments.internal/v2/charge',
+          method: 'POST',
+          status: 200,
+          runtime: 'server',
+          correlationId: 'trace_checkout',
+          startTime: t - 645,
+          duration: 305,
+          source: 'http',
+          responseHeaders: { 'content-type': 'application/json' },
+          responseBody: J({ chargeId: 'ch_9', captured: true }),
+          contentType: 'application/json',
+        },
+        {
+          id: 'r11',
+          url: 'https://ledger.internal/v1/balance',
+          method: 'GET',
+          status: 200,
+          runtime: 'server',
+          correlationId: 'trace_checkout',
+          startTime: t - 610,
+          duration: 120,
+          source: 'http',
+          responseHeaders: { 'content-type': 'application/json' },
+          responseBody: J({ available: 128000 }),
+          contentType: 'application/json',
+        },
+      ]
+      reqs.forEach((r) => Hakka.ingest(r))
+
+      // Exercise the real interceptor → Worker path with live same-origin traffic.
+      setTimeout(() => {
+        fetch('/index.html').catch(() => {})
+        const xhr = new XMLHttpRequest()
+        xhr.open('GET', '/?xhr=1')
+        xhr.send()
+      }, 300)
+
+      // Worker-origin traffic: a module worker that captures its OWN fetch via the
+      // hakka-browser/worker shim and relays it to the store (captureWorkers:true above).
+      try {
+        new Worker('./traced-worker.js', { type: 'module' })
+      } catch (e) {}
+    </script>
+  </body>
+</html>

@@ -1,0 +1,31 @@
+---
+/**
+ * Override of Starlight's SiteTitle — swaps the static logo for the animated
+ * Hakka canvas mark, keeping Starlight's link + title structure.
+ */
+import HakkaIcon from './HakkaIcon.astro';
+const { siteTitle, siteTitleHref } = Astro.locals.starlightRoute;
+---
+
+<a href={siteTitleHref} class="site-title sl-flex">
+  <HakkaIcon id="hakka-nav" size={30} />
+  <span translate="no">{siteTitle}</span>
+</a>
+
+<style>
+  .site-title {
+    align-items: center;
+    gap: 0.5rem;
+    font-family: 'Space Grotesk Variable', var(--sl-font);
+    font-size: var(--sl-text-h4);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--sl-color-text-accent);
+    text-decoration: none;
+    white-space: nowrap;
+    min-width: 0;
+  }
+  span {
+    overflow: hidden;
+  }
+</style>

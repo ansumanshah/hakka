@@ -1,0 +1,185 @@
+---
+title: Breakpoints
+description: Pause matching requests or responses in-flight, edit them, then resume — the Charles/Proxyman trick, in-process, no proxy or certificate.
+sidebar:
+  badge:
+    text: New
+    variant: tip
+---
+
+import { Steps, Aside, Card, CardGrid, LinkCard } from '@astrojs/starlight/components'
+
+<Aside type="tip" title="What this does">
+  Pause a request or response in-flight, edit it, then resume — the Charles/Proxyman trick, in-process, no proxy or
+  certificate.
+</Aside>
+
+Breakpoints are available in **hakka-browser** today. The engine lives in [hakka-core](/core/overview/) so any other host can adopt it.
+
+## When to use it
+
+- **Reproduce edge cases** — force a 500 response on a specific endpoint to test your error state without touching the server.
+- **Tweak request data** — change a header or body field mid-flight to see how the backend reacts, without modifying your source code.
+- **Validate client behaviour** — abort a request before it leaves the browser and confirm your app handles the `TypeError` correctly.
+
+## Add a breakpoint
+
+Register a rule against the engine before traffic starts flowing:
+
+```ts title="instrumentation.ts"
+import { breakpointEngine } from 'hakka-core'
+
+breakpointEngine.addBreakpoint({
+  pattern: '/api/orders', // substring match against the full URL
+  method: 'POST', // optional; omit to match any method (case-insensitive)
+  on: 'request', // 'request' | 'response' | 'both'
+  enabled: true,
+})
+```
+
+`addBreakpoint` returns the rule's `id` string. A `both` rule pauses at the request phase first; if resumed it pauses again at the response phase.
+
+### Rule fields
+
+| Field     | Type                | Default     | Description                                                |
+| --------- | ------------------- | ----------- | ---------------------------------------------------------- |
+| `pattern` | `string`            | —           | Substring matched against the request URL.                 |
+| `method`  | `string` (optional) | any         | HTTP method filter, case-insensitive (e.g. `'GET'`).       |
+| `on`      | `BreakpointPhase`   | `'request'` | Phase to pause on: `'request'`, `'response'`, or `'both'`. |
+| `enabled` | `boolean`           | —           | `false` disables the rule without removing it.             |
+| `id`      | `string` (optional) | auto        | Supply a stable ID or let the engine generate one.         |
+
+## Pause → edit → resume walkthrough
+
+<div class="hakka-shot">
+  <iframe
+    class="hakka-embed"
+    src="/embed/index.html?tab=breaks"
+    loading="lazy"
+    scrolling="no"
+    title="Live Hakka Breakpoints panel — add a rule by URL pattern and method, and choose whether to pause on the request, the response, or both"
+  ></iframe>
+</div>
+
+<Steps>
+
+1. **Add a rule** targeting the endpoint you want to intercept (see above). The rule stays inactive until a matching request fires.
+
+2. **Trigger the request** in your app — navigate to the screen, submit the form, or call the function that issues the fetch.
+
+3. **The overlay opens automatically** when a match is found. The Hakka inspector pauses the in-flight fetch and displays the editable fields for that phase.
+
+4. **Edit what you need.** For a request-phase pause you can change the URL, method, headers, or body. For a response-phase pause you can change the status code, headers, or body text.
+
+5. **Resume or abort.** Click **Resume** to send the edited request (or return the edited response to your code). Click **Abort** to cancel — the `fetch` call in your app receives a `TypeError('Aborted by Hakka')` and the request is recorded as failed (status `null`).
+
+6. **Verify it works.** Check that your app reacted to the edited data — the modified response should appear in your UI exactly as if the server had returned it.
+
+</Steps>
+
+## Managing rules
+
+```ts title="instrumentation.ts"
+// Disable a rule without removing it
+breakpointEngine.setEnabled(id, false)
+
+// Remove a rule
+breakpointEngine.removeBreakpoint(id)
+
+// Remove all rules
+breakpointEngine.clearBreakpoints()
+
+// Read back current rules
+const rules = breakpointEngine.getBreakpoints()
+```
+
+## Scripting API
+
+The overlay calls these internally, but you can drive breakpoints from scripts or tests:
+
+```ts title="test-helper.ts"
+// List currently held pauses
+const paused = breakpointEngine.getPaused()
+// → PausedEntry[]  (discriminated by .phase: 'request' | 'response')
+
+// Resume a request-phase pause with optional edits
+breakpointEngine.resume(pauseId, {
+  url: 'https://example.com/api/v2/orders',
+  headers: { 'x-custom': 'value' },
+})
+
+// Resume a response-phase pause with optional edits
+breakpointEngine.resume(pauseId, {
+  status: 200,
+  body: JSON.stringify({ ok: true }),
+})
+
+// Abort — recorded as a failed request (status null)
+breakpointEngine.abort(pauseId)
+
+// Resume all pending pauses (used on teardown)
+breakpointEngine.resumeAll()
+```
+
+### Editable fields by phase
+
+**Request phase** (`PausedRequest`):
+
+| Field     | Type                     |
+| --------- | ------------------------ |
+| `url`     | `string`                 |
+| `method`  | `string`                 |
+| `headers` | `Record<string, string>` |
+| `body`    | `string \| null`         |
+
+**Response phase** (`PausedResponse`):
+
+| Field     | Type                     |
+| --------- | ------------------------ |
+| `status`  | `number`                 |
+| `headers` | `Record<string, string>` |
+| `body`    | `string`                 |
+
+Passing `edits` to `resume()` is a partial update — omitted fields keep the original value.
+
+### Reacting to state changes
+
+```ts title="overlay.ts"
+const unsub = breakpointEngine.subscribe(() => {
+  const paused = breakpointEngine.getPaused()
+  const rules = breakpointEngine.getBreakpoints()
+  // update your UI
+})
+
+// Later:
+unsub()
+```
+
+`subscribe` calls the listener whenever rules or pending pauses change.
+
+## Caveats
+
+- Breakpoints apply to **fetch** only. XHR and WebSocket traffic passes through unpaused.
+- The response body is read to a string before the response-phase pause. Binary responses are coerced to text.
+- Breakpoints run on the main thread. A pause holds the intercepted `fetch` Promise until the overlay resolves it.
+- `resumeAll()` resumes every paused request without edits; call it on teardown to avoid dangling Promises.
+
+## Next steps
+
+<CardGrid>
+  <LinkCard
+    title="Mocking"
+    href="/features/mocking/"
+    description="Return synthetic responses for any URL pattern — no server required."
+  />
+  <LinkCard
+    title="hakka-core"
+    href="/core/overview/"
+    description="The engine that powers breakpoints and mocking across all Hakka hosts."
+  />
+  <LinkCard
+    title="Web overview"
+    href="/web/overview/"
+    description="Set up Hakka in a browser app with the hakka-browser package."
+  />
+</CardGrid>

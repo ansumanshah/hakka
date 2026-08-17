@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  // dts emit must NOT pull hakka-core source into the RN program (TS6059 rootDir).
+  // Exclude core source from `include` and clear the source `paths` alias so
+  // `hakka-core` resolves to its BUILT types (packages/hakka-core/dist) — core builds first.
+  "include": ["src/**/*"],
+  "exclude": ["example", "lib", "**/__tests__", "**/__mocks__"],
+  "compilerOptions": {
+    "paths": {}
+  }
+}

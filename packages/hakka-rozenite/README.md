@@ -1,0 +1,246 @@
+# hakka-rozenite
+
+> **Experimental.** Rozenite's plugin API is young and still moving (see
+> "Rozenite version" below) — treat this package's shape as likely to change
+> alongside it, not a stable contract. Built and tested against Rozenite
+> `1.13.0`; not yet verified against a real running app (see "What isn't
+> tested" below).
+
+Hakka's network inspector as a panel inside **React Native DevTools**, via
+[Rozenite](https://rozenite.dev). Renders the same
+[`hakka-browser/elements`](../hakka-browser/elements) custom elements the rest of the
+Hakka web ecosystem uses — `<hakka-request-list>`, `<hakka-request-detail>`,
+`<hakka-filter-bar>` — through their typed [`hakka-browser/react`](../hakka-browser/react)
+wrappers, fed live from [`hakka-react-native`](../hakka-react-native)'s
+capture stream.
+
+## Rozenite version this was built against
+
+Studied and implemented against the Rozenite monorepo at commit
+`3d7ab5307da9256e183d3a8dfd4e9bca00ce2960` (2026-06-24), which matches the
+`1.13.0` release published to npm for
+`rozenite`, `@rozenite/vite-plugin`, `@rozenite/plugin-bridge`, and
+`@rozenite/metro` (verified via `npm view <pkg> version` at the time this
+package was built). This package depends on `@rozenite/plugin-bridge@^1.13.0`
+and builds against `rozenite@^1.13.0`/`@rozenite/vite-plugin@^1.13.0`.
+
+The plugin contract this package relies on, confirmed by reading Rozenite's
+own docs (`website/src/docs/plugin-development/*.md`) and two official
+plugins (`packages/mmkv-plugin`, `packages/network-activity-plugin`) rather
+than assuming it from the getting-started guide alone:
+
+- **Package shape**: `rozenite.config.ts` (`panels: [{ name, source }]`),
+  an optional `react-native.ts` entry point, a `vite.config.ts` using
+  `rozenitePlugin()` from `@rozenite/vite-plugin`. `rozenite build` runs
+  `vite build` once per detected target (panels always; `react-native.ts`/
+  `metro.ts`/`sdk.ts` each add one more pass with `VITE_ROZENITE_TARGET` set)
+  and auto-syncs `package.json`'s `main`/`module`/`types`/`exports` fields to
+  match whichever entry points exist — confirmed by reading the CLI's
+  `syncPluginPackageJSON`, not just the docs.
+- **Messaging bridge**: both sides construct
+  `useRozeniteDevToolsClient<TEventMap>({ pluginId })` from
+  `@rozenite/plugin-bridge` — the exact same hook on the RN side and inside
+  the DevTools panel. `pluginId` must equal the package's `name` field (the
+  dev host fills it in from `package.json`, per Rozenite's own docs). The
+  hook picks its transport automatically: a CDP domain proxy
+  (`global.__FUSEBOX_REACT_DEVTOOLS_DISPATCHER__`) on the device side, or
+  `window.postMessage` to the parent frame inside the panel's iframe — both
+  produce the same `client.send(type, payload)` / `client.onMessage(type,
+cb)` / `client.close()` API, typed end-to-end by `TEventMap`.
+- **Panel = a React component.** `rozenite.config.ts`'s `panels[].source`
+  points at a plain React entry file rendered inside an iframe embedded in
+  React Native DevTools.
+
+## Data path: Rozenite plugin messaging, not the bridge hub
+
+The RN-side hook forwards `Hakka`'s capture stream to the panel over
+Rozenite's own `useRozeniteDevToolsClient` messaging, **not** by having the
+panel connect directly to the Hakka desktop bridge hub
+(`ws://localhost:8989`, `hakka-bridge`'s own protocol). Two things this
+package's design leans on to make that call:
+
+1. **Precedent at the same traffic volume.** Rozenite's own official
+   `@rozenite/network-activity-plugin` forwards live HTTP/WebSocket/SSE
+   traffic — the same kind of workload this package forwards — over this
+   exact same client messaging, with the same `client.send()` per request
+   shape this package uses. If that transport didn't hold up under live
+   network-capture volume, it would be the officially maintained network
+   plugin hitting the problem first, not this one.
+2. **Simpler dependency footprint for the common case.** A Rozenite user
+   already has React Native DevTools open and Rozenite configured in Metro/
+   Re.Pack — no separate desktop app or `ws://localhost:8989` listener has to
+   be running. Going through the bridge hub instead would mean the panel
+   depends on a _second_ transport (`hakka-bridge`'s WebSocket protocol) on
+   top of the one Rozenite already gives it for free.
+
+**Not yet load-tested against a real high-volume capture session** — this is
+a design decision made from reading Rozenite's own architecture and its
+official network plugin's precedent, not from profiling this package's own
+transport under load (there's no running RN DevTools session in this
+environment to profile against). If a real app later shows the Rozenite
+channel choking under volume (the CDP domain proxy's `postMessage`-per-event
+model is the plausible failure mode — many small frames rather than a
+batched stream), the fallback is to have the panel connect the same
+`hakka-core` `NetworkRequest` records directly to `ws://localhost:8989`
+instead, reusing `hakka-react-native`'s existing `HakkaBridge`/desktop wire
+protocol (`{ type: 'request', payload }` frames — see
+`hakka-react-native/src/core/HakkaBridge.ts`). That fallback is _not_
+implemented here — flagging it as the documented escape hatch rather than
+building it speculatively.
+
+**Did `@rozenite/network-activity-plugin` reveal a better transport
+pattern?** Read its RN-side wiring
+(`packages/network-activity-plugin/src/react-native/events-listener.ts`)
+looking for one, specifically. It sends one `client.send()` call per event —
+same shape this package uses, no batching or debouncing anywhere in its
+RN-side or shared code (checked). The one thing it has that this package's
+`react-native/bridge.ts` doesn't is `EventsListener`: a bounded (200-item,
+FIFO-drop-oldest) queue that buffers events captured _before_ the DevTools
+client connects, so boot-time traffic isn't lost while the CDP domain is
+still initializing. This package doesn't need an equivalent: `Hakka.getLogs()`
+is already `hakka-react-native`'s own persistent capture store, independent
+of whether any DevTools client has ever attached, so `createHakkaRozeniteBridge`
+just reads it directly (`flushBacklog()`) the moment the client becomes ready
+instead of maintaining a second, smaller-capacity duplicate buffer that could
+drop events their own capture registry never would. Net: no transport change
+adopted, because the one pattern worth considering turned out to solve a
+problem this package's architecture doesn't have.
+
+## Comparison with `@rozenite/network-activity-plugin`
+
+Rozenite ships an official read-and-write network plugin. Worth an honest,
+source-verified comparison rather than assuming this package is a strict
+upgrade — it isn't, on every axis.
+
+| Axis                   | `@rozenite/network-activity-plugin` (verified)                                                                                                                                                                                                                                     | `hakka-rozenite`                                                                                                                                                                                                                                                                                                                                                                                                                                           | Source                                                                                                                             |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Request list rendering | Renders every row directly — `table.getRowModel().rows.map(...)` over the full, unwindowed result set. No virtualization import anywhere in the 359-line file (`@tanstack/react-virtual`/`react-virtuoso` are dependencies of the package, but neither is used by this component). | `<hakka-request-list>` runs its own custom virtual-scroll window ("Flat virtualised view", `overscanPx`-based) — DOM node count stays bounded regardless of how many requests have been captured.                                                                                                                                                                                                                                                          | `packages/network-activity-plugin/src/ui/components/RequestList.tsx:327`; `packages/hakka-browser/src/ui/RequestList.tsx`          |
+| Filtering              | Checkbox/dropdown structured filters (`AdvancedFilterState`: methods, sources, status, domain, contentType, min/max size & duration) plus one plain substring text field. No scoped query syntax.                                                                                  | `hakka-core`'s scoped query DSL (`host:`, `header:`, `body:`, `status:`, `method:`, `dur>`, `size<`) via `<hakka-filter-bar>`, on top of the same kind of structured facets.                                                                                                                                                                                                                                                                               | `packages/network-activity-plugin/src/ui/state/filter.ts`; `packages/hakka-browser/src/ui/elements/filter-bar.tsx`'s `SCOPE_HINTS` |
+| Response mutation      | **Ships a real, working per-request response override today** — edit status/body, `actions.addOverride(url, { status, body })`. This is write capability already in production, not a gap.                                                                                         | **Not yet wired into this plugin** (v0.1.0 is read-only). `hakka-core` already has a full `mockEngine`/`ThrottleEngine` used elsewhere across the Hakka ecosystem (`hakka-react-native`'s Mocks/Throttle panels, `hakka mcp`'s `create_mock` tool) — bringing that into this panel over the same `control`-message channel `HakkaBridge`/`hakka mcp` already use is the natural next step, but it isn't built here. Noted as a real gap, not glossed over. | `packages/network-activity-plugin/src/ui/components/OverrideResponse.tsx`                                                          |
+| Response body viewer   | Also has a JSON tree (`components/JsonTree.tsx`), wired into its JSON response renderer and WS/SSE message tabs.                                                                                                                                                                   | `<hakka-request-detail>` has its own JSON viewer too.                                                                                                                                                                                                                                                                                                                                                                                                      | Verified on both sides — parity, not a differentiator either way                                                                   |
+| Theming                | shadcn-style default palette. Dark mode is literally 0%-saturation grayscale (`--background: 0 0% 3.9%`, `--foreground: 0 0% 98%`) — generic devtools gray.                                                                                                                        | Wok Hei design tokens: a warm, non-gray accent (`#E0761A` light theme / `#FF9500` dark theme) plus a full bg/surface/border/text scale, shared with the rest of the Hakka product line.                                                                                                                                                                                                                                                                    | `packages/network-activity-plugin/src/ui/globals.css`; `packages/hakka-browser/src/ui/presets.ts`                                  |
+| RN -> panel transport  | One `client.send()` per event; a bounded 200-item FIFO-drop-oldest pre-connect queue.                                                                                                                                                                                              | Same one-event-per-frame shape; no separate pre-connect queue — `Hakka.getLogs()` already the durable backlog (see above).                                                                                                                                                                                                                                                                                                                                 | `packages/network-activity-plugin/src/react-native/events-listener.ts`; `hakka-rozenite/src/react-native/bridge.ts`                |
+
+## Architecture
+
+```
+hakka-rozenite/
+├── rozenite.config.ts        # one panel: src/ui/App.tsx
+├── vite.config.ts            # rozenitePlugin() — drives `rozenite build`/`dev`
+├── react-native.ts           # lazy RN entry point (no-op in prod/web/SSR)
+└── src/
+    ├── shared/
+    │   └── protocol.ts        # HAKKA_ROZENITE_PLUGIN_ID + HakkaRozeniteEventMap
+    ├── react-native/
+    │   ├── bridge.ts           # createHakkaRozeniteBridge — pure, unit-tested
+    │   ├── bridge.test.ts
+    │   └── useHakkaRozeniteDevTools.ts   # thin hook: real client + real Hakka
+    └── ui/
+        ├── App.tsx             # the panel (FilterBar + RequestList + RequestDetail)
+        ├── App.test.tsx
+        ├── panelStore.ts       # store adapter fed by client messages
+        └── panelStore.test.ts
+```
+
+**RN side** (`useHakkaRozeniteDevTools()` — call once, alongside `useHakka()`):
+gets a Rozenite client, then `createHakkaRozeniteBridge` flushes `Hakka
+.getLogs()` as individual `request` frames, subscribes to `Hakka.onRequest`
+for live ones, and answers the panel's `get-snapshot`/`clear` messages.
+Imports `Hakka` straight from `hakka-core` — the same thing
+`hakka-react-native`'s own `HakkaBridge.ts` does for its desktop-bridge
+integration, rather than through `hakka-react-native`'s `./index` re-export.
+
+**Panel side** (`App.tsx`): gets a Rozenite client, builds a `panelStore`
+(`ui/panelStore.ts`) that mirrors incoming `request`/`cleared` frames into a
+`getSnapshot()`/`subscribe()`/`clear()`/`ingest()` shape, and passes that
+same store into both `<FilterBar store>` (host-suggestion ranking) and
+`<RequestList store>` (the actual capture mirror) from `hakka-browser/react` — those
+two wire together automatically via `hakka-browser/elements`' shared
+`FilterViewModel`/`SelectionViewModel` singletons, the same "two elements on
+one page share state with zero configuration" behavior documented in
+`hakka-browser/elements`' own README. Selecting a row passes the resolved
+`NetworkRequest` object directly into `<RequestDetail request>` — bypassing
+`hakka-browser/elements`' `request-id`-against-shared-store resolution entirely,
+since this plugin's store is never `hakka-browser/elements`' own default
+(`hakka-browser`-worker-backed) singleton.
+
+## Setup (once wired into an app)
+
+```ts
+// In your app, alongside useHakka():
+import { useHakkaRozeniteDevTools } from 'hakka-rozenite'
+
+function App() {
+  useHakka()
+  useHakkaRozeniteDevTools()
+  // ...
+}
+```
+
+Requires Rozenite configured in the app's Metro/Re.Pack config (see
+[Rozenite's own quick start](https://rozenite.dev/docs/getting-started)) —
+this package doesn't configure that for you, the same way every other
+Rozenite plugin doesn't.
+
+## Tests — what's covered, what needs a real app
+
+**Covered here** (`bun run --cwd packages/hakka-rozenite test`, happy-dom +
+vitest):
+
+- `react-native/bridge.test.ts` — the pure backlog-flush/live-forward/
+  `get-snapshot`/`clear` wiring, against a fake Rozenite client and a fake
+  `Hakka` facade. No real RN, no real Rozenite channel.
+- `ui/panelStore.test.ts` — the store adapter's upsert-by-id mirroring,
+  subscriber fan-out, `clear()`/`ingest()`/`destroy()` behavior, against a
+  fake client.
+- `ui/App.test.tsx` — mounts the real panel component with
+  `@rozenite/plugin-bridge`'s `useRozeniteDevToolsClient` mocked (its real
+  channel needs a CDP domain or a `postMessage`-connected parent frame,
+  neither of which exists under happy-dom). Verifies the connecting state,
+  that all three custom elements mount and register, that selecting a row in
+  the list shows it in the detail pane, and that unmounting tears down the
+  store's message-listener subscriptions.
+
+**Not covered — needs a real app with React Native DevTools open:**
+
+- `useHakkaRozeniteDevTools()` itself, calling the _real_
+  `useRozeniteDevToolsClient` — its channel depends on
+  `global.__FUSEBOX_REACT_DEVTOOLS_DISPATCHER__` (device) or a live
+  `postMessage`-connected parent (panel), neither reproducible in a unit
+  test.
+- Whether the RN <-> panel round trip actually holds up under a real capture
+  session's volume (see "Data path" above).
+- Whether `rozenite build`'s Metro/Re.Pack auto-discovery actually picks this
+  plugin up and mounts its panel in a real React Native DevTools sidebar.
+
+**Manual verification steps** (do this before calling the integration done):
+
+1. In a Rozenite-enabled RN app (or the Rozenite monorepo's own playground
+   app), `npm link`/`bun link` this package (and `hakka-browser/react`/
+   `hakka-browser/elements`/`hakka-core`/`hakka-react-native` alongside it).
+2. Call `useHakkaRozeniteDevTools()` once in the app, alongside `useHakka()`.
+3. `ROZENITE_DEV_MODE=hakka-rozenite npx react-native start` (or `expo
+start`), per Rozenite's own dev-mode docs, to load this plugin's panel
+   from `rozenite dev`'s live dev server instead of a built `dist/`.
+4. Open React Native DevTools; confirm a "Hakka" panel appears in the
+   sidebar.
+5. Trigger some network requests in the app; confirm they appear in the
+   panel's request list live, and that the detail pane and filter bar behave
+   as expected.
+6. Click "Clear" in the panel; confirm `Hakka.getLogCount()` in the app goes
+   to zero too (not just the panel's own view).
+
+## Known limitations
+
+- **`<RequestList>`'s "Load sample traffic" empty-state action only updates
+  the panel's own local mirror.** This plugin has no synthetic demo-data
+  source — all real traffic comes from the live device — so `ingest()` on
+  the store adapter never forwards anything back to the device. Documented
+  in `ui/panelStore.ts`'s own doc comment.
+- **No batching.** Every captured request is sent as its own
+  `client.send('request', ...)` call, mirroring
+  `hakka-react-native`'s own desktop-bridge behavior exactly (one frame per
+  request, no batch envelope) rather than introducing a new wire shape. If
+  the "Data path" section's volume concern turns out to be real in practice,
+  batching frames is one of the first things to try before falling back to
+  the bridge-hub escape hatch.

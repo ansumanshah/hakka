@@ -1,0 +1,29 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["react", "typescript", "unicorn", "oxc", "import"],
+  "categories": {
+    "correctness": "error",
+    "perf": "warn"
+  },
+  "rules": {
+    "typescript/consistent-type-imports": "warn",
+    "typescript/no-explicit-any": "warn",
+    "react/jsx-key": "error",
+    "react/self-closing-comp": "error",
+    "unicorn/prefer-node-protocol": "warn",
+    "import/no-cycle": "warn",
+    "no-unused-vars": "warn",
+    "react-hooks/exhaustive-deps": "warn"
+  },
+  "ignorePatterns": [
+    "**/node_modules",
+    "**/dist",
+    "**/lib",
+    "**/build",
+    "**/.build",
+    "examples/next-fullstack",
+    "docs/public/embed",
+    "packages/hakka-browser/e2e/fixtures/components-dist",
+    "docs/public/embed-components"
+  ]
+}

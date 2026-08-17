@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hakka perf fixture — open latency</title>
+  </head>
+  <body>
+    <!--
+      Fixture for e2e/overlay-open-latency.spec.ts.
+
+      `Hakka.start()` is called with NO `overlay` option, so it defaults to
+      `'launcher'` (see src/index.ts HakkaWebOptions) — a tiny vanilla
+      `aria-label="Open Hakka inspector"` button is mounted eagerly (zero
+      framework cost) and the heavy Solid UI + panel only load lazily the
+      moment it's clicked. That click is the real "closed FAB" cold-open path
+      production users hit every time they open the inspector, so the spec
+      measures exactly this: click -> lazy chunk fetch/eval -> store snapshot
+      -> first row rendered -> search input focusable.
+
+      Seeds a modest, realistic capture (20 requests, mixed methods/status) so
+      the list has real content to paint once opened — an empty-state render
+      would understate real-world latency.
+    -->
+    <script src="../../dist/hakka-browser.global.js"></script>
+    <script>
+      Hakka.start({ resourceTiming: false, captureBeacons: false, console: false })
+      const t = Date.now()
+      for (let i = 0; i < 20; i++) {
+        Hakka.ingest({
+          id: 'open-perf-' + i,
+          url: 'https://api.example.com/items/' + i,
+          method: i % 3 === 0 ? 'POST' : 'GET',
+          status: i % 7 === 0 ? 500 : 200,
+          startTime: t - (2000 - i * 50),
+          duration: 40 + (i % 10) * 20,
+          source: 'fetch',
+          responseHeaders: { 'content-type': 'application/json' },
+          contentType: 'application/json',
+        })
+      }
+    </script>
+  </body>
+</html>

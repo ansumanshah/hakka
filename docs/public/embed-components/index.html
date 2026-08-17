@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Hakka — standalone components</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #121110;
+        overflow: hidden;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+      }
+      #root {
+        position: fixed;
+        inset: 0;
+        display: flex;
+      }
+      #list-mount {
+        flex: 1.3;
+        min-width: 0;
+        height: 100%;
+      }
+      #stats-mount {
+        flex: 1;
+        min-width: 0;
+        height: 100%;
+        border-left: 1px solid rgba(255, 255, 255, 0.08);
+      }
+      hakka-request-list,
+      hakka-stats {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <!--
+    Standalone-components hero strip: mounts <hakka-request-list> + <hakka-stats> from
+    hakka-browser/elements directly (no <hakka-inspector> overlay, no panel shell) — this is
+    the "drop in one piece" story the /guides/build-your-own-devtools/ page documents, demonstrated
+    live rather than just described. Embedded via iframe into the splash hero
+    (src/content/docs/index.mdx) exactly like /embed/ embeds the full overlay.
+
+    Refresh this bundle with `just sync-embed-components`, which builds packages/hakka-browser
+    (packages/hakka-browser/vite.config.ts's `elements` mode → packages/hakka-browser/dist/elements/*.js) and copies the
+    output here, stripping //# sourceMappingURL comments — the same way `just sync-embed` does
+    for docs/public/embed/hakka-browser.global.js.
+  -->
+    <div id="root">
+      <div id="list-mount"></div>
+      <div id="stats-mount"></div>
+    </div>
+    <script type="module">
+      import { registerRequestList, registerStats } from './index.js'
+
+      registerRequestList()
+      registerStats()
+
+      // ── Minimal StoreClient-shaped adapter ──────────────────────────────────
+      // hakka-browser/elements has no fetch/XHR interceptors of its own (that
+      // lives in hakka-core's capture/ layer, out of this bundle's entry files) —
+      // the documented way to feed a standalone element data is the `store`
+      // property escape hatch (see the package README's "Theming" /
+      // request-list.tsx's own doc comment). This is a plain object satisfying
+      // just the subset of StoreClient these two elements actually call:
+      // ingest/subscribe/getSnapshot (+ matchIds, only reached by body/all-scoped
+      // filter queries, which this demo never issues).
+      function makeDemoStore() {
+        const logs = new Map()
+        const listeners = new Set()
+        return {
+          ingest(req) {
+            logs.set(req.id, req)
+            for (const cb of listeners) cb(req)
+          },
+          update(partial) {
+            const cur = logs.get(partial.id)
+            if (!cur) return
+            const merged = { ...cur, ...partial }
+            logs.set(partial.id, merged)
+            for (const cb of listeners) cb(merged)
+          },
+          subscribe(cb) {
+            listeners.add(cb)
+            return () => listeners.delete(cb)
+          },
+          getSnapshot() {
+            // Deferred (not `Promise.resolve([...logs.values()])`) on purpose: a
+            // consumer (StatsViewModel) calls this once at construction, then
+            // subscribes, and applies whichever resolves last — an eagerly
+            // captured array here would freeze at the pre-ingest (empty) state
+            // and clobber the live upserts subscribe() already delivered. A real
+            // StoreClient's getSnapshot reflects state at resolution time (a
+            // genuine async round-trip); this adapter matches that.
+            return Promise.resolve().then(() => [...logs.values()])
+          },
+          matchIds() {
+            return Promise.resolve([])
+          },
+          clear() {
+            logs.clear()
+          },
+          configure() {},
+          applyResourceTiming() {},
+          exportHar: () => Promise.resolve('{}'),
+          exportOtel: () => Promise.resolve('{}'),
+          exportPostman: () => Promise.resolve('{}'),
+          getBody: () => Promise.resolve(null),
+          getBodies: () => Promise.resolve(new Map()),
+          bridgeConnect() {},
+          bridgeDisconnect() {},
+          onBridgeStatus: () => () => {},
+          getBridgeStatus: () => ({ state: 'disconnected' }),
+          usingWorker: false,
+          destroy() {
+            listeners.clear()
+            logs.clear()
+          },
+        }
+      }
+
+      function buildDemoRequests() {
+        const hosts = ['api.example.com', 'cdn.example.com', 'auth.example.com']
+        const methods = ['GET', 'GET', 'GET', 'POST', 'DELETE']
+        const paths = ['/users/42', '/feed?page=2', '/posts/9', '/login', '/search?q=hakka', '/avatar.png']
+        const now = Date.now()
+        const reqs = []
+        for (let i = 0; i < 14; i++) {
+          const status = i === 4 ? 500 : i === 9 ? 404 : 200
+          reqs.push({
+            id: `demo-${i}`,
+            url: `https://${hosts[i % hosts.length]}${paths[i % paths.length]}`,
+            method: methods[i % methods.length],
+            status,
+            startTime: now - (14 - i) * 900,
+            duration: 40 + ((i * 37) % 260),
+            source: 'fetch',
+            responseHeaders: { 'content-type': 'application/json' },
+            contentType: 'application/json',
+          })
+        }
+        return reqs
+      }
+
+      const store = makeDemoStore()
+
+      // Elements are created (not written as static markup) so `.store` can be
+      // set BEFORE the element connects — the view-model that backs each
+      // element is constructed once, on first read of `props.store`, so setting
+      // the property after the element has already upgraded has no effect
+      // (see packages/hakka-browser/src/ui/elements/request-list.test.tsx's own
+      // "set the property BEFORE connecting" case for the same constraint).
+      const list = document.createElement('hakka-request-list')
+      list.setAttribute('compact', 'true')
+      // The shared stylesheet these elements reuse from the floating overlay
+      // sets `pointer-events: none` on :host by default (so the overlay never
+      // intercepts clicks on the host page outside its own panel) — none of the
+      // six standalone elements re-enable it on themselves, so a bare host embed
+      // needs this set explicitly or row clicks/filter interaction never
+      // hit-test through. Documented in /guides/build-your-own-devtools/.
+      list.style.pointerEvents = 'auto'
+      list.store = store
+      document.getElementById('list-mount').appendChild(list)
+
+      const stats = document.createElement('hakka-stats')
+      stats.style.pointerEvents = 'auto'
+      stats.store = store
+      document.getElementById('stats-mount').appendChild(stats)
+
+      for (const req of buildDemoRequests()) store.ingest(req)
+    </script>
+  </body>
+</html>

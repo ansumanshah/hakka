@@ -1,0 +1,40 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    ignore:
+      - dependency-name: react-native
+        update-types:
+          - version-update:semver-major
+      - dependency-name: react-native-reanimated
+        update-types:
+          - version-update:semver-major
+      - dependency-name: react-native-worklets
+        update-types:
+          - version-update:semver-major
+  - package-ecosystem: gradle
+    directory: /android
+    schedule:
+      interval: weekly
+    ignore:
+      - dependency-name: com.android.tools.build:gradle
+        update-types:
+          - version-update:semver-major
+      - dependency-name: org.jetbrains.kotlin.android
+        update-types:
+          - version-update:semver-major
+      - dependency-name: org.jetbrains.kotlin.jvm
+        update-types:
+          - version-update:semver-major
+      - dependency-name: com.squareup.okhttp3:okhttp
+        update-types:
+          - version-update:semver-major
+      - dependency-name: androidx.core:core-ktx
+        update-types:
+          - version-update:semver-major

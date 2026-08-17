@@ -1,0 +1,151 @@
+---
+title: Hakka
+description: Local-first network inspection for React Native, the web, Next.js, Android, and iOS.
+template: splash
+tableOfContents: false
+---
+
+import { Card, CardGrid, LinkCard, Aside, Badge } from '@astrojs/starlight/components'
+import HakkaIcon from '../../components/HakkaIcon.astro'
+
+{/* Hide Starlight's auto-rendered frontmatter title on the splash home — the custom hero has its own h1. Scoped to this page only. */}
+
+<style>{'.content-panel > .sl-container > h1 { display: none; }'}</style>
+
+<div class="hakka-hero">
+  <div>
+    <HakkaIcon id="hakka-hero" size={76} class="hakka-hero-mark" />
+    <span class="hakka-eyebrow">Local-first · no proxy · no cloud</span>
+    <h1>
+      Inspect every request,
+      <br />
+      <span class="hakka-grad">right inside your app.</span>
+    </h1>
+    <p class="hakka-sub">
+      One engine for React Native, web, Next.js, Android, and iOS. In-process capture — no certificate, no account.
+    </p>
+    <div class="hakka-cta">
+      <a class="hakka-btn primary" href="/getting-started/install/">
+        Get started
+      </a>
+      <a class="hakka-btn secondary" href="/getting-started/overview/">
+        Why Hakka
+      </a>
+    </div>
+    <div class="hakka-install">
+      $ <b>npx hakka init</b>
+    </div>
+  </div>
+  <div class="hakka-shot-wrap">
+    <span class="hakka-tag">live · interactive</span>
+    <div class="hakka-shot">
+      <iframe
+        class="hakka-embed"
+        src="/embed/index.html"
+        loading="lazy"
+        scrolling="no"
+        title="Live Hakka inspector seeded with example traffic — scroll the list, tap a request, switch tabs"
+      ></iframe>
+    </div>
+  </div>
+</div>
+
+<div class="hakka-strip">
+  <span>Works in</span> <b>React Native</b> · <b>Web</b> · <b>Next.js</b> · <b>Android</b> · <b>iOS</b>
+</div>
+
+<div class="hakka-components-strip">
+  <div class="hakka-components-head">
+    <span class="hakka-tag hakka-components-tag">standalone · live</span>
+    <p>
+      Don't want the whole overlay? <code>hakka-browser/elements</code> ships the same pieces as framework-agnostic
+      custom elements — drop in just a request list, or just stats, anywhere in your own UI.
+    </p>
+  </div>
+  <div class="hakka-shot hakka-components-shot">
+    <iframe
+      class="hakka-embed hakka-components-embed"
+      src="/embed-components/index.html"
+      loading="lazy"
+      scrolling="no"
+      title="Standalone <hakka-request-list> and <hakka-stats> custom elements, seeded with synthetic traffic — no overlay, no panel shell"
+    ></iframe>
+  </div>
+  <p class="hakka-components-caption">
+    <a href="/guides/build-your-own-devtools/">Build your own devtools with them →</a>
+  </p>
+</div>
+
+<Aside type="tip" title="Local-first, always">
+  Hakka runs entirely on your machine. No account, no cloud, no data leaves your device — safe to point at real traffic
+  while you build.
+</Aside>
+
+## Pick your platform
+
+<CardGrid>
+  <LinkCard
+    title="React Native"
+    href="/react-native/package/"
+    description="Capture fetch, XHR, WebSocket, and native OkHttp/URLSession. Zero proxy."
+  />
+  <LinkCard title="Expo" href="/react-native/expo/" description="Use a development build. Expo Go is not supported." />
+  <LinkCard title="Web" href="/web/overview/" description="A Shadow-DOM overlay for any browser app." />
+  <LinkCard
+    title="Next.js"
+    href="/nextjs/overview/"
+    description="Server + client traffic in one inspector. Two one-line files."
+  />
+  <LinkCard title="Android" href="/android/sdk/" description="Maven artifacts with a debug/release no-op split." />
+  <LinkCard title="iOS" href="/ios/sdk/" description="Swift Package products with a no-op release variant." />
+</CardGrid>
+
+## What works where
+
+| Capability                      |              React Native               |                    Web                    |                  Next.js                  |                  iOS                  |                Android                |
+| ------------------------------- | :-------------------------------------: | :---------------------------------------: | :---------------------------------------: | :-----------------------------------: | :-----------------------------------: |
+| Status                          | <Badge text="Beta" variant="caution" /> | <Badge text="Stable" variant="success" /> | <Badge text="Stable" variant="success" /> | <Badge text="Alpha" variant="note" /> | <Badge text="Alpha" variant="note" /> |
+| HTTP capture (fetch/XHR/native) |                    ●                    |                     ●                     |                     ●                     |                   ●                   |                   ●                   |
+| WebSocket                       |                    ●                    |                     ●                     |                     —                     |                   ◐                   |                   ◐                   |
+| Timing waterfall                |                    ●                    |                     ●                     |                     ●                     |                   ●                   |                   ●                   |
+| Mocking & throttling            |                    ●                    |                     ●                     |                     ●                     |                   ●                   |                   ●                   |
+| Breakpoints (pause & edit)      |                    ●                    |                     ●                     |                     ●                     |                   ●                   |                   ●                   |
+| Release-safe no-op build        |                    ●                    |                     ●                     |                     ●                     |                   ●                   |                   ●                   |
+
+<p style="font-size:0.85em;opacity:0.75">
+  ● full · ◐ metadata only (message count + close code, opt-in) · — not yet. WebSocket frame payloads need the JS layer.
+</p>
+
+<p style="font-size:0.85em;opacity:0.75">
+  Alpha: works from source in this repo; published packages (Maven Central, the SPM tag) aren't out yet. Beta: works and
+  ships on npm, with less production soak time than the Stable platforms.
+</p>
+
+## Do more
+
+<CardGrid>
+  <Card title="Breakpoints" icon="code-branch">
+    Pause a request or response in-flight, edit it, and resume — the Charles/Proxyman trick, in-process. [Read
+    more](/features/breakpoints/)
+  </Card>
+  <Card title="Mocking & throttling" icon="list-format">
+    Canned responses, block, Map Remote redirect, rewrite, and slow-network profiles. [Read more](/features/mocking/)
+  </Card>
+  <Card title="Ship it safely" icon="approve-check">
+    Zero overhead in production builds. [Production safety](/guides/production-safety/)
+  </Card>
+  <Card title="Ask your AI agent" icon="comment-alt">
+    Query live captured traffic from Claude Code via the [MCP server](/mcp/overview/).
+  </Card>
+</CardGrid>
+
+## New here?
+
+<CardGrid>
+  <LinkCard
+    title="Install Hakka"
+    href="/getting-started/install/"
+    description="Pick your platform and capture your first request."
+  />
+  <LinkCard title="How it works" href="/getting-started/overview/" description="The 3-minute architecture tour." />
+</CardGrid>

@@ -1,0 +1,70 @@
+---
+title: iOS SDK
+description: Swift products, URLProtocol capture, and optional UI/performance packages.
+---
+
+import { Badge } from '@astrojs/starlight/components'
+
+<Badge text="Alpha" variant="note" /> Works from source today; the SPM semver tag isn't published yet.
+
+iOS capture uses `URLProtocol` and a Swift `CaptureProcessor` for serial
+post-processing. URLProtocol callbacks should capture facts and return control;
+normalization and store mutation stay off callback paths.
+
+:::caution[WebSocket capture is metadata-only on iOS]
+`HakkaNetwork`'s `URLProtocol` HTTP capture sees the HTTP/1.1 Upgrade request but not WebSocket frames after the protocol is established — Apple's networking stack handles framing below the `URLProtocol` layer.
+
+Opt in to a native WebSocket monitor with `captureNativeWebSocket: true` in `HakkaConfig` (or `enableNativeWebSocket()`): it observes `URLSessionWebSocketTask` connections and records **metadata** — message count and close code — but **not** individual frame payloads. For full frame-level message capture, use the React Native package with `mode: 'js'` or `mode: 'auto'`.
+:::
+
+## Products
+
+| Product                | Purpose                                        |
+| ---------------------- | ---------------------------------------------- |
+| `HakkaCommon`          | records, config, storage, redaction, and sinks |
+| `HakkaNetwork`         | URLProtocol capture and export helpers         |
+| `HakkaNetworkNoop`     | release-safe no-op network API                 |
+| `HakkaPerformance`     | optional frame, memory, and CPU collectors     |
+| `HakkaPerformanceNoop` | no-op performance API                          |
+| `HakkaUI`              | optional SwiftUI inspector                     |
+
+## Core Rule
+
+Swift core remains Foundation-first. SwiftUI belongs in `HakkaUI`, not the base
+network product.
+
+## Inspector UI (`HakkaUI`)
+
+The inspector is a 5-tab bottom nav: **Network · Stats · Logs · Rules · Storage**.
+
+- **Settings is not a tab.** It's a header gear icon present on every tab, opened
+  as its own sheet from wherever you are — not a bottom-bar slot.
+- **Logs** has a Console/Structured segmented switch at the top instead of
+  spending two tab slots on them: Console shows unstructured `HakkaConsole`
+  output, Structured shows `LogEntry` records from `HakkaInterceptor.log(...)`.
+- **Stats** is the old standalone Monitor/Dashboard sheet, now a first-class tab
+  the same way RN, Android, and web already treat their stats panel, instead of
+  something reached only via a shortcut button.
+- **Rules** merges Breakpoints and Throttle behind a segmented switch — both
+  shape traffic before it reaches the app, so they don't need separate tabs.
+- Filter chrome on Network is search + method chips + a **"Filters +n"**
+  disclosure trigger — status-class chips, domain chips, and sort/group live
+  behind it, collapsed by default; the `+n` badge is the only tell anything's
+  active while it's collapsed.
+- Request rows are a 64pt minimum two-line layout (method + path, then status +
+  host on the second line) — a floor, not a cap, so rows grow under larger
+  Dynamic Type sizes instead of clipping.
+
+## Swift-JSI Direction
+
+Hakka is not adding direct Swift-JSI for the pre-1.0 release. That path becomes
+interesting only if profiling shows bridge overhead dominates in a release-like
+React Native app, or if Hakka needs high-frequency synchronous calls, host
+objects, or typed-array access across the JS/native boundary.
+
+## Validate
+
+```bash
+bun run build:ios
+bun run test:ios
+```

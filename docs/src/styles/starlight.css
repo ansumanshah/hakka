@@ -1,0 +1,444 @@
+/* Brand fonts — Manrope (body), Space Grotesk (display/headings), JetBrains Mono (code) */
+@import '@fontsource-variable/manrope';
+@import '@fontsource-variable/space-grotesk';
+@import '@fontsource-variable/jetbrains-mono';
+
+/* ── Hakka theme — "Wok Hei": warm graphite ground, flame accent, jade signal ── */
+
+:root {
+  --hakka-accent: #ee8320;
+  --hakka-accent-2: #3aa981;
+  --hakka-grad: linear-gradient(120deg, var(--hakka-accent), var(--hakka-accent-2));
+
+  /* dark (default) */
+  --sl-color-accent-low: #3a2611;
+  --sl-color-accent: #ee8320;
+  --sl-color-accent-high: #ffd9ae;
+  --sl-color-white: #ede8e2;
+  --sl-color-gray-1: #d8d2c8;
+  --sl-color-gray-2: #a8a296;
+  --sl-color-gray-3: #857f74;
+  --sl-color-gray-4: #4a463f;
+  --sl-color-gray-5: #35302a;
+  --sl-color-gray-6: #1a1816;
+  --sl-color-black: #121110;
+
+  --sl-font: 'Manrope Variable', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --sl-font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --hakka-font-display: 'Space Grotesk Variable', var(--sl-font);
+}
+
+:root[data-theme='light'] {
+  --sl-color-accent-low: #fbe3c8;
+  --sl-color-accent: #e0761a;
+  --sl-color-accent-high: #7a3c0c;
+  --sl-color-white: #21201c;
+  --sl-color-gray-1: #33312b;
+  --sl-color-gray-2: #57534a;
+  --sl-color-gray-3: #8b857a;
+  --sl-color-gray-4: #ddd6c8;
+  --sl-color-gray-5: #e2ddd2;
+  --sl-color-gray-6: #f2efe8;
+  --sl-color-black: #faf8f4;
+  --hakka-accent: #e0761a;
+  --hakka-accent-2: #2f8e6c;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background:
+    radial-gradient(900px 520px at 82% -6%, rgba(238, 131, 32, 0.14), transparent 60%),
+    radial-gradient(680px 420px at 4% 2%, rgba(58, 169, 129, 0.1), transparent 55%), var(--sl-color-black);
+}
+
+/* ── Scrollbars — thin, token-colored, both themes ──────────────────────────
+   Applies to the page root and inherits (scrollbar-color/-width are inherited
+   CSS properties) into every overflow container below: the sidebar nav, the
+   "on this page" rail, code blocks, and wide tables. Wide content scrolls
+   inside its own box; the page body never scrolls horizontally. */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--sl-color-gray-4) transparent;
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: var(--sl-color-gray-4);
+  border-radius: 999px;
+  border: 2px solid var(--sl-color-black);
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--hakka-accent);
+}
+
+.site-title {
+  font-family: var(--hakka-font-display);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* Display font for headings — keeps the brand voice in titles */
+.sl-markdown-content :is(h1, h2, h3) {
+  font-family: var(--hakka-font-display);
+  letter-spacing: -0.015em;
+}
+
+.sl-markdown-content code {
+  border-radius: 6px;
+}
+
+/* Expressive Code blocks scroll a long line inside their own box rather than
+   the page; give that scrollbar the same thin, token-colored treatment. Font,
+   padding, radius, and surface colors are set via the `expressiveCode`
+   styleOverrides in astro.config.mjs so they stay theme-aware automatically. */
+.expressive-code pre {
+  scrollbar-width: thin;
+  scrollbar-color: var(--sl-color-gray-4) transparent;
+}
+.expressive-code pre::-webkit-scrollbar {
+  height: 8px;
+}
+
+/* Scannable tables (capture-scope + capability matrices) */
+.sl-markdown-content table {
+  font-size: 0.9em;
+  /* The capability matrix (7 columns) and the elements subpath table are both
+     wider than the 720px prose column. Without this they simply spilled past it
+     and ran under the "On this page" rail — `display: block` lets the table
+     scroll inside its own box instead, which is also the rule the artifact
+     guidelines want: wide content scrolls, the page body never does. */
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--sl-color-gray-4) transparent;
+}
+.sl-markdown-content table::-webkit-scrollbar {
+  height: 8px;
+}
+.sl-markdown-content table th {
+  background: var(--sl-color-gray-6);
+}
+
+/* Cards (CardGrid / LinkCard) — subtle lift on hover */
+.sl-markdown-content .card,
+.sl-markdown-content .sl-link-card {
+  border-color: var(--sl-color-gray-5);
+  background: color-mix(in oklab, var(--sl-color-gray-6) 80%, transparent);
+  transition:
+    border-color 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+.sl-markdown-content .card:hover,
+.sl-markdown-content .sl-link-card:hover {
+  border-color: color-mix(in oklab, var(--hakka-accent) 55%, var(--sl-color-gray-5));
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px -18px rgba(238, 131, 32, 0.42);
+}
+.sl-markdown-content .card .icon {
+  color: var(--hakka-accent);
+  background: color-mix(in oklab, var(--hakka-accent) 14%, transparent);
+  border: 1px solid color-mix(in oklab, var(--hakka-accent) 26%, transparent);
+}
+
+/* Inline inspector screenshots — framed, never raw */
+.sl-markdown-content img[src*='screenshots/'] {
+  border-radius: 12px;
+  border: 1px solid var(--sl-color-gray-5);
+  box-shadow: 0 30px 70px -34px rgba(0, 0, 0, 0.7);
+}
+
+/* ── Controls — one recipe for every interactive control on the site ─────────
+   Site radius (10px, matching the Expressive Code block radius in
+   astro.config.mjs and the inline-screenshot 12px) applied to pagination
+   cards and the search trigger; a visible, token-colored focus ring
+   (--hakka-accent) everywhere, in both themes. Starlight's own <Select>
+   (theme/language switchers) already lays out left-aligned with
+   text-overflow: ellipsis — left untouched. */
+:root {
+  --hakka-ctl-radius: 10px;
+  --hakka-focus-ring: 0 0 0 3px color-mix(in oklab, var(--hakka-accent) 45%, transparent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--hakka-accent);
+  outline-offset: 2px;
+}
+
+/* The hero CTAs sit on a gradient/dark-on-dark background where a thin
+   outline alone can lose contrast — add the token-colored ring as a second,
+   layered cue. */
+.hakka-btn:focus-visible {
+  outline-offset: 3px;
+  box-shadow: var(--hakka-focus-ring);
+}
+
+/* Search trigger button (site-search) — align its radius to the shared
+   control radius instead of Starlight's own default. */
+site-search > button[data-open-modal] {
+  border-radius: var(--hakka-ctl-radius);
+}
+
+/* Pagefind's search-results UI exposes these as its official theming API
+   (see pagefind docs) — wire it to the site's own tokens instead of its
+   generic default purple/gray. */
+.search-container {
+  --pagefind-ui-primary: var(--hakka-accent);
+  --pagefind-ui-text: var(--sl-color-white);
+  --pagefind-ui-background: var(--sl-color-black);
+  --pagefind-ui-border: var(--sl-color-gray-5);
+  --pagefind-ui-border-width: 1px;
+  --pagefind-ui-border-radius: var(--hakka-ctl-radius);
+  --pagefind-ui-font: var(--sl-font);
+}
+
+/* Prev/next pagination cards — same radius as the rest of the control
+   recipe (Starlight's own default is a smaller, mismatched 0.5rem). */
+.pagination-links a {
+  border-radius: var(--hakka-ctl-radius);
+}
+.pagination-links a:hover {
+  border-color: color-mix(in oklab, var(--hakka-accent) 45%, var(--sl-color-gray-2));
+}
+
+/* ── Custom landing hero (used on the splash homepage) ───────────────────────── */
+
+.hakka-hero {
+  display: grid;
+  grid-template-columns: 1.02fr 1.16fr;
+  gap: 3.4rem;
+  align-items: center;
+  padding: 2.5rem 0 1rem;
+}
+@media (max-width: 56rem) {
+  .hakka-hero {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+}
+.hakka-hero-mark {
+  margin-bottom: 1.2rem;
+  cursor: pointer;
+  filter: drop-shadow(0 10px 26px rgba(238, 131, 32, 0.32));
+}
+
+.hakka-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-family: var(--sl-font-mono);
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+  color: var(--hakka-accent);
+  border: 1px solid var(--sl-color-gray-5);
+  background: var(--sl-color-gray-6);
+  padding: 0.4rem 0.8rem;
+  border-radius: 999px;
+  margin-bottom: 1.4rem;
+}
+.hakka-eyebrow::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--hakka-accent);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--hakka-accent) 22%, transparent);
+}
+.hakka-hero h1 {
+  font-family: var(--hakka-font-display);
+  font-weight: 700;
+  font-size: clamp(2.6rem, 5vw, 3.9rem);
+  line-height: 1.02;
+  letter-spacing: -0.025em;
+  margin: 0 0 1.1rem;
+}
+.hakka-grad {
+  background: var(--hakka-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.hakka-sub {
+  font-size: 1.15rem;
+  line-height: 1.55;
+  color: var(--sl-color-gray-3);
+  max-width: 34ch;
+  margin: 0 0 1.7rem;
+}
+.hakka-cta {
+  display: flex;
+  gap: 0.8rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.hakka-btn {
+  font-weight: 700;
+  font-size: 0.95rem;
+  height: 48px;
+  padding: 0 1.35rem;
+  border-radius: var(--hakka-ctl-radius);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+.hakka-btn.primary {
+  background: var(--hakka-grad);
+  color: #121110;
+  box-shadow: 0 12px 30px -10px rgba(58, 169, 129, 0.42);
+}
+.hakka-btn.secondary {
+  color: var(--sl-color-white);
+  border: 1px solid var(--sl-color-gray-5);
+  background: var(--sl-color-gray-6);
+}
+.hakka-install {
+  margin-top: 1.3rem;
+  font-family: var(--sl-font-mono);
+  font-size: 0.85rem;
+  color: var(--sl-color-gray-4);
+}
+.hakka-install b {
+  color: var(--hakka-accent);
+  font-weight: 500;
+}
+.hakka-shot {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--sl-color-gray-5);
+  box-shadow:
+    0 44px 90px -30px rgba(0, 0, 0, 0.82),
+    0 0 0 1px rgba(238, 131, 32, 0.08);
+}
+.hakka-shot img {
+  display: block;
+  width: 100%;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+}
+.hakka-embed {
+  display: block;
+  width: 100%;
+  /* One consistent rule across desktop and mobile: scale by width, never shorter
+     than a usable height. The min-height floor keeps the inspector legible on
+     narrow phones without flipping aspect ratios at a breakpoint. */
+  aspect-ratio: 16 / 10;
+  min-height: 360px;
+  border: 0;
+  background: #121110;
+  color-scheme: dark;
+}
+/* The hero label sits ABOVE the embed, not on top of it. Absolutely positioning
+   it inside `.hakka-shot` parked it right over the inspector's own tab bar,
+   covering the "NETWORK" tab in the one screenshot the landing page leads with.
+   `.hakka-components-tag` already used a static, above-the-frame treatment —
+   this makes the two consistent. */
+.hakka-shot-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+.hakka-shot-wrap .hakka-shot {
+  width: 100%;
+}
+.hakka-tag {
+  position: static;
+  align-self: flex-start;
+  white-space: nowrap;
+  font-family: var(--sl-font-mono);
+  font-size: 0.68rem;
+  color: #121110;
+  background: var(--hakka-accent);
+  padding: 0.25rem 0.55rem;
+  border-radius: 7px;
+  font-weight: 600;
+}
+.hakka-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.4rem;
+  color: var(--sl-color-gray-4);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.5rem 0 1.5rem;
+}
+.hakka-strip b {
+  color: var(--hakka-accent);
+  font-weight: 700;
+}
+
+/* ── Standalone-components strip (splash homepage, additive to the main hero) ── */
+
+.hakka-components-strip {
+  padding: 0.5rem 0 2rem;
+}
+.hakka-components-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.9rem;
+}
+.hakka-components-tag {
+  position: static;
+  flex-shrink: 0;
+}
+.hakka-components-head p {
+  margin: 0;
+  color: var(--sl-color-gray-3);
+  font-size: 0.95rem;
+  max-width: 62ch;
+}
+.hakka-components-head code {
+  font-size: 0.88em;
+}
+.hakka-components-shot {
+  aspect-ratio: unset;
+}
+.hakka-components-embed {
+  aspect-ratio: 16 / 6;
+  min-height: 260px;
+  background: #121110;
+}
+/* The strip is a fixed-height window onto a taller list, so its bottom edge cut
+   a request row (and a stats bar) clean in half — which read as a broken
+   render rather than "there is more below". Fading the last few pixels makes
+   the crop deliberate. */
+.hakka-components-shot {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent 100%);
+}
+.hakka-components-caption {
+  margin: 0.7rem 0 0;
+  font-size: 0.85rem;
+}
+.hakka-components-caption a {
+  color: var(--hakka-accent);
+  font-weight: 600;
+}
+@media (max-width: 40rem) {
+  .hakka-components-embed {
+    aspect-ratio: 4 / 5;
+    min-height: 420px;
+  }
+}
+
+/* Sidebar badges: keep them on the same line as the link label. A long badge
+   ("Zero prod impact") wrapped onto its own row and shifted the entries around
+   it, which is what made the nav look misaligned. Shortened at the source too. */
+.sidebar-content .sl-badge {
+  white-space: nowrap;
+  flex-shrink: 0;
+}

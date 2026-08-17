@@ -1,0 +1,54 @@
+{
+  "name": "hakka",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "packages/hakka-react-native/examples/*",
+    "docs"
+  ],
+  "type": "module",
+  "scripts": {
+    "build": "bun run --cwd packages/hakka-core build && bun run --cwd packages/hakka-browser build && bun run --cwd packages/hakka-bridge build && bun run --cwd packages/hakka-node build && bun run --cwd packages/hakka-react-native build && bun run --cwd packages/hakka build && bun run --cwd packages/hakka-rozenite build",
+    "typecheck": "bun run --cwd packages/hakka-core typecheck && bun run --cwd packages/hakka-browser typecheck && bun run --cwd packages/hakka-bridge typecheck && bun run --cwd packages/hakka-node typecheck && bun run --cwd packages/hakka-react-native typecheck && bun run --cwd packages/hakka typecheck && bun run --cwd packages/hakka-rozenite typecheck",
+    "test": "bun run --cwd packages/hakka-react-native test && bun run --cwd packages/hakka-browser test && bun run --cwd packages/hakka-core test && bun run --cwd packages/hakka-bridge test && bun run --cwd packages/hakka-node test && bun run --cwd packages/hakka test && bun run --cwd packages/hakka-rozenite test",
+    "lint": "oxlint .",
+    "fmt": "oxfmt --write .",
+    "fmt:check": "oxfmt --check .",
+    "cleanup:check": "bunx knip --include files,exports,types,dependencies,devDependencies --no-progress --treat-config-hints-as-errors",
+    "docs:dev": "bun run --cwd docs dev",
+    "docs:build": "bun run --cwd docs build",
+    "docs:preview": "bun run --cwd docs preview",
+    "build:android": "cd android && ./gradlew :hakka-common:build :hakka-network:build :hakka-network-noop:build :hakka-performance:build :hakka-performance-noop:build :hakka-ui:build",
+    "build:ios": "cd ios && swift build",
+    "test:android": "cd android && ./gradlew :hakka-common:test :hakka-network:test :hakka-network-noop:test :hakka-performance:test :hakka-performance-noop:test :hakka-ui:test",
+    "test:ios": "cd ios && swift test",
+    "size:android": "scripts/android-size-gate.sh",
+    "pack:npm:dry-run": "for p in packages/*/; do (cd \"$p\" && npm pack --dry-run); done",
+    "phase:verify": "scripts/phase-verify.sh local",
+    "phase:verify:ci": "scripts/phase-verify.sh ci",
+    "phase:verify:full": "scripts/phase-verify.sh full",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "prepare": "lefthook install --force"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.31.1",
+    "@tsconfig/react-native": "^3.0.9",
+    "lefthook": "2.1.10",
+    "oxfmt": "^0.63.0",
+    "oxlint": "^1.78.0",
+    "typescript": "^7.0.2"
+  },
+  "overrides": {
+    "@babel/plugin-transform-modules-systemjs": "^7.29.7",
+    "@babel/preset-env": "^7.29.7",
+    "picomatch": "^2.3.2 || ^4.0.4",
+    "react": "19.2.3",
+    "react-test-renderer": "19.2.3",
+    "vite-plugin-dts": "^5.0.3"
+  },
+  "packageManager": "bun@1.3.14",
+  "patchedDependencies": {
+    "@solidjs/web@2.0.0-rc.0": "patches/@solidjs%2Fweb@2.0.0-rc.0.patch"
+  }
+}

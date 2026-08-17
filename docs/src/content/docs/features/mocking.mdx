@@ -1,0 +1,259 @@
+---
+title: Mocking & Throttling
+description: Intercept requests with canned responses, rewrites, blocks, and redirects; simulate slow or offline network conditions — all local, no proxy required.
+---
+
+import { Tabs, TabItem, Steps, Aside, Card, CardGrid, LinkCard } from '@astrojs/starlight/components'
+
+<Aside type="tip" title="What this does">
+  Return canned responses, block endpoints, redirect (Map Remote), or rewrite real requests/responses — and simulate
+  slow networks — all in-process. No proxy, no certificate, no cloud account.
+</Aside>
+
+<div class="hakka-shot">
+  <iframe
+    class="hakka-embed"
+    src="/embed/index.html?tab=mock"
+    loading="lazy"
+    scrolling="no"
+    title="Live Hakka Mock panel — add a rule by URL pattern, method, and action (Mock, Redirect, or Block)"
+  ></iframe>
+</div>
+
+## When to use it
+
+| Situation                               | Mode to reach for             |
+| --------------------------------------- | ----------------------------- |
+| Test a UI flow without a real server    | `mock`                        |
+| Simulate an API error or empty state    | `mock` with `status: 4xx/5xx` |
+| Block an analytics endpoint in dev      | `block`                       |
+| Point production API calls at localhost | `redirectTo` (Map Remote)     |
+| Inject a header or reshape a response   | `rewrite`                     |
+| Reproduce a flaky connection            | `ThrottleEngine`              |
+
+## Mock rules
+
+Rules are matched in insertion order. The first enabled rule whose pattern and method filter both match wins.
+
+See [Core Overview](/core/overview/) for how `MockEngine` fits into the capture pipeline.
+
+### Rule modes
+
+| Mode             | Network hit   | Use for                                          |
+| ---------------- | ------------- | ------------------------------------------------ |
+| `mock` (default) | No            | Canned responses, happy-path or error fixtures   |
+| `rewrite`        | Yes           | Transform the real request or response           |
+| `block`          | No            | Simulate network errors for one endpoint         |
+| `redirectTo`     | Yes (new URL) | Map Remote — send the request to a different URL |
+
+## Add a mock rule
+
+<Steps>
+
+1. **Import `mockEngine` from hakka-core**
+
+   ```ts title="your-setup.ts"
+   import { mockEngine } from 'hakka-core'
+   ```
+
+2. **Add a rule for the endpoint you want to mock**
+
+   ```ts title="your-setup.ts"
+   mockEngine.addRule({
+     pattern: '/api/users',
+     method: 'GET',
+     mode: 'mock',
+     enabled: true,
+     response: {
+       status: 200,
+       headers: { 'content-type': 'application/json' },
+       body: { users: [] },
+       delay: 200, // optional artificial delay in ms
+     },
+   })
+   ```
+
+   The `body` field accepts a string or a plain object (serialized to JSON). The `delay` field adds artificial latency in milliseconds before the response is returned.
+
+3. **Use `bodyProvider` for dynamic responses**
+
+   When `response.bodyProvider` is set, it is called with the matched request context and its return value replaces `body`. Useful for echoing request fields or sequencing responses.
+
+   ```ts title="your-setup.ts"
+   response: {
+     status: 200,
+     body: '',
+     bodyProvider: async (req) => {
+       const parsed = JSON.parse(req.body ?? '{}')
+       return { echo: parsed, ts: Date.now() }
+     },
+   },
+   ```
+
+   `bodyProvider` is async-safe. If it throws, the engine falls back to `response.body`.
+
+4. **Verify it works**
+
+   Make a request to `/api/users` in your app. The inspector shows the record with `mocked: true` and the response body you configured — no network request was made.
+
+</Steps>
+
+## Block an endpoint
+
+```ts title="your-setup.ts"
+mockEngine.addRule({
+  pattern: '/api/checkout',
+  block: true,
+  enabled: true,
+  response: { status: 0, body: '' }, // response is ignored when block is true
+})
+```
+
+The fetch interceptor throws `TypeError('Failed to fetch')`, which is what the caller sees for any real network failure. The captured record shows `error: 'Blocked by Hakka'` and `status: null`.
+
+## Redirect to a different URL (Map Remote)
+
+Redirect a matched request to a different URL without any JS function. The real request is sent to `redirectTo`; the original URL is not hit.
+
+```ts title="your-setup.ts"
+mockEngine.addRule({
+  pattern: 'api.production.example.com',
+  redirectTo: 'http://localhost:3000',
+  enabled: true,
+  response: { status: 0, body: '' }, // response is ignored for redirectTo
+})
+```
+
+The captured record shows the target URL and `rewritten: true`. You can combine `redirectTo` with `rewriteResponse` to also transform the response that comes back.
+
+## Rewrite request or response
+
+```ts title="your-setup.ts"
+mockEngine.addRule({
+  pattern: '/api/search',
+  mode: 'rewrite',
+  enabled: true,
+  rewriteRequest: async (req) => ({
+    ...req,
+    headers: { ...req.headers, 'x-internal': 'true' },
+  }),
+  rewriteResponse: async (res, req) => ({
+    ...res,
+    body: JSON.stringify({ ...JSON.parse(res.body), injected: true }),
+  }),
+  response: { status: 0, body: '' }, // response is unused in rewrite mode
+})
+```
+
+<Aside type="caution" title="XHR caveat">
+  Rewrite rules execute only in the `fetch` interceptor. XHR cannot substitute a response body, so XHR requests that
+  match a `rewrite` rule pass through to the network untransformed — `rewriteRequest` and `rewriteResponse` are not
+  applied. `block` and `mock` work on XHR.
+</Aside>
+
+## Rule API
+
+```ts
+const id = mockEngine.addRule(ruleInput) // returns rule id
+mockEngine.removeRule(id)
+mockEngine.enableRule(id)
+mockEngine.disableRule(id)
+mockEngine.getRules() // MockRule[]
+mockEngine.clearRules()
+```
+
+`getRules()` returns a shallow copy. `hitCount` on each rule is the number of times that rule was actually applied.
+
+## Persistence
+
+`MockEngine` has `serialize()` / `deserialize()` methods for saving and restoring rules.
+
+```ts
+// Save
+const json = mockEngine.serialize()
+localStorage.setItem('hakka-mock-rules', json)
+
+// Restore
+const saved = localStorage.getItem('hakka-mock-rules')
+if (saved) mockEngine.deserialize(saved)
+```
+
+<Aside type="caution" title="Serialization caveat">
+Functions cannot be serialized. `bodyProvider`, `rewriteRequest`, and `rewriteResponse` are dropped on `serialize()`. A dev-mode warning is logged when a lossy serialize is attempted. After deserialization, `rewrite`-mode rules pass through untransformed until you re-register the callbacks in code.
+
+RegExp patterns are preserved across serialize/deserialize as `{ __regexp: true, source, flags }`.
+
+</Aside>
+
+## React Native native sync
+
+On React Native, `MockEngine` mirrors rules to the native layer via `NativeMockBridge` (set with `registerNativeBridge`). Native sync is best-effort — JS mock state is authoritative. `mock`, `block`, `redirectTo`, and declarative `modify` all sync to the native engines; only `rewrite`-mode function hooks (`rewriteRequest`/`rewriteResponse`/`bodyProvider`) are JS-only, since functions cannot cross the bridge.
+
+## Throttle profiles
+
+`ThrottleEngine` adds latency and simulates offline before the real network request is made.
+
+```ts
+import { ThrottleEngine } from 'hakka-core'
+
+ThrottleEngine.setProfile('slow-3g')
+ThrottleEngine.setProfile('none') // disable
+```
+
+### Presets
+
+| Profile   | Latency | `downloadKbps` |
+| --------- | ------- | -------------- |
+| `none`    | 0 ms    | —              |
+| `fast-3g` | 150 ms  | 1500           |
+| `slow-3g` | 400 ms  | 400            |
+| `edge`    | 250 ms  | 240            |
+| `offline` | —       | 0              |
+
+<Aside type="note">
+`downloadKbps` is enforced on every platform. The fetch path streams response bytes at the configured rate; XHR applies an equivalent completion delay computed from response size (XHR cannot substitute a response stream, so the timing matches but bytes arrive at once). iOS drips via `URLProtocol`, Android via an OkHttp `ForwardingSource`.
+
+`offline` throws `TypeError('Network request failed — offline mode (Hakka ThrottleEngine)')` before any request is sent, which the caller receives as a standard network error.
+
+</Aside>
+
+### Custom latency
+
+```ts
+ThrottleEngine.setCustom(500) // 500 ms latency, unlimited bandwidth
+ThrottleEngine.setCustom(300, 800) // 300 ms latency, 800 kbps (not yet enforced)
+```
+
+### React to profile changes
+
+```ts
+const off = ThrottleEngine.onChange((config) => {
+  console.log(config.profile, config.latencyMs)
+})
+// later
+off()
+```
+
+### Interaction with mock rules
+
+Throttle delay runs after the mock engine check. `mock` and `block` rules bypass throttling — they return or abort before `ThrottleEngine.applyDelay()` is called. `rewrite` and `redirectTo` rules apply throttle latency because they send a real network request.
+
+## Next steps
+
+<CardGrid>
+  <LinkCard
+    title="Breakpoints"
+    href="/features/breakpoints/"
+    description="Pause and edit requests or responses before they complete."
+  />
+  <LinkCard
+    title="Core overview"
+    href="/core/overview/"
+    description="Understand how MockEngine and ThrottleEngine fit into the capture pipeline."
+  />
+  <LinkCard
+    title="Testing"
+    href="/testing/overview/"
+    description="Use Hakka in your test suite for deterministic network assertions."
+  />
+</CardGrid>

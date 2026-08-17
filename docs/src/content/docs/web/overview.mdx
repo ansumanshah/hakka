@@ -1,0 +1,317 @@
+---
+title: Web Overview
+description: hakka-browser is a browser network inspector overlay that captures fetch, XHR, WebSocket, and sendBeacon with no build step required.
+---
+
+import { Tabs, TabItem, Steps, Aside, Card, CardGrid, LinkCard, Badge } from '@astrojs/starlight/components'
+
+<Aside type="tip" title="What you'll have">
+  By the end of this page, your web app captures fetch, XHR, WebSocket, and beacon traffic and shows them in a floating
+  Hakka inspector panel — accessible on any device, including physical phones and locked-down staging environments where
+  DevTools aren't available. No proxy, no certificate, no cloud account.
+</Aside>
+
+`hakka-browser` is a framework-agnostic network inspector for browsers. It targets mobile web and any context where DevTools aren't available — a physical device, WebView, or locked-down staging environment.
+
+<Badge text="Stable" variant="success" />
+
+## What Hakka captures
+
+| Signal          | Detail                                                                    |
+| --------------- | ------------------------------------------------------------------------- |
+| `fetch`         | Request + response headers, bodies up to `maxBodySize`, timing            |
+| `XHR`           | Same as fetch; response bodies captured for text-compatible content types |
+| `WebSocket`     | Every frame (direction, payload, timestamp) in a Frames tab               |
+| `sendBeacon`    | Captured as a POST-like entry                                             |
+| Resource Timing | Real DNS, TLS, connect, and TTFB from the browser Performance Timeline    |
+
+GraphQL operation names are extracted automatically from request bodies.
+
+## Install
+
+<Tabs syncKey="pkg-manager">
+  <TabItem label="npm">
+
+```bash
+npm install hakka-browser
+```
+
+  </TabItem>
+  <TabItem label="pnpm">
+
+```bash
+pnpm add hakka-browser
+```
+
+  </TabItem>
+  <TabItem label="yarn">
+
+```bash
+yarn add hakka-browser
+```
+
+  </TabItem>
+  <TabItem label="bun">
+
+```bash
+bun add hakka-browser
+```
+
+  </TabItem>
+</Tabs>
+
+## Two ways to load
+
+### ESM (recommended for app integrations)
+
+<Steps>
+
+1. Import and call `start()` once at app boot:
+
+   ```ts title="main.ts"
+   import { start } from 'hakka-browser'
+
+   start()
+   ```
+
+   Capture begins immediately; the inspector UI loads only when opened.
+
+2. Gate it behind your `DEV` flag so it never ships to production:
+
+   ```ts title="main.ts"
+   if (import.meta.env.DEV) {
+     const { start } = await import('hakka-browser')
+     start()
+   }
+   ```
+
+3. **Verify it works** — run your dev server, open the page in a browser or on a real device. Look for the Hakka pill in the bottom-right corner. Tap it for a quick recent-requests summary, or long-press (or right-click) it to open the full inspector and see any network requests made by the page.
+
+   <div class="hakka-shot">
+     <iframe
+       class="hakka-embed"
+       src="/embed/index.html"
+       loading="lazy"
+       scrolling="no"
+       title="Live Hakka web inspector seeded with example traffic"
+     ></iframe>
+   </div>
+
+</Steps>
+
+For the zero-config path in Vite projects, see the [Vite plugin](/web/vite/).
+
+### IIFE script tag (no build step)
+
+```html title="index.html"
+<script async src="https://unpkg.com/hakka-browser/dist/hakka-browser.global.js"></script>
+<script>
+  addEventListener('load', () => Hakka.start())
+</script>
+```
+
+The IIFE bundle is also available at `https://cdn.jsdelivr.net/npm/hakka-browser/dist/hakka-browser.global.js`. It exposes `window.Hakka` and accepts the same options as the ESM `start()`.
+
+The `./global` export is available via `import 'hakka-browser/global'` in bundler contexts that want the side-effecting IIFE form.
+
+## `start()` options
+
+| Option           | Type                    | Default      | Description                                                                                                                       |
+| ---------------- | ----------------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| `overlay`        | `boolean \| 'launcher'` | `'launcher'` | `'launcher'` shows a small trigger button. `true` opens the inspector immediately. `false` hides all UI — call `show()` yourself. |
+| `resourceTiming` | `boolean`               | `true`       | Enrich captures with the Performance Timeline (DNS, TLS, connect, TTFB).                                                          |
+| `captureBeacons` | `boolean`               | `true`       | Capture `navigator.sendBeacon` calls.                                                                                             |
+| `console`        | `boolean`               | `true`       | Capture `console.log/warn/error/info/debug` output.                                                                               |
+| `logToConsole`   | `boolean`               | `false`      | Mirror each captured request to DevTools console via `console.table`.                                                             |
+| `gates`          | `Partial<NumberGates>`  | see below    | Thresholds that tint the duration/size columns in request rows.                                                                   |
+
+All `HakkaConfig` fields (`maxRequests`, `maxAge`, `maxBodySize`, `ignoreHosts`, `ignorePatterns`, `redactHeaders`) are also accepted and forwarded to the core engine.
+
+### Duration and size gates
+
+Every request row tints its duration and size numbers against two thresholds per axis. Text color only, never a chip, so the row keeps its plain-number grammar. Past `warnMs`/`warnBytes` a number renders turmeric; past `hotMs`/`hotBytes` it renders chili.
+
+| Threshold   | Default      |
+| ----------- | ------------ |
+| `warnMs`    | `300`        |
+| `hotMs`     | `1000`       |
+| `warnBytes` | `25 * 1024`  |
+| `hotBytes`  | `100 * 1024` |
+
+```ts title="main.ts"
+import { start } from 'hakka-browser'
+
+start({
+  gates: { warnMs: 200, hotMs: 800 }, // omitted keys keep their default
+})
+```
+
+## Capture store in a Web Worker
+
+Capture interceptors run on the main thread — they must, because that is where `fetch`, `XHR`, and `WebSocket` originate. Everything else (the store, deduplication, retention, filter/search, HAR/OTel serialization, and the desktop-bridge socket) runs in an inline Web Worker, so the always-on overhead is minimal.
+
+Measured main-thread cost is about **9.6 µs per request** (see [Benchmarks](/reference/benchmarks/)). Where Workers are unavailable (SSR, locked-down hosts), the engine falls back transparently to an in-process implementation — no configuration needed.
+
+## Eager footprint and lazy UI
+
+Only the capture engine and a ~2.4 KB gzipped launcher button load eagerly. The full inspector UI (built with Solid) is a separate async chunk fetched only when the developer first opens the panel. It is never part of your app's main bundle.
+
+The Rules panel splits further: Mock, Breakpoints, and Throttle are each their
+own `lazy()` chunk (same pattern as CommandPalette, RequestDiff, and Tour), so
+opening Rules only fetches the section a developer actually picks, not all
+three.
+
+## Inspector panels
+
+| Panel        | What it shows                                                                                                                                                                                                                 |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Network**  | Virtualized request list with method/status/content-type filters, detail view (headers, request/response bodies, a searchable JSON tree, image preview), and a real timing waterfall (DNS → TLS → connect → TTFB → download). |
+| **Stats**    | Success/error rates, method and status distribution, duration p95, bytes transferred, hosts.                                                                                                                                  |
+| **Rules**    | Mock (canned responses), Throttle (Fast 3G / Slow 3G / Edge / Offline), and request/response breakpoints — one tab, segmented switch between the three. The panel auto-opens when a breakpoint fires.                         |
+| **Logs**     | Captured console output (`log`, `warn`, `error`, `info`, `debug`).                                                                                                                                                            |
+| **Storage**  | Snapshot of `localStorage`, `sessionStorage`, and cookies.                                                                                                                                                                    |
+| **Settings** | Log-to-console mirror, call-stack capture (Initiator), desktop bridge toggle and URL, ring-buffer capacity, retention, redaction, and the browser/OS/viewport/connection environment details the old Info tab used to own.    |
+
+A session saved with the older Mock/Throttle/Breaks/Info tab names still opens to the
+right place — the panel picker maps each legacy id onto the tab that absorbed it.
+
+Any JSON body, request or response, gets a search field above the tree. Typing filters nothing away; it highlights the first match inside each key or value and auto-expands whichever collapsed branches contain one, so a hit at depth six is never hidden behind a closed node. The search field's border tints when the query has no matches anywhere in the document.
+
+## Responsive layout
+
+At desktop widths the request list is a single-line table (method, path, host,
+runtime/cache/GraphQL badges, status, size, duration). Below the container-query
+breakpoint the header collapses to a tab-strip row plus one kebab menu holding
+Clear/Export/Session/⌘K, and each row drops to two lines (path over host, duration
+and size stacked in one right-aligned column) so nothing clips at phone widths.
+
+The filter bar's search field has an ⓘ button next to it that opens a popover
+cheat-sheet for the search DSL (`url:`, `header:`, `body:`, glob, regex,
+`-negate`) and links out to the full [search DSL reference](/spec/search-dsl/).
+
+Both tab strips, the panel toolbar (Network/Stats/Rules/Logs/Storage/Settings) and a request Detail's own secondary tabs (Overview/Request/Response/…), scroll the active tab into view whenever it changes. A plugin panel or a request with enough secondary tabs to overflow a narrow phone screen never leaves the selected tab scrolled out of sight. The scroll is smooth unless the OS has reduced motion turned on, in which case it jumps.
+
+## Per-request actions
+
+Right-click (or long-press) any request for:
+
+- **Copy as fetch** — a ready-to-paste `fetch()` call with headers and body.
+- **Copy as cURL** — curl command with `-H` flags.
+- **Copy as text** — plain URL + status summary.
+- **Share** — native Web Share API where supported.
+- **Replay** — re-issue the request in place and capture the new response.
+
+## Exports
+
+The toolbar provides three download actions:
+
+| Format             | File                                                                |
+| ------------------ | ------------------------------------------------------------------- |
+| HAR 1.2            | `archive.har` — includes real timing from the Performance Timeline. |
+| OpenTelemetry JSON | `otel.json`                                                         |
+| Postman Collection | `postman_collection.json`                                           |
+
+Serialization runs in the Web Worker, so exporting a large session does not block the page.
+
+## Shadow DOM isolation
+
+The `<hakka-inspector>` custom element renders entirely inside a Shadow DOM. Its styles cannot leak into or be overridden by the host page, and it never intercepts the page's pointer events.
+
+## Standalone elements (`hakka-browser/elements`)
+
+Six of the panel's pieces (request list, request detail, filter bar, JSON
+tree, stats, waterfall) are also published as standalone custom elements —
+usable without `<hakka-inspector>` or its panel shell, for a "drop in one
+piece" integration. `hakka-browser/react` wraps each in a thin `forwardRef`
+component: props not in the element's event map pass straight through as DOM
+properties (React 19's native custom-element path), events bind imperatively
+via `addEventListener` (React's `onX` prop path can't express a
+colon-namespaced event name like `hakka:select`), and registration happens in
+`useEffect` so it never runs during SSR.
+
+**Style-adoption gotcha:** each standalone element's Shadow Root adopts the
+same stylesheet as the full overlay via `adoptedStyleSheets`, not an appended
+`<style>` tag. `@solidjs/element`'s `withSolid()` wrapper clears
+`renderRoot.textContent` on release/reload, which would silently discard an
+appended `<style>` tag before it ever took effect — `adoptedStyleSheets`
+entries aren't DOM children, so they survive. This bit a real consumer layout
+once (P5 B2 audit Finding 1): a `<hakka-filter-bar>` docked `position: sticky`
+above a scrolling `<hakka-request-list>` rendered with no opaque background on
+the sticky bar and no max-height cap on the list, because both rules had been
+silently dropped. See `src/ui/elements/shared.ts`'s `sharedStylesSheet()` for
+the fix.
+
+## Desktop bridge
+
+The Settings panel has a **Connect to desktop** toggle. When enabled, captures stream in real time to the Hakka desktop app over WebSocket at `ws://localhost:8989` (configurable). The socket, reconnect backoff, and per-request serialization all run in the Worker.
+
+```ts title="main.ts"
+import { connect, disconnect } from 'hakka-browser'
+
+connect() // connect to ws://localhost:8989
+connect('ws://localhost:9999') // custom port
+disconnect()
+```
+
+See [Bridge overview](/bridge/overview/) for the desktop side of this connection.
+
+## Programmatic API
+
+```ts title="main.ts"
+import { start, show, hide, destroy, ingest, getLogs, getBody, getBodies } from 'hakka-browser'
+
+start() // begin capture
+show() // open inspector (lazy-loads UI on first call)
+hide() // hide without stopping capture
+destroy() // stop capture, remove overlay
+
+// Feed a custom capture source
+ingest(myRequest)
+
+// Snapshot the ring buffer — records are SLIM by default: everything
+// except requestBody/responseBody (sizes, headers, status, timing all
+// present). Bodies stay in the store (a Web Worker where available) so
+// the host page never retains up to 512KB per captured request.
+const requests = await getLogs()
+
+// Fetch full bodies on demand, per request or as a batch
+const bodies = await getBody(requests[0].id)
+const batch = await getBodies(requests.map((r) => r.id))
+```
+
+Need the old all-in-one shape (e.g. piping records straight into your own
+tooling)? Opt out of the slim mirror with `start({ slimEcho: false })` —
+`getLogs()` then returns full records again, at the cost of every captured
+body living on the main thread.
+
+`mockEngine`, `ThrottleEngine`, `breakpointEngine`, and `setStackCapture` are also exported for programmatic control from the console or your own debug tooling.
+
+## Next steps
+
+<CardGrid>
+  <LinkCard
+    title="Vite plugin"
+    href="/web/vite/"
+    description="Zero-config setup for Vite projects — one line in vite.config.ts."
+  />
+  <LinkCard
+    title="Breakpoints"
+    href="/features/breakpoints/"
+    description="Pause requests mid-flight and edit headers or bodies before they proceed."
+  />
+  <LinkCard
+    title="Mocking"
+    href="/features/mocking/"
+    description="Return a configured response before a request hits the wire."
+  />
+  <LinkCard
+    title="Bridge overview"
+    href="/bridge/overview/"
+    description="Stream live captures to the Hakka desktop app over WebSocket."
+  />
+  <LinkCard
+    title="MCP overview"
+    href="/mcp/overview/"
+    description="Expose the live capture store to AI agents over the Model Context Protocol."
+  />
+</CardGrid>

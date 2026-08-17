@@ -1,0 +1,44 @@
+---
+/**
+ * The animated Hakka brand mark — a Canvas2D bowl with a pulsing broadcast-fan
+ * signal (the network-inspector motif). Ported from the NoodleApps icon library.
+ * Falls back to a static empty canvas if JS is off (the rest of the page still works).
+ */
+interface Props {
+  size?: number;
+  id?: string;
+  class?: string;
+}
+const { size = 64, id = 'hakka-icon', class: className } = Astro.props;
+---
+
+<canvas
+  id={id}
+  data-hakka-icon
+  data-size={size}
+  width={size}
+  height={size}
+  class:list={['hakka-mark', className]}
+  style={`width:${size}px;height:${size}px;display:block`}
+  role="img"
+  aria-label="Hakka — animated logo"></canvas>
+
+<script>
+  import { register, hakka } from '../lib/icons';
+
+  function init() {
+    const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+    document.querySelectorAll<HTMLCanvasElement>('canvas[data-hakka-icon]:not([data-hakka-ready])').forEach((c) => {
+      const css = Number(c.dataset.size) || 64;
+      // Set the backing buffer to css × dpr so the icon library renders crisp at a
+      // consistent CSS size across displays (it derives css size from width / dpr).
+      c.width = Math.round(css * dpr);
+      c.height = Math.round(css * dpr);
+      c.setAttribute('data-hakka-ready', '');
+      register(c.id, hakka);
+    });
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+</script>
