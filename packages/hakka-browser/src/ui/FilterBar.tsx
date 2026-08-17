@@ -175,7 +175,7 @@ export const FilterBar: Component<FilterBarProps> = (props) => {
               onClick={props.filters.intents.toggleAdvanced}
               title="Show method, status, sort, group, type, and range filters"
               aria-expanded={snap().advOpen ? 'true' : 'false'}
-              aria-label="Toggle filters"
+              aria-label="Filters"
             >
               <IconFunnel size={11} />
               {snap().advancedCount > 0 ? ` +${snap().advancedCount}` : ''}
