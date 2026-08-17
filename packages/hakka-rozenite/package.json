@@ -76,11 +76,11 @@
   },
   "devDependencies": {
     "@rozenite/vite-plugin": "^1.13.0",
-    "@types/react": "19.2.17",
+    "@types/react": "19.2.18",
     "@types/react-dom": "19.2.3",
     "hakka-react-native": "0.1.0",
     "happy-dom": "^20.11.0",
-    "react": "19.2.3",
+    "react": "19.2.8",
     "react-dom": "19.2.3",
     "rozenite": "^1.13.0",
     "typescript": "^7.0.2",
