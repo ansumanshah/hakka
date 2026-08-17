@@ -24,7 +24,7 @@ dependencies {
     api(project(":hakka-common"))
     compileOnly("com.squareup.okhttp3:okhttp:4.12.0")
 
-    testImplementation("org.junit.jupiter:junit-jupiter:6.0.3")
+    testImplementation("org.junit.jupiter:junit-jupiter:6.1.3")
     testImplementation("com.squareup.okhttp3:okhttp:4.12.0")
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     testImplementation("org.json:json:20231013")

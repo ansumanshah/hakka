@@ -44,7 +44,7 @@ dependencies {
     // classpath (see HakkaTimberTree.kt / Hakka.plantTimber()).
     compileOnly("com.jakewharton.timber:timber:5.0.1")
 
-    testImplementation("org.junit.jupiter:junit-jupiter:6.0.3")
+    testImplementation("org.junit.jupiter:junit-jupiter:6.1.3")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher:6.0.3")
     testImplementation("com.squareup.okhttp3:okhttp:4.12.0")
     testImplementation("com.jakewharton.timber:timber:5.0.1")
