@@ -22,12 +22,12 @@ kotlin {
 
 dependencies {
     api(project(":hakka-common"))
-    compileOnly("com.squareup.okhttp3:okhttp:4.12.0")
+    compileOnly("com.squareup.okhttp3:okhttp:5.4.0")
     compileOnly("org.json:json:20231013")
 
     testImplementation("org.junit.jupiter:junit-jupiter:6.0.3")
-    testImplementation("com.squareup.okhttp3:okhttp:4.12.0")
-    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+    testImplementation("com.squareup.okhttp3:okhttp:5.4.0")
+    testImplementation("com.squareup.okhttp3:mockwebserver:5.4.0")
     testImplementation("org.json:json:20231013")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher:6.0.3")
 }
