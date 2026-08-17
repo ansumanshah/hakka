@@ -78,6 +78,7 @@ Expo SDK 56 introduced a more direct Apple native-module path built around Swift
 - **Decision:** Keep Android performance collectors opt-in through the `androidPerformance` plugin option.
 - **Decision:** Keep `expo` as an optional peer dependency. Bare React Native users should not need to install Expo.
 - **Decision:** Keep `@react-native-clipboard/clipboard` as a required peer for this release because share/copy helpers are still exported from the core package surface.
+- **Reversed (2026-08-17, pre-publish):** clipboard is now an **optional** peer, resolved at runtime behind a guarded require (falling back to `expo-clipboard`, else copy reports failure) — the same optional-peer pattern every other native module already uses. With it, the SDK has zero required native dependencies beyond React Native. Install commands still recommend it, since copy actions are core to the product.
 - **Trigger to revisit:** Replace Gradle-file insertion with a more structured native dependency mechanism if Expo exposes one for Maven artifacts, or if Hakka's Android artifact graph changes.
 
 ## Full-Stack (Server + Client) Request Inspection for Next.js

@@ -89,10 +89,12 @@
     // examples/next-fullstack is ignoreFiles'd, but its generated
     // next-env.d.ts triple-slash reference still surfaces here.
     "next",
-    // Optional runtime requires behind guards in SettingsViewModel (same
-    // optional-peer pattern as the RN entries above).
+    // Optional runtime requires behind guards (same optional-peer pattern as
+    // the RN entries above): device info/network in SettingsViewModel,
+    // expo-clipboard as utils/clipboard.ts's fallback copy provider.
     "react-native-device-info",
     "@react-native-community/netinfo",
+    "expo-clipboard",
     // Used by root smoke scripts (scripts/smoke-control-roundtrip.mjs),
     // resolved via workspace hoisting from hakka-bridge's own dependency.
     "ws",

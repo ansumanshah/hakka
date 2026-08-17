@@ -9,7 +9,10 @@ npm install hakka-react-native @react-native-clipboard/clipboard
 cd ios && pod install
 ```
 
-`@react-native-clipboard/clipboard` is a required peer used by Hakka's share/copy helpers.
+`@react-native-clipboard/clipboard` is an optional peer, recommended so Hakka's share/copy
+actions work. Without it, copy falls back to `expo-clipboard` when present, and otherwise
+reports failure while everything else keeps working — the SDK has no required native
+dependencies beyond React Native itself.
 
 ## Quick Start
 

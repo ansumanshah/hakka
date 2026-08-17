@@ -24,11 +24,14 @@ import { Tabs, TabItem, Steps, Aside, CardGrid, LinkCard } from '@astrojs/starli
   <TabItem label="bun">```bash bun add hakka-react-native ```</TabItem>
 </Tabs>
 
-Then install the required Expo peers:
+Then install the recommended Expo peers:
 
 ```bash title="Terminal"
 npx expo install @react-native-clipboard/clipboard expo-dev-client
 ```
+
+Clipboard is optional — if your app already uses `expo-clipboard`, Hakka's
+copy actions use it automatically and you can skip the community package.
 
 ## Setup
 

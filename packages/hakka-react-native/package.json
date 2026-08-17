@@ -125,6 +125,9 @@
     "@react-native-async-storage/async-storage": {
       "optional": true
     },
+    "@react-native-clipboard/clipboard": {
+      "optional": true
+    },
     "@tanstack/react-query": {
       "optional": true
     },
