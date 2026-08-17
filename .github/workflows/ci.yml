@@ -93,6 +93,10 @@ jobs:
           restore-keys: bun-${{ runner.os }}-
       - run: bun install --frozen-lockfile
       - uses: extractions/setup-just@v4
+        with:
+          # Unauthenticated release lookups rate-limit on shared runners
+          # ("no release for just matching version specifier").
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       # Playwright's documented CI caching convention (playwright.dev/docs/ci#caching-browsers):
       # cache ~/.cache/ms-playwright keyed on the lockfile, skip the browser
       # download on a hit, but still run install-deps (fast, no download) so
