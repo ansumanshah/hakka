@@ -4,11 +4,24 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    groups:
+      actions:
+        patterns: ['*']
+
   - package-ecosystem: npm
     directory: /
     schedule:
       interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: ['minor', 'patch']
     ignore:
+      # Solid 2.0 RC pins are exact and load-bearing: the carried
+      # patches/@solidjs%2Fweb patch only applies at 2.0.0-rc.0, and the
+      # stable bump is a deliberate manual change (ADR 0007), not a bot PR.
+      - dependency-name: solid-js
+      - dependency-name: '@solidjs/*'
       - dependency-name: react-native
         update-types:
           - version-update:semver-major
@@ -18,21 +31,42 @@ updates:
       - dependency-name: react-native-worklets
         update-types:
           - version-update:semver-major
+
   - package-ecosystem: gradle
     directory: /android
     schedule:
       interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: ['minor', 'patch']
     ignore:
+      # AGP majors: cover the plugin IDs, not just the old artifact
+      # coordinate — 8.x → 9.x slipped through the previous list.
       - dependency-name: com.android.tools.build:gradle
         update-types:
           - version-update:semver-major
+      - dependency-name: com.android.application
+        update-types:
+          - version-update:semver-major
+      - dependency-name: com.android.library
+        update-types:
+          - version-update:semver-major
+      # Kotlin toolchain bumps are deliberate (coordinated with AGP/compose
+      # compatibility), so minors are held back too.
       - dependency-name: org.jetbrains.kotlin.android
         update-types:
           - version-update:semver-major
+          - version-update:semver-minor
       - dependency-name: org.jetbrains.kotlin.jvm
         update-types:
           - version-update:semver-major
+          - version-update:semver-minor
       - dependency-name: com.squareup.okhttp3:okhttp
+        update-types:
+          - version-update:semver-major
+      # mockwebserver 5.x rides okhttp 5 — same major-line hold as okhttp.
+      - dependency-name: com.squareup.okhttp3:mockwebserver
         update-types:
           - version-update:semver-major
       - dependency-name: androidx.core:core-ktx
