@@ -21,10 +21,10 @@ kotlin {
 }
 
 dependencies {
-    compileOnly("org.json:json:20231013")
+    compileOnly("org.json:json:20260719")
 
     testImplementation("org.junit.jupiter:junit-jupiter:6.0.3")
-    testImplementation("org.json:json:20231013")
+    testImplementation("org.json:json:20260719")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher:6.0.3")
 }
 
