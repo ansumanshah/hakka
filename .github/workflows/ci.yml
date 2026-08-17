@@ -36,8 +36,10 @@ jobs:
           key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
           restore-keys: bun-${{ runner.os }}-
       - run: bun install --frozen-lockfile
-      - run: bun run typecheck
+      # Build BEFORE typecheck: workspace packages resolve each other's types
+      # through their dist declarations, which don't exist on a fresh runner.
       - run: bun run build
+      - run: bun run typecheck
       # Cheap correctness gates, run right after build: spec-drift-check reads
       # only markdown (docs/spec cards vs SPEC.md §5); smoke-control-roundtrip
       # imports packages/{bridge,cli,core}/src directly under bun (it

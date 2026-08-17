@@ -1,5 +1,10 @@
 import { expect, test } from '@playwright/test'
 
+// Latency budgets are calibrated on consistent local hardware (see
+// docs reference/benchmarks); GitHub's shared runners vary several-fold
+// run to run, so CI skips this file by default. Opt in: HAKKA_E2E_PERF=1.
+test.skip(!!process.env.CI && !process.env.HAKKA_E2E_PERF, 'perf budgets run on consistent local hardware')
+
 /**
  * P2 overlay open-latency gate. 5 reps of "closed-FAB-click -> request list
  * interactive" (first row painted + search focusable) under CDP 4x CPU

@@ -4,6 +4,11 @@ import { fileURLToPath } from 'node:url'
 
 import { expect, test, type Page } from '@playwright/test'
 
+// Render-latency budgets are calibrated on consistent local hardware; shared
+// CI runners vary several-fold, so CI skips this file by default.
+// Opt in: HAKKA_E2E_PERF=1.
+test.skip(!!process.env.CI && !process.env.HAKKA_E2E_PERF, 'render bench runs on consistent local hardware')
+
 /**
  * Render-latency benchmark — the Solid 2.0 `createProjection` adoption
  * baseline (see .claude/strategy/solid-2-playbook.md, "2.0-native UX pass",
