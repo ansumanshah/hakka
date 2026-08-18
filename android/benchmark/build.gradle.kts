@@ -65,5 +65,5 @@ dependencies {
     add("hakkaImplementation", project(":hakka-network"))
     add("hakkaImplementation", project(":hakka-performance"))
 
-    add("chuckerImplementation", "com.github.chuckerteam.chucker:library:4.2.0")
+    add("chuckerImplementation", "com.github.chuckerteam.chucker:library:4.3.1")
 }
