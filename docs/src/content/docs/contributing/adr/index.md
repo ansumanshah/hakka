@@ -32,3 +32,4 @@ alone.
 | [0005](/contributing/adr/0005-package-consolidation/)          | Package consolidation and naming                    | Implemented                        |
 | [0006](/contributing/adr/0006-capture-source-contract/)        | CaptureSource, the first contract off ADR 0003      | Accepted — 2 of 9 sources migrated |
 | [0007](/contributing/adr/0007-solid-2-rc/)                     | Ship on Solid 2.0 at the RC                         | Implemented                        |
+| [0008](/contributing/adr/0008-desktop-plugin-products/)        | Hakka for macOS as SPM products, not an app         | In progress                        |

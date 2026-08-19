@@ -155,7 +155,14 @@ export default defineConfig({
         {
           label: 'Tooling',
           collapsed: true,
-          items: ['cli/overview', 'bridge/overview', 'mcp/overview', 'testing/overview', 'cdp/overview'],
+          items: [
+            'cli/overview',
+            'bridge/overview',
+            'mcp/overview',
+            'testing/overview',
+            'cdp/overview',
+            'desktop/overview',
+          ],
         },
         {
           label: 'Embedding',

@@ -1,0 +1,69 @@
+---
+title: Hakka for macOS
+description: A native desktop app that is an API client and a live traffic inspector in one, with no proxy and no CA certificate.
+---
+
+**Status: in development.** The package builds and its core is under test; there is no
+signed release yet. Track [ADR 0008](/contributing/adr/0008-desktop-plugin-products/)
+for the design and scope.
+
+Hakka for macOS is two tools that usually have nothing to do with each other:
+
+- An **API client** — collections of saved requests, environments, variables,
+  assertions, imports from cURL/Postman/OpenAPI/HAR, code generation.
+- A **traffic inspector** — the live stream from your app, on this Mac or on a device,
+  with filters, diffing, and export.
+
+They are one app because of the move that neither half can do alone: see a real request
+your app just made, and save it as a request you can re-run, tweak, and commit.
+
+## Why not a proxy
+
+Proxyman and Charles see every app's traffic because you install a CA certificate and
+route your machine through them. That is a large amount of trust and a recurring
+setup tax, and it is why those tools cannot be part of a normal project's onboarding.
+
+Hakka sees *your* app's traffic because the SDK is inside it. Smaller scope, no
+certificate, nothing to install on the system. The desktop app receives what the SDK
+already captured, over the same bridge the CLI and MCP server use.
+
+The trade is explicit: Hakka cannot inspect an app you do not build. If that is what
+you need, a proxy is the right tool and Proxyman is a good one.
+
+## What it is made of
+
+The app ships as Swift packages, not just a binary, so other Swift apps can host the
+same surfaces ([ADR 0008](/contributing/adr/0008-desktop-plugin-products/)):
+
+| Product | Contains |
+| --- | --- |
+| `HakkaDesktopCore` | Collections, environments, the request runner, importers, code generators, the traffic store. No UI. |
+| `HakkaDesktopServer` | The bridge hub as a Swift actor — speaks the same wire protocol as `hakka-bridge`, so it replaces that process for desktop users. |
+| `HakkaDesktop` | The SwiftUI app itself. |
+
+`HakkaDesktopCore` depends on `HakkaCommon` — the same package the iOS SDK captures
+into. A request that arrives from a device and a request the desktop app sends are the
+same Swift type, which is why promoting one to the other is a conversion rather than an
+import.
+
+## Collections are files
+
+A collection is a directory. Each request is its own small JSON file with stable key
+ordering, so editing one request produces a one-file, line-oriented diff that a
+teammate can actually review. Folders are subdirectories. There is no database and no
+single-file blob to conflict on.
+
+Environment *values* live outside the collection directory, and variables marked secret
+never enter it — a committed collection can reference `{{token}}` without ever
+containing one.
+
+## Building it
+
+```bash
+cd apps/hakka
+swift build
+swift test
+```
+
+Requires macOS 14 or later and a Swift 6 toolchain. The package consumes `ios/` by
+path; there is no separate checkout to clone.
