@@ -3,6 +3,11 @@ title: Hakka
 description: Local-first network inspection for React Native, the web, Next.js, Android, and iOS.
 template: splash
 tableOfContents: false
+# Without this, Starlight builds "<title> | <site title>" and the home page —
+# whose title IS the site name — renders as "Hakka | Hakka" in the tab.
+head:
+  - tag: title
+    content: 'Hakka — local-first network inspector'
 ---
 
 import { Card, CardGrid, LinkCard, Aside, Badge } from '@astrojs/starlight/components'

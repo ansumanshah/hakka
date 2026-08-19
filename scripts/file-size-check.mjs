@@ -31,7 +31,6 @@ const CAP = 500
 // this is a list of specific files, not a pattern.
 const ALLOWLIST = [
   ['packages/hakka-browser/src/ui/styles.ts', 'single CSS template by design'],
-  ['packages/hakka-browser/src/ui/__tests__/RequestList.test.tsx', 'TODO(#51) queued for splitting'],
   [
     'packages/hakka-react-native/src/ui/screens/HakkaInspector.tsx',
     'controller: sheet/gesture/imperative-handle state deliberately kept coupled (713 lines, split reviewed 2026-08-16)',
