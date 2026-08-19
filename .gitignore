@@ -63,3 +63,6 @@ packages/hakka-browser/e2e/fixtures/components-dist/
 
 # render-bench.spec.ts writes its measured JSON here on every run (machine-dependent numbers)
 packages/hakka-browser/e2e/render-bench-results.json
+
+# Built macOS app bundles (apps/hakka/Scripts/package_app.sh output)
+*.app/
