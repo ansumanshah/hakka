@@ -130,12 +130,10 @@
     "packages/hakka-browser/src/ui/viewModels/RequestDetailViewModel.ts": ["types"],
     "packages/hakka-browser/src/ui/viewModels/SelectionViewModel.ts": ["types"],
     "packages/hakka-browser/src/ui/viewModels/StatsViewModel.ts": ["types"],
-    // ADR 0006's CaptureSource contract (@experimental, design-doc-only slice of ADR 0003) —
-    // types + conformance harness ship ahead of any real implementation. Frozen only after
-    // its third real consumer (ADR 0003's rule-of-three condition); until then some exported
-    // members (e.g. CaptureSourceIdentity, CaptureCorrelation, ConformanceCheck) are only
-    // referenced structurally within these same files, not imported elsewhere. Do not delete
-    // as "unused" — remove this suppression once a migration lands and imports them directly.
+    // ADR 0006's CaptureSource contract, now frozen with eight implementations. A few
+    // exported members (CaptureSourceIdentity, CaptureCorrelation, ConformanceCheck) are
+    // still only referenced structurally within these files rather than imported by name —
+    // they are the published shape third parties implement against, not dead code.
     "packages/hakka-core/src/contract/captureSource.ts": ["types"],
     "packages/hakka-core/src/contract/conformance.ts": ["types"],
   },

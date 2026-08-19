@@ -3,18 +3,30 @@ title: 'ADR 0006 — CaptureSource, the first contract off ADR 0003'
 description: The CaptureSource interface — identity, lifecycle, emission, correlation, and teardown — mapped onto Hakka's nine existing capture mechanisms; two are migrated so far.
 ---
 
-Status: Accepted · Date: 2026-08-15 · Implements [ADR 0003](/contributing/adr/0003-contracts-first-internals/)
+Status: Implemented · Date: 2026-08-15 · Implements [ADR 0003](/contributing/adr/0003-contracts-first-internals/)
 
-> **Implementation progress (2026-08-16):** two of the nine mechanisms below
-> now implement the contract — mechanism 3, the WebSocket interceptor
-> (`createWebSocketCaptureSource` in
-> `packages/hakka-core/src/capture/websocket.ts`), and mechanism 8, the OTel
-> span bridge (`packages/hakka-node/src/spanProcessor.ts`) — each verified by
-> the conformance harness (`checkCaptureSourceConformance`, exported from
-> `hakka-core`). The rest still run their original paths; migrations remain
-> one-source-at-a-time with a bench-gate check, per ADR 0003 condition 4. The
-> contract itself stays `@experimental` until the rule-of-three freeze (one
-> more migrated source).
+> **Complete (2026-08-17).** All eight distinct mechanisms below now ship a
+> `CaptureSource` wrapper, each verified by the conformance harness
+> (`checkCaptureSourceConformance`) and each exported from its package's public
+> barrel: fetch, XHR, WebSocket and console (`hakka-core`), Resource Timing
+> (`hakka-browser`), node `http`/`https` and the OTel span bridge
+> (`hakka-node`), and CDP (`hakka`). Mechanism 6, the browser Worker relay, is
+> not a distinct source — it calls the same three interceptors inside a Worker
+> scope — so it is covered by their wrappers rather than getting its own.
+>
+> The contract is **frozen**: eight implementations is well past ADR 0003's
+> rule-of-three condition, so `@experimental` is gone from
+> `captureSource.ts`/`conformance.ts` and any future member must be optional
+> with a fail-open consumer.
+>
+> One defect surfaced during the migration and was fixed across every source,
+> including the two that shipped first: lifecycle guards used a single
+> `stopped` boolean, which a `start() → stop() → start()` sequence resets, so
+> an emission still in flight from the first cycle could reach that cycle's
+> stale context — a direct violation of the "no further emissions, including
+> work already in flight" clause below. All sources now share
+> `createCycleGuard()` (`contract/cycleGuard.ts`), which retires a cycle
+> permanently.
 
 This ADR shipped as a **design-doc-only slice**: the `CaptureSource`
 TypeScript contract and a conformance harness, both `@experimental`, changing

@@ -1,9 +1,17 @@
+import type { CaptureSource, CaptureSourceContext } from '../contract/captureSource'
+import { createCycleGuard } from '../contract/cycleGuard'
 import { breakpointEngine } from '../engine/BreakpointEngine'
 import { mockEngine, type MockRequestContext, type MockResponseContext } from '../engine/MockEngine'
 import { ThrottleEngine } from '../engine/ThrottleEngine'
 import { HAKKA_TRACE_HEADER, resolveOutgoingTrace } from '../engine/trace'
 import { TRACEPARENT_HEADER, buildTraceparent } from '../engine/traceparent'
-import type { NetworkRequest, HttpMethod, RequestListener, GraphQLInfo } from '../model/types'
+import {
+  DEFAULT_CONFIG,
+  type NetworkRequest,
+  type HttpMethod,
+  type RequestListener,
+  type GraphQLInfo,
+} from '../model/types'
 import { getBodyRedactionFields, redactJsonBody, redactParsedBody, tryParseJsonBody } from '../utils/bodyRedaction'
 import { isSensitiveHeader } from '../utils/headerRedaction'
 import { captureBody } from './bodyCapture'
@@ -701,5 +709,72 @@ function disableFetchInterceptor(): void {
   if (originalFetch) {
     globalThis.fetch = originalFetch
     originalFetch = null
+  }
+}
+
+/** Options for {@link createFetchCaptureSource}, mirroring `enableFetchInterceptor`'s own parameters (positional there; grouped here since a `CaptureSource` factory takes no per-start arguments). */
+export interface FetchCaptureSourceOptions {
+  /** Bytes above which a request/response body is dropped, keeping only its size. Defaults to `DEFAULT_CONFIG.maxBodySize` (the same default `HakkaFacade` uses). */
+  maxBodySize?: number
+  /** Header names redacted to `'[REDACTED]'` before capture. Defaults to `DEFAULT_CONFIG.redactHeaders`. */
+  redactHeaders?: string[]
+  /** Forwarded to `enableFetchInterceptor` unchanged — the cohort/sampling pre-capture gate (ADR 0002). */
+  interceptorOptions?: FetchInterceptorOptions
+}
+
+/**
+ * `CaptureSource` (ADR 0006) wrapper around `enableFetchInterceptor()`. `runtime` is a fixed
+ * `'client'` literal — this factory only wraps the browser/RN-global patch in THIS file.
+ * `hakka-node`'s server-side reuse of the very same `enableFetchInterceptor` (in
+ * `serverCapture.ts`/`prod.ts`) re-tags emitted records `runtime: 'server'`
+ * itself, after the fact, via its own `onRequest` wrapper — that is a SEPARATE call site with its
+ * own `CaptureSource` migration to do later, not something this factory can or should special-case
+ * (see ADR 0006 row 1's Fit note).
+ *
+ * **Double-emission is intentional, not a bug this wrapper papers over.** A successful,
+ * non-WASM, non-SSE fetch calls `onRequest` up to TWICE for the SAME `id` — once at
+ * headers-received time (`responseBody: null`), once more from a detached background task once
+ * the body finishes downloading (see the two `onRequest(...)` call sites above, and
+ * `fetchBasics.test.ts`'s "two-phase emission" test, which this file's own conformance test
+ * exercises the same way). Unlike `hakka-node/prod.ts`'s `onRequest`, which folds the second call
+ * into its own bare `RingBuffer` by hand (`ring.update(tagged) || ring.add(tagged)` — that
+ * `RingBuffer` has no merge-by-id of its own), this wrapper forwards BOTH calls to `ctx.ingest`
+ * unchanged. That is correct here because `ctx.ingest` on a real host is backed by
+ * `HakkaFacade#ingestRequest`, which already merges same-`id` records
+ * (`findDuplicateRequest`/`mergeDuplicateRequest`) — the identical mechanism the WebSocket source
+ * relies on for its own repeated same-`id` emissions (ADR 0006 row 3). A naive recording `ctx`
+ * (a plain array push, no merge-by-id — e.g. `conformance.ts`'s harness, or this file's own
+ * double-emission unit test below) will legitimately see two records sharing one `id`; that is
+ * the documented contract, not a double-wiring defect.
+ */
+export function createFetchCaptureSource(options?: FetchCaptureSourceOptions): CaptureSource {
+  let disposer: (() => void) | null = null
+  const cycle = createCycleGuard()
+
+  return {
+    id: 'hakka.fetch',
+    runtime: 'client',
+    transport: 'fetch',
+    correlation: 'originates',
+    start(ctx: CaptureSourceContext) {
+      if (disposer) return // already started — idempotent per the CaptureSource contract
+      const isCurrent = cycle.begin()
+      disposer = enableFetchInterceptor(
+        (request) => {
+          // A body-phase (or any other) emission that resolves after stop() must not reach ctx.ingest.
+          if (!isCurrent()) return
+          ctx.ingest(request)
+        },
+        options?.maxBodySize ?? DEFAULT_CONFIG.maxBodySize,
+        options?.redactHeaders ?? DEFAULT_CONFIG.redactHeaders,
+        options?.interceptorOptions,
+      )
+    },
+    stop() {
+      if (!disposer) return // never started, or already stopped — idempotent per the contract
+      cycle.end()
+      disposer()
+      disposer = null
+    },
   }
 }

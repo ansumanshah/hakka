@@ -4,7 +4,7 @@ import { groupRequests } from 'hakka-core'
 import { describe, it, expect } from 'vitest'
 
 import { RequestList } from '../RequestList'
-import { makeGroup, makeReq, reqs } from './requestListFixtures'
+import { makeGroup, makeReq } from './requestListFixtures'
 
 describe('RequestList grouped rendering', () => {
   it('renders group headers when groups prop is non-null', () => {
@@ -120,17 +120,3 @@ describe('RequestList grouped virtualization', () => {
     expect(container.querySelectorAll('.hakka-group-header').length).toBe(2)
   })
 })
-
-function makeTraceHop(id: string, overrides: Partial<NetworkRequest> = {}): NetworkRequest {
-  return {
-    id,
-    url: `https://trace.example.com/${id}`,
-    method: 'GET',
-    status: 200,
-    startTime: 0,
-    requestHeaders: {},
-    responseHeaders: {},
-    source: 'fetch',
-    ...overrides,
-  } as NetworkRequest
-}

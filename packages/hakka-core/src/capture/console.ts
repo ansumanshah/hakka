@@ -4,6 +4,8 @@
  * Hakka desktop devtools.
  */
 
+import type { CaptureSource, CaptureSourceContext } from '../contract/captureSource'
+
 type ConsoleLevel = 'log' | 'info' | 'warn' | 'error' | 'debug'
 
 interface ConsoleEntry {
@@ -107,3 +109,39 @@ class ConsoleInterceptorImpl {
 }
 
 export const ConsoleInterceptor = new ConsoleInterceptorImpl()
+
+/**
+ * `CaptureSource` (ADR 0006) wrapper around `ConsoleInterceptor`. ADR 0006's mapping table
+ * (row 4) calls this mechanism "Awkward": a `ConsoleEntry` is shaped like a `BreadcrumbRecord`
+ * (`model/contract.ts`'s `ContractRecord` union), not a `NetworkRequest` or `FrameworkSpan`, and
+ * `CaptureSourceContext` deliberately has no generic `emitRecord?()` slot for it — out of scope
+ * for this contract slice (see the ADR row's "Fit" note). There is therefore no honest value to
+ * hand `ctx.ingest`/`ctx.emitSpan` for a console entry, so this wrapper never calls either: it
+ * is lifecycle-only, mirroring `ConsoleInterceptor.enable()`/`disable()`'s own idempotent
+ * start/stop through the CaptureSource shape, same as `createWebSocketCaptureSource`/
+ * `createOtelSpanCaptureSource` wrap their respective enable functions unchanged. Because of
+ * this, `checkCaptureSourceConformance` against this source necessarily fails every check that
+ * asserts an emission count (see `consoleCaptureSource.test.ts`, which documents exactly which
+ * checks that is and why) — that is the honest result of row 4's "Emits via: Neither", not a
+ * defect in this wrapper.
+ */
+export function createConsoleCaptureSource(): CaptureSource {
+  let started = false
+
+  return {
+    id: 'hakka.console',
+    runtime: 'client',
+    transport: 'console',
+    correlation: 'none',
+    start(_ctx: CaptureSourceContext) {
+      if (started) return // already started — idempotent per the CaptureSource contract
+      started = true
+      ConsoleInterceptor.enable()
+    },
+    stop() {
+      if (!started) return // never started, or already stopped — idempotent per the contract
+      started = false
+      ConsoleInterceptor.disable()
+    },
+  }
+}

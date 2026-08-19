@@ -6,6 +6,8 @@ import android.view.Gravity
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.noodleapps.hakka.WsFrameInfo
+import com.noodleapps.hakka.wsFrameDecoders
 
 // ── Frames tab ───────────────────────────────────────────────────────
 
@@ -86,6 +88,12 @@ internal fun DetailActivity.buildFramesTab() {
                 })
             })
 
+            // Sub-protocol frame decoding (MQTT / Socket.IO / STOMP / graphql-ws) — annotates
+            // the raw frame with a parsed summary; the raw payload below is unchanged.
+            wsFrameDecoders.decode(frame, request.wsProtocol)?.let { decoded ->
+                addView(buildDecodedFrameBadge(decoded))
+            }
+
             val payloadText: String = when {
                 frame.binary && frame.data == null ->
                     "(binary ${fmtSize(frame.size)} — payload exceeds cap)"
@@ -127,5 +135,25 @@ internal fun DetailActivity.buildFramesTab() {
             compoundDrawablePadding = dp(Theme.s4)
             compoundDrawableTintList = android.content.res.ColorStateList.valueOf(Theme.success)
         })
+    })
+}
+
+/** Small "KIND summary" pill row for a decoded sub-protocol frame (MQTT/Socket.IO/STOMP/graphql-ws). */
+private fun DetailActivity.buildDecodedFrameBadge(info: WsFrameInfo) = LinearLayout(this).apply {
+    orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+    setPadding(0, dp(Theme.s4), 0, 0)
+    val badgeBg = GradientDrawable().apply {
+        setColor(Theme.accent(this@buildDecodedFrameBadge)); cornerRadius = dp(Theme.radiusS).toFloat()
+    }
+    addView(TextView(context).apply {
+        text = info.kind.uppercase(); textSize = GeneratedMetrics.FontSize.xxs.toFloat(); setTypeface(null, Typeface.BOLD)
+        setTextColor(Theme.badgeText); background = badgeBg
+        setPadding(dp(Theme.s4), dp(Theme.s2), dp(Theme.s4), dp(Theme.s2))
+        layoutParams = LinearLayout.LayoutParams(WC, WC).apply { setMargins(0, 0, dp(Theme.s6), 0) }
+    })
+    addView(TextView(context).apply {
+        text = info.summary; textSize = GeneratedMetrics.FontSize.xs.toFloat(); setTypeface(Typeface.MONOSPACE)
+        setTextColor(Theme.text(this@buildDecodedFrameBadge))
+        layoutParams = LinearLayout.LayoutParams(0, WC, 1f)
     })
 }

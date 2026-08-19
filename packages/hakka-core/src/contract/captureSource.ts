@@ -3,9 +3,11 @@
  * 0003, ADR 0006). Doc comments here are the authoritative spec;
  * `conformance.ts` checks any implementation against them.
  *
- * @experimental No real consumer yet (ADR 0003's rule-of-three condition) —
- * no existing code path changes because this file exists. Types only, zero
- * runtime code; must never be imported from a hot path.
+ * Frozen as of 2026-08-17: eight sources implement it (fetch, XHR, WebSocket,
+ * console, Resource Timing, node http/https, OTel spans, CDP), well past ADR
+ * 0003's rule-of-three condition, so the shape is settled and additions must
+ * be optional with fail-open consumers. Types only, zero runtime code; must
+ * never be imported from a hot path.
  */
 
 import type { FrameworkSpan, NetworkRequest, RequestRuntime } from '../model/types'

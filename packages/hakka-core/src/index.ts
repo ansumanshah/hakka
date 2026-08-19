@@ -32,6 +32,8 @@ export type {
   CaptureSourceIdentity,
   CaptureCorrelation,
 } from './contract/captureSource'
+export { createCycleGuard } from './contract/cycleGuard'
+export type { CycleGuard } from './contract/cycleGuard'
 export { checkCaptureSourceConformance } from './contract/conformance'
 export type { CaptureSourceProbe, ConformanceCheck, ConformanceReport } from './contract/conformance'
 

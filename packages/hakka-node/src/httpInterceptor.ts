@@ -17,8 +17,8 @@ import type { ClientRequest, IncomingMessage } from 'node:http'
 import nodeHttps from 'node:https'
 import type { Socket } from 'node:net'
 
-import type { HttpMethod, NetworkRequest, RequestListener } from 'hakka-core'
-import { HAKKA_TRACE_HEADER, currentTraceId, isSensitiveHeader } from 'hakka-core'
+import type { CaptureSource, CaptureSourceContext, HttpMethod, NetworkRequest, RequestListener } from 'hakka-core'
+import { DEFAULT_CONFIG, HAKKA_TRACE_HEADER, createCycleGuard, currentTraceId, isSensitiveHeader } from 'hakka-core'
 
 import { TRACEPARENT_HEADER, buildTraceparent } from './trace'
 
@@ -366,4 +366,75 @@ export function disableHttpInterceptor(): void {
   }
   saved.length = 0
   patched = false
+}
+
+/** Options accepted by {@link createHttpCaptureSource} — a 1:1 passthrough of `enableHttpInterceptor`'s own tail parameters, so wrapping adds no new config surface. */
+export interface HttpCaptureSourceOptions {
+  /** Max captured body size in bytes. Default: hakka-core's `DEFAULT_CONFIG.maxBodySize`. */
+  maxBodySize?: number
+  /** Sensitive header names to redact. Default: hakka-core's `DEFAULT_CONFIG.redactHeaders`. */
+  redactHeaders?: string[]
+  /** Bridge hub hosts skipped to avoid self-capture loops. Default: {@link DEFAULT_BRIDGE_HOSTS}. */
+  bridgeHosts?: string[]
+  /** Pre-capture gate — see {@link HttpInterceptorOptions.shouldCapture}. */
+  interceptorOptions?: HttpInterceptorOptions
+}
+
+/**
+ * `CaptureSource` (ADR 0006) wrapper around `enableHttpInterceptor()` — ADR 0006 row 7, marked
+ * "Clean" fit: the wrapped function already reports via a plain `RequestListener` callback,
+ * identical in shape to `ctx.ingest`, and never tags `runtime` onto the record itself (that
+ * tagging is `serverCapture.ts`'s composed `onRequest` closure's job today, not this
+ * mechanism's) — so this wrapper does not add tagging either, matching the "no code path
+ * changes" rule.
+ *
+ * `runtime` is a fixed `'server'` literal: `enableHttpInterceptor` patches Node's `http`/
+ * `https` modules and self-guards to a no-op via its own `isNodeRuntime()` check outside a
+ * Node process, so `'server'` is the only runtime this mechanism ever actually captures under.
+ *
+ * `correlation` is `'inherits'` (not `'originates'`, unlike a client interceptor): the wrapped
+ * function reads `currentTraceId()` from `AsyncLocalStorage` and propagates it onward via
+ * `x-hakka-trace`/`traceparent` headers, but never mints a new trace id itself.
+ *
+ * Like `createWebSocketCaptureSource`, the four patched functions (`http`/`https` ×
+ * `request`/`get`) are gated by `enableHttpInterceptor`'s own MODULE-level `patched` flag, not
+ * anything scoped to this instance — per `CaptureSource`'s own lifecycle doc, a source is a
+ * "process/module-level singleton by convention", not a guarantee across concurrent instances.
+ * The local `stopped` flag below only closes the OTHER half of that gap: an already-in-flight
+ * request's `response`/`error`/`timeout` handlers were wired to THIS instance's `ctx.ingest`
+ * closure before `stop()` restored the original `http`/`https` methods, and can still fire
+ * after — `stopped` is what actually blocks that delivery, mirroring
+ * `createWebSocketCaptureSource`'s identical rationale for the same class of gap.
+ */
+export function createHttpCaptureSource(options: HttpCaptureSourceOptions = {}): CaptureSource {
+  let disposer: (() => void) | null = null
+  const cycle = createCycleGuard()
+
+  return {
+    id: 'hakka.http',
+    runtime: 'server',
+    transport: 'http',
+    correlation: 'inherits',
+    start(ctx: CaptureSourceContext) {
+      if (disposer) return // already started — idempotent per the CaptureSource contract
+      const isCurrent = cycle.begin()
+      disposer = enableHttpInterceptor(
+        (request) => {
+          // A response/error/timeout resolving after stop() must not reach ctx.ingest.
+          if (!isCurrent()) return
+          ctx.ingest(request)
+        },
+        options.maxBodySize ?? DEFAULT_CONFIG.maxBodySize,
+        options.redactHeaders ?? DEFAULT_CONFIG.redactHeaders,
+        options.bridgeHosts ?? DEFAULT_BRIDGE_HOSTS,
+        options.interceptorOptions,
+      )
+    },
+    stop() {
+      if (!disposer) return // never started, or already stopped — idempotent per the contract
+      cycle.end()
+      disposer()
+      disposer = null
+    },
+  }
 }

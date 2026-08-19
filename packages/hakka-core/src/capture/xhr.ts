@@ -1,3 +1,5 @@
+import type { CaptureSource, CaptureSourceContext } from '../contract/captureSource'
+import { createCycleGuard } from '../contract/cycleGuard'
 import { breakpointEngine } from '../engine/BreakpointEngine'
 import { mockEngine, type MockRequestContext } from '../engine/MockEngine'
 import { ThrottleEngine } from '../engine/ThrottleEngine'
@@ -573,4 +575,58 @@ function disableXHRInterceptor(): void {
   origOpen = null
   origSend = null
   origSetHeader = null
+}
+
+/**
+ * Config `createXHRCaptureSource` forwards unchanged to `enableXHRInterceptor` — the same two
+ * knobs a host already supplies via `HakkaFacade`/`hakka-browser`'s own config
+ * (`config.maxBodySize`, `config.redactHeaders`); this wrapper invents no new defaults.
+ */
+export interface XHRCaptureSourceOptions {
+  readonly maxBodySize: number
+  readonly redactHeaders: string[]
+}
+
+/**
+ * `CaptureSource` (ADR 0006) wrapper around `enableXHRInterceptor()`. `runtime` is a fixed
+ * `'client'` literal — `enableXHRInterceptor` patches `XMLHttpRequest.prototype`, a browser-only
+ * global with no server/edge variant (ADR 0006 row 2, "Clean. Same shape as fetch.").
+ *
+ * Unlike a monkey-patched constructor (websocket.ts), XHR patches three PROTOTYPE methods
+ * shared by every instance, live and already-open ones included — `stop()` restores them
+ * immediately. But `open()`/`send()` register listeners (`readystatechange`, `loadend`) and, on
+ * the offline/blocked/mocked short-circuit paths, a bare `setTimeout` — any of which can still
+ * fire and reach `onRequest` after `stop()` for a request that was already in flight when it was
+ * called. The local `stopped` flag below is what actually blocks delivery to `ctx.ingest` for
+ * that case, mirroring websocket.ts's and spanProcessor.ts's `stopped` checks.
+ */
+export function createXHRCaptureSource(options: XHRCaptureSourceOptions): CaptureSource {
+  let disposer: (() => void) | null = null
+  const cycle = createCycleGuard()
+
+  return {
+    id: 'hakka.xhr',
+    runtime: 'client',
+    transport: 'xhr',
+    correlation: 'originates',
+    start(ctx: CaptureSourceContext) {
+      if (disposer) return // already started — idempotent per the CaptureSource contract
+      const isCurrent = cycle.begin()
+      disposer = enableXHRInterceptor(
+        (request) => {
+          // A loadend/error/mock/breakpoint callback resolving after stop() must not reach ctx.ingest.
+          if (!isCurrent()) return
+          ctx.ingest(request)
+        },
+        options.maxBodySize,
+        options.redactHeaders,
+      )
+    },
+    stop() {
+      if (!disposer) return // never started, or already stopped — idempotent per the contract
+      cycle.end()
+      disposer()
+      disposer = null
+    },
+  }
 }

@@ -1,4 +1,5 @@
 import type { CaptureSource, CaptureSourceContext } from '../contract/captureSource'
+import { createCycleGuard } from '../contract/cycleGuard'
 import type { RequestListener, WsMessage } from '../model/types'
 import { isOwnBridgeUrl } from './bridgeHosts'
 
@@ -272,7 +273,7 @@ function disableWebSocketInterceptor(): void {
  */
 export function createWebSocketCaptureSource(): CaptureSource {
   let disposer: (() => void) | null = null
-  let stopped = true
+  const cycle = createCycleGuard()
 
   return {
     id: 'hakka.websocket',
@@ -281,16 +282,17 @@ export function createWebSocketCaptureSource(): CaptureSource {
     correlation: 'none',
     start(ctx: CaptureSourceContext) {
       if (disposer) return // already started — idempotent per the CaptureSource contract
-      stopped = false
+      const isCurrent = cycle.begin()
       disposer = enableWebSocketInterceptor((request) => {
-        // A message (or async re-emit) that resolves after stop() must not reach ctx.ingest.
-        if (stopped) return
+        // A message (or async re-emit) that resolves after stop() must not reach ctx.ingest —
+        // and must not reach a LATER cycle's ctx either, hence the cycle guard over a boolean.
+        if (!isCurrent()) return
         ctx.ingest(request)
       })
     },
     stop() {
       if (!disposer) return // never started, or already stopped — idempotent per the contract
-      stopped = true
+      cycle.end()
       disposer()
       disposer = null
     },

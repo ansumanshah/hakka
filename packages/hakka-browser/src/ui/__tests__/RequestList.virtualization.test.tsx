@@ -1,10 +1,10 @@
 import { render } from '@solidjs/testing-library'
-import type { FrameworkSpan, NetworkRequest, RequestGroup } from 'hakka-core'
-import { deriveTraceId, groupRequests } from 'hakka-core'
+import type { FrameworkSpan, RequestGroup } from 'hakka-core'
+import { deriveTraceId } from 'hakka-core'
 import { describe, it, expect } from 'vitest'
 
 import { RequestList } from '../RequestList'
-import { makeGroup, makeReq, makeSpan, reqs } from './requestListFixtures'
+import { makeGroup, makeSpan, reqs } from './requestListFixtures'
 
 describe('RequestList virtualization', () => {
   it('renders every row for small lists', () => {

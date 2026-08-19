@@ -5,8 +5,8 @@
  * `checkCaptureSourceConformance` against their own source the same way
  * `conformance.test.ts` runs it against the fakes defined there.
  *
- * @experimental See `captureSource.ts` — this harness exists ahead of any
- * real consumer.
+ * Frozen alongside the contract (see `captureSource.ts`) — every first-party
+ * source's test suite runs this harness against it.
  */
 
 import type { FrameworkSpan, NetworkRequest } from '../model/types'
