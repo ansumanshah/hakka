@@ -67,13 +67,14 @@ capture" / "JS capture" rows:
 | ---------------- | --- | --- | ------- | --- |
 | Native capture   | ●   | ●   | ●       | —   |
 | JS capture       | ●   | —   | —       | ●   |
-| WebSocket frames | ●   | ◐   | ◐       | ●   |
+| WebSocket frames | ●   | ●   | ●       | ●   |
 
-iOS ships `WebSocketMonitor.swift`; Android ships `HakkaWebSocketWrapper.kt`. The `WebSocket
-frames` row is ◐ on iOS/Android because the sub-protocol frame-decoder registry
-(MQTT/Socket.IO/STOMP/graphql-ws, `engine/wsDecoders.ts`) is core-TS only: native panels show
-raw frames without decoded message views. Server-side outbound WebSocket capture (`hakka-node`)
-is not offered on any platform.
+iOS ships `WebSocketMonitor.swift`; Android ships `HakkaWebSocketWrapper.kt`. The sub-protocol
+frame-decoder registry (MQTT/Socket.IO/STOMP/graphql-ws) exists on all four platforms:
+`engine/wsDecoders.ts` in core, `WsFrameDecoders+*.swift` on iOS, and `*WsDecoder.kt` on
+Android, each ported against the TypeScript fixtures. Native panels render the decoded kind and
+payload summary and fall back to raw frame text when no decoder matches. Server-side outbound
+WebSocket capture (`hakka-node`) is not offered on any platform.
 
 ## Wire format
 

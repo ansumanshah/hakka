@@ -135,7 +135,7 @@ says so explicitly; see ⁵ and ⁶ for mocking on iOS and Android.
 | ------------------------- | ------- | --- | ------- | --- |
 | Native capture            | ●       | ●   | ●       | —   |
 | JS capture                | ●       | —   | —       | ●   |
-| WebSocket frames¹⁷        | ●       | ◐   | ◐       | ●   |
+| WebSocket frames¹⁷        | ●       | ●   | ●       | ●   |
 | Timing waterfall          | ●       | ●   | ●       | ●   |
 | HAR / OTel / cURL¹        | ●⁴      | ●   | ●       | ●   |
 | Postman export            | ●       | ●   | ●       | ●   |
@@ -163,7 +163,7 @@ says so explicitly; see ⁵ and ⁶ for mocking on iOS and Android.
 | Verbose span toggle¹⁴     | —       | —   | —       | ●   |
 | Cache-status tags¹⁵       | —       | —   | —       | ●   |
 | Request-kind filter¹⁶     | —       | —   | —       | ●   |
-| Crash containment¹⁸       | ○       | —   | —       | ●   |
+| Crash containment¹⁸       | ●       | —   | —       | ●   |
 | Stale-body revalidation¹⁹ | ○       | ⊘   | ⊘       | ●   |
 
 ¹ cURL hardened (shell-safe quoting, `--compressed`, Basic-auth `-u`) in v1.1.
@@ -191,9 +191,9 @@ says so explicitly; see ⁵ and ⁶ for mocking on iOS and Android.
 
 ¹⁶ `FrameworkSpan.requestKind` (`'document' | 'rsc' | 'route-handler' | 'server-action'`) is classified per-trace by `classifyRequestKind()` in `spanProcessor.ts` from the `next.rsc` span attribute plus an inbound `server-action` header hint (`trace.ts`'s `requestKindHint`), then exposed as a segmented filter (`FilterBar.tsx`'s `requestKindFilter`) that narrows visible trace GROUPS by their root span's kind. Client-side only, shown while grouped by trace. Web only.
 
-¹⁸ The web overlay wraps the inspector in a root error boundary (`CrashBoundary.tsx`, Solid's `<Errored>`): a crashed inspector renders a compact "Inspector crashed — reload" bar inside its own shadow root instead of freezing or unstyling the host page, and Reload tears down the entire crashed tree and mounts a fresh one. Captured traffic survives the reload — the store lives outside the UI tree (Worker/singleton). RN is roadmap (a React error boundary around the JS inspector). iOS/Android native panels ride the host app's native exception model — a boundary of this kind is not offered.
+¹⁸ The web overlay wraps the inspector in a root error boundary (`CrashBoundary.tsx`, Solid's `<Errored>`): a crashed inspector renders a compact "Inspector crashed — reload" bar inside its own shadow root instead of freezing or unstyling the host page, and Reload tears down the entire crashed tree and mounts a fresh one. Captured traffic survives the reload — the store lives outside the UI tree (Worker/singleton). RN wraps the JS inspector root the same way (`hakka-react-native/src/ui/CrashBoundary.tsx`, a class component — React has no hooks-based error boundary): `HakkaInspector.tsx`'s `Wrapper` and `Standalone` both mount `InspectorUI` inside it, a caught crash swaps in a compact "Inspector crashed — reload" bar built from the shared design tokens, and Reload bumps a `generation` counter used as the wrapped children's `key`, which forces React to fully unmount the crashed tree and mount a fresh one rather than re-rendering in place. Captured traffic survives — `hakka-core`'s `Hakka` log store is a module-level singleton outside the React tree, untouched by the remount. iOS/Android native panels ride the host app's native exception model — a boundary of this kind is not offered.
 ¹⁹ Switching rows in the web Detail keeps the previous request's body visible (dimmed while `isPending`) while the next body hydrates asynchronously, instead of flashing an empty state (`Detail.tsx` async memo + `<Loading>`). iOS/Android read bodies in-process with no async gap, so there is nothing to revalidate (out of scope by design). RN fetches bodies over the bridge (async) — roadmap.
-¹⁷ All four platforms capture WebSocket connections and frames: RN and web through core's JS interceptor (`capture/websocket.ts`), iOS through `WebSocketMonitor.swift`, Android through `HakkaWebSocketWrapper.kt`. iOS/Android are ◐ because the sub-protocol frame-decoder registry (MQTT / Socket.IO / STOMP / graphql-ws, `engine/wsDecoders.ts`) is core-TS only — native panels show raw frames without decoded message views. Server-side outbound WebSocket capture (`hakka-node`) is not offered on any platform.
+¹⁷ All four platforms capture WebSocket connections and frames: RN and web through core's JS interceptor (`capture/websocket.ts`), iOS through `WebSocketMonitor.swift`, Android through `HakkaWebSocketWrapper.kt`. The sub-protocol frame-decoder registry (MQTT / Socket.IO / STOMP / graphql-ws) is now implemented on all four: `engine/wsDecoders.ts` in core-TS, ported to Swift in `ios/Sources/Common/BodyDecoders/WsFrameDecoders+*.swift` and to Kotlin in `android/hakka-common/.../{Mqtt,SocketIo,Stomp,GraphqlWs}WsDecoder.kt`, each verified against the TypeScript fixtures. Native panels render the decoded kind and payload summary, falling back to raw frame text when no decoder matches. Server-side outbound WebSocket capture (`hakka-node`) is not offered on any platform.
 
 ## 6. Roadmap
 

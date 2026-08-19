@@ -41,7 +41,7 @@ struct WsFramesView: View {
             summaryRow(frames: frames)
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(frames.enumerated()), id: \.offset) { index, frame in
-                    FrameRow(frame: frame, index: index, baseTime: request.startTime)
+                    FrameRow(frame: frame, index: index, baseTime: request.startTime, wsProtocol: request.wsProtocol)
                     if index < frames.count - 1 {
                         Divider()
                             .background(Theme.border.opacity(0.35))
@@ -98,6 +98,13 @@ private struct FrameRow: View {
     let frame: WsMessage
     let index: Int
     let baseTime: Int64
+    let wsProtocol: String?
+
+    /// Sub-protocol frame decode (MQTT/Socket.IO/STOMP/graphql-ws), or `nil`
+    /// when no registered decoder recognises this frame.
+    private var decoded: WsFrameInfo? {
+        decodeWsFrame(frame.data, binary: frame.binary, wsProtocol: wsProtocol)
+    }
 
     var body: some View {
         HStack(alignment: .top, spacing: Theme.s10) {
@@ -152,6 +159,16 @@ private struct FrameRow: View {
                     .background(Theme.surfaceRaised)
                     .clipShape(RoundedRectangle(cornerRadius: Theme.radiusS))
             }
+
+            if let decoded {
+                Text(decoded.kind)
+                    .font(.system(size: HakkaMetrics.FontSize.xxs, weight: .semibold))
+                    .foregroundStyle(Theme.info)
+                    .padding(.horizontal, Theme.s4)
+                    .padding(.vertical, 1)
+                    .background(Theme.info.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.radiusS))
+            }
         }
     }
 
@@ -169,6 +186,10 @@ private struct FrameRow: View {
     // MARK: - Helpers
 
     private var displayPayload: String {
+        if let decoded {
+            guard let preview = decoded.payloadPreview, !preview.isEmpty else { return decoded.summary }
+            return "\(decoded.summary) · \(preview)"
+        }
         switch frame.data {
         case .text(let s):
             let limit = 300

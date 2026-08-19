@@ -20,6 +20,7 @@ import Reanimated, { useAnimatedStyle, useSharedValue, withSequence, withTiming 
 
 import { useHakka } from '../../hooks/useHakka'
 import { useNetworkLogs } from '../../hooks/useNetworkLogs'
+import { CrashBoundary } from '../CrashBoundary'
 import { useBubbleDrag } from '../hooks/useBubbleDrag'
 import { useBubbleGeometry } from '../hooks/useBubbleGeometry'
 import { useBulkRequestExport } from '../hooks/useBulkRequestExport'
@@ -679,7 +680,13 @@ namespace HakkaInspector {
       <GestureHandlerRootView style={WRAPPER_ROOT_STYLE}>
         {children}
         <ThemeProvider theme={resolvedTheme}>
-          {useNativeOverlay ? <NativeOverlayController {...props} /> : <InspectorUI {...props} />}
+          {useNativeOverlay ? (
+            <NativeOverlayController {...props} />
+          ) : (
+            <CrashBoundary>
+              <InspectorUI {...props} />
+            </CrashBoundary>
+          )}
         </ThemeProvider>
       </GestureHandlerRootView>
     )
@@ -699,7 +706,13 @@ namespace HakkaInspector {
     return (
       <GestureHandlerRootView style={WRAPPER_ROOT_STYLE}>
         <ThemeProvider theme={resolvedTheme}>
-          {useNativeOverlay ? <NativeOverlayController {...props} /> : <InspectorUI {...props} onClose={onClose} />}
+          {useNativeOverlay ? (
+            <NativeOverlayController {...props} />
+          ) : (
+            <CrashBoundary>
+              <InspectorUI {...props} onClose={onClose} />
+            </CrashBoundary>
+          )}
         </ThemeProvider>
       </GestureHandlerRootView>
     )
