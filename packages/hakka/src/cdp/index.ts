@@ -6,6 +6,9 @@
  * on either browser-automation library.
  */
 export { createCdpCapture } from './capture'
+// `CaptureSource` wrapper around the capture above (ADR 0006).
+export { createCdpCaptureSource } from './capture'
+export type { CreateCdpCaptureSourceOptions } from './capture'
 export type { CreateCdpCaptureOptions, CdpCapture } from './capture'
 
 export { createCdpMapper, DEFAULT_MAX_BODY_SIZE } from './mapper'

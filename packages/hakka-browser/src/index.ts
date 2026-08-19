@@ -342,6 +342,8 @@ export type { LogEntry, LogLevel, LogListener, LogOptions } from 'hakka-core'
 // OTLP — push captured traces + metrics + logs to any OpenTelemetry collector.
 export { pushOtlp, toOtlpTraces, toOtlpMetrics, toOtlpLogs } from 'hakka-core'
 export type { OtlpPushOptions, OtlpPushResult } from 'hakka-core'
+// `CaptureSource` wrapper around the Resource Timing enricher (ADR 0006).
+export { createResourceTimingCaptureSource } from './capture/resourceTiming'
 export { copyToClipboard } from './adapters/clipboard'
 export { shareText } from './adapters/share'
 export { getWebDeviceInfo, getSystemInfo, type WebDeviceInfo, type SystemInfoRow } from './adapters/deviceInfo'

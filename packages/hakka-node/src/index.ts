@@ -21,6 +21,9 @@ if (typeof process !== 'undefined' && process.env) {
 
 export { register, startCapture, stopCapture, type HakkaNodeOptions, type HakkaNodeCapture } from './serverCapture'
 export { enableHttpInterceptor, disableHttpInterceptor, DEFAULT_BRIDGE_HOSTS } from './httpInterceptor'
+// `CaptureSource` wrapper around the interceptor above (ADR 0006).
+export { createHttpCaptureSource } from './httpInterceptor'
+export type { HttpCaptureSourceOptions } from './httpInterceptor'
 export {
   enableTracePropagation,
   disableTracePropagation,
@@ -40,6 +43,7 @@ export { enableTraceparentFetch, disableTraceparentFetch } from './traceparentFe
 export { createBridgeClient, DEFAULT_BRIDGE_URL, type BridgeClient, type BridgeClientOptions } from './bridgeClient'
 export {
   enableTraceSpans,
+  createOtelSpanCaptureSource,
   hakkaSpanProcessor,
   type HakkaSpanProcessor,
   type SpanProcessorHandle,

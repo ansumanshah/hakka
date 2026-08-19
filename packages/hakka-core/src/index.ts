@@ -156,6 +156,17 @@ export { enableFetchInterceptor } from './capture/fetch'
 export { enableXHRInterceptor } from './capture/xhr'
 export { enableWebSocketInterceptor } from './capture/websocket'
 
+// The `CaptureSource` wrappers around the interceptors above (ADR 0006). The
+// `enable*` functions stay exported and stay the path every first-party
+// caller uses; these exist so a source can be registered, started, and torn
+// down through one contract without knowing which mechanism it wraps.
+export { createFetchCaptureSource } from './capture/fetch'
+export type { FetchCaptureSourceOptions } from './capture/fetch'
+export { createXHRCaptureSource } from './capture/xhr'
+export type { XHRCaptureSourceOptions } from './capture/xhr'
+export { createWebSocketCaptureSource } from './capture/websocket'
+export { createConsoleCaptureSource } from './capture/console'
+
 export { RingBuffer } from './storage/RingBuffer'
 export { RetentionPolicy } from './storage/RetentionPolicy'
 export type { StorageAdapter } from './storage/StorageAdapter'
