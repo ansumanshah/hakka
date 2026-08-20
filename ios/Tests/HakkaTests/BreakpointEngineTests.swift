@@ -135,6 +135,10 @@ struct BreakpointEngineTests {
 
     @Test func pauseRequestResumeWithNoEdits() throws {
         let engine = freshEngine()
+        // Release any worker still parked in pause*, even if an expectation
+        // above fails — a leaked parked worker holds a global-queue thread
+        // for the rest of the run and starves later concurrency tests.
+        defer { engine.resumeAll() }
         let req = PausedRequest(url: "https://example.com/api", method: "GET", headers: [:], body: nil)
 
         var action: ResumeRequestAction?
@@ -167,6 +171,10 @@ struct BreakpointEngineTests {
 
     @Test func pauseRequestResumeWithEdits() throws {
         let engine = freshEngine()
+        // Release any worker still parked in pause*, even if an expectation
+        // above fails — a leaked parked worker holds a global-queue thread
+        // for the rest of the run and starves later concurrency tests.
+        defer { engine.resumeAll() }
         let original = PausedRequest(url: "https://example.com/api", method: "POST", headers: [:], body: "{\"a\":1}")
 
         var action: ResumeRequestAction?
@@ -194,6 +202,10 @@ struct BreakpointEngineTests {
 
     @Test func pauseRequestAbort() throws {
         let engine = freshEngine()
+        // Release any worker still parked in pause*, even if an expectation
+        // above fails — a leaked parked worker holds a global-queue thread
+        // for the rest of the run and starves later concurrency tests.
+        defer { engine.resumeAll() }
         let req = PausedRequest(url: "https://example.com/api", method: "DELETE", headers: [:], body: nil)
 
         var action: ResumeRequestAction?
@@ -219,6 +231,10 @@ struct BreakpointEngineTests {
 
     @Test func pauseResponseResumeWithEdits() throws {
         let engine = freshEngine()
+        // Release any worker still parked in pause*, even if an expectation
+        // above fails — a leaked parked worker holds a global-queue thread
+        // for the rest of the run and starves later concurrency tests.
+        defer { engine.resumeAll() }
         let res = PausedResponse(status: 200, headers: ["Content-Type": "application/json"], body: "{}")
 
         var action: ResumeResponseAction?
@@ -248,6 +264,10 @@ struct BreakpointEngineTests {
 
     @Test func pauseResponseAbort() throws {
         let engine = freshEngine()
+        // Release any worker still parked in pause*, even if an expectation
+        // above fails — a leaked parked worker holds a global-queue thread
+        // for the rest of the run and starves later concurrency tests.
+        defer { engine.resumeAll() }
         let res = PausedResponse(status: 500, headers: [:], body: "error")
 
         var action: ResumeResponseAction?
@@ -273,6 +293,10 @@ struct BreakpointEngineTests {
 
     @Test func multipleConcurrentPausedRequests() throws {
         let engine = freshEngine()
+        // Release any worker still parked in pause*, even if an expectation
+        // above fails — a leaked parked worker holds a global-queue thread
+        // for the rest of the run and starves later concurrency tests.
+        defer { engine.resumeAll() }
 
         var actions: [String: ResumeRequestAction] = [:]
         let lock = NSLock()
@@ -338,6 +362,10 @@ struct BreakpointEngineTests {
 
     @Test func resumeAllUnblocksAllPending() throws {
         let engine = freshEngine()
+        // Release any worker still parked in pause*, even if an expectation
+        // above fails — a leaked parked worker holds a global-queue thread
+        // for the rest of the run and starves later concurrency tests.
+        defer { engine.resumeAll() }
 
         let done1 = DispatchSemaphore(value: 0)
         let done2 = DispatchSemaphore(value: 0)
@@ -407,6 +435,10 @@ struct BreakpointEngineTests {
 
     @Test func getPausedReflectsPhase() throws {
         let engine = freshEngine()
+        // Release any worker still parked in pause*, even if an expectation
+        // above fails — a leaked parked worker holds a global-queue thread
+        // for the rest of the run and starves later concurrency tests.
+        defer { engine.resumeAll() }
 
         let doneReq = DispatchSemaphore(value: 0)
         let doneRes = DispatchSemaphore(value: 0)
@@ -446,6 +478,10 @@ struct BreakpointEngineTests {
 
     @Test func hasPausedReturnsTrueWithPaused() throws {
         let engine = freshEngine()
+        // Release any worker still parked in pause*, even if an expectation
+        // above fails — a leaked parked worker holds a global-queue thread
+        // for the rest of the run and starves later concurrency tests.
+        defer { engine.resumeAll() }
         let done = DispatchSemaphore(value: 0)
         let req = PausedRequest(url: "https://x.com", method: "GET", headers: [:], body: nil)
 
