@@ -45,7 +45,7 @@ components: two copies of the same view drift the first time a bug is fixed
 on one side.
 
 **C. A Swift package of embeddable products, with a thin app host.**
-Accepted. The desktop functionality ships as SPM *products*
+Accepted. The desktop functionality ships as SPM _products_
 (`HakkaDesktopCore`, `HakkaDesktopServer`) that depend on the existing
 `HakkaCommon`/`HakkaUI` products by path. The `.app` is an executable target
 that wires them together and owns nothing but window management.
@@ -82,18 +82,18 @@ Three consequences follow from the product split, and they are the point:
 
 Parity targets, stated plainly so scope creep is visible:
 
-| Area | Comparable to | Status |
-| --- | --- | --- |
-| Plain-text, git-diffable collections (one file per request) | Bruno | building |
-| Environments + `{{variable}}` interpolation, secrets outside the collection | Bruno, Yaak | building |
-| Request runner, declarative assertions, response captures | Bruno, Yaak | building |
-| Import from cURL / Postman / OpenAPI / HAR; code generation | all of them | building |
-| Live capture, traffic list, response diff, session export | Proxyman | building |
-| Bridge hub + Bonjour discovery | Hakka's own | building |
-| System-wide HTTPS proxy with a CA certificate | Proxyman, Charles | **explicit non-goal** |
+| Area                                                                        | Comparable to     | Status                |
+| --------------------------------------------------------------------------- | ----------------- | --------------------- |
+| Plain-text, git-diffable collections (one file per request)                 | Bruno             | building              |
+| Environments + `{{variable}}` interpolation, secrets outside the collection | Bruno, Yaak       | building              |
+| Request runner, declarative assertions, response captures                   | Bruno, Yaak       | building              |
+| Import from cURL / Postman / OpenAPI / HAR; code generation                 | all of them       | building              |
+| Live capture, traffic list, response diff, session export                   | Proxyman          | building              |
+| Bridge hub + Bonjour discovery                                              | Hakka's own       | building              |
+| System-wide HTTPS proxy with a CA certificate                               | Proxyman, Charles | **explicit non-goal** |
 
 The last row is the deliberate difference. Proxyman sees every app's traffic
-because you install its certificate; Hakka sees *your* app's traffic because
+because you install its certificate; Hakka sees _your_ app's traffic because
 the SDK is in it. That is a smaller scope and a much smaller trust ask, and
 it is the entire reason Hakka needs no certificate.
 

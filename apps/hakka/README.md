@@ -19,12 +19,12 @@ open Hakka.app
 
 ## Layout
 
-| Path | Product | What it holds |
-| --- | --- | --- |
-| `Sources/DesktopCore` | `HakkaDesktopCore` | Collections, environments, request runner, importers, code generation, traffic store. No UI, no server. |
-| `Sources/DesktopServer` | `HakkaDesktopServer` | The bridge hub as a Swift actor, speaking `hakka-bridge`'s wire protocol. |
-| `Sources/HakkaDesktopApp` | `HakkaDesktop` | The SwiftUI app shell. |
-| `Tests/DesktopCoreTests` | — | Swift Testing suites for the two library products. |
+| Path                      | Product              | What it holds                                                                                           |
+| ------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------- |
+| `Sources/DesktopCore`     | `HakkaDesktopCore`   | Collections, environments, request runner, importers, code generation, traffic store. No UI, no server. |
+| `Sources/DesktopServer`   | `HakkaDesktopServer` | The bridge hub as a Swift actor, speaking `hakka-bridge`'s wire protocol.                               |
+| `Sources/HakkaDesktopApp` | `HakkaDesktop`       | The SwiftUI app shell.                                                                                  |
+| `Tests/DesktopCoreTests`  | —                    | Swift Testing suites for the two library products.                                                      |
 
 The libraries are the deliverable; the app is a thin host. Another Swift app (Noodle,
 Ramen) can depend on `HakkaDesktopCore` and get collections and the runner without

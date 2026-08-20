@@ -24,7 +24,7 @@ Proxyman and Charles see every app's traffic because you install a CA certificat
 route your machine through them. That is a large amount of trust and a recurring
 setup tax, and it is why those tools cannot be part of a normal project's onboarding.
 
-Hakka sees *your* app's traffic because the SDK is inside it. Smaller scope, no
+Hakka sees _your_ app's traffic because the SDK is inside it. Smaller scope, no
 certificate, nothing to install on the system. The desktop app receives what the SDK
 already captured, over the same bridge the CLI and MCP server use.
 
@@ -36,11 +36,11 @@ you need, a proxy is the right tool and Proxyman is a good one.
 The app ships as Swift packages, not just a binary, so other Swift apps can host the
 same surfaces ([ADR 0008](/contributing/adr/0008-desktop-plugin-products/)):
 
-| Product | Contains |
-| --- | --- |
-| `HakkaDesktopCore` | Collections, environments, the request runner, importers, code generators, the traffic store. No UI. |
+| Product              | Contains                                                                                                                          |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `HakkaDesktopCore`   | Collections, environments, the request runner, importers, code generators, the traffic store. No UI.                              |
 | `HakkaDesktopServer` | The bridge hub as a Swift actor — speaks the same wire protocol as `hakka-bridge`, so it replaces that process for desktop users. |
-| `HakkaDesktop` | The SwiftUI app itself. |
+| `HakkaDesktop`       | The SwiftUI app itself.                                                                                                           |
 
 `HakkaDesktopCore` depends on `HakkaCommon` — the same package the iOS SDK captures
 into. A request that arrives from a device and a request the desktop app sends are the
@@ -51,24 +51,24 @@ import.
 
 **As an API client**
 
-| | |
-| --- | --- |
-| Collections | Folders and requests, each request its own file. Headers and auth inherit collection → folder → request. |
-| Environments | Named variable sets with `{{name}}` interpolation. A request that references a variable with no value is refused rather than sent with the placeholder intact. |
-| Assertions | Declarative checks on status, duration, headers, JSON paths, and body text — no embedded scripting language, so they stay diffable and runnable headlessly. |
-| Captures | Pull a value out of a response into a variable, so a login request feeds the token to everything after it. |
-| Import | cURL commands, Postman v2.1, OpenAPI 3, and HAR (including Hakka's own export). |
+|                 |                                                                                                                                                                      |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Collections     | Folders and requests, each request its own file. Headers and auth inherit collection → folder → request.                                                             |
+| Environments    | Named variable sets with `{{name}}` interpolation. A request that references a variable with no value is refused rather than sent with the placeholder intact.       |
+| Assertions      | Declarative checks on status, duration, headers, JSON paths, and body text — no embedded scripting language, so they stay diffable and runnable headlessly.          |
+| Captures        | Pull a value out of a response into a variable, so a login request feeds the token to everything after it.                                                           |
+| Import          | cURL commands, Postman v2.1, OpenAPI 3, and HAR (including Hakka's own export).                                                                                      |
 | Code generation | cURL, JavaScript `fetch`, Swift `URLSession`, Python `requests`, Go `net/http`, HTTPie — each with a redacting mode so a snippet is safe to paste into a bug report. |
 
 **As an inspector**
 
-| | |
-| --- | --- |
-| Live traffic | Streamed from your app over the bridge, on this Mac or a device on the same network. |
-| Filtering | Method, status class, host, runtime, duration and size thresholds, and text search across URL, headers, and body. |
-| Diff | Compare two requests structurally — status, headers added/removed/changed, and a line-level body diff. |
-| Export | HAR and session files, using the same field mapping the SDKs already use. |
-| Bridge hub | Built in, so there is no separate `hakka-bridge` process to run. Bonjour advertises it to devices; LAN exposure is opt-in. |
+|              |                                                                                                                            |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| Live traffic | Streamed from your app over the bridge, on this Mac or a device on the same network.                                       |
+| Filtering    | Method, status class, host, runtime, duration and size thresholds, and text search across URL, headers, and body.          |
+| Diff         | Compare two requests structurally — status, headers added/removed/changed, and a line-level body diff.                     |
+| Export       | HAR and session files, using the same field mapping the SDKs already use.                                                  |
+| Bridge hub   | Built in, so there is no separate `hakka-bridge` process to run. Bonjour advertises it to devices; LAN exposure is opt-in. |
 
 ## Collections are files
 
@@ -77,7 +77,7 @@ ordering, so editing one request produces a one-file, line-oriented diff that a
 teammate can actually review. Folders are subdirectories. There is no database and no
 single-file blob to conflict on.
 
-Environment *values* live outside the collection directory, and variables marked secret
+Environment _values_ live outside the collection directory, and variables marked secret
 never enter it — a committed collection can reference `{{token}}` without ever
 containing one.
 
