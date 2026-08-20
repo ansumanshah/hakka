@@ -132,7 +132,9 @@ private final class LockedArray<T: Sendable>: @unchecked Sendable {
                 group.leave()
             }
         }
-        group.wait()
+        // Bounded: an unbounded DispatchGroup wait turns a lost completion into
+        // a CI-length hang rather than a test failure.
+        if group.wait(timeout: .now() + 10) == .timedOut { Issue.record("concurrent work did not finish") }
         #expect(c.count == 200)
     }
 

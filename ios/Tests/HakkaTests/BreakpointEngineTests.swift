@@ -145,8 +145,9 @@ struct BreakpointEngineTests {
             done.signal()
         }
 
-        // Give the background thread time to block.
-        Thread.sleep(forTimeInterval: 0.05)
+        // Poll until the worker has actually registered its pause; a fixed
+        // sleep is a race on a loaded machine.
+        #expect(BlockingTestSupport.waitUntil { !engine.getPaused().isEmpty })
         let paused = engine.getPaused()
         #expect(paused.count == 1)
         #expect(paused.first?.requestId == "req-1")
@@ -155,7 +156,7 @@ struct BreakpointEngineTests {
         let pauseId = try #require(paused.first?.id)
         engine.resume(pauseId: pauseId, requestEdits: nil)
 
-        done.wait()
+        done.expectSignal("the paused worker to resume")
         #expect(engine.getPaused().isEmpty)
 
         switch action {
@@ -176,12 +177,12 @@ struct BreakpointEngineTests {
             done.signal()
         }
 
-        Thread.sleep(forTimeInterval: 0.05)
+        #expect(BlockingTestSupport.waitUntil { !engine.getPaused().isEmpty })
         let pauseId = try #require(engine.getPaused().first?.id)
 
         let edited = PausedRequest(url: "https://example.com/api/v2", method: "POST", headers: [:], body: "{\"a\":2}")
         engine.resume(pauseId: pauseId, requestEdits: edited)
-        done.wait()
+        done.expectSignal("the paused worker to resume")
 
         switch action {
         case .resume(let edits):
@@ -203,10 +204,10 @@ struct BreakpointEngineTests {
             done.signal()
         }
 
-        Thread.sleep(forTimeInterval: 0.05)
+        #expect(BlockingTestSupport.waitUntil { !engine.getPaused().isEmpty })
         let pauseId = try #require(engine.getPaused().first?.id)
         engine.abort(pauseId: pauseId)
-        done.wait()
+        done.expectSignal("the paused worker to resume")
 
         switch action {
         case .abort: break  // expected
@@ -228,14 +229,14 @@ struct BreakpointEngineTests {
             done.signal()
         }
 
-        Thread.sleep(forTimeInterval: 0.05)
+        #expect(BlockingTestSupport.waitUntil { !engine.getPaused().isEmpty })
         let paused = engine.getPaused()
         #expect(paused.count == 1)
         let pauseId = try #require(paused.first?.id)
 
         let edited = PausedResponse(status: 404, headers: [:], body: "not found")
         engine.resumeResponse(pauseId: pauseId, responseEdits: edited)
-        done.wait()
+        done.expectSignal("the paused worker to resume")
 
         switch action {
         case .resume(let edits):
@@ -257,10 +258,10 @@ struct BreakpointEngineTests {
             done.signal()
         }
 
-        Thread.sleep(forTimeInterval: 0.05)
+        #expect(BlockingTestSupport.waitUntil { !engine.getPaused().isEmpty })
         let pauseId = try #require(engine.getPaused().first?.id)
         engine.abort(pauseId: pauseId)
-        done.wait()
+        done.expectSignal("the paused worker to resume")
 
         switch action {
         case .abort: break
@@ -314,7 +315,9 @@ struct BreakpointEngineTests {
             }
         }
 
-        done1.wait(); done2.wait(); done3.wait()
+        done1.expectSignal("worker 1 to resume")
+        done2.expectSignal("worker 2 to resume")
+        done3.expectSignal("worker 3 to resume")
         #expect(engine.getPaused().isEmpty)
 
         switch actions["r1"] {
@@ -350,12 +353,12 @@ struct BreakpointEngineTests {
             done2.signal()
         }
 
-        Thread.sleep(forTimeInterval: 0.05)
+        #expect(BlockingTestSupport.waitUntil { engine.getPaused().count == 2 })
         #expect(engine.hasPaused() == true)
 
         engine.resumeAll()
-        done1.wait()
-        done2.wait()
+        done1.expectSignal("the first paused worker to resume")
+        done2.expectSignal("the second paused worker to resume")
         #expect(engine.getPaused().isEmpty)
         #expect(engine.hasPaused() == false)
     }
@@ -419,7 +422,7 @@ struct BreakpointEngineTests {
             doneRes.signal()
         }
 
-        Thread.sleep(forTimeInterval: 0.05)
+        #expect(BlockingTestSupport.waitUntil { !engine.getPaused().isEmpty })
         let paused = engine.getPaused()
         #expect(paused.count == 2)
 
@@ -430,8 +433,8 @@ struct BreakpointEngineTests {
 
         // Cleanup
         engine.resumeAll()
-        doneReq.wait()
-        doneRes.wait()
+        doneReq.expectSignal("the paused request worker to resume")
+        doneRes.expectSignal("the paused response worker to resume")
     }
 
     // MARK: - hasPaused
@@ -454,7 +457,7 @@ struct BreakpointEngineTests {
         #expect(engine.hasPaused() == true)
 
         engine.resumeAll()
-        done.wait()
+        done.expectSignal("the paused worker to resume")
         #expect(engine.hasPaused() == false)
     }
 }

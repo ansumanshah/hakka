@@ -14,6 +14,7 @@ jobs:
   lint:
     name: Lint & Format
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -27,6 +28,7 @@ jobs:
   ts-build-test:
     name: TypeScript
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -68,6 +70,7 @@ jobs:
   web-e2e:
     name: Web E2E (mobile)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -87,6 +90,7 @@ jobs:
   test-e2e-just:
     name: Web E2E (just test-e2e)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -123,6 +127,7 @@ jobs:
   android-sdk:
     name: Android SDK
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: android
@@ -147,6 +152,7 @@ jobs:
   desktop-app:
     name: Desktop App (macOS, apps/hakka)
     runs-on: macos-latest
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: apps/hakka
@@ -165,6 +171,7 @@ jobs:
   ios-sdk:
     name: iOS SDK
     runs-on: macos-latest
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: ios
@@ -196,6 +203,7 @@ jobs:
   ios-demo-app:
     name: iOS Demo App (HakkaUI on simulator)
     runs-on: macos-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/cache@v4
@@ -213,6 +221,7 @@ jobs:
   rn-example-ios:
     name: RN Example (iOS pods + xcodebuild)
     runs-on: macos-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -242,6 +251,7 @@ jobs:
   rn-example-android:
     name: RN Example (Android gradle)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2

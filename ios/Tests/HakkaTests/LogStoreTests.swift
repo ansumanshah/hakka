@@ -93,7 +93,9 @@ import HakkaCommon
             }
         }
 
-        group.wait()
+        // Bounded: an unbounded DispatchGroup wait turns a lost completion into
+        // a CI-length hang rather than a test failure.
+        if group.wait(timeout: .now() + 10) == .timedOut { Issue.record("concurrent work did not finish") }
         #expect(store.count == 100)
     }
 
@@ -271,7 +273,9 @@ import HakkaCommon
             }
         }
 
-        group.wait()
+        // Bounded: an unbounded DispatchGroup wait turns a lost completion into
+        // a CI-length hang rather than a test failure.
+        if group.wait(timeout: .now() + 10) == .timedOut { Issue.record("concurrent work did not finish") }
         #expect(store.count == 100)
     }
 
