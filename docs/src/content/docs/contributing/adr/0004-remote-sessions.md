@@ -223,16 +223,25 @@ asserts the order end-to-end** — nothing proves a raw secret never reaches
 `bridgeClient.send`'s `JSON.stringify`, only that the redaction functions
 work correctly in isolation.
 
-**Test to add** (prerequisite for shipping remote sharing, not something
-rooms introduce): an integration test — `bridgeClient.test.ts` or a new
-`capture/redactionBoundary.test.ts` — that runs a request/response
-containing a known sensitive header and a known sensitive JSON body field
-through the real capture path (not the redaction unit directly), intercepts
-the exact string handed to `ws.send` at the bridge-client boundary, and
-asserts the raw secret substring is absent from it. Local-only usage
-tolerated the absence of this test because only the developer's own
-processes ever saw the frame; that assumption ends the moment a frame can
-leave the machine toward a remote viewer.
+**Test added — and it did not pass unchanged.** `packages/hakka-node/src/__tests__/redactionBoundary.test.ts`
+runs a real `http` request through the real interceptor into a real bridge
+client and asserts against the exact string a real socket receives. Header
+redaction held. Body redaction did not: three capture paths built records
+from the raw payload, because only `fetch` and XHR ever called
+`redactJsonBody`.
+
+- `hakka-node/src/httpInterceptor.ts` — every `axios`/`got`/`node-fetch`
+  request body, i.e. the whole Node and Next.js server side.
+- `hakka-browser/src/capture/sendBeacon.ts` — analytics beacons, which is
+  precisely where session tokens travel.
+- `hakka-core/src/capture/websocket.ts` — text frames, so an auth frame
+  like `{"type":"auth","token":…}` was captured verbatim.
+
+All three now redact at their own chokepoint, inside the synchronous capture
+path, and are fenced by tests that fail without the fix. Local-only usage
+hid this because only the developer's own processes ever saw the frame; the
+invariant is now enforced rather than assumed, which is what remote sharing
+needed before it could ship.
 
 ### (f) Backpressure, replay limits, rate limits
 

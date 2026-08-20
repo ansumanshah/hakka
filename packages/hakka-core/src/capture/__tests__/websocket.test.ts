@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
 import type { NetworkRequest } from '../../model/types'
+import { configureBodyRedaction } from '../../utils/bodyRedaction'
 import { enableWebSocketInterceptor } from '../websocket'
 
 // Minimal fake WebSocket — lets tests dispatch events synchronously.
@@ -210,5 +211,45 @@ describe('WebSocket binary frames', () => {
     expect(msg?.binary).toBe(true)
     expect(msg?.size).toBe(3)
     expect(msg?.data).toBe('/wCA') // base64 of [255,0,128]
+  })
+})
+
+describe('WebSocket frame redaction', () => {
+  afterEach(() => configureBodyRedaction([]))
+
+  test('a configured field is redacted in a sent text frame', () => {
+    configureBodyRedaction(['token'])
+    const ws = connect()
+    ;(ws as unknown as { send(data: string): void }).send('{"type":"auth","token":"sk-live-abc"}')
+
+    const msg = records.at(-1)?.messages?.at(-1)
+    expect(msg?.data).not.toContain('sk-live-abc')
+    expect(msg?.data).toContain('[REDACTED]')
+  })
+
+  test('a configured field is redacted in a received text frame', () => {
+    configureBodyRedaction(['session'])
+    const ws = connect()
+    ws.dispatchFakeEvent('message', { data: '{"session":"s-9f2b"}' })
+
+    const msg = records.at(-1)?.messages?.at(-1)
+    expect(msg?.data).not.toContain('s-9f2b')
+    expect(msg?.data).toContain('[REDACTED]')
+  })
+
+  test('size reports what crossed the socket, not the redacted copy', () => {
+    configureBodyRedaction(['token'])
+    const ws = connect()
+    const sent = '{"token":"sk-live-abc"}'
+    ;(ws as unknown as { send(data: string): void }).send(sent)
+
+    expect(records.at(-1)?.messages?.at(-1)?.size).toBe(sent.length)
+  })
+
+  test('frames pass through untouched when redaction is unconfigured', () => {
+    const ws = connect()
+    ws.dispatchFakeEvent('message', { data: '{"token":"sk-live-abc"}' })
+
+    expect(records.at(-1)?.messages?.at(-1)?.data).toBe('{"token":"sk-live-abc"}')
   })
 })

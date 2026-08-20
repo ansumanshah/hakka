@@ -1,6 +1,7 @@
 import type { CaptureSource, CaptureSourceContext } from '../contract/captureSource'
 import { createCycleGuard } from '../contract/cycleGuard'
 import type { RequestListener, WsMessage } from '../model/types'
+import { getBodyRedactionFields, redactJsonBody } from '../utils/bodyRedaction'
 import { isOwnBridgeUrl } from './bridgeHosts'
 
 /** Max WebSocket messages to capture per connection to prevent memory issues. */
@@ -60,9 +61,18 @@ function isBlob(data: unknown): data is Blob {
   return typeof Blob !== 'undefined' && data instanceof Blob
 }
 
-/** Normalize a WS frame to a capturable shape — text as string, binary as base64 within the cap else byte count; Blob is sized synchronously and base64-filled async by the caller. */
+/**
+ * Normalize a WS frame to a capturable shape — text as string, binary as base64 within the cap else byte count; Blob is sized synchronously and base64-filled async by the caller.
+ *
+ * Text frames run through body redaction: a socket carrying `{"type":"auth","token":…}`
+ * is the same exposure as an HTTP body, and `redactJsonBody` returns the input
+ * untouched when no fields are configured, so the default path stays free.
+ * `size` stays the length of what was actually sent, not of the redacted copy.
+ */
 function encodeFrame(data: unknown): { data: string | number; size: number; binary: boolean } {
-  if (typeof data === 'string') return { data, size: data.length, binary: false }
+  if (typeof data === 'string') {
+    return { data: redactJsonBody(data, getBodyRedactionFields()) ?? data, size: data.length, binary: false }
+  }
   const bytes = toBytes(data)
   if (bytes) {
     const size = bytes.byteLength

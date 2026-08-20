@@ -1,4 +1,4 @@
-import { type NetworkRequest } from 'hakka-core'
+import { getBodyRedactionFields, redactJsonBody, type NetworkRequest } from 'hakka-core'
 
 import type { StoreClient } from '../worker'
 
@@ -25,7 +25,8 @@ export function enableSendBeaconCapture(client: StoreClient): () => void {
       return ok
     } finally {
       try {
-        const body = typeof data === 'string' ? data : null
+        const rawBody = typeof data === 'string' ? data : null
+        const body = rawBody != null ? (redactJsonBody(rawBody, getBodyRedactionFields()) ?? rawBody) : null
         client.ingest({
           id,
           url: urlStr,

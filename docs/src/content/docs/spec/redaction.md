@@ -11,6 +11,11 @@ the value is blanked. Header matching supports exact names, glob (`x-*-token`), 
 patterns; body redaction matches exact (case-insensitive) JSON key names, recursively, up to a
 bounded depth.
 
+Body redaction runs at every capture chokepoint, not just `fetch`: `fetch`, XHR, `sendBeacon`,
+Node's `http`/`https` interceptor, and WebSocket **text** frames. It runs inside the synchronous
+capture path, so a redacted value is the only version that ever reaches the wire — see
+[ADR 0004 (e)](/contributing/adr/0004-remote-sessions/).
+
 ## Public API
 
 ```ts
@@ -61,6 +66,11 @@ Redaction happens before a record is built — a redacted value is stored as the
 
 - `packages/hakka-core/src/utils/headerRedaction.test.ts`
 - `packages/hakka-core/src/utils/bodyRedaction.test.ts`
+- `packages/hakka-node/src/__tests__/redactionBoundary.test.ts` — end-to-end ordering: a real
+  request through the real interceptor and bridge client, asserting the secret is absent from the
+  exact string that crosses the socket
+- `packages/hakka-core/src/capture/__tests__/websocket.test.ts` (frame redaction)
+- `packages/hakka-browser/src/capture/__tests__/sendBeacon.test.ts`
 - `ios/Tests/HakkaTests/HakkaInterceptorTests.swift`, `ios/Tests/HakkaTests/HakkaConfigTests.swift`
 - `android/hakka-common/src/test/kotlin/com/noodleapps/hakka/LogRedactionTest.kt`
 

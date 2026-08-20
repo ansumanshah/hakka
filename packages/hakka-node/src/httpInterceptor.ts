@@ -18,7 +18,15 @@ import nodeHttps from 'node:https'
 import type { Socket } from 'node:net'
 
 import type { CaptureSource, CaptureSourceContext, HttpMethod, NetworkRequest, RequestListener } from 'hakka-core'
-import { DEFAULT_CONFIG, HAKKA_TRACE_HEADER, createCycleGuard, currentTraceId, isSensitiveHeader } from 'hakka-core'
+import {
+  DEFAULT_CONFIG,
+  HAKKA_TRACE_HEADER,
+  createCycleGuard,
+  currentTraceId,
+  getBodyRedactionFields,
+  isSensitiveHeader,
+  redactJsonBody,
+} from 'hakka-core'
 
 import { TRACEPARENT_HEADER, buildTraceparent } from './trace'
 
@@ -264,7 +272,9 @@ function instrument(
     emitted = true
     const endTime = Date.now()
     const duration = endTime - startTime
-    const requestBody = bodyParts.length > 0 ? bodyParts.join('').slice(0, maxBodySize) : null
+    const rawBody = bodyParts.length > 0 ? bodyParts.join('').slice(0, maxBodySize) : null
+    const redactionFields = getBodyRedactionFields()
+    const requestBody = rawBody != null ? (redactJsonBody(rawBody, redactionFields) ?? rawBody) : null
     const record: NetworkRequest = {
       id,
       url,
