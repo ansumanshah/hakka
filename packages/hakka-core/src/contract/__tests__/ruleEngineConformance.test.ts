@@ -168,7 +168,7 @@ describe('checkRuleEngineConformance — catches an invented decision kind', () 
 })
 
 // ---------------------------------------------------------------------------
-// Real first-party wrappers — every engine ADR 0003 named for this axis.
+// Real first-party wrappers — every engine ADR 0009 named for this axis.
 // ---------------------------------------------------------------------------
 
 describe('checkRuleEngineConformance — createMockRuleEngine, plain mock rule', () => {

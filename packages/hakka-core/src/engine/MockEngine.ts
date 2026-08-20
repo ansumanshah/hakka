@@ -572,7 +572,7 @@ function toMockRequestContext(request: RuleEngineRequest): MockRequestContext {
 }
 
 /**
- * `RuleEngine` (ADR 0003) wrapper around the `mockEngine` singleton. Additive —
+ * `RuleEngine` (ADR 0009) wrapper around the `mockEngine` singleton. Additive —
  * `capture/fetch.ts` and `capture/xhr.ts` keep calling `mockEngine.peek()` /
  * `.isRewrite()` / `.recordHit()` / `.resolveMockBody()` /
  * `.applyRewriteRequest()` / `.applyRewriteResponse()` directly, unchanged;

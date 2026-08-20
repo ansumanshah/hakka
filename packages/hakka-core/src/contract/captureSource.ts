@@ -83,7 +83,7 @@ export interface CaptureSourceContext {
 /**
  * A capture source: observes traffic (or framework spans) and pushes it
  * into the store through `CaptureSourceContext` — the `CaptureSource` axis
- * from ADR 0003.
+ * from ADR 0009.
  *
  * Lifecycle contract (binding — `conformance.ts`'s harness checks all of
  * this against any implementation):

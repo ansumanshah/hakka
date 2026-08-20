@@ -234,7 +234,7 @@ export const exportHarString = (requests: NetworkRequest[]): string => {
 }
 
 /**
- * `Exporter` (ADR 0003) wrapper around `exportHarString()`. Additive — the
+ * `Exporter` (ADR 0009) wrapper around `exportHarString()`. Additive — the
  * HAR builder above is unchanged; this only adapts it onto the
  * registry-friendly shape. `lossy: true` because HAR 1.2 has no slot for
  * `NetworkRequest` fields like `tags`, `graphql`, `wsProtocol`,

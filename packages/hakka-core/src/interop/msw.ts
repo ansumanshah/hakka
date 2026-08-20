@@ -194,7 +194,7 @@ export function buildMswHandlers(requests: NetworkRequest[], opts: BuildMswHandl
 }
 
 /**
- * `Exporter` (ADR 0003) wrapper around `buildMswHandlers()`. `lossy: true` —
+ * `Exporter` (ADR 0009) wrapper around `buildMswHandlers()`. `lossy: true` —
  * heavily so: query strings are dropped from every URL, same-method+
  * pathname duplicates collapse to only the newest, request headers/body are
  * never carried over at all, and response bodies above `maxBodyBytes` are

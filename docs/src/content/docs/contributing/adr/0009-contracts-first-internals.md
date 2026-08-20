@@ -1,5 +1,5 @@
 ---
-title: 'ADR 0003 — Contracts-first internals, plugins on the open axes'
+title: 'ADR 0009 — Contracts-first internals, plugins on the open axes'
 description: Every new internal feature lands against a public contract; genuinely open-ended axes (capture sources, exporters, rule engines) get formal plugin machinery; the kernel stays small and named.
 ---
 

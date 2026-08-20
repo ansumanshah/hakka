@@ -4,13 +4,13 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 /**
- * Proves the RuleEngine contract (ADR 0003) added ZERO coupling to the
+ * Proves the RuleEngine contract (ADR 0009) added ZERO coupling to the
  * interceptor hot path. The wrappers are additive — `capture/fetch.ts` and
  * `capture/xhr.ts` must keep calling `mockEngine`/`ThrottleEngine`/
  * `breakpointEngine` directly, exactly as before this contract existed. If a
  * future change makes either interceptor import `contract/ruleEngine` (or
  * dispatch through the `RuleEngine` interface), that is precisely the
- * hot-path regression ADR 0003's "no per-record dynamic dispatch on hot
+ * hot-path regression ADR 0009's "no per-record dynamic dispatch on hot
  * paths" condition forbids — this test exists to catch it landing silently.
  */
 

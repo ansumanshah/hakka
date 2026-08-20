@@ -1,9 +1,9 @@
 ---
-title: 'ADR 0006 — CaptureSource, the first contract off ADR 0003'
+title: 'ADR 0006 — CaptureSource, the first contract off ADR 0009'
 description: The CaptureSource interface — identity, lifecycle, emission, correlation, and teardown — mapped onto Hakka's nine existing capture mechanisms; two are migrated so far.
 ---
 
-Status: Implemented · Date: 2026-08-15 · Implements [ADR 0003](/contributing/adr/0003-contracts-first-internals/)
+Status: Implemented · Date: 2026-08-15 · Implements [ADR 0009](/contributing/adr/0009-contracts-first-internals/)
 
 > **Complete (2026-08-17).** All eight distinct mechanisms below now ship a
 > `CaptureSource` wrapper, each verified by the conformance harness
@@ -14,7 +14,7 @@ Status: Implemented · Date: 2026-08-15 · Implements [ADR 0003](/contributing/a
 > not a distinct source — it calls the same three interceptors inside a Worker
 > scope — so it is covered by their wrappers rather than getting its own.
 >
-> The contract is **frozen**: eight implementations is well past ADR 0003's
+> The contract is **frozen**: eight implementations is well past ADR 0009's
 > rule-of-three condition, so `@experimental` is gone from
 > `captureSource.ts`/`conformance.ts` and any future member must be optional
 > with a fail-open consumer.
@@ -31,13 +31,13 @@ Status: Implemented · Date: 2026-08-15 · Implements [ADR 0003](/contributing/a
 This ADR shipped as a **design-doc-only slice**: the `CaptureSource`
 TypeScript contract and a conformance harness, both `@experimental`, changing
 no existing code path on landing. Migrating mechanisms onto the contract is
-separate, opportunistic work (ADR 0003 condition 4), one source at a time,
+separate, opportunistic work (ADR 0009 condition 4), one source at a time,
 each its own PR with its own bench-gate check — two are done, see the
 progress note above.
 
 ## Context
 
-ADR 0003 named `CaptureSource` as one of three axes getting formal,
+ADR 0009 named `CaptureSource` as one of three axes getting formal,
 third-party-capable plugin machinery, and set four conditions any contract
 built for it must satisfy: performance budgets stay regression gates with
 **no per-record dynamic dispatch on hot paths**, a contract ships as
@@ -62,7 +62,7 @@ fail-open error handling, teardown that undoes every side effect, and either
 | 8   | Node OTel span bridge                               | `packages/hakka-node/src/spanProcessor.ts`                                                     |
 | 9   | CDP (DevTools Protocol) capture                     | `packages/hakka/src/cdp/capture.ts` + `attach.ts`                                              |
 
-(ADR 0003's own text lists "fetch/XHR/WS/ResourceTiming/http/undici/OTel-spans/CDP"
+(ADR 0009's own text lists "fetch/XHR/WS/ResourceTiming/http/undici/OTel-spans/CDP"
 — eight names. Mechanism 6, the Worker relay, isn't a distinct ninth
 _source_: `workerCapture.ts` calls the literal same `enableFetchInterceptor`/
 `enableXHRInterceptor`/`enableWebSocketInterceptor` functions as mechanisms
@@ -108,7 +108,7 @@ isn't a foreign import — it's naming a pattern that already exists.
 Ship `CaptureSource` as an `@experimental` contract in
 `packages/hakka-core/src/contract/captureSource.ts`, plus a conformance
 harness in `packages/hakka-core/src/contract/conformance.ts` (tested against
-a trivial in-memory fake in `conformance.test.ts`, per ADR 0003's
+a trivial in-memory fake in `conformance.test.ts`, per ADR 0009's
 "contract = tests + docs" condition). The full interface, verbatim from that
 file:
 
@@ -168,7 +168,7 @@ instead of leaving every future source to rediscover it (or not) by reading
 five files.
 
 **Emission — no new hot-path indirection.** This is the load-bearing
-decision and the one ADR 0003's conditions gate hardest. `ctx.ingest` has
+decision and the one ADR 0009's conditions gate hardest. `ctx.ingest` has
 the _identical_ signature to `RequestListener` — the type every
 `enable*Interceptor` function already accepts
 (`packages/hakka-core/src/model/types.ts:273`) — and on RN/web is backed by
@@ -238,7 +238,7 @@ existing call site. That ratio is the evidence this shape is real, not
 aspirational — it was derived from reading all nine, not designed first and
 checked second.
 
-### The hot path stays monomorphic (ADR 0003's binding condition)
+### The hot path stays monomorphic (ADR 0009's binding condition)
 
 The ingest hot path is `HakkaFacade#ingestRequest` →
 `RingBuffer.add`/`RingBuffer.update`, benchmarked today at 339 ns against a
@@ -287,7 +287,7 @@ one that keeps emitting after `stop()` because it forgets to clear its
 context reference — each asserted to fail exactly the check that names its
 bug. The broken fakes exist because a verifier that only ever sees passing
 input hasn't proven it can fail; this one demonstrably can, on both bug
-classes ADR 0003's condition calls out (idempotency, fail-open).
+classes ADR 0009's condition calls out (idempotency, fail-open).
 
 ## Consequences
 
@@ -311,7 +311,7 @@ classes ADR 0003's condition calls out (idempotency, fail-open).
   already has. Either accept the `O(n)` cost on migration or extend the
   context later — undecided, not blocking this slice.
 - `CaptureSource` stays `@experimental` and unfrozen until its third real
-  consumer, per ADR 0003. `knip.jsonc` carries a deliberate suppression for
+  consumer, per ADR 0009. `knip.jsonc` carries a deliberate suppression for
   its currently-unconsumed exported types, with a comment explaining why and
   when to remove it.
 
@@ -320,7 +320,7 @@ classes ADR 0003's condition calls out (idempotency, fail-open).
 - **A single `emit(record: NetworkRequest | FrameworkSpan)` method** instead
   of separate `ingest`/`emitSpan` — rejected: it would force every source
   (and every host wiring a context) to runtime-discriminate a union on the
-  hot path, which is exactly the per-call dispatch tax ADR 0003 forbids.
+  hot path, which is exactly the per-call dispatch tax ADR 0009 forbids.
   Two plain, separately-optional function slots cost nothing extra to call
   and let a records-only source never touch the spans concept at all.
 - **An `emits: readonly ('records' | 'spans')[]` identity field**, so a host

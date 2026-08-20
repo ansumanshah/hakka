@@ -1,9 +1,9 @@
 /**
- * `Exporter` — the contract for a plugin-style export producer (ADR 0003).
+ * `Exporter` — the contract for a plugin-style export producer (ADR 0009).
  * Doc comments here are the authoritative spec; `exporterConformance.ts`
  * checks any implementation against them.
  *
- * ADR 0003 names this the second open axis: "one contract over
+ * ADR 0009 names this the second open axis: "one contract over
  * HAR/OTel/Postman/evidence-bundle." The twelve exporters wrapped onto it —
  * HAR, OTel JSON, Postman collection, cURL, agent context, agent evidence
  * (Markdown), evidence bundle (JSON), repro bundle, session snapshot,
@@ -14,7 +14,7 @@
  * `formatEvidenceBundleForAgent` takes an already-built `EvidenceBundle`, not
  * requests at all. This contract is the uniform SHAPE every wrapper adapts
  * its native function onto, not a rewrite of any of them: `export()` always
- * takes a snapshot of `NetworkRequest`s (ADR 0003 — "an exporter never
+ * takes a snapshot of `NetworkRequest`s (ADR 0009 — "an exporter never
  * reaches into the store, it receives a snapshot") and always returns the
  * serialized file content as a string. Where a wrapped function needs
  * options its own callers care about (a Postman collection name, an
@@ -51,7 +51,7 @@ export interface ExporterIdentity {
 
 /**
  * An exporter: turns a snapshot of `NetworkRequest`s into one serialized
- * artifact — the `Exporter` axis from ADR 0003.
+ * artifact — the `Exporter` axis from ADR 0009.
  *
  * Contract (binding — `exporterConformance.ts`'s harness checks all of this
  * against any implementation):

@@ -328,7 +328,7 @@ export function buildEvidenceBundle(requests: NetworkRequest[], options: Evidenc
 }
 
 /**
- * `Exporter` (ADR 0003) wrapper around `buildEvidenceBundle()`, serialized as
+ * `Exporter` (ADR 0009) wrapper around `buildEvidenceBundle()`, serialized as
  * pretty JSON. `options` (focus request, byte budget, spans/logs to
  * correlate, …) is captured at construction time, not per-call — see
  * `exporter.ts`'s docblock. `lossy: true` even though the bundle stores

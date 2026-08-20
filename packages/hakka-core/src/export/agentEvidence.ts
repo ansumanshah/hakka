@@ -62,7 +62,7 @@ export function formatEvidenceBundleForAgent(
 }
 
 /**
- * `Exporter` (ADR 0003) wrapper around `formatEvidenceBundleForAgent()`.
+ * `Exporter` (ADR 0009) wrapper around `formatEvidenceBundleForAgent()`.
  * AWKWARD FIT, documented rather than forced: the underlying function takes
  * an already-built `EvidenceBundle`, not requests — building one needs a
  * `focusRequestId` and a byte budget that the browser/MCP callers

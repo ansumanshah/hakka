@@ -322,7 +322,7 @@ function millisToUnixNano(milliseconds: number): string {
 }
 
 /**
- * `Exporter` (ADR 0003) wrapper around `recordsToOtelJson()`. AWKWARD FIT,
+ * `Exporter` (ADR 0009) wrapper around `recordsToOtelJson()`. AWKWARD FIT,
  * documented honestly rather than papered over: `recordsToOtelJson` operates
  * over `ContractRecord[]` — network requests, traces, metrics, breadcrumbs,
  * health reports — a strictly wider input than the `NetworkRequest[]`

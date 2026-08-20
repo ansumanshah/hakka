@@ -93,7 +93,7 @@ export function deserializeReproBundle(json: string): DeserializedReproBundle {
 }
 
 /**
- * `Exporter` (ADR 0003) wrapper around `buildReproBundle()` +
+ * `Exporter` (ADR 0009) wrapper around `buildReproBundle()` +
  * `serializeReproBundle()` (this module owns the "last mile to a string"
  * step, so the wrapper lives here rather than on `buildReproBundle.ts` —
  * that module already depends on this one, and a wrapper needing both

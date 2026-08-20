@@ -6,6 +6,11 @@ const description = 'Local-first network inspector for React Native, the web, Ne
 
 export default defineConfig({
   site: 'https://hakka.noodleapps.com',
+  redirects: {
+    // The contracts-first ADR was published as 0003, colliding with the
+    // embeddable-components ADR of the same number. Renumbered to 0009.
+    '/contributing/adr/0003-contracts-first-internals': '/contributing/adr/0009-contracts-first-internals/',
+  },
   integrations: [
     starlight({
       title: 'Hakka',
@@ -229,6 +234,10 @@ export default defineConfig({
                 'contributing/adr/0003-embeddable-components',
                 'contributing/adr/0004-remote-sessions',
                 'contributing/adr/0005-package-consolidation',
+                'contributing/adr/0006-capture-source-contract',
+                'contributing/adr/0007-solid-2-rc',
+                'contributing/adr/0008-desktop-plugin-products',
+                'contributing/adr/0009-contracts-first-internals',
               ],
             },
           ],

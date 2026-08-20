@@ -84,7 +84,7 @@ export const exportPostmanString = (requests: NetworkRequest[], options?: Postma
   JSON.stringify(buildPostmanCollection(requests, options), null, 2)
 
 /**
- * `Exporter` (ADR 0003) wrapper around `exportPostmanString()`. `lossy:
+ * `Exporter` (ADR 0009) wrapper around `exportPostmanString()`. `lossy:
  * true` — a Postman item keeps only method/header/url/body of the REQUEST
  * side; status, timing, and the entire response are dropped. `options` is
  * captured at construction time (e.g. a custom collection `name`), not

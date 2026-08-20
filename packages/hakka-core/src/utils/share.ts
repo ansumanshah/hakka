@@ -55,7 +55,7 @@ export const buildCurl = (r: NetworkRequest): string => {
 }
 
 /**
- * `Exporter` (ADR 0003) wrapper around `buildCurl()`. AWKWARD FIT: the
+ * `Exporter` (ADR 0009) wrapper around `buildCurl()`. AWKWARD FIT: the
  * underlying function takes exactly ONE request, not a batch — there is no
  * existing multi-request cURL artifact anywhere in the codebase (unlike HAR/
  * Postman/OTel, which are already batch formats) to match conventions

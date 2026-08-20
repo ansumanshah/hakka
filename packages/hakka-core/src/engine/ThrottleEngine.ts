@@ -134,7 +134,7 @@ class ThrottleEngineImpl {
 export const ThrottleEngine = new ThrottleEngineImpl()
 
 /**
- * `RuleEngine` (ADR 0003) wrapper around the `ThrottleEngine` singleton.
+ * `RuleEngine` (ADR 0009) wrapper around the `ThrottleEngine` singleton.
  * Additive — `capture/fetch.ts` and `capture/xhr.ts` keep calling
  * `ThrottleEngine.isActive` / `.isOffline` / `.applyDelay()` /
  * `.current` / `.throttleResponse()` directly, unchanged.

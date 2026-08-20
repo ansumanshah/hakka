@@ -90,7 +90,7 @@ export interface SessionExporterOptions {
 }
 
 /**
- * `Exporter` (ADR 0003) wrapper around `serializeSession()` +
+ * `Exporter` (ADR 0009) wrapper around `serializeSession()` +
  * `deserializeSession()`. NOT lossy — same guarantee as the repro-bundle
  * exporter (see `exporter.ts`'s `lossy` doc): `requests` are stored verbatim
  * inside the JSON shell and `deserializeSession` reads them back

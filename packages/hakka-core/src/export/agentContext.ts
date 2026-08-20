@@ -106,7 +106,7 @@ export function toAgentContext(requests: readonly NetworkRequest[], options: Age
 }
 
 /**
- * `Exporter` (ADR 0003) wrapper around `toAgentContext()`. `lossy: true` —
+ * `Exporter` (ADR 0009) wrapper around `toAgentContext()`. `lossy: true` —
  * only allowlisted headers survive, bodies are snipped to `bodySnippetLength`
  * chars, and requests past `maxRequests` (default 100) are dropped from the
  * per-request section entirely. `includesBodies: true` — whichever of

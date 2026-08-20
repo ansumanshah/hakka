@@ -1,6 +1,6 @@
 /**
  * `RuleEngine` — the contract for a plugin-style request-interception engine
- * (ADR 0003, third axis: "mock/breakpoint/throttle behind one interception
+ * (ADR 0009, third axis: "mock/breakpoint/throttle behind one interception
  * contract — they already share the control-frame path"). Doc comments here
  * are the authoritative spec; `ruleEngineConformance.ts` checks any
  * implementation against them.
@@ -23,7 +23,7 @@
  * state) — nothing that runs per request on a real interceptor call site is
  * typed against this interface. A future migration that made `fetch.ts`
  * dispatch through `RuleEngine` instead of calling the concrete engines
- * would be exactly the kind of hot-path regression ADR 0003 forbids; that is
+ * would be exactly the kind of hot-path regression ADR 0009 forbids; that is
  * NOT what shipped here.
  *
  * NO LIFECYCLE: unlike `CaptureSource`, this contract has no
@@ -154,7 +154,7 @@ export interface RuleEngineIdentity {
  * A rule engine: holds a set of rules (or, for an engine like throttle with
  * no discrete rule list, one active configuration) and decides what should
  * happen to a request/response pair against them — the `RuleEngine` axis
- * from ADR 0003.
+ * from ADR 0009.
  *
  * There is deliberately no `matches()`-only method separate from
  * `decideRequest`/`decideResponse` — for this contract, "does anything

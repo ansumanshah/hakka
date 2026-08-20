@@ -23,7 +23,7 @@ function expectFullPass(report: Awaited<ReturnType<typeof checkExporterConforman
 }
 
 /**
- * Every real `Exporter` wrapper (ADR 0003, `exporter.ts`) runs the same
+ * Every real `Exporter` wrapper (ADR 0009, `exporter.ts`) runs the same
  * conformance harness a third-party exporter would — see LESSON 1 in the
  * task brief this file was written against: a contract with only a sample
  * implementation wrapped is dead weight.

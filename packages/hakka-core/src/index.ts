@@ -37,7 +37,7 @@ export type { CycleGuard } from './contract/cycleGuard'
 export { checkCaptureSourceConformance } from './contract/conformance'
 export type { CaptureSourceProbe, ConformanceCheck, ConformanceReport } from './contract/conformance'
 
-// ADR 0003's other two contract axes. Same shape as CaptureSource: the contract
+// ADR 0009's other two contract axes. Same shape as CaptureSource: the contract
 // plus a harness a third-party implementation runs against itself.
 export type { Exporter, ExporterIdentity } from './contract/exporter'
 export { checkExporterConformance } from './contract/exporterConformance'

@@ -270,7 +270,7 @@ function decideBreakpointResponse(request: RuleEngineRequest, response: RuleEngi
 }
 
 /**
- * `RuleEngine` (ADR 0003) wrapper around the `breakpointEngine` singleton.
+ * `RuleEngine` (ADR 0009) wrapper around the `breakpointEngine` singleton.
  * Additive — `capture/fetch.ts` keeps calling `breakpointEngine.matches()` /
  * `.pause()` directly, unchanged.
  *

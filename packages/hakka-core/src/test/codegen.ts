@@ -185,7 +185,7 @@ export function generateTestFile(requests: NetworkRequest[], opts: GenerateTestF
 }
 
 /**
- * `Exporter` (ADR 0003) wrapper around `generateTestFile()`. `lossy: true` —
+ * `Exporter` (ADR 0009) wrapper around `generateTestFile()`. `lossy: true` —
  * extremely so: only method/url/status/duration and top-level response-body
  * KEY NAMES survive; every other field, and every response value, is
  * dropped by design (see file header — this is a deliberate test-flakiness
