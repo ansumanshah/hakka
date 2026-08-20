@@ -183,7 +183,13 @@ jobs:
           key: spm-${{ runner.os }}-${{ hashFiles('ios/Package.swift') }}
           restore-keys: spm-${{ runner.os }}-
       - run: swift build
-      - run: swift test
+      # --no-parallel: the BreakpointEngine tests exercise a blocking
+      # pause/resume API and park real threads by design. Run alongside the
+      # other 70 suites on a 3-core runner, those parked threads starve
+      # libdispatch and unrelated concurrency tests see none of their dispatched
+      # work run at all. Serialized, the suite is ~1s. See ios/Tests/HakkaTests/
+      # BlockingTestSupport.swift for the full story.
+      - run: swift test --no-parallel
       # The RN package ships its own copy of these sources (synced from ios/Sources)
       # and compiles them as one flattened module. Typecheck that here — nothing else
       # in CI compiles the RN Swift, so drift used to ship silently to users.

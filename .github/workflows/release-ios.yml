@@ -26,7 +26,10 @@ jobs:
             exit 1
           fi
       - run: swift build
-      - run: swift test
+      # --no-parallel for the same reason as ci.yml's ios-sdk job: the
+      # BreakpointEngine tests park real threads and starve libdispatch when
+      # they run alongside the other suites on a shared runner.
+      - run: swift test --no-parallel
       - name: Validate podspec
         run: pod ipc spec Hakka.podspec >/dev/null
       - name: Create GitHub Release

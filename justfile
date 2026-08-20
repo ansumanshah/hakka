@@ -66,14 +66,21 @@ test-android:
     cd android && ./gradlew :hakka-common:test :hakka-network:test :hakka-network-noop:test :hakka-performance:test :hakka-performance-noop:test :hakka-ui:test
 
 # Run iOS unit tests
+#
+# --no-parallel: BreakpointEngine's tests exercise a blocking pause/resume API,
+# so they park real threads by design. Run in parallel with the rest of the
+# suite on a low-core machine, those parked threads exhaust libdispatch's pool
+# and the concurrency tests elsewhere (LogStore, HakkaConsole) see zero of their
+# 200 dispatched blocks run. Serialized the whole suite is 1.2s, so this costs
+# nothing.
 test-ios:
-    cd ios && swift test
+    cd ios && swift test --no-parallel
 
 # iOS unit tests without the perf benchmarks — the parallel `just verify` gate
 # uses this: benchmark thresholds are CPU-load-sensitive and flake under the
 # gate's contention (917µs vs a 500µs limit that passes solo).
 test-ios-nobench:
-    cd ios && swift test --skip HakkaBenchmarkTests
+    cd ios && swift test --no-parallel --skip HakkaBenchmarkTests
 
 # Run the macOS desktop app's test suite (apps/hakka)
 test-desktop:
