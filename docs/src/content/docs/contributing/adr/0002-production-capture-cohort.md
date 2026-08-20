@@ -86,6 +86,17 @@ Option **B**, with C's `traceparent` export left available. Rationale:
 - **New prod entry** (`hakka-node/prod`, edge-safe re-export like the dev one):
   capture-only, no bridge client, no embedded hub, control-frame receiver absent
   from the bundle.
+
+  Precisely: what is absent is the **remote path**. Verified in the built
+  `dist/prod.mjs` — no `bridgeClient`, no `serverCapture`, no WebSocket. The
+  rule *engines* are a different matter: `enableFetchInterceptor` is imported
+  from `hakka-core`, and `capture/fetch.ts` imports the mock, breakpoint and
+  throttle singletons at module scope, so they load with it and
+  `mockEngine.peek()` runs per captured fetch. Inert without rules, and with no
+  bridge nothing off-process can add one — but the honest claim is "unreachable
+  over the network", not "not in the build". Decoupling them means injecting
+  engines through the capture hot path, which [ADR 0009](/contributing/adr/0009-contracts-first-internals/)
+  rules out; `captureFetch: false` is the build that never loads them.
 - **Ring buffer + retrieval route.** Bounded in-memory buffer (default small,
   operator-tunable) plus a same-origin route (`/__hakka/pull`) behind the app's
   own auth. No new open port.
@@ -94,6 +105,13 @@ Option **B**, with C's `traceparent` export left available. Rationale:
   the _only_ supported way to turn prod capture on.
 - **Allowlist capture.** `captureUrls?: string[]` (glob) — in prod, capture is
   opt-in per URL pattern; redaction stays as defense-in-depth, not the boundary.
+- **Body redaction on by default here.** Everywhere else in Hakka body-field
+  redaction is off until configured, which is right when you are reading your
+  own traffic. This entry reads real users', so it ships
+  `PROD_DEFAULT_BODY_REDACT_FIELDS` and makes verbatim capture the thing you
+  ask for. This was a genuine gap, not a design: nothing in `hakka-node` ever
+  called `configureBodyRedaction`, so the documented setup captured passwords
+  and tokens in full.
 - **Bounded body read (prerequisite, also fixes dev).** Replace the background
   `clone().text()` with a size-gated reader that stops after `maxBodySize`
   bytes. This is the one unbounded cost in the pipeline and blocks any prod path.

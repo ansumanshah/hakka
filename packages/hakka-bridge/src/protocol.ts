@@ -39,7 +39,45 @@ export type BridgeMessage = BridgeRequestMessage | BridgeSpanMessage | BridgeCon
  * for malformed JSON or unrecognised shapes — the server must never throw on
  * hostile or partial input.
  */
+/**
+ * Nesting past this is refused at the door.
+ *
+ * `JSON.parse` is iterative and happily accepts tens of thousands of levels;
+ * `JSON.stringify` is recursive and throws `RangeError` well before that. A
+ * frame that parses but cannot be re-serialized is a landmine: it sits in the
+ * replay buffer until the next peer connects, and then takes the hub process
+ * down while serving them. Bounding depth here means the buffer only ever
+ * holds records the hub can actually send.
+ */
+const MAX_FRAME_DEPTH = 200
+
+/** Depth of the deepest array/object nesting in `raw`, ignoring string contents. */
+function exceedsFrameDepth(raw: string): boolean {
+  let depth = 0
+  let inString = false
+  let escaped = false
+  for (let i = 0; i < raw.length; i += 1) {
+    const ch = raw[i]
+    if (escaped) {
+      escaped = false
+      continue
+    }
+    if (inString) {
+      if (ch === '\\') escaped = true
+      else if (ch === '"') inString = false
+      continue
+    }
+    if (ch === '"') inString = true
+    else if (ch === '{' || ch === '[') {
+      depth += 1
+      if (depth > MAX_FRAME_DEPTH) return true
+    } else if (ch === '}' || ch === ']') depth -= 1
+  }
+  return false
+}
+
 export function parseBridgeMessage(raw: string): BridgeMessage | null {
+  if (exceedsFrameDepth(raw)) return null
   let obj: unknown
   try {
     obj = JSON.parse(raw)

@@ -4,13 +4,24 @@
  * see [Production capture for a debug cohort](/node/overview/#production-capture-for-a-debug-cohort-hakka-nodeprod).
  *
  * A separate, capture-only entry point — deliberately NOT a config flag on
- * the dev `register()`/`startCapture()` path. The live bridge transport and
- * its mock/rewrite/breakpoint control frames are not merely disabled here,
- * they are ABSENT from this file's import graph: nothing below imports
- * `./serverCapture` or `./bridgeClient`, so a bundler building just this
- * entry point has nothing control-channel-shaped to ship. A config flag that
- * leaves the dangerous code physically present is not a security boundary; a
- * separate build target is.
+ * the dev `register()`/`startCapture()` path. The live bridge TRANSPORT is not
+ * merely disabled here, it is ABSENT from this file's import graph: nothing
+ * below imports `./serverCapture` or `./bridgeClient`, so a bundler building
+ * just this entry point has nothing control-channel-shaped to ship. A config
+ * flag that leaves the dangerous code physically present is not a security
+ * boundary; a separate build target is.
+ *
+ * Stated precisely, because the distinction matters: what is absent is the
+ * *remote* path. `enableFetchInterceptor` (on by default) is imported from
+ * `hakka-core`, and `capture/fetch.ts` imports the mock, breakpoint and
+ * throttle engines at module scope — so those singletons are loaded and
+ * `mockEngine.peek()` runs per captured fetch. They are inert with no rules,
+ * and with no bridge there is no way to add one from off-process. But "the
+ * rule engines cannot be reached over the network" is the true claim; "the
+ * rule engines are not in the build" is not. Decoupling them would mean
+ * injecting engines through the capture hot path, which ADR 0009 rules out.
+ * Set `captureHttp` only (`captureFetch: false`) if you want a build that
+ * genuinely never loads them.
  *
  * Keeps its own singleton (`active`, below), independent of
  * `serverCapture.ts`'s — running both `startCapture()` and
@@ -22,7 +33,9 @@ import { timingSafeEqual } from 'node:crypto'
 import {
   DEFAULT_CONFIG,
   RingBuffer,
+  configureBodyRedaction,
   enableFetchInterceptor,
+  getBodyRedactionFields,
   type NetworkRequest,
   type RequestRuntime,
 } from 'hakka-core'
@@ -36,6 +49,49 @@ const DEFAULT_MAX_BODY_SIZE = 32 * 1024
 /** "Small" per the ADR — the last N requests for a cohort user, not a general-purpose log. */
 const DEFAULT_MAX_RECORDS = 200
 const DEFAULT_KILL_SWITCH_POLL_MS = 30_000
+
+/**
+ * Body fields redacted by default in production.
+ *
+ * Everywhere else in Hakka, body redaction is off until someone configures it,
+ * which is right for a developer inspecting their own laptop's traffic. Here
+ * the traffic belongs to real users on a production server, so the default is
+ * inverted: redact the field names that carry credentials and identity, and
+ * make capturing them verbatim the thing you have to ask for.
+ *
+ * Deliberately a list of names rather than a pattern language — this must be
+ * obvious to audit at a glance, and `redactBodyFields` takes whatever list a
+ * deployment actually needs.
+ */
+export const PROD_DEFAULT_BODY_REDACT_FIELDS: readonly string[] = [
+  'password',
+  'passwd',
+  'pass',
+  'secret',
+  'token',
+  'accesstoken',
+  'access_token',
+  'refreshtoken',
+  'refresh_token',
+  'idtoken',
+  'id_token',
+  'apikey',
+  'api_key',
+  'clientsecret',
+  'client_secret',
+  'authorization',
+  'sessionid',
+  'session_id',
+  'creditcard',
+  'credit_card',
+  'cardnumber',
+  'card_number',
+  'cvv',
+  'cvc',
+  'ssn',
+  'pin',
+  'otp',
+]
 
 export interface ProdCaptureOptions {
   /**
@@ -53,6 +109,20 @@ export interface ProdCaptureOptions {
   maxBufferBytes?: number
   /** Sensitive header names to redact. Default `hakka-core`'s default list. */
   redactHeaders?: string[]
+  /**
+   * JSON body field names whose values are redacted, recursively and
+   * case-insensitively. Defaults to `PROD_DEFAULT_BODY_REDACT_FIELDS` — unlike
+   * everywhere else in Hakka, where body redaction is off until configured.
+   *
+   * This entry point captures real users' traffic on a production server, so
+   * it defaults to redacting rather than to fidelity, the same way `captureUrls`
+   * is required rather than defaulting to capture-everything. Pass `[]` to
+   * capture bodies verbatim, deliberately.
+   *
+   * Note this configures a process-global list (`configureBodyRedaction`),
+   * restored when the returned handle is stopped.
+   */
+  redactBodyFields?: string[]
   /** Capture `fetch`. Default true. */
   captureFetch?: boolean
   /** Capture Node `http`/`https`. Default true. */
@@ -119,8 +189,15 @@ export function startProdCapture(options: ProdCaptureOptions): ProdCaptureHandle
     userSink?.(tagged)
   }
 
+  // Body-field redaction is a process-global in hakka-core, so set it here and
+  // put back whatever was there on stop. Without this, prod captured JSON
+  // bodies verbatim: the redaction functions no-op on an empty field list, and
+  // nothing in this package ever configured one.
+  const previousBodyRedactFields = getBodyRedactionFields()
+  configureBodyRedaction([...(options.redactBodyFields ?? PROD_DEFAULT_BODY_REDACT_FIELDS)])
+
   const interceptorOptions = { shouldCapture: cohort }
-  const teardowns: Array<() => void> = []
+  const teardowns: Array<() => void> = [() => configureBodyRedaction(previousBodyRedactFields)]
   if (options.captureFetch !== false) {
     teardowns.push(enableFetchInterceptor(onRequest, maxBodySize, redactHeaders, interceptorOptions))
   }

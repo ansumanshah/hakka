@@ -117,7 +117,7 @@ export function startBridgeServer(options: BridgeServerOptions = {}): Promise<Br
     clients.add(socket)
     // Replay the buffer so a freshly-connected viewer sees existing requests.
     for (const request of hub.getRecords()) {
-      safeSend(socket, JSON.stringify({ type: 'request', payload: request }))
+      safeSendFrame(socket, 'request', request)
     }
     // Replay buffered spans *after* requests (trace arrival order, see
     // BridgeHub.getSpans) — a client reconnecting after a hard reload needs
@@ -125,7 +125,7 @@ export function startBridgeServer(options: BridgeServerOptions = {}): Promise<Br
     // `{ type: 'span', payload }` frames, so a dormant client's existing
     // envelope parsing needs no changes.
     for (const span of hub.getSpans()) {
-      safeSend(socket, JSON.stringify({ type: 'span', payload: span }))
+      safeSendFrame(socket, 'span', span)
     }
     socket.on('message', (data) => {
       const raw = typeof data === 'string' ? data : data.toString()
@@ -231,6 +231,26 @@ function safeSend(socket: WebSocket, data: string): void {
   } catch {
     // Best-effort relay; a dead peer is cleaned up by its close/error handler.
   }
+}
+
+/**
+ * Serialize a replay frame, dropping it if it cannot be stringified.
+ *
+ * `safeSend(socket, JSON.stringify(...))` looks guarded but is not: the
+ * argument is evaluated before `safeSend` is entered, so a throwing
+ * `JSON.stringify` escapes the connection handler and kills the process while
+ * serving an innocent peer. `parseBridgeMessage` now bounds nesting so nothing
+ * un-serializable reaches the buffer; this is the second lock on the same door,
+ * because the cost of being wrong here is the whole hub.
+ */
+function safeSendFrame(socket: WebSocket, type: string, payload: unknown): void {
+  let frame: string
+  try {
+    frame = JSON.stringify({ type, payload })
+  } catch {
+    return
+  }
+  safeSend(socket, frame)
 }
 
 /** Matches `http(s)://localhost`, `127.0.0.1`, or `[::1]`, with any port or none. */

@@ -328,4 +328,45 @@ describe('startBridgeServer (close race safety)', () => {
     await server.close()
     await expect(server.close()).resolves.toBeUndefined()
   })
+
+  /**
+   * `JSON.parse` is iterative and accepts nesting far past what the recursive
+   * `JSON.stringify` can re-serialize. A frame in that gap parsed cleanly,
+   * entered the replay buffer, and then threw `RangeError` while serving the
+   * *next* peer to connect — outside any try/catch, killing the hub process
+   * and every peer on it. One ordinary-looking frame from any peer.
+   */
+  test('a frame too deep to re-serialize never enters the replay buffer', async () => {
+    server = await startBridgeServer({ port: 0 })
+    const sender = await open(`ws://127.0.0.1:${server.port}`)
+
+    const depth = 50_000
+    const deep = `{"type":"request","payload":{"id":"deep","url":"https://x","method":"GET","nested":${'['.repeat(depth)}${']'.repeat(depth)}}}`
+    sender.send(deep)
+    sender.send(requestFrame('ordinary'))
+    await new Promise((r) => setTimeout(r, 60))
+
+    // The hostile frame is refused; the ordinary one that followed still lands.
+    expect(server.hub.getRecords().map((r) => r.id)).toEqual(['ordinary'])
+
+    // The join that used to crash the process.
+    const viewer = await open(`ws://127.0.0.1:${server.port}`)
+    const replayed = await nextMessage(viewer)
+    expect(JSON.parse(replayed).payload.id).toBe('ordinary')
+
+    sender.close()
+    viewer.close()
+  })
+
+  test('ordinary nesting is still accepted', async () => {
+    server = await startBridgeServer({ port: 0 })
+    const sender = await open(`ws://127.0.0.1:${server.port}`)
+
+    const nested = `{"type":"request","payload":{"id":"nested","url":"https://x","method":"GET","body":${'['.repeat(50)}${']'.repeat(50)}}}`
+    sender.send(nested)
+    await new Promise((r) => setTimeout(r, 60))
+
+    expect(server.hub.getRecords().map((r) => r.id)).toEqual(['nested'])
+    sender.close()
+  })
 })

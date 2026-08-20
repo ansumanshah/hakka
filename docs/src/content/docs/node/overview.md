@@ -194,6 +194,14 @@ redact known-bad headers" (dev's model) fails open. There is no capture-everythi
 A request is captured only when **both** gates pass: it's running in a `debug: true` trace
 context **and** its URL matches `captureUrls`.
 
+**Body fields are redacted by default here**, unlike everywhere else in Hakka. `password`,
+`token`, `apiKey`, `ssn`, card numbers and their common spellings are replaced with `[REDACTED]`
+inside captured JSON bodies — see `PROD_DEFAULT_BODY_REDACT_FIELDS`. Dev surfaces default to
+fidelity because you are reading your own traffic; this one reads real users', so it defaults to
+redacting. Pass your own list to extend it, or `redactBodyFields: []` to capture verbatim.
+
+This sets a process-global list, restored when the handle is stopped.
+
 ### 3. Expose a same-origin, authed pull route
 
 ```ts
@@ -225,6 +233,7 @@ serializes.
 | `maxRecords`       | `number`                        | `200`                     | Ring buffer capacity (record count).                                                                   |
 | `maxBufferBytes`   | `number`                        | unbounded                 | Optional byte ceiling for the ring buffer's retained bodies, on top of `maxRecords`.                   |
 | `redactHeaders`    | `string[]`                      | hakka-core's default list | Sensitive header names to redact.                                                                      |
+| `redactBodyFields` | `string[]`                      | `PROD_DEFAULT_BODY_REDACT_FIELDS` | JSON body field names whose values are redacted, recursively and case-insensitively. Pass `[]` for verbatim bodies. |
 | `captureFetch`     | `boolean`                       | `true`                    | Capture `fetch`.                                                                                       |
 | `captureHttp`      | `boolean`                       | `true`                    | Capture Node `http`/`https`.                                                                           |
 | `runtime`          | `RequestRuntime`                | `'server'`                | Tag applied to every captured record.                                                                  |

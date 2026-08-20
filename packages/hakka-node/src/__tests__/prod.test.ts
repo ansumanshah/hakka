@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from 'bun:test'
 import http from 'node:http'
 import type { Server } from 'node:http'
 
-import type { NetworkRequest } from 'hakka-core'
+import { configureBodyRedaction, getBodyRedactionFields, type NetworkRequest } from 'hakka-core'
 
 import { createPullHandler, startProdCapture, stopProdCapture, type ProdCaptureHandle } from '../prod'
 import { runInTraceContext } from '../trace'
@@ -188,5 +188,78 @@ describe('createPullHandler', () => {
     )
     const body = (await res.json()) as { records: NetworkRequest[] }
     expect(body.records.map((r) => r.id)).toEqual(['a'])
+  })
+})
+
+describe('startProdCapture — body redaction defaults', () => {
+  /**
+   * Body-field redaction is a process-global in hakka-core that no-ops on an
+   * empty list, and nothing in this package configured one — so following the
+   * documented prod setup captured passwords and tokens verbatim out of real
+   * users' traffic. Prod inverts the default the same way `captureUrls` is
+   * required rather than optional.
+   */
+  test('redacts credential-shaped body fields with no configuration', async () => {
+    const server = http.createServer((req, res) => {
+      req.on('data', () => {})
+      req.on('end', () => res.end('{}'))
+    })
+    const port = await listen(server)
+    const base = `http://127.0.0.1:${port}`
+    const capture = startProdCapture({ captureUrls: [`${base}/*`] })
+
+    await runInTraceContext({ traceId: 'T', debug: true }, () =>
+      fetch(`${base}/login`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ user: 'ada', password: 'hunter2-secret', nested: { apiKey: 'sk-live-x' } }),
+      }),
+    )
+    await settle()
+    server.close()
+
+    const bodies = capture.getRecords().map((r) => r.requestBody ?? '')
+    expect(bodies.join('')).not.toContain('hunter2-secret')
+    expect(bodies.join('')).not.toContain('sk-live-x')
+    // Non-sensitive fields must survive, or the capture is useless.
+    expect(bodies.join('')).toContain('ada')
+  })
+
+  test('an explicit empty list opts back into verbatim bodies', async () => {
+    const server = http.createServer((req, res) => {
+      req.on('data', () => {})
+      req.on('end', () => res.end('{}'))
+    })
+    const port = await listen(server)
+    const base = `http://127.0.0.1:${port}`
+    const capture = startProdCapture({ captureUrls: [`${base}/*`], redactBodyFields: [] })
+
+    await runInTraceContext({ traceId: 'T', debug: true }, () =>
+      fetch(`${base}/login`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ password: 'hunter2-secret' }),
+      }),
+    )
+    await settle()
+    server.close()
+
+    expect(
+      capture
+        .getRecords()
+        .map((r) => r.requestBody ?? '')
+        .join(''),
+    ).toContain('hunter2-secret')
+  })
+
+  test('stopping restores the previous global field list', () => {
+    configureBodyRedaction(['preexisting'])
+
+    const capture = startProdCapture({ captureUrls: ['http://x/*'] })
+    expect(getBodyRedactionFields()).toContain('password')
+    capture.stop()
+
+    expect(getBodyRedactionFields()).toEqual(['preexisting'])
+    configureBodyRedaction([])
   })
 })
