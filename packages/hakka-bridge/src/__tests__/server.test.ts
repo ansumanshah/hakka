@@ -370,3 +370,35 @@ describe('startBridgeServer (close race safety)', () => {
     sender.close()
   })
 })
+
+describe('startBridgeServer (frame size)', () => {
+  /**
+   * `ws` defaults `maxPayload` to 100MB and the hub exposed no way to lower
+   * it, so the record-count bound was the only limit on how much a peer could
+   * make the buffer hold.
+   */
+  test('a frame past maxPayload is rejected instead of buffered', async () => {
+    server = await startBridgeServer({ port: 0, maxPayload: 4096 })
+    const sender = await open(`ws://127.0.0.1:${server.port}`)
+
+    const huge = JSON.stringify({
+      type: 'request',
+      payload: { id: 'huge', url: 'https://x', method: 'GET', requestBody: 'x'.repeat(8192) },
+    })
+    sender.send(huge)
+    await new Promise((r) => setTimeout(r, 60))
+
+    expect(server.hub.getRecords()).toHaveLength(0)
+  })
+
+  test('an ordinary frame under the cap still lands', async () => {
+    server = await startBridgeServer({ port: 0, maxPayload: 4096 })
+    const sender = await open(`ws://127.0.0.1:${server.port}`)
+
+    sender.send(requestFrame('small'))
+    await new Promise((r) => setTimeout(r, 60))
+
+    expect(server.hub.getRecords().map((r) => r.id)).toEqual(['small'])
+    sender.close()
+  })
+})

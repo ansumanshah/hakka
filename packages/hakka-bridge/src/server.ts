@@ -14,6 +14,9 @@ export const DEFAULT_BRIDGE_PORT = 8989
 /** Default bind address — loopback-only, so nothing off-box can reach the hub. */
 export const DEFAULT_BRIDGE_HOST = '127.0.0.1'
 
+/** Default largest accepted frame. See `BridgeServerOptions.maxPayload`. */
+export const DEFAULT_MAX_PAYLOAD = 8 * 1024 * 1024
+
 export interface BridgeServerOptions {
   /**
    * Interface to bind. Default `'127.0.0.1'` (loopback only). Pass
@@ -25,6 +28,19 @@ export interface BridgeServerOptions {
   port?: number
   /** Max records retained in the hub buffer. */
   maxRecords?: number
+  /**
+   * Largest accepted frame, in bytes. Default 8 MB.
+   *
+   * `ws`'s own default is 100 MB, which the hub never exposed a way to lower —
+   * so the buffer's `maxRecords` count bound was the only limit, and 1000
+   * records of 100 MB is not a bound worth having. 8 MB matches the desktop
+   * app's wire limit and is far above any real captured body.
+   *
+   * Enforced twice: through `ws` (which refuses before buffering, under Node)
+   * and again on the received frame, because `ws` ignores `maxPayload` under
+   * bun and delivers the oversized message regardless.
+   */
+  maxPayload?: number
   /** Max framework spans retained in the hub buffer, across all traces. See `BridgeHubOptions.maxSpans`. */
   maxSpans?: number
   /** Max framework spans retained per trace in the hub buffer. See `BridgeHubOptions.maxSpansPerTrace`. */
@@ -92,13 +108,18 @@ export function startBridgeServer(options: BridgeServerOptions = {}): Promise<Br
   const requestedHost = options.host ?? DEFAULT_BRIDGE_HOST
   const allowedOrigins = options.allowedOrigins ?? []
   const token = options.token
+  const maxPayload = options.maxPayload ?? DEFAULT_MAX_PAYLOAD
   const hub = new BridgeHub({
     maxRecords: options.maxRecords,
     maxSpans: options.maxSpans,
     maxSpansPerTrace: options.maxSpansPerTrace,
   })
   const clients = new Set<WebSocket>()
-  const wss = new WebSocketServer({ port: requestedPort, host: requestedHost })
+  const wss = new WebSocketServer({
+    port: requestedPort,
+    host: requestedHost,
+    maxPayload,
+  })
 
   wss.on('connection', (socket, req) => {
     // Reject before anything else touches the socket: no buffer replay, no
@@ -129,6 +150,12 @@ export function startBridgeServer(options: BridgeServerOptions = {}): Promise<Br
     }
     socket.on('message', (data) => {
       const raw = typeof data === 'string' ? data : data.toString()
+      // Checked here as well as via `ws`'s own `maxPayload`, because that
+      // option is silently ignored under bun — the socket delivers the whole
+      // oversized frame anyway. A limit that only holds on one runtime is not
+      // a limit, so the bound lives in code we control. `ws`'s option stays as
+      // the cheaper first line under Node, where it refuses before buffering.
+      if (raw.length > maxPayload) return
       const result = hub.ingest(raw)
       if (!result) return
       // Relay to OTHER peers (viewers/controllers); never echo back to the sender.

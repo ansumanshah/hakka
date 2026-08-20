@@ -128,10 +128,20 @@ export function enableTracePropagation(): () => void {
     saved.push({ proto, fn: orig })
     proto.emit = function (this: unknown, event: string, ...args: unknown[]): boolean {
       if (event === 'request') {
-        const req = args[0] as { headers?: Record<string, string | string[] | undefined> } | undefined
-        const id = parseIncomingTraceId(req?.headers)
-        const requestKindHint = parseRequestKindHint(req?.headers)
-        if (id) return store.run({ traceId: id, requestKindHint }, () => orig.apply(this, [event, ...args]))
+        // This wraps Node's own Server.prototype.emit for EVERY incoming
+        // request, so it is the most dangerous place in the package to throw
+        // from — one bad header would break the app's request handling, not
+        // just its capture. Every other capture path guards its prologue this
+        // way ("a listener must never break the request"); this one did not.
+        let context: { traceId: string; requestKindHint?: ReturnType<typeof parseRequestKindHint> } | null = null
+        try {
+          const req = args[0] as { headers?: Record<string, string | string[] | undefined> } | undefined
+          const id = parseIncomingTraceId(req?.headers)
+          if (id) context = { traceId: id, requestKindHint: parseRequestKindHint(req?.headers) }
+        } catch {
+          context = null
+        }
+        if (context) return store.run(context, () => orig.apply(this, [event, ...args]))
       }
       return orig.apply(this, [event, ...args])
     }

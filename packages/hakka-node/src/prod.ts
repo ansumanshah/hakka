@@ -266,6 +266,12 @@ function bearerToken(request: Request): string | null {
  * equal-length input.
  */
 function safeEqual(presented: string, expected: string): boolean {
+  // An operator whose `HAKKA_PULL_TOKEN` is unset reaches here with `expected`
+  // undefined at runtime, despite the type — the documented setup passes
+  // `process.env.HAKKA_PULL_TOKEN!`. `Buffer.from(undefined)` throws, which
+  // surfaced as a 500 out of the route rather than a clean 401. An empty or
+  // missing configured token can never be satisfiable, so refuse it outright.
+  if (typeof presented !== 'string' || typeof expected !== 'string' || expected.length === 0) return false
   const a = Buffer.from(presented, 'utf8')
   const b = Buffer.from(expected, 'utf8')
   if (a.length !== b.length) return false

@@ -200,12 +200,19 @@ function instrument(
   // Capture the request body by tapping write()/end() (bounded).
   let bodyBytes = 0
   const bodyParts: string[] = []
+  // Tracked incrementally rather than re-joining `bodyParts` on every chunk:
+  // that made capture quadratic in the number of writes, on the hot path of
+  // every outgoing request, purely to answer "how much have I kept so far".
+  let keptLength = 0
   const capture = (chunk: unknown): void => {
     if (bodyBytes >= maxBodySize || chunk == null || typeof chunk === 'function') return
     const str = typeof chunk === 'string' ? chunk : Buffer.isBuffer(chunk) ? chunk.toString('utf8') : ''
     if (!str) return
     bodyBytes += Buffer.byteLength(str)
-    if (bodyParts.join('').length < maxBodySize) bodyParts.push(str)
+    if (keptLength < maxBodySize) {
+      bodyParts.push(str)
+      keptLength += str.length
+    }
   }
   const origWrite = req.write.bind(req)
   const origEnd = req.end.bind(req)

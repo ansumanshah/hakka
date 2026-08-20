@@ -263,3 +263,30 @@ describe('startProdCapture — body redaction defaults', () => {
     configureBodyRedaction([])
   })
 })
+
+describe('createPullHandler — misconfiguration', () => {
+  /**
+   * The documented setup passes `process.env.HAKKA_PULL_TOKEN!`. When that env
+   * var is unset the token is `undefined` at runtime despite the type, and
+   * `Buffer.from(undefined)` threw out of the handler — a 500 where the
+   * operator needed a 401. A token that cannot be satisfied must refuse, not
+   * crash.
+   */
+  test('an unset token 401s rather than throwing', async () => {
+    const capture = startProdCapture({ captureUrls: ['http://x/*'] })
+    const handler = createPullHandler({ capture, token: undefined as unknown as string })
+
+    const res = await handler(new Request('http://localhost/pull', { headers: { authorization: 'Bearer t' } }))
+
+    expect(res.status).toBe(401)
+  })
+
+  test('an empty token 401s rather than matching an empty header', async () => {
+    const capture = startProdCapture({ captureUrls: ['http://x/*'] })
+    const handler = createPullHandler({ capture, token: '' })
+
+    const res = await handler(new Request('http://localhost/pull', { headers: { authorization: 'Bearer ' } }))
+
+    expect(res.status).toBe(401)
+  })
+})

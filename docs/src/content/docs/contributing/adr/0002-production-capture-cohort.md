@@ -100,9 +100,13 @@ Option **B**, with C's `traceparent` export left available. Rationale:
 - **Ring buffer + retrieval route.** Bounded in-memory buffer (default small,
   operator-tunable) plus a same-origin route (`/__hakka/pull`) behind the app's
   own auth. No new open port.
-- **Cohort gate.** Middleware helper that sets a signed cookie for an allowlist;
-  ALS store carries the `debug` flag; sink drops unflagged records. Documented as
-  the _only_ supported way to turn prod capture on.
+- **Cohort gate.** The ALS store carries the `debug` flag and the sink drops
+  unflagged records — this part ships, as `runInTraceContext`. The "middleware
+  helper that sets a signed cookie for an allowlist" this ADR originally
+  promised does **not** exist: deciding who is in the cohort, and proving it
+  safely, is the app's own code. That is the entire security boundary, so the
+  gap is worth naming rather than leaving implied. Shipping such a helper is
+  open work.
 - **Allowlist capture.** `captureUrls?: string[]` (glob) — in prod, capture is
   opt-in per URL pattern; redaction stays as defense-in-depth, not the boundary.
 - **Body redaction on by default here.** Everywhere else in Hakka body-field
