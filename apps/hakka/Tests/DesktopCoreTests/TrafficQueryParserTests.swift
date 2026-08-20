@@ -148,4 +148,37 @@ struct TrafficQueryParserTests {
 
         #expect(requests.filter(match).map(\.id) == ["b"])
     }
+
+    // MARK: - Hostile input
+
+    /// The search field is user input, and Swift traps on integer overflow in
+    /// release as well as debug. Every one of these parsed to a valid Int64
+    /// and then blew up on the scale-or-shift that followed.
+
+    @Test("an absurd size does not trap")
+    func absurdSizeDoesNotTrap() {
+        #expect(TrafficQueryParser.parse("size>9223372036854775807mb").sizeMin != nil)
+        #expect(TrafficQueryParser.parse("size<=9223372036854775807kb").sizeMax != nil)
+    }
+
+    @Test("an absurd duration does not trap")
+    func absurdDurationDoesNotTrap() {
+        #expect(TrafficQueryParser.parse("dur>9223372036854775807").durationMin == Int64.max)
+        #expect(TrafficQueryParser.parse("dur<-9223372036854775808").durationMax == Int64.min)
+    }
+
+    @Test("malformed filters fall through to free text rather than being dropped")
+    func malformedFilters() {
+        #expect(TrafficQueryParser.parse("dur>").tokens.map(\.value) == ["dur>"])
+        #expect(TrafficQueryParser.parse("size>abc").tokens.map(\.value) == ["size>abc"])
+        #expect(TrafficQueryParser.parse("method:").tokens.map(\.value) == ["method:"])
+    }
+
+    @Test("an unknown sort value is not silently accepted")
+    func unknownSort() {
+        let query = TrafficQueryParser.parse("sort:nonsense")
+
+        #expect(query.sort == nil)
+        #expect(query.tokens.map(\.value) == ["sort:nonsense"])
+    }
 }

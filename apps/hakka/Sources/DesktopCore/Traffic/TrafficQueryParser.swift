@@ -101,22 +101,29 @@ public enum TrafficQueryParser {
         rest = String(rest.dropFirst(inclusive ? 2 : 1))
         guard let value = scale(rest) else { return false }
 
+        // `&+ 1` would wrap and `+ 1` would trap; both are reachable by typing
+        // `dur>9223372036854775807`. Clamping keeps an absurd bound absurd.
         if isLowerBound {
-            min = inclusive ? value : value + 1
+            min = inclusive ? value : (value == .max ? .max : value + 1)
         } else {
-            max = inclusive ? value : value - 1
+            max = inclusive ? value : (value == .min ? .min : value - 1)
         }
         return true
     }
 
     /// `"1kb"` → 1024. A bare number is bytes.
+    ///
+    /// Saturates rather than multiplying straight through: this reads a search
+    /// field, and `size>9223372036854775807mb` parses to a valid `Int64` that
+    /// then traps on the multiply. A nonsensical bound clamped to `Int64.max`
+    /// matches nothing, which is the right answer; a crash is not.
     private static func bytes(_ raw: String) -> Int64? {
         let trimmed = raw.trimmingCharacters(in: .whitespaces)
         for (suffix, multiplier) in [("mb", 1024 * 1024), ("kb", 1024), ("b", 1)] {
             guard trimmed.hasSuffix(suffix) else { continue }
-            let number = trimmed.dropLast(suffix.count)
-            guard let value = Int64(number) else { return nil }
-            return value * Int64(multiplier)
+            guard let value = Int64(trimmed.dropLast(suffix.count)) else { return nil }
+            let (scaled, overflowed) = value.multipliedReportingOverflow(by: Int64(multiplier))
+            return overflowed ? (value < 0 ? .min : .max) : scaled
         }
         return Int64(trimmed)
     }
