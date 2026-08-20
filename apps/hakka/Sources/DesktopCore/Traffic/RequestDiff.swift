@@ -21,20 +21,44 @@ public struct RequestDiff: Sendable, Equatable {
         public let changed: [HeaderChange]
     }
 
+    /// The outcome of comparing one body.
+    ///
+    /// A `NetworkRequest` body is `nil` whenever it was binary or over the
+    /// capture cap. Coercing that to `""` made two completely different binary
+    /// payloads compare as identical — a compare tool confidently reporting
+    /// "no changes" about bytes it never saw. The distinction is now in the
+    /// type, so a caller has to decide what to show.
+    public enum BodyDiff: Sendable, Equatable {
+        /// Neither side captured a body. Whether the bytes differed is
+        /// unknowable from the capture — this is not "they matched".
+        case notCaptured
+        /// One side captured a body and the other did not.
+        case availabilityChanged(hadBefore: Bool, hadAfter: Bool)
+        case lines([LineDiffEntry])
+    }
+
     public let status: StatusDiff
     public let requestHeaders: HeaderDiff
     public let responseHeaders: HeaderDiff
-    public let requestBody: [LineDiffEntry]
-    public let responseBody: [LineDiffEntry]
+    public let requestBody: BodyDiff
+    public let responseBody: BodyDiff
 
     public static func diff(_ before: NetworkRequest, _ after: NetworkRequest) -> RequestDiff {
         RequestDiff(
             status: StatusDiff(before: before.status, after: after.status),
             requestHeaders: diffHeaders(before.requestHeaders, after.requestHeaders),
             responseHeaders: diffHeaders(before.responseHeaders, after.responseHeaders),
-            requestBody: LineDiff.compute(old: before.requestBody ?? "", new: after.requestBody ?? ""),
-            responseBody: LineDiff.compute(old: before.responseBody ?? "", new: after.responseBody ?? ""),
+            requestBody: diffBody(before.requestBody, after.requestBody),
+            responseBody: diffBody(before.responseBody, after.responseBody),
         )
+    }
+
+    private static func diffBody(_ before: String?, _ after: String?) -> BodyDiff {
+        switch (before, after) {
+        case (nil, nil): .notCaptured
+        case let (before?, after?): .lines(LineDiff.compute(old: before, new: after))
+        default: .availabilityChanged(hadBefore: before != nil, hadAfter: after != nil)
+        }
     }
 
     /// Header names are matched case-insensitively (HTTP semantics) but

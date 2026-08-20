@@ -47,7 +47,7 @@ public enum TrafficQueryCompiler {
                 if let durationMax, duration > durationMax { return false }
             }
             if sizeMin != nil || sizeMax != nil {
-                let total = request.requestBodySize + request.responseBodySize
+                let total = request.totalBodyBytes
                 if let sizeMin, total < sizeMin { return false }
                 if let sizeMax, total > sizeMax { return false }
             }

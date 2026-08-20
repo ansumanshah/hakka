@@ -22,7 +22,7 @@ public enum TrafficSort {
         switch field {
         case .time: request.startTime
         case .duration: request.duration ?? 0
-        case .size: request.requestBodySize + request.responseBodySize
+        case .size: request.totalBodyBytes
         case .status: Int64(request.status ?? 0)
         }
     }

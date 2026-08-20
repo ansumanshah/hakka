@@ -179,9 +179,52 @@ struct RequestDiffTests {
         #expect(diff.responseHeaders.added.map(\.name) == ["ETag"])
         #expect(diff.responseHeaders.removed.map(\.name) == ["X-Cache"])
         #expect(diff.responseHeaders.changed.isEmpty)
-        #expect(diff.responseBody == [
+        #expect(diff.responseBody == .lines([
             .unchanged("line1"), .removed("line2"), .added("line2 changed"), .unchanged("line3"),
-        ])
+        ]))
+        // Neither side captured a request body — that is "unknown", not "same".
+        #expect(diff.requestBody == .notCaptured)
+    }
+
+    /// Two different binary payloads both capture as `nil`. Coercing that to
+    /// an empty string made the diff report them identical.
+    @Test
+    func uncapturedBodiesAreNotReportedAsIdentical() {
+        let before = NetworkRequest(id: "a", url: "https://example.com/x", method: .post, status: 200, startTime: 1)
+        let after = NetworkRequest(id: "b", url: "https://example.com/x", method: .post, status: 200, startTime: 2)
+
+        let diff = RequestDiff.diff(before, after)
+
+        #expect(diff.responseBody == .notCaptured)
+    }
+
+    @Test
+    func aBodyAppearingOnOneSideIsReportedAsAvailabilityChange() {
+        let before = NetworkRequest(id: "a", url: "https://example.com/x", method: .post, status: 200, startTime: 1)
+        let after = NetworkRequest(
+            id: "b", url: "https://example.com/x", method: .post, status: 200, startTime: 2,
+            responseBody: "now captured",
+        )
+
+        let diff = RequestDiff.diff(before, after)
+
+        #expect(diff.responseBody == .availabilityChanged(hadBefore: false, hadAfter: true))
+    }
+
+    /// The LCS table is O(n·m) in memory. Past the cell budget the comparison
+    /// degrades to whole-body replace rather than trying to allocate it.
+    @Test
+    func hugeBodiesDegradeInsteadOfAllocatingTheTable() {
+        // The budget is on table cells, so the line count needed to cross it is
+        // only its square root — a few thousand lines, not millions.
+        let lines = Int(Double(LineDiff.maxTableCells).squareRoot()) + 10
+        let old = String(repeating: "a\n", count: lines)
+        let new = String(repeating: "b\n", count: lines)
+
+        let entries = LineDiff.compute(old: old, new: new)
+
+        #expect(!entries.isEmpty)
+        #expect(!entries.contains { if case .unchanged = $0 { true } else { false } })
     }
 }
 

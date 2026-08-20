@@ -38,7 +38,7 @@ struct TrafficStatsAccumulator {
     mutating func insert(_ request: NetworkRequest) {
         count += 1
         if Self.isError(request) { errorCount += 1 }
-        totalBytes += request.requestBodySize + request.responseBodySize
+        totalBytes = totalBytes.saturatingAdding(request.totalBodyBytes)
         if let duration = request.duration {
             sortedDurations.insertSorted(duration)
         }
@@ -47,7 +47,7 @@ struct TrafficStatsAccumulator {
     mutating func remove(_ request: NetworkRequest) {
         count -= 1
         if Self.isError(request) { errorCount -= 1 }
-        totalBytes -= request.requestBodySize + request.responseBodySize
+        totalBytes = totalBytes.saturatingSubtractingClampedToZero(request.totalBodyBytes)
         if let duration = request.duration {
             sortedDurations.removeSorted(duration)
         }
