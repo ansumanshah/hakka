@@ -16,9 +16,15 @@ struct LiveTrafficListView: View {
                     title: "Waiting for traffic",
                     message: "Requests captured from a connected Hakka SDK appear here as they arrive.",
                 )
+            } else if model.traffic.visibleRequests.isEmpty {
+                EmptyStateView(
+                    systemImage: "line.3.horizontal.decrease.circle",
+                    title: "No matching requests",
+                    message: "\(model.traffic.requests.count) captured, none match this search.",
+                )
             } else {
                 List(selection: selectionBinding) {
-                    ForEach(model.traffic.requests.reversed(), id: \.id) { request in
+                    ForEach(model.traffic.visibleRequests, id: \.id) { request in
                         LiveTrafficRowView(request: request)
                             .tag(request.id)
                             .contextMenu {

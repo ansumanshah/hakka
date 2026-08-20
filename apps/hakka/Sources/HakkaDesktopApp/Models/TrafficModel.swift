@@ -16,6 +16,9 @@ final class TrafficModel {
     private(set) var boundPort: UInt16?
     var selectedRequestID: String?
     var lastError: String?
+    /// Raw search-bar text. Parsed on read rather than stored as a compiled
+    /// query so a keystroke never has to round-trip through the store actor.
+    var searchText = ""
 
     let server = BridgeServer()
     private let store = TrafficStore()
@@ -42,6 +45,19 @@ final class TrafficModel {
             }
             stats = await store.stats()
         }
+    }
+
+    /// `requests` filtered and sorted by `searchText`, newest first when the
+    /// query names no sort of its own. Empty search returns the buffer
+    /// unchanged, so the common case pays nothing.
+    var visibleRequests: [NetworkRequest] {
+        let trimmed = searchText.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return requests.reversed() }
+
+        let query = TrafficQueryParser.parse(trimmed)
+        let matched = requests.filter(TrafficQueryCompiler.compile(query))
+        guard let field = query.sort else { return matched.reversed() }
+        return TrafficSort.sort(matched, field: field, order: query.order)
     }
 
     func request(id: String) -> NetworkRequest? {
