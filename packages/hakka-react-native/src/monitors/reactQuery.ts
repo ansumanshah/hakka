@@ -16,6 +16,7 @@
  *
  * Requires `@tanstack/react-query` as a peer dependency.
  */
+import { getBodyRedactionFields, redactJsonBody } from 'hakka-core'
 import { useEffect } from 'react'
 
 import { hakkaBridge } from '../core/HakkaBridge'
@@ -58,8 +59,40 @@ interface ReactQueryModuleLike {
   getQueryClient?: () => QueryClientMonitorInstance | null
 }
 
+/**
+ * Redact a cached query payload before it leaves the device.
+ *
+ * A react-query cache holds whole API responses, so it carries exactly what
+ * the network interceptors already redact — but this monitor emits the parsed
+ * object on its own channel, which was bypassing all of it.
+ *
+ * Round-trips through JSON because `redactJsonBody` works on strings and the
+ * cache holds parsed values. The payload is about to be serialized for the
+ * bridge regardless, so this costs one extra parse, and only when redaction is
+ * actually configured.
+ */
+export function redactQueryData(data: unknown): unknown {
+  const fields = getBodyRedactionFields()
+  if (fields.length === 0 || data == null) return data
+
+  try {
+    const serialized = JSON.stringify(data)
+    if (serialized === undefined) return data
+    const redacted = redactJsonBody(serialized, fields)
+    return redacted == null ? data : JSON.parse(redacted)
+  } catch {
+    // Unserializable cache entry (a function, a cycle). Emitting it unredacted
+    // would be the bug this exists to prevent, so drop the payload instead.
+    return undefined
+  }
+}
+
 function sendQueryData(queryData: QueryData): void {
-  hakkaBridge.emit('queries:update', { ...queryData, timestamp: Date.now() })
+  hakkaBridge.emit('queries:update', {
+    ...queryData,
+    data: redactQueryData(queryData.data),
+    timestamp: Date.now(),
+  })
 }
 
 /**

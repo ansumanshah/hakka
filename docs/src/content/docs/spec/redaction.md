@@ -16,12 +16,18 @@ Node's `http`/`https` interceptor, and WebSocket **text** frames. It runs inside
 capture path, so a redacted value is the only version that ever reaches the wire — see
 [ADR 0004 (e)](/contributing/adr/0004-remote-sessions/).
 
-React Native's **storage monitors** (`useAsyncStorageMonitor`, `useMMKVMonitor`) use the same
-configured field list, with one difference: a storage _key_ is matched by substring rather than
-exact name, because real keys are namespaced (`@myapp:auth_token` matches a configured `token`)
-and the whole value is blanked when it hits. A value that doesn't match by key still goes through
-JSON field redaction. Storage is where credentials are persisted rather than merely transit, so
-this path is worth configuring even if you skip the others.
+React Native's **monitors** apply it too, on their own channels:
+
+- `useAsyncStorageMonitor` / `useMMKVMonitor` match the storage _key_ by substring rather than
+  exact name, because real keys are namespaced (`@myapp:auth_token` matches a configured `token`),
+  and blank the whole value on a hit. A value that doesn't match by key still goes through JSON
+  field redaction.
+- `useQueryMonitor` / `useReactQueryDevTools` redact the cached payload. A react-query cache holds
+  whole API responses, so it carries what the interceptors already redact — but this monitor emits
+  the parsed object separately. An unserializable entry is dropped rather than emitted raw.
+
+Storage is where credentials are persisted rather than merely transit, so these paths are worth
+configuring even if you skip the others.
 
 ## Public API
 
@@ -87,8 +93,9 @@ capturing platform used.
   exact string that crosses the socket
 - `packages/hakka-core/src/capture/__tests__/websocket.test.ts` (frame redaction)
 - `packages/hakka-browser/src/capture/__tests__/sendBeacon.test.ts`
-- `packages/hakka-react-native/__tests__/monitors/storage.test.ts` — includes a test that drives
-  the real hook and asserts on what reaches the bridge, not just on the helper
+- `packages/hakka-react-native/__tests__/monitors/storage.test.ts` and `reactQuery.test.ts` — each
+  includes a test that drives the real hook and asserts on what reaches the bridge, not just on the
+  helper
 - `ios/Tests/HakkaTests/HakkaInterceptorTests.swift`, `ios/Tests/HakkaTests/HakkaConfigTests.swift`
 - `android/hakka-common/src/test/kotlin/com/noodleapps/hakka/LogRedactionTest.kt`
 
