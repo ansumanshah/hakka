@@ -17,9 +17,12 @@
  * }
  * ```
  */
+import { getBodyRedactionFields, redactJsonBody } from 'hakka-core'
 import { useEffect } from 'react'
 
 import { hakkaBridge } from '../core/HakkaBridge'
+
+const REDACTED = '[REDACTED]'
 
 export type StorageType = 'AsyncStorage' | 'MMKV' | 'Zustand' | 'Redux' | 'Context'
 
@@ -48,8 +51,35 @@ export interface MMKVMonitorInstance {
   delete: (key: string) => void
 }
 
+/**
+ * Redact a storage value before it leaves the device.
+ *
+ * Storage is where tokens and credentials are *persisted*, not merely where
+ * they transit, so forwarding values verbatim was the worst version of the
+ * gap already closed on the capture paths. Two passes, using the same
+ * `configureBodyRedaction` list a host app has already set:
+ *
+ * - If the key names a sensitive field, blank the whole value. Matching is a
+ *   substring test, not exact, because storage keys are namespaced in
+ *   practice (`@myapp:auth_token` should match a configured `token`).
+ * - Otherwise run the value through JSON body redaction, so a stored blob
+ *   whose *fields* are sensitive is covered too.
+ *
+ * With no fields configured this is the same no-op it is everywhere else.
+ */
+export function redactStorageValue(key: string, value: unknown): unknown {
+  const fields = getBodyRedactionFields()
+  if (fields.length === 0 || value == null) return value
+
+  const lowerKey = key.toLowerCase()
+  if (fields.some((field) => lowerKey.includes(field))) return REDACTED
+
+  if (typeof value !== 'string') return value
+  return redactJsonBody(value, fields) ?? value
+}
+
 function sendStorageData(data: StorageData): void {
-  hakkaBridge.emit('storage:update', data)
+  hakkaBridge.emit('storage:update', { ...data, value: redactStorageValue(data.key, data.value) })
 }
 
 /**
