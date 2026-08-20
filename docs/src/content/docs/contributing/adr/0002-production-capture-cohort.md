@@ -89,7 +89,7 @@ Option **B**, with C's `traceparent` export left available. Rationale:
 
   Precisely: what is absent is the **remote path**. Verified in the built
   `dist/prod.mjs` — no `bridgeClient`, no `serverCapture`, no WebSocket. The
-  rule *engines* are a different matter: `enableFetchInterceptor` is imported
+  rule _engines_ are a different matter: `enableFetchInterceptor` is imported
   from `hakka-core`, and `capture/fetch.ts` imports the mock, breakpoint and
   throttle singletons at module scope, so they load with it and
   `mockEngine.peek()` runs per captured fetch. Inert without rules, and with no
@@ -97,6 +97,7 @@ Option **B**, with C's `traceparent` export left available. Rationale:
   over the network", not "not in the build". Decoupling them means injecting
   engines through the capture hot path, which [ADR 0009](/contributing/adr/0009-contracts-first-internals/)
   rules out; `captureFetch: false` is the build that never loads them.
+
 - **Ring buffer + retrieval route.** Bounded in-memory buffer (default small,
   operator-tunable) plus a same-origin route (`/__hakka/pull`) behind the app's
   own auth. No new open port.

@@ -54,12 +54,18 @@ function exportedNames(pkg) {
 
     for (const match of text.matchAll(/export\s+(?:type\s+)?\{([^}]*)\}(?:\s+from\s+'([^']+)')?/g)) {
       for (const raw of match[1].split(',')) {
-        const name = raw.trim().split(/\s+as\s+/).pop()?.trim()
+        const name = raw
+          .trim()
+          .split(/\s+as\s+/)
+          .pop()
+          ?.trim()
         if (name) names.add(name.replace(/^type\s+/, ''))
       }
     }
     // `export const foo`, `export function foo`, `export class Foo`, …
-    for (const match of text.matchAll(/export\s+(?:declare\s+)?(?:const|function|class|interface|type|enum)\s+(\w+)/g)) {
+    for (const match of text.matchAll(
+      /export\s+(?:declare\s+)?(?:const|function|class|interface|type|enum)\s+(\w+)/g,
+    )) {
       names.add(match[1])
     }
     // `export * from './x'` — follow it, since the names live there.
@@ -106,7 +112,11 @@ for (const file of readdirSync(specDir).filter((f) => f.endsWith('.md'))) {
     // which would otherwise be read as part of the next symbol's name.
     const names = match[1].replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '')
     for (const raw of names.split(',')) {
-      const name = raw.trim().replace(/^type\s+/, '').split(/\s+as\s+/)[0]?.trim()
+      const name = raw
+        .trim()
+        .replace(/^type\s+/, '')
+        .split(/\s+as\s+/)[0]
+        ?.trim()
       if (!name) continue
       checkedSymbols += 1
       if (!available.has(name)) {

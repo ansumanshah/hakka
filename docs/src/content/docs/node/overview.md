@@ -226,20 +226,20 @@ serializes.
 
 ### `ProdCaptureOptions`
 
-| Option             | Type                            | Default                   | Description                                                                                            |
-| ------------------ | ------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `captureUrls`      | `string[]`                      | — (required)              | `*`-glob patterns matched against the full request URL. `startProdCapture` throws if missing or empty. |
-| `maxBodySize`      | `number`                        | `32768` (32 KB)           | Max captured body size in bytes.                                                                       |
-| `maxRecords`       | `number`                        | `200`                     | Ring buffer capacity (record count).                                                                   |
-| `maxBufferBytes`   | `number`                        | unbounded                 | Optional byte ceiling for the ring buffer's retained bodies, on top of `maxRecords`.                   |
-| `redactHeaders`    | `string[]`                      | hakka-core's default list | Sensitive header names to redact.                                                                      |
+| Option             | Type                            | Default                           | Description                                                                                                         |
+| ------------------ | ------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `captureUrls`      | `string[]`                      | — (required)                      | `*`-glob patterns matched against the full request URL. `startProdCapture` throws if missing or empty.              |
+| `maxBodySize`      | `number`                        | `32768` (32 KB)                   | Max captured body size in bytes.                                                                                    |
+| `maxRecords`       | `number`                        | `200`                             | Ring buffer capacity (record count).                                                                                |
+| `maxBufferBytes`   | `number`                        | unbounded                         | Optional byte ceiling for the ring buffer's retained bodies, on top of `maxRecords`.                                |
+| `redactHeaders`    | `string[]`                      | hakka-core's default list         | Sensitive header names to redact.                                                                                   |
 | `redactBodyFields` | `string[]`                      | `PROD_DEFAULT_BODY_REDACT_FIELDS` | JSON body field names whose values are redacted, recursively and case-insensitively. Pass `[]` for verbatim bodies. |
-| `captureFetch`     | `boolean`                       | `true`                    | Capture `fetch`.                                                                                       |
-| `captureHttp`      | `boolean`                       | `true`                    | Capture Node `http`/`https`.                                                                           |
-| `runtime`          | `RequestRuntime`                | `'server'`                | Tag applied to every captured record.                                                                  |
-| `sink`             | `(req: NetworkRequest) => void` | —                         | Additional sink for every record that passes the cohort + URL-allowlist gate.                          |
-| `killSwitchPollMs` | `number`                        | `30000`                   | How often (ms) the `HAKKA_DISABLE` kill switch polls the environment.                                  |
-| `shouldCapture`    | `() => boolean`                 | `cohortGate()`            | Override the cohort gate. Override only for tests or a custom cohort mechanism.                        |
+| `captureFetch`     | `boolean`                       | `true`                            | Capture `fetch`.                                                                                                    |
+| `captureHttp`      | `boolean`                       | `true`                            | Capture Node `http`/`https`.                                                                                        |
+| `runtime`          | `RequestRuntime`                | `'server'`                        | Tag applied to every captured record.                                                                               |
+| `sink`             | `(req: NetworkRequest) => void` | —                                 | Additional sink for every record that passes the cohort + URL-allowlist gate.                                       |
+| `killSwitchPollMs` | `number`                        | `30000`                           | How often (ms) the `HAKKA_DISABLE` kill switch polls the environment.                                               |
+| `shouldCapture`    | `() => boolean`                 | `cohortGate()`                    | Override the cohort gate. Override only for tests or a custom cohort mechanism.                                     |
 
 `startProdCapture` is idempotent — a second call while a capture is already active returns the
 **first** call's handle; the new options are ignored in that case. `stopProdCapture()` tears
