@@ -30,10 +30,13 @@ enum PostmanBody {
     }
 
     private static func part(_ entry: [String: Any]) -> MultipartPart {
+        // Postman lets a formdata entry override its part's content type; the
+        // model carries it, so don't drop it on import.
+        let contentType = entry.string("contentType")
         if entry.string("type") == "file" {
-            return MultipartPart(name: entry.string("key") ?? "", filePath: entry.string("src"))
+            return MultipartPart(name: entry.string("key") ?? "", filePath: entry.string("src"), contentType: contentType)
         }
-        return MultipartPart(name: entry.string("key") ?? "", value: entry.string("value") ?? "")
+        return MultipartPart(name: entry.string("key") ?? "", value: entry.string("value") ?? "", contentType: contentType)
     }
 
     private static func contentType(for language: String?, headers: [HeaderPair]) -> String {

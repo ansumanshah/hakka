@@ -89,7 +89,7 @@ exists:
 | Plain-text, git-diffable collections (one file per request)                 | Bruno             | built                 |
 | Environments + `{{variable}}` interpolation, secrets outside the collection | Bruno, Yaak       | built                 |
 | Request runner, declarative assertions, response captures                   | Bruno, Yaak       | built                 |
-| Import from cURL / Postman / OpenAPI / HAR; code generation                 | all of them       | built                 |
+| Import from cURL / Postman / OpenAPI / HAR; code generation                 | all of them       | built (see limits)    |
 | Live capture, traffic list, response diff, session export                   | Proxyman          | built                 |
 | Bridge hub + Bonjour discovery                                              | Hakka's own       | built                 |
 | System-wide HTTPS proxy with a CA certificate                               | Proxyman, Charles | **explicit non-goal** |
@@ -98,6 +98,18 @@ The last row is the deliberate difference. Proxyman sees every app's traffic
 because you install its certificate; Hakka sees _your_ app's traffic because
 the SDK is in it. That is a smaller scope and a much smaller trust ask, and
 it is the entire reason Hakka needs no certificate.
+
+**Import limits, stated so "built" stays honest.** An adversarial audit of
+this row found four silent-data-loss paths, all now fixed and fenced by tests
+(`ImportFidelityTests`, `OpenAPIRefTests`): OpenAPI `$ref` was not resolved at
+all, so a referenced request body imported as the empty string; a cURL flag
+that takes a value but that the parser didn't model left its value looking
+like a bare token, and a bare token became the URL; Postman `oauth2` auth was
+dropped despite `AuthSpec.oauth2` existing; and a HAR body expressed as
+`postData.params` rather than `text` was ignored. What remains genuinely out
+of scope: OpenAPI YAML (convert to JSON first), external `$ref`s to other
+documents, and `--data-urlencode`'s `@file` forms — all three need something
+the importer isn't given.
 
 ## Consequences
 

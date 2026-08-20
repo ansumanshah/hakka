@@ -66,6 +66,11 @@ enum PostmanAuth {
             let entries = auth.array("apikey")
             let placement: APIKeyPlacement = value(entries, "in") == "query" ? .query : .header
             return .apiKey(name: value(entries, "key"), value: value(entries, "value"), placement: placement)
+        case "oauth2":
+            // Postman stores a pre-obtained token under `accessToken`. Falling
+            // through to `.none` here dropped the credential silently, even
+            // though `AuthSpec.oauth2` models it exactly.
+            return .oauth2(accessToken: value(auth.array("oauth2"), "accessToken"))
         default:
             return .none
         }

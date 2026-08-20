@@ -16,6 +16,7 @@ public enum OpenAPIImporter {
     public static func parse(_ data: Data) throws(ImportError) -> Collection {
         let root = try JSONParsing.object(from: data)
         guard let paths = root.dict("paths") else { throw ImportError.missingField("paths") }
+        let resolver = OpenAPIRefResolver(root: root)
         let baseURL = root.array("servers")?.first?.string("url") ?? ""
         let title = root.dict("info")?.string("title") ?? "Imported OpenAPI Collection"
 
@@ -27,7 +28,14 @@ public enum OpenAPIImporter {
             let sharedParameters = operations.array("parameters") ?? []
             for method in httpMethods {
                 guard let operation = operations.dict(method) else { continue }
-                let spec = Self.requestSpec(method: method, path: path, baseURL: baseURL, operation: operation, sharedParameters: sharedParameters)
+                let spec = Self.requestSpec(
+                    method: method,
+                    path: path,
+                    baseURL: baseURL,
+                    operation: operation,
+                    sharedParameters: sharedParameters,
+                    resolver: resolver,
+                )
                 if let tag = (operation["tags"] as? [String])?.first {
                     requestsByTag[tag, default: []].append(spec)
                 } else {
@@ -49,6 +57,7 @@ public enum OpenAPIImporter {
         baseURL: String,
         operation: [String: Any],
         sharedParameters: [[String: Any]],
+        resolver: OpenAPIRefResolver,
     ) -> RequestSpec {
         let name = operation.string("summary") ?? operation.string("operationId") ?? "\(method.uppercased()) \(path)"
         let resolvedPath = Self.convertPathParams(path)
@@ -56,10 +65,14 @@ public enum OpenAPIImporter {
 
         var headers: [HeaderPair] = []
         var query: [HeaderPair] = []
-        for parameter in allParameters {
+        for rawParameter in allParameters {
+            // Parameters are referenced as often as schemas are; without
+            // resolving first, a `$ref`'d parameter has no `name` and was
+            // silently skipped.
+            let parameter = resolver.resolve(rawParameter)
             guard let paramName = parameter.string("name"), let location = parameter.string("in") else { continue }
             let required = parameter.bool("required") ?? false
-            let example = OpenAPIExample.paramValue(parameter)
+            let example = OpenAPIExample.paramValue(parameter, resolver: resolver)
             switch location {
             case "query": query.append(HeaderPair(name: paramName, value: example, enabled: required))
             case "header": headers.append(HeaderPair(name: paramName, value: example, enabled: required))
@@ -67,7 +80,7 @@ public enum OpenAPIImporter {
             }
         }
 
-        let body = OpenAPIExample.requestBody(operation.dict("requestBody"))
+        let body = OpenAPIExample.requestBody(operation.dict("requestBody"), resolver: resolver)
         return RequestSpec(name: name, method: HttpMethod(rawString: method), url: baseURL + resolvedPath, headers: headers, query: query, body: body)
     }
 

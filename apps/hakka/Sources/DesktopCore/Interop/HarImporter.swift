@@ -1,10 +1,14 @@
 import Foundation
 import HakkaCommon
 
-/// Imports HAR 1.2 (`log.entries[]`) into `RequestSpec`s. Built to exactly
-/// round-trip `HarExporter`'s own output: that exporter always writes
-/// `postData.text` verbatim (it never emits a multipart `params` breakdown),
-/// so this always imports the body back as `.raw`, matching byte-for-byte.
+/// Imports HAR 1.2 (`log.entries[]`) into `RequestSpec`s.
+///
+/// Round-trips `HarExporter`'s own output byte-for-byte, since that exporter
+/// always writes `postData.text` verbatim. Other tools' HARs are the real
+/// point of an importer though, and the spec allows a body to arrive as
+/// `postData.params` instead of `text` — browsers and proxies do emit that for
+/// form and multipart bodies. Reading only `text` dropped those bodies
+/// entirely and silently, so both shapes are handled.
 public enum HarImporter {
     public static func parse(_ data: Data) throws(ImportError) -> [RequestSpec] {
         let root = try JSONParsing.object(from: data)
@@ -27,10 +31,7 @@ public enum HarImporter {
         let headerEntries = request.array("headers") ?? []
         let headers = headerEntries.map { HeaderPair(name: $0.string("name") ?? "", value: $0.string("value") ?? "") }
 
-        var body: BodySpec = .none
-        if let postData = request.dict("postData"), let text = postData.string("text") {
-            body = .raw(text: text, contentType: postData.string("mimeType") ?? "application/octet-stream")
-        }
+        let body = Self.body(from: request.dict("postData"))
 
         return RequestSpec(
             name: Self.displayName(method: method, path: base),
@@ -41,6 +42,44 @@ public enum HarImporter {
             body: body,
             auth: .none,
         )
+    }
+
+    /// HAR 1.2 documents `text` and `params` as alternatives. `text` wins when
+    /// present because it is the exact bytes; `params` is reconstructed, into
+    /// multipart when the mime type says so and form-encoding otherwise.
+    private static func body(from postData: [String: Any]?) -> BodySpec {
+        guard let postData else { return .none }
+        let mimeType = postData.string("mimeType") ?? "application/octet-stream"
+
+        if let text = postData.string("text") {
+            return .raw(text: text, contentType: mimeType)
+        }
+
+        let params = postData.array("params") ?? []
+        guard !params.isEmpty else { return .none }
+
+        if mimeType.hasPrefix("multipart/form-data") {
+            return .multipart(params.map { param in
+                let name = param.string("name") ?? ""
+                if let fileName = param.string("fileName") {
+                    return MultipartPart(name: name, filePath: fileName, contentType: param.string("contentType"))
+                }
+                return MultipartPart(name: name, value: param.string("value") ?? "", contentType: param.string("contentType"))
+            })
+        }
+
+        // HAR stores params already percent-decoded, so re-encode rather than
+        // joining raw values — a value containing `&` would otherwise forge an
+        // extra field.
+        let encoded = params.map { param in
+            "\(Self.formEncoded(param.string("name") ?? ""))=\(Self.formEncoded(param.string("value") ?? ""))"
+        }
+        return .raw(text: encoded.joined(separator: "&"), contentType: mimeType)
+    }
+
+    private static func formEncoded(_ value: String) -> String {
+        let unreserved = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
+        return value.addingPercentEncoding(withAllowedCharacters: unreserved) ?? value
     }
 
     private static func displayName(method: HttpMethod, path: String) -> String {
