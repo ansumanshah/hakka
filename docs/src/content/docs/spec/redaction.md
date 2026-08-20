@@ -52,15 +52,24 @@ table cell:
 | Redaction  | ●   | ●   | ●       | ●   |
 
 iOS ships `Network/Redaction.swift`; Android ships `hakka-common/LogRedaction.kt`
-(`LogRedactionTest.kt`). Both apply header redaction on capture; body-field redaction is core-TS
-only today (RN JS-mode, Web, Next.js) — no evidence of a native JSON-body-field redaction port
-on iOS/Android.
+(`LogRedactionTest.kt`) and `HakkaInterceptor.redactBodyFields`. All four platforms apply header
+**and** JSON body-field redaction on capture. Two native differences, both deliberate:
+
+- Native gates body redaction on a JSON content type; core-TS attempts a JSON parse regardless
+  and passes non-JSON through unchanged. Same outcome, different route.
+- Native also redacts sensitive **query-parameter** values (`sensitiveQueryItems`), which core-TS
+  does not.
 
 ## Wire format
 
-Redaction happens before a record is built — a redacted value is stored as the literal string
-`'[REDACTED]'` on the `NetworkRequest`/`ContractRecord`; there's no separate marker distinguishing
-"redacted" from "the app actually sent this string."
+Redaction happens before a record is built — the value on the `NetworkRequest`/`ContractRecord`
+is a literal placeholder string, and there's no separate marker distinguishing "redacted" from
+"the app actually sent this string."
+
+The placeholder differs by platform: core-TS (Web, Next.js, Node, RN JS-mode) writes
+`[REDACTED]`; the iOS and Android SDKs write `██` (two U+2588 blocks, `HakkaConfig.REDACTED`).
+Nothing parses it — it is read by a human — so an export carries whichever placeholder the
+capturing platform used.
 
 ## Test anchors
 
@@ -80,7 +89,11 @@ Redaction happens before a record is built — a redacted value is stored as the
   text, binary) are never redacted by `redactJsonBody`, and pass through unchanged.
 - Matching is exact-name (case-insensitive) for body fields — no glob/regex support there, unlike
   header redaction.
-- Recursion is bounded to `MAX_DEPTH = 100`; a value nested deeper than that is left unredacted
-  rather than causing a stack overflow.
+- Nesting is bounded to depth 100 on every platform; a body nested deeper is left unredacted
+  rather than walked. On iOS and Android the bound is checked **before** parsing, not during:
+  `JSONSerialization` recurses as it parses and was measured overflowing the stack of a Swift
+  concurrency task at depth 600 (safe at 400), and a stack overflow is a signal that no `try` can
+  contain. Capture runs inside someone else's app, so a pathological response body must not be
+  able to take it down.
 - Redaction is a value replace, not encryption — `[REDACTED]` is visible proof capture happened,
   not a way to recover the original value later.

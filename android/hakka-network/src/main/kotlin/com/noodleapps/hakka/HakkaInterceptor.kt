@@ -816,6 +816,18 @@ class HakkaInterceptor private constructor(
         internal fun redactBodyFields(body: String?, contentType: String?, fields: Set<String>): String? {
             if (body == null || fields.isEmpty()) return body
             if (contentType?.lowercase()?.contains("json") != true) return body
+            // Depth is checked BEFORE parsing, matching iOS, where the same
+            // pattern was measured crashing: JSONSerialization recurses while
+            // parsing and overflows the small stack of a concurrency task, and
+            // a stack overflow is a signal no `try` can contain.
+            //
+            // org.json has not been observed doing that — on the JVM it raises
+            // a catchable JSONException instead, and the `catch` below already
+            // handles it. Android ships its own org.json, whose nesting limit
+            // is undocumented and need not match the JVM's, so this makes the
+            // bound explicit and identical on both platforms rather than
+            // inherited from whichever implementation is present.
+            if (exceedsDepthLimit(body)) return body
             val sensitive = fields.map { it.lowercase() }.toSet()
             return try {
                 val json = JSONObject(body)
@@ -837,24 +849,62 @@ class HakkaInterceptor private constructor(
             return map
         }
 
-        private fun redactJsonObject(obj: JSONObject, sensitive: Set<String>) {
+        /**
+         * Matches core-TS's `MAX_DEPTH`. A body nested past this is left alone
+         * rather than recursed into: capture must never crash the host app, and
+         * the body arrives from the network, so its depth is not ours to trust.
+         */
+        private const val MAX_REDACTION_DEPTH = 100
+
+        /** Scan for bracket nesting past the limit without building any structure. */
+        private fun exceedsDepthLimit(body: String): Boolean {
+            var depth = 0
+            var inString = false
+            var escaped = false
+            for (c in body) {
+                if (escaped) {
+                    escaped = false
+                    continue
+                }
+                if (inString) {
+                    when (c) {
+                        '\\' -> escaped = true
+                        '"' -> inString = false
+                    }
+                    continue
+                }
+                when (c) {
+                    '"' -> inString = true
+                    '{', '[' -> {
+                        depth++
+                        if (depth > MAX_REDACTION_DEPTH) return true
+                    }
+                    '}', ']' -> depth--
+                }
+            }
+            return false
+        }
+
+        private fun redactJsonObject(obj: JSONObject, sensitive: Set<String>, depth: Int = 0) {
+            if (depth > MAX_REDACTION_DEPTH) return
             for (key in obj.keys().asSequence().toList()) {
                 if (key.lowercase() in sensitive) {
                     obj.put(key, "\u2588\u2588")
                 } else {
                     when (val v = obj.opt(key)) {
-                        is JSONObject -> redactJsonObject(v, sensitive)
-                        is JSONArray -> redactJsonArray(v, sensitive)
+                        is JSONObject -> redactJsonObject(v, sensitive, depth + 1)
+                        is JSONArray -> redactJsonArray(v, sensitive, depth + 1)
                     }
                 }
             }
         }
 
-        private fun redactJsonArray(arr: JSONArray, sensitive: Set<String>) {
+        private fun redactJsonArray(arr: JSONArray, sensitive: Set<String>, depth: Int = 0) {
+            if (depth > MAX_REDACTION_DEPTH) return
             for (i in 0 until arr.length()) {
                 when (val item = arr.opt(i)) {
-                    is JSONObject -> redactJsonObject(item, sensitive)
-                    is JSONArray -> redactJsonArray(item, sensitive)
+                    is JSONObject -> redactJsonObject(item, sensitive, depth + 1)
+                    is JSONArray -> redactJsonArray(item, sensitive, depth + 1)
                 }
             }
         }

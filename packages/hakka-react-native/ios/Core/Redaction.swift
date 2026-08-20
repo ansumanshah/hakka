@@ -43,26 +43,67 @@ extension HakkaInterceptor {
         guard let body,
               !config.sensitiveBodyFields.isEmpty,
               contentType?.lowercased().contains("json") == true else { return body }
+        // Depth is checked BEFORE parsing, not after. `JSONSerialization`
+        // recurses as it parses, and on the small stack of a Swift concurrency
+        // task it overflows rather than throwing — measured safe at depth 400
+        // and crashing at 600, versus ~800 on the main thread. A stack overflow
+        // is a signal, not an error, so `try?` cannot contain it, and capture
+        // runs on exactly such a task inside someone else's app.
+        guard !Self.exceedsDepthLimit(body) else { return body }
         guard let data = body.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: data) else { return body }
-        let redacted = redactJsonValue(json)
+        let redacted = redactJsonValue(json, depth: 0)
         guard let outData = try? JSONSerialization.data(withJSONObject: redacted),
               let result = String(data: outData, encoding: .utf8) else { return body }
         return result
     }
 
-    private func redactJsonValue(_ value: Any) -> Any {
+    /// Matches core-TS's `MAX_DEPTH`. A body nested past this is left alone
+    /// rather than recursed into: capture must never crash the host app, and
+    /// the body arrives from the network, so its depth is not ours to trust.
+    private static let maxRedactionDepth = 100
+
+    /// Scan for bracket nesting past the limit without building any structure.
+    /// Bytes, not characters, since every byte that matters here is ASCII and
+    /// multi-byte UTF-8 continuation bytes never collide with them.
+    private static func exceedsDepthLimit(_ body: String) -> Bool {
+        var depth = 0
+        var inString = false
+        var escaped = false
+        for byte in body.utf8 {
+            if escaped {
+                escaped = false
+                continue
+            }
+            if inString {
+                if byte == 0x5C { escaped = true } else if byte == 0x22 { inString = false }
+                continue
+            }
+            switch byte {
+            case 0x22: inString = true
+            case 0x7B, 0x5B:
+                depth += 1
+                if depth > maxRedactionDepth { return true }
+            case 0x7D, 0x5D: depth -= 1
+            default: break
+            }
+        }
+        return false
+    }
+
+    private func redactJsonValue(_ value: Any, depth: Int) -> Any {
+        if depth > Self.maxRedactionDepth { return value }
         if var dict = value as? [String: Any] {
             for key in dict.keys {
                 if config.sensitiveBodyFields.contains(key.lowercased()) {
                     dict[key] = "\u{2588}\u{2588}"
                 } else {
-                    dict[key] = redactJsonValue(dict[key]!)
+                    dict[key] = redactJsonValue(dict[key]!, depth: depth + 1)
                 }
             }
             return dict
         } else if let arr = value as? [Any] {
-            return arr.map { redactJsonValue($0) }
+            return arr.map { redactJsonValue($0, depth: depth + 1) }
         }
         return value
     }

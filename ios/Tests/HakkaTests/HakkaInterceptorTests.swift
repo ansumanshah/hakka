@@ -271,6 +271,41 @@ struct RedactBodyFieldsTests {
         #expect(i.redactBodyFields(nil, contentType: "application/json") == nil)
     }
 
+    /// Bodies come off the network, so their nesting depth is not ours to
+    /// trust. Unbounded recursion here would take the host app down from
+    /// inside capture, which must never happen.
+    @Test func deeplyNestedBodyDoesNotOverflow() {
+        let i = interceptor(fields: ["password"])
+        let depth = 2000
+        let body = String(repeating: #"{"a":"#, count: depth) + #"{"password":"secret"}"# + String(repeating: "}", count: depth)
+
+        let result = i.redactBodyFields(body, contentType: "application/json")
+
+        #expect(result != nil)
+    }
+
+    /// The depth scan must not be fooled by brackets inside string values, or
+    /// an ordinary body mentioning `{` would silently skip redaction.
+    @Test func bracesInsideStringsDoNotCountTowardDepth() {
+        let i = interceptor(fields: ["password"])
+        let body = #"{"note":"{{{{{{{{{{ not real nesting","password":"secret"}"#
+
+        let result = i.redactBodyFields(body, contentType: "application/json")
+
+        #expect(result?.contains("secret") == false)
+    }
+
+    /// The cap must not weaken redaction at ordinary depths.
+    @Test func redactsWithinTheDepthCap() {
+        let i = interceptor(fields: ["password"])
+        let depth = 20
+        let body = String(repeating: #"{"a":"#, count: depth) + #"{"password":"secret"}"# + String(repeating: "}", count: depth)
+
+        let result = i.redactBodyFields(body, contentType: "application/json")
+
+        #expect(result?.contains("secret") == false)
+    }
+
     @Test func caseInsensitiveFieldMatch() {
         let i = interceptor(fields: ["PASSWORD"])
         let body = #"{"password":"secret"}"#

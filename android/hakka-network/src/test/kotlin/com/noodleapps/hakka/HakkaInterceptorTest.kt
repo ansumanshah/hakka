@@ -770,6 +770,37 @@ class RedactBodyFieldsTest {
         assertNull(HakkaInterceptor.redactBodyFields(null, "application/json", setOf("password")))
     }
 
+    /**
+     * Bodies come off the network, so their nesting depth is not ours to
+     * trust. This pins the bound at Hakka's own limit rather than at whatever
+     * the ambient org.json happens to enforce — Android ships an
+     * implementation separate from the JVM's, and its cap is undocumented.
+     *
+     * On iOS the equivalent path was measured actually crashing; on the JVM
+     * org.json raises a catchable exception, so this test would pass without
+     * the pre-parse check too. It is here to keep the two platforms bounded
+     * identically, not because it reproduces a JVM crash.
+     */
+    @Test fun `deeply nested body is left unredacted rather than parsed`() {
+        val depth = 5000
+        val body = "{\"a\":".repeat(depth) + """{"password":"secret"}""" + "}".repeat(depth)
+        val result = HakkaInterceptor.redactBodyFields(body, "application/json", setOf("password"))
+        assertEquals(body, result)
+    }
+
+    @Test fun `redacts within the depth cap`() {
+        val depth = 20
+        val body = "{\"a\":".repeat(depth) + """{"password":"secret"}""" + "}".repeat(depth)
+        val result = HakkaInterceptor.redactBodyFields(body, "application/json", setOf("password"))
+        assertFalse(result!!.contains("secret"))
+    }
+
+    @Test fun `braces inside strings do not count toward depth`() {
+        val body = """{"note":"{{{{{{{{{{ not real nesting","password":"secret"}"""
+        val result = HakkaInterceptor.redactBodyFields(body, "application/json", setOf("password"))
+        assertFalse(result!!.contains("secret"))
+    }
+
     @Test fun `case insensitive field match`() {
         val body = """{"password":"secret"}"""
         val result = HakkaInterceptor.redactBodyFields(body, "application/json", setOf("PASSWORD"))
