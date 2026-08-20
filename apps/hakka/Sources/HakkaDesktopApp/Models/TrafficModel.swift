@@ -20,6 +20,9 @@ final class TrafficModel {
     /// Raw search-bar text. Parsed on read rather than stored as a compiled
     /// query so a keystroke never has to round-trip through the store actor.
     var searchText = ""
+    /// The older half of an open comparison. Set by "Compare with Selected",
+    /// which pairs it with `selectedRequestID`; nil closes the sheet.
+    var comparisonBaselineID: String?
 
     let server = BridgeServer()
     private let store = TrafficStore()
@@ -63,6 +66,21 @@ final class TrafficModel {
 
     func request(id: String) -> NetworkRequest? {
         requests.first { $0.id == id }
+    }
+
+    /// The pair to compare, oldest first, or nil when no comparison is open.
+    /// Ordered by arrival rather than by which row was right-clicked, so the
+    /// diff always reads "what changed since", not "what changed backwards".
+    var comparison: (before: NetworkRequest, after: NetworkRequest)? {
+        guard let baselineID = comparisonBaselineID,
+              let selectedID = selectedRequestID,
+              baselineID != selectedID,
+              let baselineIndex = requests.firstIndex(where: { $0.id == baselineID }),
+              let selectedIndex = requests.firstIndex(where: { $0.id == selectedID })
+        else { return nil }
+        return baselineIndex < selectedIndex
+            ? (requests[baselineIndex], requests[selectedIndex])
+            : (requests[selectedIndex], requests[baselineIndex])
     }
 
     func clear() async {
