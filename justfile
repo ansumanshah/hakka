@@ -132,6 +132,12 @@ smoke-tarballs:
 spec-drift-check:
     node scripts/spec-drift-check.mjs
 
+# Verify every symbol a spec card says you can import is actually exported
+# from the package it names (CI gate). Catches what spec-drift-check can't:
+# a card documenting an API that doesn't exist, or the wrong entry point.
+spec-api-check:
+    node scripts/spec-api-check.mjs
+
 # Fail on hardcoded geometry in the RN inspector's styles — every height, gutter,
 # radius and type size must come from a design token or a shared primitive.
 ui-token-check:

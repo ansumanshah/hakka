@@ -48,6 +48,11 @@ jobs:
       # re-execs itself under bun when invoked via `node`), so neither needs
       # `bun run build`'s dist output — placed after it only per convention.
       - run: node scripts/spec-drift-check.mjs
+      # spec-drift-check compares markdown to markdown, so it cannot catch a
+      # card documenting an API the code doesn't have. This reads the import
+      # blocks and checks each symbol against the package's real exports —
+      # it found two cards pointing at the wrong entry point.
+      - run: node scripts/spec-api-check.mjs
       - run: node scripts/smoke-control-roundtrip.mjs
       - run: bun run test
       # Perf gates run ADVISORY here, never blocking. Their budgets are

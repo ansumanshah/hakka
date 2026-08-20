@@ -28,7 +28,7 @@ Hakka.hide(): void
 RN (`hakka-react-native` — `HakkaInspector.Wrapper` + its imperative namespace):
 
 ```tsx
-import { HakkaInspector } from 'hakka-react-native'
+import { HakkaInspector } from 'hakka-react-native/ui'
 
 <HakkaInspector.Wrapper mode="bubble" shake={{ enabled: true }} bubble={{ renderMode: 'js' }}>
   <App />

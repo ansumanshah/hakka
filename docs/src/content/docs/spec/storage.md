@@ -30,7 +30,7 @@ RN (`hakka-react-native`) monitoring hooks forward every read/write/delete to th
 companion; the in-app `StorageViewer` screen additionally supports direct edit/delete:
 
 ```ts
-import { useAsyncStorageMonitor, useMMKVMonitor } from 'hakka-react-native'
+import { useAsyncStorageMonitor, useMMKVMonitor } from 'hakka-react-native/monitors'
 
 useAsyncStorageMonitor() // no-ops if @react-native-async-storage/async-storage isn't installed
 useMMKVMonitor(mmkvInstance) // no-ops if no instance is passed
