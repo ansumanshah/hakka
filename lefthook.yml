@@ -26,6 +26,12 @@ pre-commit:
 # Native suites are skipped by pre-commit and `just test` (RN-only), so run all
 # three on push to catch a red iOS/Android suite before it lands. Requires Xcode
 # + Android SDK locally; skip with `git push --no-verify`. CI is the cross-platform gate.
+#
+# These run in parallel with each other, which is why `test:ios` passes
+# `--no-parallel --skip HakkaBenchmarkTests`: the iOS suite parks real threads
+# by design and its benchmark thresholds are CPU-load-sensitive, so both flake
+# against a machine already busy running jest and gradle. Same reasoning as
+# `just verify`'s `test-ios-nobench` leg.
 pre-push:
   parallel: true
   commands:

@@ -21,7 +21,7 @@
     "build:android": "cd android && ./gradlew :hakka-common:build :hakka-network:build :hakka-network-noop:build :hakka-performance:build :hakka-performance-noop:build :hakka-ui:build",
     "build:ios": "cd ios && swift build",
     "test:android": "cd android && ./gradlew :hakka-common:test :hakka-network:test :hakka-network-noop:test :hakka-performance:test :hakka-performance-noop:test :hakka-ui:test",
-    "test:ios": "cd ios && swift test",
+    "test:ios": "cd ios && swift test --no-parallel --skip HakkaBenchmarkTests",
     "size:android": "scripts/android-size-gate.sh",
     "pack:npm:dry-run": "for p in packages/*/; do (cd \"$p\" && npm pack --dry-run); done",
     "phase:verify": "scripts/phase-verify.sh local",
