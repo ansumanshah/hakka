@@ -454,7 +454,11 @@ struct BreakpointEngineTests {
             doneRes.signal()
         }
 
-        #expect(BlockingTestSupport.waitUntil { !engine.getPaused().isEmpty })
+        // Wait for BOTH workers, not just the first. Waiting on `!isEmpty` and
+        // then asserting a count of two is a race: under CPU contention the
+        // second worker may not have parked yet, and the test failed with
+        // `count == 1` only under the parallel verify gate.
+        #expect(BlockingTestSupport.waitUntil { engine.getPaused().count == 2 })
         let paused = engine.getPaused()
         #expect(paused.count == 2)
 
