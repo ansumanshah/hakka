@@ -3,7 +3,7 @@ title: 'ADR 0008 — Hakka for macOS as SPM products, not an app'
 description: A native Swift desktop app that is API client and inspector in one, shipped as embeddable SPM products so other Swift apps can host the same surfaces.
 ---
 
-Status: In progress · Date: 2026-08-17
+Status: Implemented (unreleased) · Date: 2026-08-17
 
 ## Context
 
@@ -80,16 +80,18 @@ Three consequences follow from the product split, and they are the point:
 
 ### Feature scope
 
-Parity targets, stated plainly so scope creep is visible:
+Parity targets, stated plainly so scope creep is visible. "Built" means
+implemented, reviewed, and covered by tests — not that a signed release
+exists:
 
 | Area                                                                        | Comparable to     | Status                |
 | --------------------------------------------------------------------------- | ----------------- | --------------------- |
-| Plain-text, git-diffable collections (one file per request)                 | Bruno             | building              |
-| Environments + `{{variable}}` interpolation, secrets outside the collection | Bruno, Yaak       | building              |
-| Request runner, declarative assertions, response captures                   | Bruno, Yaak       | building              |
-| Import from cURL / Postman / OpenAPI / HAR; code generation                 | all of them       | building              |
-| Live capture, traffic list, response diff, session export                   | Proxyman          | building              |
-| Bridge hub + Bonjour discovery                                              | Hakka's own       | building              |
+| Plain-text, git-diffable collections (one file per request)                 | Bruno             | built                 |
+| Environments + `{{variable}}` interpolation, secrets outside the collection | Bruno, Yaak       | built                 |
+| Request runner, declarative assertions, response captures                   | Bruno, Yaak       | built                 |
+| Import from cURL / Postman / OpenAPI / HAR; code generation                 | all of them       | built                 |
+| Live capture, traffic list, response diff, session export                   | Proxyman          | built                 |
+| Bridge hub + Bonjour discovery                                              | Hakka's own       | built                 |
 | System-wide HTTPS proxy with a CA certificate                               | Proxyman, Charles | **explicit non-goal** |
 
 The last row is the deliberate difference. Proxyman sees every app's traffic
