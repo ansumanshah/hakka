@@ -65,7 +65,7 @@ import.
 |              |                                                                                                                            |
 | ------------ | -------------------------------------------------------------------------------------------------------------------------- |
 | Live traffic | Streamed from your app over the bridge, on this Mac or a device on the same network.                                       |
-| Filtering    | Method, status class, host, runtime, duration and size thresholds, and text search across URL, headers, and body.          |
+| Filtering    | Method, status class, host, content type, duration and size thresholds, and text search across URL, headers, and body.     |
 | Diff         | Compare two requests structurally — status, headers added/removed/changed, and a line-level body diff.                     |
 | Export       | HAR and session files, using the same field mapping the SDKs already use.                                                  |
 | Bridge hub   | Built in, so there is no separate `hakka-bridge` process to run. Bonjour advertises it to devices; LAN exposure is opt-in. |
