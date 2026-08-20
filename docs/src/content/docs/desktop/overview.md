@@ -3,7 +3,7 @@ title: Hakka for macOS
 description: A native desktop app that is an API client and a live traffic inspector in one, with no proxy and no CA certificate.
 ---
 
-**Status: in development.** The core is built and tested (113 tests) and
+**Status: in development.** The core is built and tested (163 tests) and
 `Scripts/package_app.sh` produces a runnable `Hakka.app`, but there is no signed release
 yet. Track [ADR 0008](/contributing/adr/0008-desktop-plugin-products/) for the design
 and scope.
