@@ -8,14 +8,9 @@ export default defineConfig({
   test: {
     environment: 'happy-dom',
     globals: true,
-    // The Inspector suites mount the real overlay, which lazy-loads its panels
-    // as async chunks and settles through Solid's scheduler. That is ~1s of
-    // work on a dev machine and tens of seconds on a contended 2-core CI
-    // runner, so vitest's 5s default fails them there while passing locally.
-    // Generous enough to absorb that, still short enough that a genuine hang
-    // fails instead of running forever.
-    testTimeout: 30_000,
-    hookTimeout: 30_000,
+    // Clears persisted UI state between tests — see src/test-setup.ts for why
+    // the suite passed locally without it and failed on CI.
+    setupFiles: ['./src/test-setup.ts'],
     transformMode: { web: [/\.[jt]sx?$/] },
     // e2e/ holds Playwright specs (their own runner); keep them out of the vitest unit run.
     exclude: [...configDefaults.exclude, 'e2e/**'],
