@@ -9,7 +9,18 @@ struct RequestDiffView: View {
     let after: NetworkRequest
     let dismiss: () -> Void
 
-    private var diff: RequestDiff { RequestDiff.diff(before, after) }
+    /// Computed once in `init`, not as a `var`. The body reads it from five
+    /// places, and a computed property would re-run the whole comparison —
+    /// including both body LCS passes, whose table is bounded at 64M cells
+    /// precisely because it is expensive — once per read.
+    private let diff: RequestDiff
+
+    init(before: NetworkRequest, after: NetworkRequest, dismiss: @escaping () -> Void) {
+        self.before = before
+        self.after = after
+        self.dismiss = dismiss
+        diff = RequestDiff.diff(before, after)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {

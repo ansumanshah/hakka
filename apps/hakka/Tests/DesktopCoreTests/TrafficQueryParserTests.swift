@@ -181,4 +181,79 @@ struct TrafficQueryParserTests {
         #expect(query.sort == nil)
         #expect(query.tokens.map(\.value) == ["sort:nonsense"])
     }
+
+    // MARK: - Negated filters
+
+    /// `-method:GET` used to miss the `method:` prefix because of the leading
+    /// dash, fall through to free text, and become "exclude anything containing
+    /// the literal `method:get`" — true of every request, so the filter did
+    /// nothing at all while looking like it worked.
+
+    @Test("a negated method filter is recognised, not degraded to free text")
+    func negatedMethod() {
+        let query = TrafficQueryParser.parse("-method:GET")
+
+        #expect(query.method == "get")
+        #expect(query.methodNegate)
+        #expect(query.tokens.isEmpty)
+    }
+
+    @Test("a negated method filter actually excludes")
+    func negatedMethodFilters() {
+        let requests = [
+            request(id: "get", method: .get),
+            request(id: "post", method: .post),
+        ]
+
+        let match = TrafficQueryCompiler.compile(TrafficQueryParser.parse("-method:GET"))
+
+        #expect(requests.filter(match).map(\.id) == ["post"])
+    }
+
+    @Test("a negated status filter excludes that class")
+    func negatedStatus() {
+        let requests = [
+            request(id: "ok", status: 200),
+            request(id: "err", status: 500),
+        ]
+
+        let match = TrafficQueryCompiler.compile(TrafficQueryParser.parse("-2xx"))
+
+        #expect(requests.filter(match).map(\.id) == ["err"])
+    }
+
+    @Test("a negated host filter excludes that host")
+    func negatedHost() {
+        let requests = [
+            request(id: "api", url: "https://api.example.com/x"),
+            request(id: "cdn", url: "https://cdn.example.com/x"),
+        ]
+
+        let match = TrafficQueryCompiler.compile(TrafficQueryParser.parse("-host:cdn.example.com"))
+
+        #expect(requests.filter(match).map(\.id) == ["api"])
+    }
+
+    /// A negated range is just the opposite range, so it is deliberately not
+    /// consumed as a filter — the important part is that it is not silently
+    /// applied as the positive.
+    @Test("a negated range is not applied as its positive")
+    func negatedRangeIsNotPositive() {
+        #expect(TrafficQueryParser.parse("-dur>100").durationMin == nil)
+        #expect(TrafficQueryParser.parse("-size>1kb").sizeMin == nil)
+    }
+
+    @Test("a negated sort is not applied as its positive")
+    func negatedSortIsNotPositive() {
+        #expect(TrafficQueryParser.parse("-sort:duration").sort == nil)
+    }
+
+    @Test("positive filters are unaffected")
+    func positiveFiltersStillWork() {
+        let query = TrafficQueryParser.parse("method:GET 2xx host:api.example.com")
+
+        #expect(!query.methodNegate)
+        #expect(!query.statusNegate)
+        #expect(!query.hostNegate)
+    }
 }

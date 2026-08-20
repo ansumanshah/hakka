@@ -37,39 +37,58 @@ public enum TrafficQueryParser {
     }
 
     /// Returns true when `part` was consumed as a structured filter.
+    ///
+    /// A leading `-` negates the filter. Without stripping it first, `-method:GET`
+    /// never matched the `method:` prefix and fell through to free text, where it
+    /// became "exclude requests containing the literal text `method:get`" — true
+    /// of essentially every request, so the filter silently did nothing.
     private static func applyFilter(_ part: String, to query: inout TrafficQuery) -> Bool {
-        let lower = part.lowercased()
+        let negate = part.hasPrefix("-") && part.count > 1
+        let lower = (negate ? String(part.dropFirst()) : part).lowercased()
 
         if let value = prefixValue(lower, "method:") {
             query.method = value
+            query.methodNegate = negate
             return true
         }
         if let value = prefixValue(lower, "host:") {
             query.host = value
+            query.hostNegate = negate
             return true
         }
         if let value = prefixValue(lower, "type:") ?? prefixValue(lower, "content-type:") {
             query.contentType = value
+            query.contentTypeNegate = negate
             return true
         }
-        if let value = prefixValue(lower, "sort:"), let field = TrafficSortField(rawValue: value) {
+        // Sort and order describe presentation, so negating them is meaningless
+        // — a negated form falls through to free text rather than silently
+        // being read as the positive.
+        if !negate, let value = prefixValue(lower, "sort:"), let field = TrafficSortField(rawValue: value) {
             query.sort = field
             return true
         }
-        if let value = prefixValue(lower, "order:"), let order = TrafficSortOrder(rawValue: value) {
+        if !negate, let value = prefixValue(lower, "order:"), let order = TrafficSortOrder(rawValue: value) {
             query.order = order
             return true
         }
-        if applyRange(lower, prefix: "dur", scale: { Int64($0) }, min: &query.durationMin, max: &query.durationMax) {
+        // A negated range is just the opposite range — `-dur>100` is `dur<=100`
+        // — so rather than invent a flag for it, a negated form is not treated
+        // as a filter at all. Consuming it here would silently apply the
+        // positive, which is worse than not matching.
+        if !negate, applyRange(lower, prefix: "dur", scale: { Int64($0) }, min: &query.durationMin, max: &query.durationMax) {
             return true
         }
-        if applyRange(lower, prefix: "size", scale: Self.bytes, min: &query.sizeMin, max: &query.sizeMax) {
+        if !negate, applyRange(lower, prefix: "size", scale: Self.bytes, min: &query.sizeMin, max: &query.sizeMax) {
             return true
         }
         // Status last: `404` is a bare token, so anything that looks like a
         // status range only counts once the named filters have had their turn.
-        if TrafficStatusDsl.parse(part) != nil {
-            query.statusDsl = part
+        // `-2xx` reads naturally as "not 2xx" and is worth supporting.
+        let statusPart = negate ? String(part.dropFirst()) : part
+        if TrafficStatusDsl.parse(statusPart) != nil {
+            query.statusDsl = statusPart
+            query.statusNegate = negate
             return true
         }
         return false

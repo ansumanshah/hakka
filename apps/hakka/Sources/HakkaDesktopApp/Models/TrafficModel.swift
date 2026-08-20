@@ -16,6 +16,14 @@ final class TrafficModel {
     private(set) var isRunning = false
     private(set) var boundPort: UInt16?
     var selectedRequestID: String?
+    /// A permanent failure to start the bridge. Set once and never cleared by
+    /// anything else — the header reports it in place of a status, and a
+    /// transient file-operation message must not overwrite it into "Starting…",
+    /// which reads as a state that will resolve on its own when live capture is
+    /// in fact dead.
+    private(set) var startupError: String?
+    /// Transient feedback from an import or export. Separate from
+    /// `startupError` precisely so clearing one cannot erase the other.
     var lastError: String?
     /// Raw search-bar text. Parsed on read rather than stored as a compiled
     /// query so a keystroke never has to round-trip through the store actor.
@@ -36,9 +44,9 @@ final class TrafficModel {
             try await server.start()
             isRunning = true
             boundPort = await server.boundPort
-            lastError = nil
+            startupError = nil
         } catch {
-            lastError = "Bridge server failed to start: \(error.localizedDescription)"
+            startupError = "Bridge server failed to start: \(error.localizedDescription)"
             return
         }
         for await request in await server.hub.requests {
@@ -106,6 +114,8 @@ final class TrafficModel {
         await store.clear()
         requests = []
         stats = await store.stats()
+        selectedRequestID = nil
+        comparisonBaselineID = nil
     }
 
     // MARK: - Session export / import
@@ -132,6 +142,7 @@ final class TrafficModel {
             requests = await store.all()
             stats = await store.stats()
             selectedRequestID = nil
+            comparisonBaselineID = nil
             return nil
         } catch {
             return "Could not open that session: \(error.localizedDescription)"

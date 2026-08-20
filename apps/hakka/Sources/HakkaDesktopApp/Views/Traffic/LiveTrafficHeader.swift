@@ -64,7 +64,10 @@ struct LiveTrafficHeader: View {
     }
 
     private var statusText: String {
+        // A file-operation message is transient and takes the foreground, but a
+        // dead bridge is permanent, so it wins once the transient one clears.
         if let error = model.traffic.lastError { return error }
+        if let error = model.traffic.startupError { return error }
         guard model.traffic.isRunning else { return "Starting…" }
         guard let port = model.traffic.boundPort else { return "Listening" }
         return "Listening on port \(port)"

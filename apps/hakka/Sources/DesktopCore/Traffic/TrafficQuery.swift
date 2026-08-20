@@ -52,6 +52,14 @@ public struct TrafficQuery: Sendable, Equatable {
     public var contentType: String?
     /// Substring match against the request URL's host.
     public var host: String?
+    /// When true, `method`/`contentType`/`host` must NOT match. Separate flags
+    /// rather than a negate on the whole query so `-method:GET type:json` means
+    /// what it reads as.
+    public var methodNegate: Bool
+    public var contentTypeNegate: Bool
+    public var hostNegate: Bool
+    /// When true, the status range must NOT contain the request's status.
+    public var statusNegate: Bool
     public var durationMin: Int64?
     public var durationMax: Int64?
     public var sizeMin: Int64?
@@ -65,6 +73,10 @@ public struct TrafficQuery: Sendable, Equatable {
         method: String? = nil,
         contentType: String? = nil,
         host: String? = nil,
+        methodNegate: Bool = false,
+        contentTypeNegate: Bool = false,
+        hostNegate: Bool = false,
+        statusNegate: Bool = false,
         durationMin: Int64? = nil,
         durationMax: Int64? = nil,
         sizeMin: Int64? = nil,
@@ -77,6 +89,10 @@ public struct TrafficQuery: Sendable, Equatable {
         self.method = method
         self.contentType = contentType
         self.host = host
+        self.methodNegate = methodNegate
+        self.contentTypeNegate = contentTypeNegate
+        self.hostNegate = hostNegate
+        self.statusNegate = statusNegate
         self.durationMin = durationMin
         self.durationMax = durationMax
         self.sizeMin = sizeMin

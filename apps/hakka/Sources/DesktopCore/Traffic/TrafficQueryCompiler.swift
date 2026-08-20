@@ -23,6 +23,10 @@ public enum TrafficQueryCompiler {
         let method = normalized(query.method)?.uppercased()
         let contentType = normalized(query.contentType)?.lowercased()
         let host = normalized(query.host)?.lowercased()
+        let statusNegate = query.statusNegate
+        let methodNegate = query.methodNegate
+        let contentTypeNegate = query.contentTypeNegate
+        let hostNegate = query.hostNegate
         let durationMin = query.durationMin
         let durationMax = query.durationMax
         let sizeMin = query.sizeMin
@@ -35,11 +39,15 @@ public enum TrafficQueryCompiler {
             }
 
             if let statusRange {
-                guard let status = request.status, statusRange.contains(status) else { return false }
+                // A request with no status can never satisfy a status filter,
+                // negated or not — there is nothing to compare.
+                guard let status = request.status else { return false }
+                if statusRange.contains(status) == statusNegate { return false }
             }
-            if let method, request.method.rawValue.uppercased() != method { return false }
-            if let contentType, !(request.contentType ?? "").lowercased().contains(contentType) { return false }
-            if let host, !requestHost(request).lowercased().contains(host) { return false }
+            if let method, (request.method.rawValue.uppercased() == method) == methodNegate { return false }
+            if let contentType,
+               (request.contentType ?? "").lowercased().contains(contentType) == contentTypeNegate { return false }
+            if let host, requestHost(request).lowercased().contains(host) == hostNegate { return false }
 
             if durationMin != nil || durationMax != nil {
                 let duration = request.duration ?? 0
