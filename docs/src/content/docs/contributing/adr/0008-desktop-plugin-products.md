@@ -90,8 +90,8 @@ exists:
 | Environments + `{{variable}}` interpolation, secrets outside the collection | Bruno, Yaak       | built                 |
 | Request runner, declarative assertions, response captures                   | Bruno, Yaak       | built                 |
 | Import from cURL / Postman / OpenAPI / HAR; code generation                 | all of them       | built (see limits)    |
-| Live capture, traffic list                                                  | Proxyman          | built                 |
-| Response diff, session export/import, search DSL                            | Proxyman          | core built, no UI yet |
+| Live capture, traffic list, search DSL                                      | Proxyman          | built                 |
+| Response diff, session export/import, HAR export                            | Proxyman          | built                 |
 | Bridge hub + Bonjour discovery                                              | Hakka's own       | built                 |
 | System-wide HTTPS proxy with a CA certificate                               | Proxyman, Charles | **explicit non-goal** |
 
@@ -100,12 +100,15 @@ because you install its certificate; Hakka sees _your_ app's traffic because
 the SDK is in it. That is a smaller scope and a much smaller trust ask, and
 it is the entire reason Hakka needs no certificate.
 
-**The split row above is the honest version.** `RequestDiff`, `TrafficSession`
-export/import and the `TrafficQuery` search DSL are implemented and tested,
-but nothing in `Sources/HakkaDesktopApp` references them — no compare action,
-no export menu item, no filter field. The live list is unfiltered insertion
-order. Calling that "built" read as a shipped feature; it is a library waiting
-for a UI. Wiring it is the next piece of desktop work.
+**These rows briefly meant less than they said.** An audit found `RequestDiff`,
+`TrafficSession` export/import and the `TrafficQuery` search DSL implemented
+and tested but referenced nowhere in `Sources/HakkaDesktopApp` — no compare
+action, no export menu item, no filter field, and a live list in unfiltered
+insertion order. That is a library waiting for a UI, not a shipped feature.
+All three are now wired: a search field over the live list (`TrafficQueryParser`
+turns typed text into a `TrafficQuery`, which nothing previously did), Open/
+Export Session and Export as HAR in the File menu, and Compare with Selected
+opening a diff sheet.
 
 An audit of the live-capture path also found a crash reachable from a single
 frame: body sizes are unvalidated `Int64`s and Swift's `+` traps on overflow,
