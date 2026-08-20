@@ -1,5 +1,9 @@
 #if canImport(UIKit)
 import Foundation
+// FrameMetricRecord lives in HakkaCommon. Importing it explicitly rather than
+// relying on HakkaPerformance to re-export it — the demo app compiles these
+// sources into its own target, where a transitive re-export does not apply.
+import HakkaCommon
 import HakkaPerformance
 
 // MARK: - PerformanceFrameStats

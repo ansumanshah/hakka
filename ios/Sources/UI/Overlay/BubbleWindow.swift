@@ -7,7 +7,9 @@ import HakkaPerformance
 
 // MARK: - PassthroughWindow
 
-private class PassthroughWindow: UIWindow {
+// Internal, not private: `BubbleWindow.window` is an internal property of this
+// type, and a property may not be more visible than its type.
+class PassthroughWindow: UIWindow {
     var bubbleView: UIView?
 
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
