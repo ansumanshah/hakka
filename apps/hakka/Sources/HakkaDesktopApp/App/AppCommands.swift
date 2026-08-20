@@ -20,5 +20,13 @@ struct AppCommands: Commands {
                 .keyboardShortcut(.return, modifiers: .command)
                 .disabled(model.selection?.isRequest != true || model.editor.isSending)
         }
+        CommandGroup(replacing: .importExport) {
+            Button("Open Session…") { Task { await model.importTrafficSession() } }
+            Divider()
+            Button("Export Session…") { Task { await model.exportTrafficSession() } }
+                .disabled(model.traffic.requests.isEmpty)
+            Button("Export as HAR…") { Task { await model.exportTrafficHar() } }
+                .disabled(model.traffic.requests.isEmpty)
+        }
     }
 }
