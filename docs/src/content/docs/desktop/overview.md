@@ -3,9 +3,10 @@ title: Hakka for macOS
 description: A native desktop app that is an API client and a live traffic inspector in one, with no proxy and no CA certificate.
 ---
 
-**Status: in development.** The package builds and its core is under test; there is no
-signed release yet. Track [ADR 0008](/contributing/adr/0008-desktop-plugin-products/)
-for the design and scope.
+**Status: in development.** The core is built and tested (113 tests) and
+`Scripts/package_app.sh` produces a runnable `Hakka.app`, but there is no signed release
+yet. Track [ADR 0008](/contributing/adr/0008-desktop-plugin-products/) for the design
+and scope.
 
 Hakka for macOS is two tools that usually have nothing to do with each other:
 
@@ -46,6 +47,29 @@ into. A request that arrives from a device and a request the desktop app sends a
 same Swift type, which is why promoting one to the other is a conversion rather than an
 import.
 
+## What it does
+
+**As an API client**
+
+| | |
+| --- | --- |
+| Collections | Folders and requests, each request its own file. Headers and auth inherit collection → folder → request. |
+| Environments | Named variable sets with `{{name}}` interpolation. A request that references a variable with no value is refused rather than sent with the placeholder intact. |
+| Assertions | Declarative checks on status, duration, headers, JSON paths, and body text — no embedded scripting language, so they stay diffable and runnable headlessly. |
+| Captures | Pull a value out of a response into a variable, so a login request feeds the token to everything after it. |
+| Import | cURL commands, Postman v2.1, OpenAPI 3, and HAR (including Hakka's own export). |
+| Code generation | cURL, JavaScript `fetch`, Swift `URLSession`, Python `requests`, Go `net/http`, HTTPie — each with a redacting mode so a snippet is safe to paste into a bug report. |
+
+**As an inspector**
+
+| | |
+| --- | --- |
+| Live traffic | Streamed from your app over the bridge, on this Mac or a device on the same network. |
+| Filtering | Method, status class, host, runtime, duration and size thresholds, and text search across URL, headers, and body. |
+| Diff | Compare two requests structurally — status, headers added/removed/changed, and a line-level body diff. |
+| Export | HAR and session files, using the same field mapping the SDKs already use. |
+| Bridge hub | Built in, so there is no separate `hakka-bridge` process to run. Bonjour advertises it to devices; LAN exposure is opt-in. |
+
 ## Collections are files
 
 A collection is a directory. Each request is its own small JSON file with stable key
@@ -56,6 +80,10 @@ single-file blob to conflict on.
 Environment *values* live outside the collection directory, and variables marked secret
 never enter it — a committed collection can reference `{{token}}` without ever
 containing one.
+
+Every collection stamps a format version. A collection written by a newer Hakka is
+refused with a clear message rather than half-decoded and written back lossily; a file
+with no version at all reads as version 1.
 
 ## Building it
 
