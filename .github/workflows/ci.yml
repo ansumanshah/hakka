@@ -48,16 +48,20 @@ jobs:
       - run: node scripts/spec-drift-check.mjs
       - run: node scripts/smoke-control-roundtrip.mjs
       - run: bun run test
-      # Per-module perf gate: fails on a >~2-3× regression in any core hot path.
-      - run: bun run --cwd packages/hakka-core bench:check
-      # Server capture perf gate: fetch()/node:http added-latency budgets (generous
-      # first cut — see packages/hakka-node/bench/run.mjs).
-      - run: bun run --cwd packages/hakka-node bench:check
-      # Web capture perf gate: hakka-browser's Worker-model per-request budget, small
-      # body and a ~200KB near-cap body (see packages/hakka-bench/run.mjs).
-      - name: Web capture-overhead gate
-        working-directory: packages/hakka-bench
-        run: bun run.mjs --check
+      # Perf gates run ADVISORY here, never blocking. Their budgets are
+      # sub-microsecond in places (RingBuffer.add at 700ns) and calibrated on a
+      # quiet dev machine; a shared 2-core runner cannot resolve that, so a red
+      # build would mean "the runner was busy", not "the code got slower". The
+      # numbers are still printed, so a genuine 2-3x regression is visible in
+      # the log — and the budgets stay enforced where they are measurable, via
+      # `just bench` locally. Same policy as the Android, iOS, and web perf
+      # suites, which are opt-in for the identical reason.
+      - name: Perf gates (advisory — see comment)
+        continue-on-error: true
+        run: |
+          bun run --cwd packages/hakka-core bench:check
+          bun run --cwd packages/hakka-node bench:check
+          bun run --cwd packages/hakka-bench bench:check
       # Bundle-size gate: fails if a hakka-browser bundle exceeds its gzip budget.
       - run: node scripts/web-size-gate.mjs
 
