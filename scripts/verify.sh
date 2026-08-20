@@ -55,6 +55,10 @@ run_leg "fmt-check" bun run fmt:check
 run_leg "sync-ios-check" just sync-ios-check
 run_leg "sync-tokens-check" just sync-tokens-check
 run_leg "ui-token-check" just ui-token-check
+# Both doc gates read only markdown and source, so they cost nothing here and
+# catch drift before a push rather than in CI.
+run_leg "spec-drift-check" just spec-drift-check
+run_leg "spec-api-check" just spec-api-check
 run_leg "rn-jest" just test
 run_leg "core-test" bun run --cwd packages/hakka-core test
 run_leg "web-jsside" just test-web-prebuilt
