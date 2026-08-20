@@ -48,9 +48,24 @@ public actor EnvironmentStore {
         }
     }
 
+    /// `<parent>/environments/<collection-directory-name>/`.
+    ///
+    /// The trailing component is load-bearing, not decoration. Without it every
+    /// collection under one parent — `~/APIProjects/billing`, `~/APIProjects/auth`,
+    /// the ordinary way to keep several projects — resolved to the *same*
+    /// directory. Since `save` reconciles (it deletes any file it didn't just
+    /// write), saving one collection's environments overwrote same-named
+    /// environments belonging to a sibling and deleted the rest outright: one
+    /// collection's "Prod" secret silently replaced another's.
+    ///
+    /// The directory's own name is used verbatim rather than slugified. It is
+    /// already a legal path component — it came from the filesystem — and two
+    /// sibling directories cannot share a name, so this is collision-free in a
+    /// way a lossy slug would not be (`My API` and `my-api` slugify alike).
     public static func environmentsDirectory(forCollectionAt collectionDirectory: URL) -> URL {
         collectionDirectory
             .deletingLastPathComponent()
             .appendingPathComponent(CollectionFileFormat.environmentsDirectoryName, isDirectory: true)
+            .appendingPathComponent(collectionDirectory.lastPathComponent, isDirectory: true)
     }
 }

@@ -348,7 +348,13 @@ struct EnvironmentStoreTests {
     @Test func livesOutsideTheCollectionDirectoryAsASibling() async throws {
         let dir = tempDirectory()
         defer { try? FileManager.default.removeItem(at: dir.deletingLastPathComponent()) }
-        let expected = dir.deletingLastPathComponent().appendingPathComponent("environments", isDirectory: true)
+        // Sibling `environments/`, then one subdirectory per collection — the
+        // per-collection level keeps two collections under one parent from
+        // overwriting each other's secrets (see StoreScopingTests).
+        let expected = dir
+            .deletingLastPathComponent()
+            .appendingPathComponent("environments", isDirectory: true)
+            .appendingPathComponent(dir.lastPathComponent, isDirectory: true)
         #expect(EnvironmentStore.environmentsDirectory(forCollectionAt: dir).standardizedFileURL == expected.standardizedFileURL)
     }
 

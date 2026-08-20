@@ -9,6 +9,14 @@ import Foundation
 /// character sequence `slug(for:)` can emit that `URL.appendingPathComponent`
 /// would resolve outside the directory it's appended to.
 enum CollectionFileNaming {
+    /// Slugs are ASCII, so this is both a character and a byte budget. macOS
+    /// allows 255 bytes per filename; the cap leaves room for the `.hakka`
+    /// extension and a `-2`/`-3` collision suffix. Uncapped, a long request
+    /// name made `write` fail with a bare "File name too long", which aborted
+    /// the save partway through the tree — some nodes written, the rest and
+    /// the stale-entry prune skipped.
+    static let maxSlugLength = 200
+
     static func slug(for name: String) -> String {
         var result = ""
         result.reserveCapacity(name.count)
@@ -21,6 +29,9 @@ enum CollectionFileNaming {
                 result.append("-")
                 lastWasDash = true
             }
+        }
+        if result.count > maxSlugLength {
+            result = String(result.prefix(maxSlugLength))
         }
         while result.hasSuffix("-") {
             result.removeLast()
