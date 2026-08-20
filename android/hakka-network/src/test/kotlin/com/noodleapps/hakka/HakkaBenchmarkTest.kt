@@ -8,11 +8,19 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable
 
 /**
  * Performance benchmarks for HakkaInterceptor.
  * Measures overhead per request, LogStore throughput, and memory.
+ *
+ * These assert wall-clock budgets calibrated on a developer machine, so they
+ * are disabled on CI: a shared runner's timings vary several-fold and a red
+ * build there would mean "the runner was busy", not "the code got slower".
+ * Same policy as iOS (`just test-ios-nobench`) and the web perf E2E specs.
+ * Set HAKKA_BENCH=1 to run them anywhere.
  */
+@EnabledIfEnvironmentVariable(named = "HAKKA_BENCH", matches = "1")
 class HakkaBenchmarkTest {
 
     private lateinit var server: MockWebServer
