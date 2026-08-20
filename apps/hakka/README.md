@@ -3,12 +3,18 @@
 A native API client and live traffic inspector in one app. No proxy, no CA certificate —
 the traffic comes from Hakka's SDK running inside your own app.
 
-**In development.** The package builds and its core is tested; there is no release build yet.
+**In development.** The core is tested (113 tests), the app builds, bundles, and launches —
+verified: three-pane window, collection tree, live-traffic section, native menu bar. What it
+does not have yet is a signed, notarized release build.
 Design and scope: [ADR 0008](../../docs/src/content/docs/contributing/adr/0008-desktop-plugin-products.md).
 
 ```bash
 swift build     # macOS 14+, Swift 6 toolchain
 swift test
+
+# Bundle and run it as a real .app
+EXEC_NAME=HakkaDesktop APP_NAME=Hakka ./Scripts/package_app.sh debug
+open Hakka.app
 ```
 
 ## Layout
