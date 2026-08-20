@@ -1,3 +1,4 @@
+import type { Exporter } from '../contract/exporter'
 import type { NetworkRequest } from '../model/types'
 
 /**
@@ -79,5 +80,37 @@ export function deserializeSession(json: string): DeserializedSession {
     requests: obj.requests as NetworkRequest[],
     ...(meta !== undefined ? { meta } : {}),
     version: obj.hakkaSession,
+  }
+}
+
+/** Construction-time options for {@link createSessionExporter} — the contract carries no per-call options. */
+export interface SessionExporterOptions {
+  /** Metadata baked into every export from this instance. See {@link SessionMeta}. */
+  meta?: SessionMeta
+}
+
+/**
+ * `Exporter` (ADR 0003) wrapper around `serializeSession()` +
+ * `deserializeSession()`. NOT lossy — same guarantee as the repro-bundle
+ * exporter (see `exporter.ts`'s `lossy` doc): `requests` are stored verbatim
+ * inside the JSON shell and `deserializeSession` reads them back
+ * byte-for-byte unchanged. `exportedAt` is stamped fresh by
+ * `serializeSession` on every call (there is no construction-time override,
+ * unlike `createReproBundleExporter`'s `options.exportedAt`) — so two calls
+ * with identical `requests` legitimately produce different output; that is
+ * not the cross-call state leak the contract's independence clause forbids.
+ */
+export function createSessionExporter(options?: SessionExporterOptions): Exporter {
+  return {
+    id: 'hakka.session',
+    label: 'Hakka Session (.hakka)',
+    fileExtension: 'hakka',
+    mimeType: 'application/json',
+    lossy: false,
+    includesBodies: true,
+    streaming: false,
+    export(requests) {
+      return serializeSession([...requests], options?.meta)
+    },
   }
 }

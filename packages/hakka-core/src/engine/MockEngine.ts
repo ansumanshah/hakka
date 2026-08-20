@@ -1,5 +1,13 @@
 /** MockEngine — intercepts network requests and returns custom responses. */
 
+import type {
+  RuleEngine,
+  RuleEngineDecision,
+  RuleEngineRequest,
+  RuleEngineResponse,
+  RuleEngineRuleDescriptor,
+} from '../contract/ruleEngine'
+
 /** Minimal request context passed to bodyProvider and rewrite hooks. */
 export interface MockRequestContext {
   url: string
@@ -558,3 +566,101 @@ class MockEngine {
 
 /** Singleton instance shared by interceptors */
 export const mockEngine = new MockEngine()
+
+function toMockRequestContext(request: RuleEngineRequest): MockRequestContext {
+  return { url: request.url, method: request.method, headers: { ...request.headers }, body: request.body ?? undefined }
+}
+
+/**
+ * `RuleEngine` (ADR 0003) wrapper around the `mockEngine` singleton. Additive —
+ * `capture/fetch.ts` and `capture/xhr.ts` keep calling `mockEngine.peek()` /
+ * `.isRewrite()` / `.recordHit()` / `.resolveMockBody()` /
+ * `.applyRewriteRequest()` / `.applyRewriteResponse()` directly, unchanged;
+ * this wrapper is a second, additive view over the same singleton for a
+ * registry or third-party consumer, not a replacement call site.
+ *
+ * **Does not call `recordHit()`.** Unlike the real interceptors — which only
+ * ever call `decideRequest`'s underlying logic when they are actually about
+ * to act on the result — a `RuleEngine` consumer may be pure introspection
+ * (preview what a request WOULD do without sending it). Recording a hit here
+ * unconditionally would silently inflate `MockRule.hitCount` for callers that
+ * never apply the decision. A third-party consumer that DOES act on a
+ * `'substitute'`/`'block'`/`'rewrite'` decision from this wrapper is
+ * responsible for calling `mockEngine.recordHit(rule)` itself if it wants the
+ * hit counted — this wrapper has no rule reference to hand back for that
+ * (see the next note), so it can't do it on the caller's behalf even if it
+ * wanted to.
+ *
+ * **`decideResponse` re-derives its rule independently of `decideRequest`.**
+ * `RuleEngineDecision` carries no "which rule matched" reference, so
+ * `decideResponse` calls `mockEngine.peek()` again rather than reusing a rule
+ * captured earlier. `capture/fetch.ts` avoids this by closing over one
+ * `rewriteRule` object for both phases of a single request; a rule
+ * enabled/disabled/edited between this wrapper's `decideRequest` and
+ * `decideResponse` calls for the "same" logical request can make the two
+ * calls disagree about which rule applies. Left as observed debt, matching
+ * ADR 0006's own precedent of naming an awkward fit rather than silently
+ * declaring it solved (see that ADR's Resource Timing row).
+ */
+export function createMockRuleEngine(): RuleEngine {
+  return {
+    id: 'hakka.mock',
+    kind: 'mock',
+
+    describeRules(): readonly RuleEngineRuleDescriptor[] {
+      return mockEngine.getRules().map((rule) => ({
+        id: rule.id,
+        enabled: rule.enabled,
+        label: rule.block ? 'block' : mockEngine.isRewrite(rule) ? 'rewrite' : 'mock',
+      }))
+    },
+
+    async decideRequest(request: RuleEngineRequest): Promise<RuleEngineDecision> {
+      const rule = mockEngine.peek(request.url, request.method)
+      if (!rule) return { kind: 'pass' }
+
+      if (rule.block) return { kind: 'block', reason: 'Blocked by Hakka' }
+
+      const reqCtx = toMockRequestContext(request)
+
+      if (!mockEngine.isRewrite(rule)) {
+        const body = await mockEngine.resolveMockBody(rule, reqCtx)
+        return {
+          kind: 'substitute',
+          response: {
+            status: rule.response.status,
+            headers: rule.response.headers ?? {},
+            body,
+            delayMs: rule.response.delay,
+          },
+        }
+      }
+
+      const rewritten = await mockEngine.applyRewriteRequest(rule, reqCtx)
+      if (rewritten === reqCtx) return { kind: 'pass' } // rewrite rule matched but changed nothing about the request
+      return {
+        kind: 'rewrite',
+        request: {
+          url: rewritten.url,
+          method: rewritten.method,
+          headers: rewritten.headers,
+          body: rewritten.body ?? null,
+        },
+      }
+    },
+
+    async decideResponse(request: RuleEngineRequest, response: RuleEngineResponse): Promise<RuleEngineDecision> {
+      const rule = mockEngine.peek(request.url, request.method)
+      if (!rule || !mockEngine.isRewrite(rule)) return { kind: 'pass' }
+
+      const reqCtx = toMockRequestContext(request)
+      const resCtx = { status: response.status, headers: { ...response.headers }, body: response.body }
+      const rewritten = await mockEngine.applyRewriteResponse(rule, resCtx, reqCtx)
+      if (rewritten === resCtx) return { kind: 'pass' } // rewrite rule matched but changed nothing about the response
+      return {
+        kind: 'rewrite',
+        response: { status: rewritten.status, headers: rewritten.headers, body: rewritten.body },
+      }
+    },
+  }
+}

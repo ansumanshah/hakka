@@ -12,6 +12,7 @@
  * helpers mirror msw.ts's local copies rather than importing them, keeping `interop/`
  * independent of `codegen/`, which re-exports from both).
  */
+import type { Exporter } from '../contract/exporter'
 import type { NetworkRequest } from '../model/types'
 import { estimateBodySize } from '../utils/bodySizeLimit'
 
@@ -193,4 +194,32 @@ export function toPlaywrightRoutes(requests: NetworkRequest[], opts: ToPlaywrigh
 
   lines.push('}')
   return `${lines.join('\n')}\n`
+}
+
+/**
+ * `Exporter` (ADR 0003) wrapper around `toPlaywrightRoutes()`. `lossy: true`
+ * — heavily so: query strings are dropped from every URL, same-method+
+ * pathname duplicates collapse to only the newest, request headers/body are
+ * never carried over at all, and response bodies above `maxBodyBytes` are
+ * truncated. `includesBodies: false` — response body snippets DO appear (up
+ * to `maxBodyBytes`) in generated `route.fulfill()` calls, but this
+ * contract's `includesBodies` flag is defined and conformance-tested against
+ * REQUEST body recoverability specifically (see `exporter.ts`), and
+ * `toPlaywrightRoutes` never reads `requestBody` at all — so `false` is the
+ * correct, tested declaration here. A caller that must guarantee zero body
+ * text of any kind should not rely on this flag alone for this exporter.
+ */
+export function createPlaywrightRoutesExporter(options?: ToPlaywrightRoutesOptions): Exporter {
+  return {
+    id: 'hakka.playwright-routes',
+    label: 'Playwright Route Mocks',
+    fileExtension: 'routes.ts',
+    mimeType: 'text/typescript',
+    lossy: true,
+    includesBodies: false,
+    streaming: false,
+    export(requests) {
+      return toPlaywrightRoutes([...requests], options)
+    },
+  }
 }

@@ -3,13 +3,29 @@ title: 'ADR 0003 — Contracts-first internals, plugins on the open axes'
 description: Every new internal feature lands against a public contract; genuinely open-ended axes (capture sources, exporters, rule engines) get formal plugin machinery; the kernel stays small and named.
 ---
 
-Status: Accepted · Date: 2026-08-15 · First contract: [ADR 0006](/contributing/adr/0006-capture-source-contract/)
+Status: Implemented · Date: 2026-08-15 · First contract: [ADR 0006](/contributing/adr/0006-capture-source-contract/)
 
-> **Progress (2026-08-16):** in effect, not merely proposed — the first
-> contract off this ADR (`CaptureSource`, ADR 0006) shipped with its
-> conformance harness, and two sources (WebSocket, OTel spans) have migrated
-> onto it. The other two named axes (exporters, rule engines) have no formal
-> contract yet.
+> **All three axes shipped (2026-08-17).** Each is a contract whose doc
+> comments are the spec, plus a conformance harness a third party runs against
+> their own implementation, plus additive wrappers for every existing
+> first-party implementation:
+>
+> - **Capture sources** — `CaptureSource` (ADR 0006), frozen, 8 sources.
+> - **Exporters** — `Exporter` + `checkExporterConformance`, 12 wrapped: HAR,
+>   OTel JSON, Postman, cURL, session, agent context, agent evidence, evidence
+>   bundle, repro bundle, Playwright routes, MSW handlers, test codegen.
+> - **Rule engines** — `RuleEngine` + `checkRuleEngineConformance`, wrapping
+>   the mock, throttle, and breakpoint engines. Condition 1's no-per-record-
+>   dynamic-dispatch rule is honored by construction: the fetch/XHR
+>   interceptors keep calling the concrete engines directly, and the wrappers
+>   exist for registration, introspection, and third-party engines.
+>
+> Two lessons the axes taught, now part of how a contract lands here: a
+> contract that wraps only a sample of its implementations is dead weight
+> (the exporter axis initially skipped four existing writers), and a harness
+> must not claim to check more than it does (the same axis advertised
+> mutation and cross-call-independence checks it had not implemented). Both
+> were caught in adversarial review and fixed before landing.
 
 ## Context
 

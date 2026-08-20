@@ -5,6 +5,14 @@
  * returns; the overlay resolves it via `resume()`/`abort()`.
  */
 
+import type {
+  RuleEngine,
+  RuleEngineDecision,
+  RuleEngineRequest,
+  RuleEngineResponse,
+  RuleEngineRuleDescriptor,
+} from '../contract/ruleEngine'
+
 /**
  * Which phase a breakpoint pauses on: before the request is sent (`request`),
  * after the real response returns but before the caller sees it (`response`),
@@ -199,3 +207,101 @@ class BreakpointEngine {
 }
 
 export const breakpointEngine = new BreakpointEngine()
+
+let ruleEngineRequestCounter = 0
+
+/** `pause()` wants a `requestId` purely for `getPaused()` display metadata — synthesize a throwaway one when the caller (a bare `RuleEngineRequest`, not a real interceptor record) didn't supply one. */
+function synthesizeRequestId(request: RuleEngineRequest): string {
+  return request.id ?? `ruleEngine_bp_${++ruleEngineRequestCounter}_${Date.now()}`
+}
+
+function decideBreakpointRequest(request: RuleEngineRequest): RuleEngineDecision {
+  if (!breakpointEngine.matches(request.url, request.method, 'request')) return { kind: 'pass' }
+  return {
+    kind: 'pause',
+    phase: 'request',
+    resolve: async (): Promise<RuleEngineDecision> => {
+      const action = await breakpointEngine.pause(synthesizeRequestId(request), 'request', {
+        url: request.url,
+        method: request.method,
+        headers: { ...request.headers },
+        body: request.body ?? null,
+      })
+      if (action.type === 'abort') return { kind: 'block', reason: 'Aborted by Hakka' }
+      const edits = action.edits
+      if (!edits) return { kind: 'pass' }
+      return {
+        kind: 'rewrite',
+        request: {
+          url: edits.url ?? request.url,
+          method: edits.method ?? request.method,
+          headers: edits.headers ?? request.headers,
+          body: edits.body !== undefined ? edits.body : (request.body ?? null),
+        },
+      }
+    },
+  }
+}
+
+function decideBreakpointResponse(request: RuleEngineRequest, response: RuleEngineResponse): RuleEngineDecision {
+  if (!breakpointEngine.matches(request.url, request.method, 'response')) return { kind: 'pass' }
+  return {
+    kind: 'pause',
+    phase: 'response',
+    resolve: async (): Promise<RuleEngineDecision> => {
+      const action = await breakpointEngine.pause(synthesizeRequestId(request), 'response', {
+        status: response.status,
+        headers: { ...response.headers },
+        body: response.body,
+      })
+      if (action.type === 'abort') return { kind: 'block', reason: 'Aborted by Hakka' }
+      const edits = action.edits
+      if (!edits) return { kind: 'pass' }
+      return {
+        kind: 'rewrite',
+        response: {
+          status: edits.status ?? response.status,
+          headers: edits.headers ?? response.headers,
+          body: edits.body !== undefined ? edits.body : response.body,
+        },
+      }
+    },
+  }
+}
+
+/**
+ * `RuleEngine` (ADR 0003) wrapper around the `breakpointEngine` singleton.
+ * Additive — `capture/fetch.ts` keeps calling `breakpointEngine.matches()` /
+ * `.pause()` directly, unchanged.
+ *
+ * **The only first-party source of the `'pause'` decision kind.** Both
+ * `decideRequest` and `decideResponse` return synchronously: a match
+ * produces `{ kind: 'pause', phase, resolve }` immediately, never an
+ * internally-awaited outer Promise — `resolve()` is what actually calls
+ * `breakpointEngine.pause()` and can take arbitrarily long (a human decides
+ * when to resume). See `RuleEngineDecision`'s doc comment on `'pause'` for
+ * why that split is load-bearing, not stylistic.
+ *
+ * **`resolve()` is a fresh Promise chain per call**, matching
+ * `breakpointEngine.pause()`'s own one-shot-per-call semantics — calling
+ * `resolve()` twice on the same decision registers two independent pauses,
+ * same as calling `breakpointEngine.pause()` twice would.
+ */
+export function createBreakpointRuleEngine(): RuleEngine {
+  return {
+    id: 'hakka.breakpoint',
+    kind: 'breakpoint',
+
+    describeRules(): readonly RuleEngineRuleDescriptor[] {
+      return breakpointEngine.getBreakpoints().map((bp) => ({ id: bp.id, enabled: bp.enabled, label: bp.on }))
+    },
+
+    decideRequest(request: RuleEngineRequest): RuleEngineDecision {
+      return decideBreakpointRequest(request)
+    },
+
+    decideResponse(request: RuleEngineRequest, response: RuleEngineResponse): RuleEngineDecision {
+      return decideBreakpointResponse(request, response)
+    },
+  }
+}

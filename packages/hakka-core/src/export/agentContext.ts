@@ -1,5 +1,6 @@
 import { analyzeRequests } from '../analyze/analyzeRequests'
 import type { AnalyzeOptions } from '../analyze/analyzeRequests'
+import type { Exporter } from '../contract/exporter'
 import type { NetworkRequest } from '../model/types'
 
 /**
@@ -102,4 +103,29 @@ export function toAgentContext(requests: readonly NetworkRequest[], options: Age
   }
 
   return lines.join('\n')
+}
+
+/**
+ * `Exporter` (ADR 0003) wrapper around `toAgentContext()`. `lossy: true` —
+ * only allowlisted headers survive, bodies are snipped to `bodySnippetLength`
+ * chars, and requests past `maxRequests` (default 100) are dropped from the
+ * per-request section entirely. `includesBodies: true` — whichever of
+ * `requestBody`/`responseBody` is non-empty (request checked first) appears
+ * as a truncated `body: …` snippet on its own dense line; a caller needing
+ * FULL, untruncated bodies should use a different exporter (HAR, evidence
+ * bundle, repro bundle).
+ */
+export function createAgentContextExporter(options?: AgentContextOptions): Exporter {
+  return {
+    id: 'hakka.agent-context',
+    label: 'Agent Context (Text)',
+    fileExtension: 'txt',
+    mimeType: 'text/plain',
+    lossy: true,
+    includesBodies: true,
+    streaming: false,
+    export(requests) {
+      return toAgentContext(requests, options)
+    },
+  }
 }

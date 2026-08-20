@@ -3,6 +3,8 @@
  * Hakka-intercepted fetch with a delay + optional drop.
  */
 
+import type { RuleEngine, RuleEngineDecision, RuleEngineRuleDescriptor } from '../contract/ruleEngine'
+
 export type ThrottleProfile = 'none' | 'fast-3g' | 'slow-3g' | 'offline' | 'edge' | 'custom'
 
 export interface ThrottleConfig {
@@ -130,3 +132,48 @@ class ThrottleEngineImpl {
 }
 
 export const ThrottleEngine = new ThrottleEngineImpl()
+
+/**
+ * `RuleEngine` (ADR 0003) wrapper around the `ThrottleEngine` singleton.
+ * Additive — `capture/fetch.ts` and `capture/xhr.ts` keep calling
+ * `ThrottleEngine.isActive` / `.isOffline` / `.applyDelay()` /
+ * `.current` / `.throttleResponse()` directly, unchanged.
+ *
+ * **Awkward fit: not really "a set of rules".** Unlike mock/breakpoint,
+ * throttle has no per-URL matching — one global profile applies to every
+ * request uniformly. `describeRules()` still returns an array (to keep
+ * `RuleEngine`'s introspection shape uniform across engines) but it is
+ * always zero-or-one entries: the currently active profile, synthesized as
+ * a descriptor, not a real stored rule with its own id.
+ *
+ * **No `decideResponse`.** Bandwidth throttling (`throttleResponse()`) wraps
+ * the real `Response` body in a rate-limited `ReadableStream` — a
+ * body-streaming side effect applied directly to a live `Response` object,
+ * not expressible as data describing a status/headers/body change the way
+ * `RuleEngineDecision` models `'rewrite'`/`'substitute'`. Modeling it would
+ * mean either leaking a `ReadableStream` transform into the contract (a
+ * shape no other engine needs) or lying about what this decision actually
+ * does. Left undone, matching ADR 0006's precedent of naming what a
+ * contract doesn't solve rather than forcing an awkward shape to fit.
+ */
+export function createThrottleRuleEngine(): RuleEngine {
+  return {
+    id: 'hakka.throttle',
+    kind: 'throttle',
+
+    describeRules(): readonly RuleEngineRuleDescriptor[] {
+      const cfg = ThrottleEngine.current
+      if (cfg.profile === 'none') return []
+      return [{ id: `throttle.${cfg.profile}`, enabled: true, label: cfg.profile }]
+    },
+
+    decideRequest(): RuleEngineDecision {
+      if (!ThrottleEngine.isActive) return { kind: 'pass' }
+      if (ThrottleEngine.isOffline) {
+        return { kind: 'block', reason: 'Network request failed — offline mode (Hakka ThrottleEngine)' }
+      }
+      const ms = ThrottleEngine.current.latencyMs ?? 0
+      return ms > 0 ? { kind: 'delay', ms } : { kind: 'pass' }
+    },
+  }
+}

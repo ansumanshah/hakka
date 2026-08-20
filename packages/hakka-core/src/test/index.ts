@@ -17,7 +17,7 @@ export { findRequest, filterRequests, matchesFilter } from './filter'
 
 // codegen
 export type { GenerateTestFileOptions, TestFramework } from './codegen'
-export { generateTestFile } from './codegen'
+export { generateTestFile, createTestCodegenExporter } from './codegen'
 
 // matchers
 export {

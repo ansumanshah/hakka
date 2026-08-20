@@ -1,4 +1,6 @@
-import type { EvidenceBundle } from '../repro/buildEvidenceBundle'
+import type { Exporter } from '../contract/exporter'
+import { buildEvidenceBundle } from '../repro/buildEvidenceBundle'
+import type { EvidenceBundle, EvidenceBundleOptions } from '../repro/buildEvidenceBundle'
 
 /**
  * Formats an `EvidenceBundle` for pasting into an AI agent: a short preamble +
@@ -57,4 +59,37 @@ export function formatEvidenceBundleForAgent(
     '```',
   ]
   return lines.join('\n')
+}
+
+/**
+ * `Exporter` (ADR 0003) wrapper around `formatEvidenceBundleForAgent()`.
+ * AWKWARD FIT, documented rather than forced: the underlying function takes
+ * an already-built `EvidenceBundle`, not requests — building one needs a
+ * `focusRequestId` and a byte budget that the browser/MCP callers
+ * (`export_evidence`, "Copy as agent context") control explicitly. This
+ * wrapper builds a bundle with `buildEvidenceBundle(requests, bundleOptions)`
+ * using its documented defaults (focus = earliest request, `maxBytes` =
+ * 65536) unless `bundleOptions` overrides them at construction time — a
+ * caller needing a specific focal request or a tighter budget per call
+ * should compose `buildEvidenceBundle`/`formatEvidenceBundleForAgent`
+ * directly rather than through this contract wrapper, which only exposes
+ * the "export everything with sane defaults" path a share sheet needs.
+ */
+export function createAgentEvidenceExporter(
+  bundleOptions?: EvidenceBundleOptions,
+  formatOptions?: FormatEvidenceBundleForAgentOptions,
+): Exporter {
+  return {
+    id: 'hakka.agent-evidence',
+    label: 'Evidence for Agent (Markdown)',
+    fileExtension: 'md',
+    mimeType: 'text/markdown',
+    lossy: true,
+    includesBodies: true,
+    streaming: false,
+    export(requests) {
+      const bundle = buildEvidenceBundle([...requests], bundleOptions)
+      return formatEvidenceBundleForAgent(bundle, formatOptions)
+    },
+  }
 }

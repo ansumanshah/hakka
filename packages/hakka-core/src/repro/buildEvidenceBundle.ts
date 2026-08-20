@@ -1,5 +1,6 @@
 import { analyzeRequests } from '../analyze/analyzeRequests'
 import type { RequestDiagnosis } from '../analyze/analyzeRequests'
+import type { Exporter } from '../contract/exporter'
 import type { LogEntry } from '../log/types'
 import type { FrameworkSpan, NetworkRequest } from '../model/types'
 import { summarizeTraceGroup } from '../query/traceSummary'
@@ -324,4 +325,30 @@ export function buildEvidenceBundle(requests: NetworkRequest[], options: Evidenc
   applyTruncationPasses(bundle, { focusRequestId, spans, sortedRequests: sorted, maxBytes })
 
   return bundle
+}
+
+/**
+ * `Exporter` (ADR 0003) wrapper around `buildEvidenceBundle()`, serialized as
+ * pretty JSON. `options` (focus request, byte budget, spans/logs to
+ * correlate, …) is captured at construction time, not per-call — see
+ * `exporter.ts`'s docblock. `lossy: true` even though the bundle stores
+ * `requests` near-verbatim below `maxBytes`: the truncation passes above are
+ * a real, in-scope, documented behavior of this function, not an edge case,
+ * so this contract commits to the conservative `lossy: true` rather than a
+ * conditional claim a caller can't act on without re-deriving the budget
+ * math itself.
+ */
+export function createEvidenceBundleExporter(options?: EvidenceBundleOptions): Exporter {
+  return {
+    id: 'hakka.evidence-bundle',
+    label: 'Evidence Bundle (JSON)',
+    fileExtension: 'json',
+    mimeType: 'application/json',
+    lossy: true,
+    includesBodies: true,
+    streaming: false,
+    export(requests) {
+      return JSON.stringify(buildEvidenceBundle([...requests], options), null, 2)
+    },
+  }
 }

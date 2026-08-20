@@ -13,6 +13,7 @@
  * through `parseMswHandlers` unchanged, and anything hand-written in that same shape parses too.
  * Full behavior: docs/src/content/docs/guides/msw.md.
  */
+import type { Exporter } from '../contract/exporter'
 import type { MockRule } from '../engine/MockEngine'
 import type { NetworkRequest } from '../model/types'
 import { estimateBodySize } from '../utils/bodySizeLimit'
@@ -190,6 +191,34 @@ export function buildMswHandlers(requests: NetworkRequest[], opts: BuildMswHandl
 
   lines.push(']')
   return `${lines.join('\n')}\n`
+}
+
+/**
+ * `Exporter` (ADR 0003) wrapper around `buildMswHandlers()`. `lossy: true` —
+ * heavily so: query strings are dropped from every URL, same-method+
+ * pathname duplicates collapse to only the newest, request headers/body are
+ * never carried over at all, and response bodies above `maxBodyBytes` are
+ * truncated. `includesBodies: false` — response body snippets DO appear (up
+ * to `maxBodyBytes`) in generated `HttpResponse.json/text(...)` calls, but
+ * this contract's `includesBodies` flag is defined and conformance-tested
+ * against REQUEST body recoverability specifically (see `exporter.ts`), and
+ * `buildMswHandlers` never reads `requestBody` at all — so `false` is the
+ * correct, tested declaration here. A caller that must guarantee zero body
+ * text of any kind should not rely on this flag alone for this exporter.
+ */
+export function createMswHandlersExporter(options?: BuildMswHandlersOptions): Exporter {
+  return {
+    id: 'hakka.msw-handlers',
+    label: 'MSW Handlers',
+    fileExtension: 'handlers.ts',
+    mimeType: 'text/typescript',
+    lossy: true,
+    includesBodies: false,
+    streaming: false,
+    export(requests) {
+      return buildMswHandlers([...requests], options)
+    },
+  }
 }
 
 export interface UnsupportedMswHandler {

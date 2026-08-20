@@ -5,6 +5,7 @@
  * Spec: http://www.softwareishard.com/blog/har-12-spec/
  */
 
+import type { Exporter } from '../contract/exporter'
 import type { NetworkRequest } from './types'
 
 const HAR_VERSION = '1.2'
@@ -230,4 +231,27 @@ export const buildHar = (requests: NetworkRequest[]): HarExport => {
 
 export const exportHarString = (requests: NetworkRequest[]): string => {
   return JSON.stringify(buildHar(requests), null, 2)
+}
+
+/**
+ * `Exporter` (ADR 0003) wrapper around `exportHarString()`. Additive — the
+ * HAR builder above is unchanged; this only adapts it onto the
+ * registry-friendly shape. `lossy: true` because HAR 1.2 has no slot for
+ * `NetworkRequest` fields like `tags`, `graphql`, `wsProtocol`,
+ * `retryCount`, or the WebSocket `messages` array — a HAR file cannot be
+ * read back into an equivalent `NetworkRequest`.
+ */
+export function createHarExporter(): Exporter {
+  return {
+    id: 'hakka.har',
+    label: 'HAR (HTTP Archive)',
+    fileExtension: 'har',
+    mimeType: 'application/json',
+    lossy: true,
+    includesBodies: true,
+    streaming: false,
+    export(requests) {
+      return exportHarString([...requests])
+    },
+  }
 }

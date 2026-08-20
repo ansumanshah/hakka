@@ -1,6 +1,7 @@
+import type { Exporter } from '../contract/exporter'
 import type { NetworkRequest } from '../model/types'
-import type { ReproBundle, ReproBundleMeta, ReproMockRule } from './buildReproBundle'
-import { REPRO_BUNDLE_SCHEMA_VERSION } from './buildReproBundle'
+import type { BuildReproBundleOptions, ReproBundle, ReproBundleMeta, ReproMockRule } from './buildReproBundle'
+import { buildReproBundle, REPRO_BUNDLE_SCHEMA_VERSION } from './buildReproBundle'
 
 /**
  * Versioned `.hakka-repro` JSON serialize/deserialize for a `ReproBundle`.
@@ -88,5 +89,34 @@ export function deserializeReproBundle(json: string): DeserializedReproBundle {
     mocks: obj.mocks as ReproMockRule[],
     ...(meta !== undefined ? { meta } : {}),
     version: obj.hakkaReproBundle,
+  }
+}
+
+/**
+ * `Exporter` (ADR 0003) wrapper around `buildReproBundle()` +
+ * `serializeReproBundle()` (this module owns the "last mile to a string"
+ * step, so the wrapper lives here rather than on `buildReproBundle.ts` —
+ * that module already depends on this one, and a wrapper needing both
+ * functions the other way round would create an import cycle for no
+ * benefit). The ONE exporter on this contract that declares `lossy: false`:
+ * `requests` are stored verbatim inside the bundle (`buildReproBundle`'s own
+ * `[...requests]` — no field is dropped, redacted, or projected) and
+ * `deserializeReproBundle` above reads them back byte-for-byte unchanged;
+ * the only thing added is the derived `mocks` array, which is new
+ * information, not lost information. `options` (meta, mock-generation
+ * options, `exportedAt`) is captured at construction time, not per-call.
+ */
+export function createReproBundleExporter(options?: BuildReproBundleOptions): Exporter {
+  return {
+    id: 'hakka.repro-bundle',
+    label: 'Repro Bundle (.hakka-repro)',
+    fileExtension: 'hakka-repro',
+    mimeType: 'application/json',
+    lossy: false,
+    includesBodies: true,
+    streaming: false,
+    export(requests) {
+      return serializeReproBundle(buildReproBundle([...requests], options))
+    },
   }
 }

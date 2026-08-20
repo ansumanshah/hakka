@@ -1,3 +1,4 @@
+import type { Exporter } from '../contract/exporter'
 import type { NetworkRequest } from '../model/types'
 import { extractHost } from '../utils/domainUtils'
 
@@ -181,4 +182,29 @@ export function generateTestFile(requests: NetworkRequest[], opts: GenerateTestF
   lines.push('')
 
   return lines.join('\n')
+}
+
+/**
+ * `Exporter` (ADR 0003) wrapper around `generateTestFile()`. `lossy: true` —
+ * extremely so: only method/url/status/duration and top-level response-body
+ * KEY NAMES survive; every other field, and every response value, is
+ * dropped by design (see file header — this is a deliberate test-flakiness
+ * tradeoff, not an oversight). `includesBodies: false` — `emitTestBody`
+ * never embeds body TEXT anywhere, request or response; `tryParseJsonShape`
+ * only extracts `Object.keys(...)` names from `responseBody`, never
+ * `requestBody`, and never a value.
+ */
+export function createTestCodegenExporter(options?: GenerateTestFileOptions): Exporter {
+  return {
+    id: 'hakka.test-codegen',
+    label: 'Test File (Codegen)',
+    fileExtension: 'test.ts',
+    mimeType: 'text/typescript',
+    lossy: true,
+    includesBodies: false,
+    streaming: false,
+    export(requests) {
+      return generateTestFile([...requests], options)
+    },
+  }
 }

@@ -5,6 +5,7 @@
  * into Postman / Insomnia / Hoppscotch — the frictionless handoff from passive
  * capture (Hakka) to request authoring/replay (an API client).
  */
+import type { Exporter } from '../contract/exporter'
 import type { NetworkRequest } from './types'
 
 interface PostmanHeader {
@@ -81,3 +82,26 @@ export const buildPostmanCollection = (
 /** Serialize captured requests to a Postman Collection v2.1 JSON string. */
 export const exportPostmanString = (requests: NetworkRequest[], options?: PostmanExportOptions): string =>
   JSON.stringify(buildPostmanCollection(requests, options), null, 2)
+
+/**
+ * `Exporter` (ADR 0003) wrapper around `exportPostmanString()`. `lossy:
+ * true` — a Postman item keeps only method/header/url/body of the REQUEST
+ * side; status, timing, and the entire response are dropped. `options` is
+ * captured at construction time (e.g. a custom collection `name`), not
+ * per-call — see `exporter.ts`'s docblock on why the contract has no
+ * per-call options.
+ */
+export function createPostmanExporter(options?: PostmanExportOptions): Exporter {
+  return {
+    id: 'hakka.postman-collection',
+    label: 'Postman Collection',
+    fileExtension: 'postman_collection.json',
+    mimeType: 'application/json',
+    lossy: true,
+    includesBodies: true,
+    streaming: false,
+    export(requests) {
+      return exportPostmanString([...requests], options)
+    },
+  }
+}

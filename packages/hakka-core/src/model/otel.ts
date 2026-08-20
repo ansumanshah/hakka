@@ -1,6 +1,8 @@
+import type { Exporter } from '../contract/exporter'
 import {
   RECORD_SCHEMA_VERSION,
   RECORD_SEMCONV_VERSION,
+  networkRequestToRecord,
   type Attributes,
   type BreadcrumbRecord,
   type ContractRecord,
@@ -317,4 +319,36 @@ function compact<T>(values: readonly (T | undefined)[]): T[] {
 function millisToUnixNano(milliseconds: number): string {
   const whole = Math.trunc(milliseconds)
   return `${whole}000000`
+}
+
+/**
+ * `Exporter` (ADR 0003) wrapper around `recordsToOtelJson()`. AWKWARD FIT,
+ * documented honestly rather than papered over: `recordsToOtelJson` operates
+ * over `ContractRecord[]` — network requests, traces, metrics, breadcrumbs,
+ * health reports — a strictly wider input than the `NetworkRequest[]`
+ * snapshot this contract hands every exporter. This wrapper adapts by
+ * lifting each request through the existing `networkRequestToRecord()`
+ * helper into a `network.request`-kind record; it necessarily produces only
+ * the `spans` half of a full OTel export (no metric points, no non-network
+ * logs) — a caller wanting the other record kinds needs the store's spans
+ * and metrics, which are not part of an `Exporter`'s snapshot input, and
+ * should call `recordsToOtelJson` directly with its own `ContractRecord[]`.
+ * `includesBodies: false` — verified against `networkRecordToSpan` above:
+ * the OTel span model here carries method/url/status/duration/tags/
+ * attributes and nothing else, no body field exists to leak through.
+ */
+export function createOtelJsonExporter(options?: OtelExportOptions): Exporter {
+  return {
+    id: 'hakka.otel-json',
+    label: 'OpenTelemetry JSON',
+    fileExtension: 'otel.json',
+    mimeType: 'application/json',
+    lossy: true,
+    includesBodies: false,
+    streaming: false,
+    export(requests) {
+      const records = requests.map((request) => networkRequestToRecord(request))
+      return JSON.stringify(recordsToOtelJson(records, options), null, 2)
+    },
+  }
 }

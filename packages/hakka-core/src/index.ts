@@ -37,6 +37,49 @@ export type { CycleGuard } from './contract/cycleGuard'
 export { checkCaptureSourceConformance } from './contract/conformance'
 export type { CaptureSourceProbe, ConformanceCheck, ConformanceReport } from './contract/conformance'
 
+// ADR 0003's other two contract axes. Same shape as CaptureSource: the contract
+// plus a harness a third-party implementation runs against itself.
+export type { Exporter, ExporterIdentity } from './contract/exporter'
+export { checkExporterConformance } from './contract/exporterConformance'
+export type { ExporterProbe } from './contract/exporterConformance'
+export type {
+  RuleEngine,
+  RuleEngineDecision,
+  RuleEngineIdentity,
+  RuleEnginePhase,
+  RuleEngineRequest,
+  RuleEngineResponse,
+  RuleEngineRuleDescriptor,
+  RuleEngineSubstituteResponse,
+} from './contract/ruleEngine'
+export { checkRuleEngineConformance } from './contract/ruleEngineConformance'
+export type {
+  RuleEngineConformanceCheck,
+  RuleEngineConformanceReport,
+  RuleEngineProbe,
+} from './contract/ruleEngineConformance'
+
+// Exporter wrappers around the writers exported below — construct one when you
+// want identity (label, extension, MIME) alongside the bytes, e.g. to build a
+// share sheet from a registry instead of a hardcoded list.
+export { createHarExporter } from './model/har'
+export { createOtelJsonExporter } from './model/otel'
+export { createPostmanExporter } from './model/postman'
+export { createCurlExporter } from './utils/share'
+export { createSessionExporter } from './session/serialize'
+export { createAgentContextExporter } from './export/agentContext'
+export { createAgentEvidenceExporter } from './export/agentEvidence'
+export { createEvidenceBundleExporter } from './repro/buildEvidenceBundle'
+export { createReproBundleExporter } from './repro/serializeReproBundle'
+export { createPlaywrightRoutesExporter } from './interop/playwright'
+export { createMswHandlersExporter } from './interop/msw'
+
+// RuleEngine wrappers. The interceptors keep calling the concrete engines
+// directly — these exist for registration and introspection, off the hot path.
+export { createMockRuleEngine } from './engine/MockEngine'
+export { createThrottleRuleEngine } from './engine/ThrottleEngine'
+export { createBreakpointRuleEngine } from './engine/BreakpointEngine'
+
 export { RECORD_SEMCONV_VERSION, RECORD_SCHEMA_VERSION, networkRequestToRecord } from './model/contract'
 export type {
   BreadcrumbRecord,
