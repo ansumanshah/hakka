@@ -40,8 +40,20 @@ build-android:
 build-ios:
     cd ios && swift build
 
+# Build the demo app the way CI does. `swift build` is NOT a substitute: the
+# demo compiles ios/Sources into its own target, where a transitive re-export
+# from another module does not apply and access-level rules bite differently.
+# Two such breaks reached CI green-locally before this recipe existed.
+build-ios-demo:
+    cd ios/Example && xcodebuild -project HakkaDemoApp.xcodeproj -scheme HakkaDemoApp \
+        -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
+
+# Build the macOS desktop app (apps/hakka) and its libraries.
+build-desktop:
+    cd apps/hakka && swift build
+
 # Build all platforms
-build-all: build build-android build-ios
+build-all: build build-android build-ios build-ios-demo build-desktop
 
 # ── Test ──────────────────────────────────────────────────────────────────────
 
@@ -62,6 +74,10 @@ test-ios:
 # gate's contention (917µs vs a 500µs limit that passes solo).
 test-ios-nobench:
     cd ios && swift test --skip HakkaBenchmarkTests
+
+# Run the macOS desktop app's test suite (apps/hakka)
+test-desktop:
+    cd apps/hakka && swift test
 
 # Run ONLY the iOS perf benchmarks, on an otherwise idle machine
 bench-ios:

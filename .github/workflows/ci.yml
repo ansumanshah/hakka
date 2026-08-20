@@ -140,6 +140,24 @@ jobs:
       - run: ./gradlew :hakka-common:test :hakka-network:test :hakka-network-noop:test :hakka-performance:test :hakka-performance-noop:test :hakka-ui:test
       - run: ../scripts/android-size-gate.sh
 
+  desktop-app:
+    name: Desktop App (macOS, apps/hakka)
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: apps/hakka
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          # Keyed on both manifests: apps/hakka consumes ios/ by path, so an
+          # ios/Package.swift change invalidates this build too.
+          path: apps/hakka/.build
+          key: spm-desktop-${{ runner.os }}-${{ hashFiles('apps/hakka/Package.swift', 'ios/Package.swift') }}
+          restore-keys: spm-desktop-${{ runner.os }}-
+      - run: swift build
+      - run: swift test
+
   ios-sdk:
     name: iOS SDK
     runs-on: macos-latest

@@ -62,6 +62,7 @@ run_leg "android-unit" just test-android
 # Benchmarks are excluded here (CPU contention makes their thresholds flaky
 # under the parallel gate) — run them solo via `just bench-ios`.
 run_leg "ios-swift" just test-ios-nobench
+run_leg "desktop-swift" just test-desktop
 
 # ── Wait for every leg, then report ─────────────────────────────────────────
 
