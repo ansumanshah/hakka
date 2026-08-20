@@ -58,10 +58,29 @@ final class TrafficModel {
         let trimmed = searchText.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return requests.reversed() }
 
-        let query = TrafficQueryParser.parse(trimmed)
-        let matched = requests.filter(TrafficQueryCompiler.compile(query))
-        guard let field = query.sort else { return matched.reversed() }
-        return TrafficSort.sort(matched, field: field, order: query.order)
+        let compiled = compiledQuery(for: trimmed)
+        let matched = requests.filter(compiled.match)
+        guard let field = compiled.query.sort else { return matched.reversed() }
+        return TrafficSort.sort(matched, field: field, order: compiled.query.order)
+    }
+
+    /// Parsing and compiling are cached against the search text because
+    /// SwiftUI reads a computed property several times per frame, and
+    /// compiling means building an `NSRegularExpression` per regex token —
+    /// per keystroke, against a buffer of a thousand records, that is enough
+    /// to make typing feel slow in a tool whose whole point is not being slow.
+    /// `@ObservationIgnored` is load-bearing: this is written *during* a read
+    /// of `visibleRequests`, so a tracked property would invalidate the view
+    /// that is currently rendering and spin.
+    @ObservationIgnored
+    private var queryCache: (text: String, query: TrafficQuery, match: @Sendable (NetworkRequest) -> Bool)?
+
+    private func compiledQuery(for text: String) -> (query: TrafficQuery, match: @Sendable (NetworkRequest) -> Bool) {
+        if let cached = queryCache, cached.text == text { return (cached.query, cached.match) }
+        let query = TrafficQueryParser.parse(text)
+        let match = TrafficQueryCompiler.compile(query)
+        queryCache = (text, query, match)
+        return (query, match)
     }
 
     func request(id: String) -> NetworkRequest? {
