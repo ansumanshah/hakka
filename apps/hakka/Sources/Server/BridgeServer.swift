@@ -53,10 +53,14 @@ public struct BridgeServerOptions: Sendable {
 /// each as a `BridgeConnection`, and (opt-in only) advertises `_hakka._tcp`
 /// via Bonjour.
 ///
-/// All parsing/relay logic lives in `parseBridgeFrame`/`BridgeHub`, which are
-/// unit-tested without a real socket; this actor is the thin,
-/// largely-untestable networking shell around them — see `ServerTests.swift`
-/// for why real ports are never bound in tests.
+/// Most parsing/relay logic lives in `parseBridgeFrame`/`BridgeHub`, which are
+/// unit-tested with injected fake peers and no socket. This actor used to be
+/// described as the untestable shell around them, and that assumption cost:
+/// the connection handler below dropped every peer it created, so the app
+/// received nothing over a real socket while those fake-peer tests stayed
+/// green. `BridgeSocketTests` now binds an ephemeral loopback port and drives
+/// a real client through it. Anything that only holds together on a live
+/// connection belongs in that suite.
 public actor BridgeServer {
     public let hub: BridgeHub
     private let options: BridgeServerOptions

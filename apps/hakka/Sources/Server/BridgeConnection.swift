@@ -76,14 +76,30 @@ public final class BridgeConnection: BridgeRelayPeer, @unchecked Sendable {
     /// its state changes, and start the receive loop. `queue` must be the
     /// same serial queue the owning `NWListener` was started on.
     public func start(on queue: DispatchQueue) {
-        connection.stateUpdateHandler = { [weak self] state in
-            guard let self else { return }
+        // The state handler captures `self` STRONGLY, on purpose. `NWListener`'s
+        // `newConnectionHandler` is the only place a `BridgeConnection` is
+        // created and it keeps no reference after it returns, so every other
+        // reference this object has is weak or deliberately avoids `self`: the
+        // receive loop is `[weak self]`, and the ingest task captures only
+        // `hub`/`peerID`/`stream`. With a weak capture here too, the peer
+        // deallocated the instant the handler returned. The socket still
+        // completed its WebSocket handshake, because `NWConnection` is retained
+        // by the framework while it runs, so a client connected happily and
+        // then every frame it sent went nowhere: no `addPeer`, no ingest, an
+        // empty traffic list and no error anywhere to explain it.
+        //
+        // The resulting retain cycle (connection -> handler -> self ->
+        // connection) is the point: it is what keeps the peer alive for the
+        // connection's lifetime. Clearing the handler on a terminal state
+        // breaks it, which is the standard Network.framework idiom.
+        connection.stateUpdateHandler = { [self] state in
             switch state {
             case .ready:
-                Task { await self.hub.addPeer(self) }
+                Task { await hub.addPeer(self) }
             case .failed, .cancelled:
-                Task { await self.hub.removePeer(self.id) }
-                self.ingestContinuation.finish()
+                Task { await hub.removePeer(id) }
+                ingestContinuation.finish()
+                connection.stateUpdateHandler = nil
             default:
                 break
             }

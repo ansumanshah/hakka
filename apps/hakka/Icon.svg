@@ -4,9 +4,12 @@
        Same geometry, same colors, with the pulse frozen at its midpoint.
        Change one and change the other, or the Dock stops matching the app.
 
-       The inner group works in AppIcon's own 64pt box, scaled 12.875x into an
-       824pt squircle on a 1024pt canvas so the result sits on the macOS grid
-       instead of bleeding to the edge. -->
+       Layout: a 824pt squircle on a 1024pt canvas. The artwork inside is
+       scaled to span 494pt, about 60 percent of the squircle, and centred on
+       the mark's own drawn bounds (x 4.8 to 59.2, y 2.47 to 53.76 in
+       AppIcon's 64pt box), not on the 64pt box itself. Centring on the box
+       would push the mark low, because the box has empty space above the
+       outer arc that the eye does not read as part of the glyph. -->
   <defs>
     <linearGradient id="bowl" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#61A6FA" />
@@ -14,7 +17,7 @@
     </linearGradient>
   </defs>
   <rect x="100" y="100" width="824" height="824" rx="185" fill="#121110" />
-  <g transform="translate(100,100) scale(12.875)">
+  <g transform="translate(512,512) scale(9.08) translate(-32,-28.115)">
     <!-- broadcast fan, three arcs rising out of the bowl -->
     <g fill="none" stroke="#21D4ED" stroke-width="1.7" stroke-linecap="round">
       <path d="M23.543 21.242 A9 9 0 0 1 40.457 21.242" opacity="0.9" />

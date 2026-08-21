@@ -207,6 +207,54 @@ public struct NetworkRequest: Sendable, Identifiable, Codable, Equatable {
     /// and the request matches the configured origin allowlist.
     public let correlationId: String?
 
+    /// Only `id`, `url`, `method` and `startTime` are required on the wire.
+    /// Every other field is optional in `packages/hakka-core/src/model/types.ts`,
+    /// which is the contract, so every other field has to be optional here too.
+    ///
+    /// The synthesized `Codable` conformance was stricter than that: to the
+    /// synthesized decoder, a non-optional stored property is a REQUIRED key,
+    /// so a payload omitting `redirectCount` (or `requestBodySize`, or
+    /// `source`, or either headers map) failed to decode at all.
+    /// `parseBridgeFrame` treats a payload that fails this decode as a still
+    /// parseable frame, so the record was dropped from the desktop's traffic
+    /// list while still being relayed onward: silent loss of exactly the data
+    /// the app exists to show. Defaults below match the TypeScript ones, so a
+    /// minimal capture from any SDK decodes.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        url = try c.decode(String.self, forKey: .url)
+        method = try c.decode(HttpMethod.self, forKey: .method)
+        startTime = try c.decode(Int64.self, forKey: .startTime)
+
+        status = try c.decodeIfPresent(Int.self, forKey: .status)
+        duration = try c.decodeIfPresent(Int64.self, forKey: .duration)
+        requestHeaders = try c.decodeIfPresent([String: [String]].self, forKey: .requestHeaders) ?? [:]
+        responseHeaders = try c.decodeIfPresent([String: [String]].self, forKey: .responseHeaders) ?? [:]
+        requestBodySize = try c.decodeIfPresent(Int64.self, forKey: .requestBodySize) ?? 0
+        responseBodySize = try c.decodeIfPresent(Int64.self, forKey: .responseBodySize) ?? 0
+        requestBody = try c.decodeIfPresent(String.self, forKey: .requestBody)
+        responseBody = try c.decodeIfPresent(String.self, forKey: .responseBody)
+        error = try c.decodeIfPresent(String.self, forKey: .error)
+        source = try c.decodeIfPresent(RequestSource.self, forKey: .source) ?? .urlSession
+        dnsMs = try c.decodeIfPresent(Int64.self, forKey: .dnsMs)
+        tlsMs = try c.decodeIfPresent(Int64.self, forKey: .tlsMs)
+        connectMs = try c.decodeIfPresent(Int64.self, forKey: .connectMs)
+        ttfbMs = try c.decodeIfPresent(Int64.self, forKey: .ttfbMs)
+        downloadMs = try c.decodeIfPresent(Int64.self, forKey: .downloadMs)
+        redirectCount = try c.decodeIfPresent(Int.self, forKey: .redirectCount) ?? 0
+        redirectUrls = try c.decodeIfPresent([String].self, forKey: .redirectUrls) ?? []
+        tlsVersion = try c.decodeIfPresent(String.self, forKey: .tlsVersion)
+        cipherSuite = try c.decodeIfPresent(String.self, forKey: .cipherSuite)
+        networkProtocol = try c.decodeIfPresent(String.self, forKey: .networkProtocol)
+        graphqlOperationName = try c.decodeIfPresent(String.self, forKey: .graphqlOperationName)
+        wsMessageCount = try c.decodeIfPresent(Int.self, forKey: .wsMessageCount)
+        wsCloseCode = try c.decodeIfPresent(Int.self, forKey: .wsCloseCode)
+        messages = try c.decodeIfPresent([WsMessage].self, forKey: .messages)
+        wsProtocol = try c.decodeIfPresent(String.self, forKey: .wsProtocol)
+        correlationId = try c.decodeIfPresent(String.self, forKey: .correlationId)
+    }
+
     public init(
         id: String = UUID().uuidString,
         url: String,
