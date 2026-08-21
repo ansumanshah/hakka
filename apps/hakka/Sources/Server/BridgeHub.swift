@@ -55,6 +55,7 @@ public struct CapturedRequest: Sendable, Equatable {
 public actor BridgeHub {
     private var peers: [BridgePeerID: any BridgeRelayPeer] = [:]
     private let requestContinuation: AsyncStream<CapturedRequest>.Continuation
+    private let hostControlContinuation: AsyncStream<ControlCommand>.Continuation
     /// Assigns "Device N" labels to peers as their frames are first seen —
     /// see `BridgeDeviceLabel.swift` for why this is the honest amount of
     /// identity the hub can offer.
@@ -68,10 +69,23 @@ public actor BridgeHub {
     /// no actor hop.
     public nonisolated let requests: AsyncStream<CapturedRequest>
 
+    /// Decoded `control` frames a device sent *to* this host, in ingestion
+    /// order — today that means `breakpoint.paused` only. Filtered through
+    /// `isDeviceToHostCommand` (HakkaCommon, the single source of truth for
+    /// the contract's direction split) rather than yielding every control
+    /// frame: a host-authored command relayed back by some misbehaving peer
+    /// must never be mistaken here for a device reporting a pause. One
+    /// logical consumer, same `nonisolated` reasoning as `requests`.
+    public nonisolated let hostControls: AsyncStream<ControlCommand>
+
     public init() {
         var continuation: AsyncStream<CapturedRequest>.Continuation?
         requests = AsyncStream { continuation = $0 }
         requestContinuation = continuation!
+
+        var controlContinuation: AsyncStream<ControlCommand>.Continuation?
+        hostControls = AsyncStream { controlContinuation = $0 }
+        hostControlContinuation = controlContinuation!
     }
 
     public var peerCount: Int { peers.count }
@@ -99,6 +113,9 @@ public actor BridgeHub {
             let deviceLabel = deviceLabeler.label(for: senderID)
             requestContinuation.yield(CapturedRequest(request: request, peerID: senderID, deviceLabel: deviceLabel))
         }
+        if let control = frame.control, isDeviceToHostCommand(control) {
+            hostControlContinuation.yield(control)
+        }
         return BridgeIngestResult(kind: frame.kind, request: frame.request)
     }
 
@@ -120,5 +137,6 @@ public actor BridgeHub {
 
     deinit {
         requestContinuation.finish()
+        hostControlContinuation.finish()
     }
 }

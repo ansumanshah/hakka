@@ -128,4 +128,102 @@ struct BridgeSocketTests {
         )
         #expect(fromA1.peerID == fromA2.peerID, "the same socket must keep the same peer id across frames")
     }
+
+    private func waitForHostControl(_ server: BridgeServer, timeout: Duration = .seconds(5)) async -> ControlCommand? {
+        await withTaskGroup(of: ControlCommand?.self) { group in
+            group.addTask {
+                for await command in await server.hub.hostControls { return command }
+                return nil
+            }
+            group.addTask {
+                try? await Task.sleep(for: timeout)
+                return nil
+            }
+            let first = await group.next() ?? nil
+            group.cancelAll()
+            return first
+        }
+    }
+
+    /// Proves the plumbing this task restores end to end: a device's
+    /// `breakpoint.paused` control frame, sent over a real socket exactly
+    /// like a device would send it, reaches `BridgeHub.hostControls` — the
+    /// stream the desktop app's pause inbox consumes. Before
+    /// `hostControls` existed, this frame would relay to other peers but
+    /// never surface to the app itself, the same class of bug
+    /// `BridgeSocketTests` exists to catch (see the suite doc comment).
+    @Test func aBreakpointPausedFrameSentOverTheSocketReachesHostControls() async throws {
+        let server = BridgeServer(options: BridgeServerOptions(port: 0, advertise: false))
+        try await server.start()
+        let port = try #require(await boundPort(of: server))
+        defer { Task { await server.stop() } }
+
+        let task = URLSession.shared.webSocketTask(with: URL(string: "ws://127.0.0.1:\(port)")!)
+        task.resume()
+        let pauseFrame = """
+        {"type":"control","payload":{"kind":"breakpoint.paused","pauseId":"pause-sock-1","phase":"request",\
+        "device":"sock-device","request":{"url":"https://socket.test/pause","method":"POST","headers":{}}}}
+        """
+        try await task.send(.string(pauseFrame))
+
+        let received = await waitForHostControl(server)
+        task.cancel(with: .goingAway, reason: nil)
+
+        guard case let .breakpointPaused(pauseId, _, phase, device, request, _) = try #require(
+            received, "a breakpoint.paused frame sent over a live socket never reached hostControls"
+        ) else {
+            Issue.record("expected .breakpointPaused")
+            return
+        }
+        #expect(pauseId == "pause-sock-1")
+        #expect(phase == .request)
+        #expect(device == "sock-device")
+        #expect(request.url == "https://socket.test/pause")
+    }
+
+    /// The host -> device half of the same round trip: `breakpoint.resume`,
+    /// encoded and sent the way `ControlSender`/`PauseInboxModel` actually
+    /// send it, must reach a connected "device" (here, a second raw socket
+    /// standing in for one) byte-for-byte.
+    @Test func aBreakpointResumeBroadcastReachesAConnectedDevice() async throws {
+        let server = BridgeServer(options: BridgeServerOptions(port: 0, advertise: false))
+        try await server.start()
+        let port = try #require(await boundPort(of: server))
+        defer { Task { await server.stop() } }
+
+        let device = URLSession.shared.webSocketTask(with: URL(string: "ws://127.0.0.1:\(port)")!)
+        device.resume()
+        // Round-trip a frame first so the connection has certainly reached
+        // `.ready` and is registered as a peer before the broadcast below.
+        try await device.send(.string(#"{"type":"request","payload":{"id":"warm","url":"https://w.test","method":"GET","startTime":1}}"#))
+        _ = await nextCapturedRequest(server)
+
+        let command = ControlCommand.breakpointResume(
+            pauseId: "pause-sock-1",
+            requestEdits: BreakpointRequestEdits(method: "PUT"),
+            responseEdits: nil
+        )
+        let sender = ControlSender(hub: await server.hub)
+        let delivered = try await sender.send(command)
+
+        let messageTask = Task<URLSessionWebSocketTask.Message?, Never> {
+            try? await device.receive()
+        }
+        let received = await messageTask.value
+        device.cancel(with: .goingAway, reason: nil)
+
+        #expect(delivered == 1)
+        guard case let .string(text) = try #require(received) else {
+            Issue.record("expected a text frame")
+            return
+        }
+        let frame = try #require(parseBridgeFrame(text))
+        #expect(frame.kind == .control)
+        guard case let .breakpointResume(pauseId, requestEdits, _) = try #require(frame.control) else {
+            Issue.record("expected .breakpointResume")
+            return
+        }
+        #expect(pauseId == "pause-sock-1")
+        #expect(requestEdits?.method == "PUT")
+    }
 }

@@ -17,6 +17,7 @@ final class AppModel {
     let rules: RulesModel
     let folderRun = FolderRunModel()
     let webSocket = WebSocketConnectionModel()
+    let pauseInbox: PauseInboxModel
 
     /// Ids currently marked for a batch delete — toggled from the sidebar's
     /// context menu, cleared once `deleteMarkedNodes()` (in
@@ -27,6 +28,7 @@ final class AppModel {
         let traffic = TrafficModel()
         self.traffic = traffic
         self.rules = RulesModel(traffic: traffic)
+        self.pauseInbox = PauseInboxModel(channel: traffic)
     }
 
     private(set) var selection: SidebarSelection?
