@@ -74,7 +74,7 @@ public enum RequestResolver {
 
     // MARK: - Header/query merge
 
-    private typealias HeaderList = [(name: String, value: String)]
+    typealias HeaderList = [(name: String, value: String)]
 
     private static func apply(_ pairs: [HeaderPair], to headers: inout HeaderList, scope: VariableScope, missing: inout [String]) {
         for pair in pairs where pair.enabled {
@@ -84,7 +84,7 @@ public enum RequestResolver {
         }
     }
 
-    private static func setHeader(_ name: String, _ value: String, in headers: inout HeaderList) {
+    static func setHeader(_ name: String, _ value: String, in headers: inout HeaderList) {
         headers.removeAll { $0.name.caseInsensitiveCompare(name) == .orderedSame }
         headers.append((name, value))
     }
@@ -93,51 +93,11 @@ public enum RequestResolver {
         headers.contains { $0.name.caseInsensitiveCompare(name) == .orderedSame }
     }
 
-    private static func setQuery(_ name: String, _ value: String, in items: inout [(name: String, value: String)]) {
+    static func setQuery(_ name: String, _ value: String, in items: inout [(name: String, value: String)]) {
         if let index = items.firstIndex(where: { $0.name == name }) {
             items[index].value = value
         } else {
             items.append((name, value))
-        }
-    }
-
-    // MARK: - Auth
-
-    private static func effectiveAuth(request: AuthSpec, folderChain: [Folder], collectionAuth: AuthSpec) -> AuthSpec {
-        if case .inherit = request {} else { return request }
-        for folder in folderChain.reversed() {
-            if case .inherit = folder.auth {} else { return folder.auth }
-        }
-        if case .inherit = collectionAuth { return .none }
-        return collectionAuth
-    }
-
-    private static func applyAuth(
-        _ auth: AuthSpec,
-        headers: inout HeaderList,
-        query: inout [(name: String, value: String)],
-        scope: VariableScope,
-        missing: inout [String],
-    ) {
-        switch auth {
-        case .inherit, .none:
-            return
-        case let .basic(username, password):
-            let user = interpolate(username, scope: scope, missing: &missing)
-            let pass = interpolate(password, scope: scope, missing: &missing)
-            let token = Data("\(user):\(pass)".utf8).base64EncodedString()
-            setHeader("Authorization", "Basic \(token)", in: &headers)
-        case let .bearer(token):
-            setHeader("Authorization", "Bearer \(interpolate(token, scope: scope, missing: &missing))", in: &headers)
-        case let .oauth2(accessToken):
-            setHeader("Authorization", "Bearer \(interpolate(accessToken, scope: scope, missing: &missing))", in: &headers)
-        case let .apiKey(name, value, placement):
-            let resolvedName = interpolate(name, scope: scope, missing: &missing)
-            let resolvedValue = interpolate(value, scope: scope, missing: &missing)
-            switch placement {
-            case .header: setHeader(resolvedName, resolvedValue, in: &headers)
-            case .query: setQuery(resolvedName, resolvedValue, in: &query)
-            }
         }
     }
 
@@ -179,7 +139,7 @@ public enum RequestResolver {
 
     // MARK: - Shared
 
-    private static func interpolate(_ template: String, scope: VariableScope, missing: inout [String]) -> String {
+    static func interpolate(_ template: String, scope: VariableScope, missing: inout [String]) -> String {
         let result = VariableInterpolator.interpolate(template, scope: scope)
         missing.append(contentsOf: result.missing)
         return result.text

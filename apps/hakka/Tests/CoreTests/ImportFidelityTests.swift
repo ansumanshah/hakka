@@ -92,11 +92,11 @@ struct ImportFidelityTests {
     func oauth2Bearer() throws {
         let spec = try CurlImporter.parse("curl --oauth2-bearer tok123 https://api.example.com/me")
 
-        guard case let .oauth2(token) = spec.auth else {
+        guard case let .oauth2(config) = spec.auth, case let .staticToken(accessToken) = config.grant else {
             Issue.record("expected oauth2 auth")
             return
         }
-        #expect(token == "tok123")
+        #expect(accessToken == "tok123")
     }
 
     // MARK: - Postman
@@ -120,11 +120,14 @@ struct ImportFidelityTests {
         """
         let collection = try PostmanImporter.parse(Data(json.utf8))
 
-        guard case let .request(request) = collection.nodes.first, case let .oauth2(token) = request.auth else {
+        guard case let .request(request) = collection.nodes.first,
+              case let .oauth2(config) = request.auth,
+              case let .staticToken(accessToken) = config.grant
+        else {
             Issue.record("expected an oauth2 request")
             return
         }
-        #expect(token == "tok123")
+        #expect(accessToken == "tok123")
     }
 
     @Test("postman formdata keeps a per-part content type")

@@ -61,8 +61,17 @@ public struct EffectiveRequest: Sendable, Equatable {
             setHeader("Authorization", "Basic \(token)")
         case let .bearer(token):
             setHeader("Authorization", "Bearer \(token)")
-        case let .oauth2(accessToken):
-            setHeader("Authorization", "Bearer \(accessToken)")
+        case let .oauth2(config):
+            // A code generator has no way to run the actual OAuth2 flow, and
+            // pasting nothing here would silently ship a request that can't
+            // authenticate. Emit the variable Hakka writes the obtained
+            // token into — literal, unresolved — so the generated snippet
+            // is honest about what it needs rather than pretending it has it.
+            if case let .staticToken(accessToken) = config.grant {
+                setHeader("Authorization", "Bearer \(accessToken)")
+            } else {
+                setHeader("Authorization", "Bearer {{\(config.accessTokenVariable)}}")
+            }
         case let .apiKey(name, value, placement):
             switch placement {
             case .header:

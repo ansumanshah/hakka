@@ -18,6 +18,7 @@ final class RequestEditorModel {
     var lastRunError: String?
 
     private let runner = RequestRunner()
+    private let oauth2Runner = OAuth2FlowRunner()
 
     var isDirty: Bool {
         guard let draft else { return false }
@@ -56,7 +57,9 @@ final class RequestEditorModel {
         isSending = true
         defer { isSending = false }
         do {
-            let result = try await runner.run(draft, folderChain: folderChain, collection: collection, scope: scope)
+            let auth = RequestResolver.effectiveAuth(request: draft.auth, folderChain: folderChain, collectionAuth: collection.auth)
+            let refreshedScope = await OAuth2TokenRefresher.refreshIfNeeded(auth: auth, scope: scope, runner: oauth2Runner)
+            let result = try await runner.run(draft, folderChain: folderChain, collection: collection, scope: refreshedScope)
             lastResult = result
             lastRunError = nil
             return result.scope

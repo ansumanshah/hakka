@@ -77,6 +77,13 @@ public struct MultipartPart: Sendable, Codable, Equatable, Identifiable {
 /// Auth is modeled explicitly rather than as "just set an Authorization
 /// header" because the code generators and the redaction rules both need to
 /// know which values are credentials.
+///
+/// `oauth2`'s payload is a single unlabeled `OAuth2Config` rather than
+/// `oauth2(accessToken: String)` deliberately: SE-0295's synthesized
+/// `Codable` encodes an unlabeled single-value case directly as
+/// `{"oauth2": <payload>}`, with no extra wrapper key. That is what makes
+/// `OAuth2Config`'s own decode able to recognize and upgrade the pre-1.3
+/// shape `{"oauth2": {"accessToken": "..."}}` — see its `init(from:)`.
 public enum AuthSpec: Sendable, Codable, Equatable {
     /// Use the parent folder's/collection's auth.
     case inherit
@@ -84,8 +91,14 @@ public enum AuthSpec: Sendable, Codable, Equatable {
     case basic(username: String, password: String)
     case bearer(token: String)
     case apiKey(name: String, value: String, placement: APIKeyPlacement)
-    /// Pre-obtained token; Hakka does not run an OAuth dance for you.
-    case oauth2(accessToken: String)
+    case oauth2(OAuth2Config)
+
+    /// Convenience matching the pre-1.3 call shape, used by the curl/Postman
+    /// importers and anywhere else a single pre-obtained token is all
+    /// there is to model — no client id, no endpoints, nothing to refresh.
+    public static func oauth2(accessToken: String) -> AuthSpec {
+        .oauth2(OAuth2Config(grant: .staticToken(accessToken: accessToken)))
+    }
 }
 
 public enum APIKeyPlacement: String, Sendable, Codable, Equatable {

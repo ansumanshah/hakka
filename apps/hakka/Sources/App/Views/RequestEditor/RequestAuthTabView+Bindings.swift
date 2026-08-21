@@ -32,13 +32,6 @@ extension RequestAuthTabView {
         )
     }
 
-    var oauthTokenBinding: Binding<String> {
-        Binding(
-            get: { if case let .oauth2(token) = spec.auth { token } else { "" } },
-            set: { spec.auth = .oauth2(accessToken: $0) },
-        )
-    }
-
     var apiKeyNameBinding: Binding<String> {
         Binding(
             get: { if case let .apiKey(name, _, _) = spec.auth { name } else { "" } },
