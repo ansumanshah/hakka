@@ -189,6 +189,19 @@ export type {
   RequestDiagnosis,
   SlowRequest,
 } from './analyze/analyzeRequests'
+// leak detection — the offensive half of redaction: does this app send a credential
+// or PII somewhere it should not (backs the MCP `detect_leaks` tool)
+export { detectLeaks } from './analyze/leakDetection'
+export type {
+  EndpointFieldBaseline,
+  FieldBaseline,
+  LeakConfidence,
+  LeakDetectionOptions,
+  LeakDetectionResult,
+  LeakEvidence,
+  LeakFinding,
+  LeakKind,
+} from './analyze/leakDetection'
 export {
   HAKKA_TRACE_HEADER,
   configureTrace,

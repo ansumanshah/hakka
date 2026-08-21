@@ -481,7 +481,7 @@ import { registerResources } from '../resources.js'
 import { registerTools } from '../tools/index.js'
 
 describe('MCP smoke test — tools/list via InMemoryTransport', () => {
-  it('lists all twenty tool names', async () => {
+  it('lists all twenty-one tool names', async () => {
     const s = new RequestStore(10)
     const sender = new FakeSender()
     const spanStore = new SpanStore(50)
@@ -502,6 +502,7 @@ describe('MCP smoke test — tools/list via InMemoryTransport', () => {
     expect(names).toContain('get_request')
     expect(names).toContain('search_requests')
     expect(names).toContain('diagnose')
+    expect(names).toContain('detect_leaks')
     expect(names).toContain('stats')
     expect(names).toContain('clear')
     expect(names).toContain('create_mock')
@@ -518,7 +519,7 @@ describe('MCP smoke test — tools/list via InMemoryTransport', () => {
     expect(names).toContain('export_evidence')
     expect(names).toContain('replay_request')
     expect(names).toContain('verify_fix')
-    expect(names.length).toBe(20)
+    expect(names.length).toBe(21)
 
     await client.close()
     await mcpServer.close()

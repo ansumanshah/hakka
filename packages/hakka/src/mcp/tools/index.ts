@@ -16,6 +16,7 @@ import type { ControlSender } from './controlDispatch.js'
 import { registerCreateMockTool } from './createMock.js'
 import { registerDeleteBreakpointTool } from './deleteBreakpoint.js'
 import { registerDeleteMockTool } from './deleteMock.js'
+import { registerDetectLeaksTool } from './detectLeaks.js'
 import { registerDiagnoseTool } from './diagnose.js'
 import { registerExportEvidenceTool } from './exportEvidence.js'
 import { registerGenerateMocksTool } from './generateMocks.js'
@@ -45,6 +46,7 @@ export function registerTools(
   registerSearchRequestsTool(server, store)
   registerStatsTool(server, store)
   registerDiagnoseTool(server, store)
+  registerDetectLeaksTool(server, store)
   registerClearTool(server, store)
   registerCreateMockTool(server, sender)
   registerPromoteCaptureToMockTool(server, store, sender)
