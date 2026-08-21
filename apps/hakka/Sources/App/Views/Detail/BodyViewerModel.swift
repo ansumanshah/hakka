@@ -41,7 +41,7 @@ final class BodyViewerModel {
         switch kind {
         case .jsonPretty: mode = .pretty
         case .jsonTree: mode = .tree
-        case .image, .hex, .text: mode = .raw
+        case .image, .hex, .text, .grpc: mode = .raw
         }
     }
 

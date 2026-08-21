@@ -15,4 +15,7 @@ public enum BodyViewerKind: String, Sendable, Equatable {
     case hex
     /// Monospaced plain text.
     case text
+    /// Length-prefixed gRPC / gRPC-Web frames: status, and a schema-less
+    /// protobuf field tree per message.
+    case grpc
 }

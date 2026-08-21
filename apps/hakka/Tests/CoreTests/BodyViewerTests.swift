@@ -15,7 +15,7 @@ struct BodyViewerRegistryTests {
         ("image/jpeg; charset=binary", "/9j/4AAQSkZJRg==", .image),
         ("application/octet-stream", "AAAAAA==", .hex),
         ("application/x-protobuf", "CgE=", .hex),
-        ("application/grpc+proto", "AAAAAA==", .hex),
+        ("application/grpc+proto", "AAAAAA==", .grpc),
         ("application/pdf", "JVBERi0=", .hex),
         ("application/zip", "UEsDBg==", .hex),
         ("text/plain", "just some prose", .text),

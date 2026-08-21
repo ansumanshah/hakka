@@ -37,9 +37,29 @@ public enum RecordBodyExtractor {
     private static func makeBody(_ text: String?, contentType: String?, encoding: String?) -> RecordBody? {
         guard let text, !text.isEmpty else { return nil }
         return RecordBody(
-            text: bodyDecoders.decode(text, contentType: contentType, contentEncoding: encoding),
+            text: decodedText(text, contentType: contentType, encoding: encoding),
             contentType: contentType,
             contentEncoding: encoding
         )
+    }
+
+    /// gRPC / gRPC-Web bodies skip the shared decoder pipeline entirely: its
+    /// `grpc-web`/`protobuf`/`protobuf-wire` decoders already collapse the
+    /// body into a flat human-readable preview string, which throws away the
+    /// per-frame byte lengths and compression flags the desktop's own
+    /// `GrpcBodyDecoder` needs to render frames structurally rather than as
+    /// one opaque blob. The raw captured (base64) body passes through
+    /// unchanged so the desktop viewer can decode it itself.
+    ///
+    /// Known gap: this also skips gzip/deflate `Content-Encoding` decoding
+    /// for gRPC bodies. gRPC compresses per-message (via its own compression
+    /// flag), not via HTTP `Content-Encoding`, so this is not expected to
+    /// bite in practice — but it is a real, documented limitation rather
+    /// than a decode HakkaCommon would otherwise have performed.
+    private static func decodedText(_ text: String, contentType: String?, encoding: String?) -> String {
+        if let mime = BodyViewerRegistry.normalizedMimeType(contentType), mime.hasPrefix("application/grpc") {
+            return text
+        }
+        return bodyDecoders.decode(text, contentType: contentType, contentEncoding: encoding)
     }
 }
