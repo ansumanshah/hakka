@@ -59,16 +59,37 @@ import.
 | Captures        | Pull a value out of a response into a variable, so a login request feeds the token to everything after it.                                                           |
 | Import          | cURL commands, Postman v2.1, OpenAPI 3, and HAR (including Hakka's own export).                                                                                      |
 | Code generation | cURL, JavaScript `fetch`, Swift `URLSession`, Python `requests`, Go `net/http`, HTTPie — each with a redacting mode so a snippet is safe to paste into a bug report. |
+| Cookies         | A private cookie jar per run, so a session survives a login and nothing ever touches your system cookie store. A `Cookie` header you set yourself always wins.       |
 
 **As an inspector**
 
-|              |                                                                                                                            |
-| ------------ | -------------------------------------------------------------------------------------------------------------------------- |
-| Live traffic | Streamed from your app over the bridge, on this Mac or a device on the same network.                                       |
-| Filtering    | Method, status class, host, content type, duration and size thresholds, and text search across URL, headers, and body.     |
-| Diff         | Compare two requests structurally — status, headers added/removed/changed, and a line-level body diff.                     |
-| Export       | HAR and session files, using the same field mapping the SDKs already use.                                                  |
-| Bridge hub   | Built in, so there is no separate `hakka-bridge` process to run. Bonjour advertises it to devices; LAN exposure is opt-in. |
+|              |                                                                                                                                                                          |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Live traffic | Streamed from your app over the bridge, on this Mac or a device on the same network.                                                                                     |
+| Filtering    | Method, status class, host, content type, duration and size thresholds, and text search across URL, headers, and body. Filters you use often can be saved as presets.    |
+| Bodies       | Content-type dispatch: JSON tree with syntax highlighting and search, image preview, hex dump, plain text. A display cap keeps a huge body from freezing the window.     |
+| Timing       | A per-request waterfall built from URLSession task metrics, so DNS, TLS, connect, time to first byte and download are measured rather than guessed.                      |
+| LLM streams  | A `text/event-stream` response gets its events assembled and its token usage surfaced. Capture keeps the tail of a stream, because that is where the usage numbers live. |
+| Diff         | Compare two requests structurally — status, headers added/removed/changed, and a line-level body diff.                                                                   |
+| Export       | HAR and session files, using the same field mapping the SDKs already use.                                                                                                |
+| Bridge hub   | Built in, so there is no separate `hakka-bridge` process to run. Bonjour advertises it to devices; LAN exposure is opt-in.                                               |
+
+## Rules, aimed at a running device
+
+The mock, breakpoint and throttle engines already ship inside every Hakka SDK.
+The desktop app is a way to drive them from your Mac, over the same bridge the
+traffic arrives on. No certificate is involved, because nothing is being
+intercepted: the engine doing the work is already inside your app.
+
+| Section     | What it does                                                                                                                                                                                                    |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mocks       | Serve a canned response for matching requests. **Promote a real captured response into a mock in one action** — the move a proxy cannot make, because a proxy never had your app's response in the first place. |
+| Breakpoints | Install and remove breakpoint rules on the device. Pausing and editing a request in flight is not wired up yet.                                                                                                 |
+| Throttle    | One device-global network condition: a named profile or a custom latency and bandwidth pair.                                                                                                                    |
+
+Delivery is always reported, including "no devices connected". The wire is
+fire-and-forget with no acknowledgement, so silence would be indistinguishable
+from success.
 
 ## Collections are files
 
