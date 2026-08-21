@@ -14,6 +14,50 @@ import kotlin.concurrent.write
  * @property body Response body string, or null for empty body.
  * @property delayMs Artificial delay in ms before responding. 0 = instant.
  */
+/**
+ * Platform-neutral transport-error codes for a [failure]-mode rule. Mirrors
+ * `MockFailureCode` in `packages/hakka-core/src/engine/MockEngine.ts` — the
+ * source of truth; read it there for the full cross-runtime mapping table.
+ * Maps onto the [IOException] subtype this engine actually throws (see
+ * [HakkaInterceptor.intercept]'s failure branch).
+ */
+enum class MockFailureCode(val wireValue: String) {
+    TIMEOUT("timeout"),
+    NO_CONNECTION("noConnection"),
+    CANNOT_FIND_HOST("cannotFindHost"),
+    CANNOT_CONNECT_TO_HOST("cannotConnectToHost"),
+    CONNECTION_LOST("connectionLost"),
+    SECURE_CONNECTION_FAILED("secureConnectionFailed"),
+    CANCELLED("cancelled"),
+    UNKNOWN("unknown");
+
+    /** Human-readable message shared with every reporting call site. */
+    val message: String
+        get() = when (this) {
+            TIMEOUT -> "Mocked failure: the request timed out"
+            NO_CONNECTION -> "Mocked failure: not connected to the internet"
+            CANNOT_FIND_HOST -> "Mocked failure: cannot find host"
+            CANNOT_CONNECT_TO_HOST -> "Mocked failure: cannot connect to host"
+            CONNECTION_LOST -> "Mocked failure: the network connection was lost"
+            SECURE_CONNECTION_FAILED -> "Mocked failure: secure connection failed"
+            CANCELLED -> "Mocked failure: cancelled"
+            UNKNOWN -> "Mocked failure: unknown network error"
+        }
+
+    companion object {
+        fun fromWireValue(value: String): MockFailureCode? = entries.firstOrNull { it.wireValue == value }
+    }
+}
+
+/**
+ * Simulates a transport-level failure — the request never gets a real
+ * response — rather than serving [MockResponse]. Mirrors `MockFailure` in
+ * `MockEngine.ts`. Precedence: [failure] is checked before `block`, which is
+ * checked before the rewrite path (`redirectTo`/`modify`), which is checked
+ * before a plain mock response.
+ */
+data class MockFailure(val code: MockFailureCode)
+
 data class MockResponse(
     val status: Int = 200,
     val headers: Map<String, String> = emptyMap(),
@@ -126,9 +170,17 @@ object MockRuleTransform {
  *   [response]. Applied on the passthrough-then-transform path. Mirrors `MockRule.redirectTo`
  *   in `MockEngine.ts`.
  * @property block Abort the matched request with a network-error-shaped failure before it is
- *   sent. Takes priority over [redirectTo]/[modify] when true. Mirrors `MockRule.block`.
+ *   sent. Takes priority over [redirectTo]/[modify] when true, but [failure] (if present)
+ *   takes priority over [block]. Mirrors `MockRule.block`.
  * @property modify Declarative header/query/status/body edits (see [MockRuleModify]). Like
  *   [redirectTo], this alone routes the match through the passthrough-then-transform path.
+ * @property failure Simulate a specific transport-level failure instead of serving [response]
+ *   (see [MockFailure]). Takes priority over [block].
+ * @property skipCount Serve the real response for this many initial matches before this rule
+ *   starts applying. See [MockEngine.match] and `MockRule.skipCount` in `MockEngine.ts` for
+ *   the full semantics — the counter is in-memory engine state, reset on process relaunch.
+ * @property stopAfter After the rule has applied this many times (post-[skipCount]), stop
+ *   applying it forever. null = unlimited. Mirrors `MockRule.stopAfter`.
  */
 data class MockRule(
     val id: String,
@@ -141,6 +193,9 @@ data class MockRule(
     val redirectTo: String? = null,
     val block: Boolean = false,
     val modify: MockRuleModify? = null,
+    val failure: MockFailure? = null,
+    val skipCount: Int = 0,
+    val stopAfter: Int? = null,
 ) {
     /**
      * True when this rule is served via the passthrough-then-transform path (issue the
@@ -171,6 +226,9 @@ data class MockRuleInput(
     val redirectTo: String? = null,
     val block: Boolean = false,
     val modify: MockRuleModify? = null,
+    val failure: MockFailure? = null,
+    val skipCount: Int = 0,
+    val stopAfter: Int? = null,
 )
 
 /**
@@ -199,6 +257,14 @@ class MockEngine {
 
     private val regexCache = HashMap<String, Regex>()
 
+    /**
+     * `skipCount`/`stopAfter` bookkeeping, keyed by rule id — see
+     * `matchCountsById` in `MockEngine.ts` for the full rationale. In-memory
+     * only, reset on process relaunch, and reset per-rule whenever that rule
+     * is (re-)added — see [addRule]/[removeRule]/[clearRules].
+     */
+    private val matchCounts = HashMap<String, Int>()
+
     // Change listeners — mirrors BreakpointEngine.subscribe (hakka-common). Added so
     // MocksPanel (hakka-ui) can refresh immediately on rule add/remove/enable/disable
     // instead of waiting out its poll tick, notably right after DetailActivity's
@@ -223,6 +289,9 @@ class MockEngine {
             redirectTo = input.redirectTo,
             block = input.block,
             modify = input.modify,
+            failure = input.failure,
+            skipCount = input.skipCount,
+            stopAfter = input.stopAfter,
         )
         lock.write {
             val existingIndex = rules.indexOfFirst { it.id == id }
@@ -231,6 +300,9 @@ class MockEngine {
             } else {
                 rules.add(rule)
             }
+            // A (re-)add always restarts the skip/stop budget — this is a
+            // new/edited rule as far as the engine is concerned.
+            matchCounts.remove(id)
         }
         notifyListeners()
         return id
@@ -238,7 +310,10 @@ class MockEngine {
 
     /** Removes a rule by id. */
     fun removeRule(id: String) {
-        lock.write { rules.removeAll { it.id == id } }
+        lock.write {
+            rules.removeAll { it.id == id }
+            matchCounts.remove(id)
+        }
         // No need to evict regex cache — stale entries are harmless and bounded
         notifyListeners()
     }
@@ -263,6 +338,7 @@ class MockEngine {
         lock.write {
             rules.clear()
             regexCache.clear()
+            matchCounts.clear()
         }
         notifyListeners()
     }
@@ -285,8 +361,9 @@ class MockEngine {
     }
 
     /**
-     * Called by [HakkaInterceptor.intercept] — returns the first matching enabled rule, or null.
-     * Increments [MockRule.hitCount] on match.
+     * Called by [HakkaInterceptor.intercept] — returns the first matching enabled rule that
+     * is currently due to apply (see [admitMatch]), or null. Increments [MockRule.hitCount]
+     * only on a rule that is actually returned/applied.
      */
     fun match(url: String, method: String): MockRule? = lock.write {
         for (rule in rules) {
@@ -304,9 +381,34 @@ class MockEngine {
             }
             if (!matched) continue
 
+            // skipCount/stopAfter gate: consumes this rule's match budget. A
+            // `false` result means this match should pass through as real,
+            // unmodified traffic — treated the same as "no rule matched",
+            // not "keep checking other rules" (this IS the matching rule; it
+            // just isn't due to apply yet/anymore).
+            if (!admitMatch(rule.id, rule.skipCount, rule.stopAfter)) return@write null
+
             rule.hitCount++
             return@write rule
         }
         null
+    }
+
+    /**
+     * Consumes one unit of a rule's `skipCount`/`stopAfter` budget and decides
+     * whether this match should actually be applied. Must be called with
+     * [lock] already held for write (see [match], the only caller).
+     */
+    private fun admitMatch(ruleId: String, skipCount: Int, stopAfter: Int?): Boolean {
+        val count = (matchCounts[ruleId] ?: 0) + 1
+        matchCounts[ruleId] = count
+
+        val skip = maxOf(0, skipCount)
+        if (count <= skip) return false
+
+        val appliedIndex = count - skip // 1-based: which applied-match this would be
+        if (stopAfter != null && appliedIndex > maxOf(0, stopAfter)) return false
+
+        return true
     }
 }

@@ -105,6 +105,9 @@ extension MockRuleInput: Equatable {
             && lhs.redirectTo == rhs.redirectTo
             && lhs.block == rhs.block
             && lhs.modify == rhs.modify
+            && lhs.failure == rhs.failure
+            && lhs.skipCount == rhs.skipCount
+            && lhs.stopAfter == rhs.stopAfter
     }
 }
 

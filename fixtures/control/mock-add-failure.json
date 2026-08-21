@@ -1,0 +1,10 @@
+{
+  "kind": "mock.add",
+  "rule": {
+    "id": "mck-flaky",
+    "pattern": "/api/checkout",
+    "enabled": true,
+    "failure": { "code": "cannotConnectToHost" },
+    "response": { "status": 200, "body": "{}" }
+  }
+}

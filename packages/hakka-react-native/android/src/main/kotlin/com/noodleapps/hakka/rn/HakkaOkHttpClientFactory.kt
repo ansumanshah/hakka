@@ -34,6 +34,22 @@ private fun isTextContentType(contentType: String?): Boolean {
 }
 
 /**
+ * Maps a [MockFailureCode] to the [IOException] subtype OkHttp callers actually see —
+ * mirrors `MockFailureCode`'s cross-runtime mapping table in
+ * `packages/hakka-core/src/engine/MockEngine.ts` (and hakka-network's identical helper).
+ */
+private fun ioExceptionForFailure(code: MockFailureCode): IOException = when (code) {
+    MockFailureCode.TIMEOUT -> java.net.SocketTimeoutException(code.message)
+    MockFailureCode.NO_CONNECTION -> java.net.UnknownHostException(code.message)
+    MockFailureCode.CANNOT_FIND_HOST -> java.net.UnknownHostException(code.message)
+    MockFailureCode.CANNOT_CONNECT_TO_HOST -> java.net.ConnectException(code.message)
+    MockFailureCode.CONNECTION_LOST -> IOException(code.message)
+    MockFailureCode.SECURE_CONNECTION_FAILED -> javax.net.ssl.SSLException(code.message)
+    MockFailureCode.CANCELLED -> IOException(code.message)
+    MockFailureCode.UNKNOWN -> IOException(code.message)
+}
+
+/**
  * Injects Hakka interceptor into React Native's OkHttp client.
  *
  * Called from [NativeCoreDelegate.initialize] during native module startup.
@@ -66,9 +82,17 @@ object HakkaOkHttpClientFactory {
                 return chain.proceed(request)
             }
 
-            // `block` takes priority over `redirectTo`/`modify` (mirrors MockEngine.ts's
-            // fetch-interceptor ordering: block is checked before isRewrite). Abort with an
-            // IOException before the real request is ever sent — the outer
+            // `failure` takes priority over `block`, which takes priority over
+            // `redirectTo`/`modify` (mirrors MockEngine.ts's fetch-interceptor ordering:
+            // failure, then block, then isRewrite). A more precise simulation than block's
+            // generic "Blocked by Hakka" — throws the specific IOException subtype the
+            // failure code declares.
+            if (matchedRule.failure != null) {
+                throw ioExceptionForFailure(matchedRule.failure.code)
+            }
+
+            // `block` takes priority over `redirectTo`/`modify`. Abort with an IOException
+            // before the real request is ever sent — the outer
             // [NativeCoreDelegate.interceptor] further out in this same OkHttp chain still
             // records this as a completed capture with an error, same as any other IOException.
             if (matchedRule.block) {

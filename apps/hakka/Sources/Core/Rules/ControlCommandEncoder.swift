@@ -13,10 +13,14 @@ import HakkaCommon
 ///
 /// - `mock.add`: `{"kind":"mock.add","rule":{ id, pattern, enabled,
 ///   response:{ status, body, headers?, delay? }, method?, redirectTo?,
-///   block?, modify? }}` where `modify` is
+///   block?, modify?, failure?, skipCount?, stopAfter? }}` where `modify` is
 ///   `{ setRequestHeaders?, removeRequestHeaders?, setQueryParams?,
 ///   removeQueryParams?, status?, setResponseHeaders?,
-///   removeResponseHeaders?, replaceBody?:[{ find, replace }] }`.
+///   removeResponseHeaders?, replaceBody?:[{ find, replace }] }`, `failure`
+///   is `{ code }` (one of the `MockFailureCode` values — see
+///   `HakkaCommon/MockFailure.swift`), and `skipCount`/`stopAfter` are
+///   non-negative integers (see `MockRule.skipCount`/`.stopAfter` in
+///   `packages/hakka-core/src/engine/MockEngine.ts` for the full semantics).
 /// - `mock.remove`: `{"kind":"mock.remove","id":...}`;
 ///   `mock.clear`: `{"kind":"mock.clear"}`.
 /// - `breakpoint.add`: `{"kind":"breakpoint.add","breakpoint":{ id, pattern,

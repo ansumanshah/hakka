@@ -82,22 +82,23 @@ interface LeakFinding {
 Not part of `HakkaConfig` — a pure function called on demand (MCP tool, desktop panel, CI check),
 not a capture-time toggle.
 
-| Option                   | Default                                          | Description                                                                              |
-| ------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `firstPartyHosts`         | Auto-inferred majority host, or `[]` if unclear    | See **The first-party allowlist default** above.                                          |
-| `minRequestsForInference` | `3`                                                | Minimum captured requests before auto-inferring a first-party host.                       |
-| `fieldBaseline`           | `{}`                                               | A prior call's `fieldBaseline`, threaded back in to persist detector 2's baseline.         |
-| `newFieldBaselineMin`     | `3`                                                | Prior observations of an endpoint required before "new field" detection activates for it. |
-| `maxFindings`              | `50`                                               | Cap on findings returned, ranked highest confidence first.                                |
+| Option                    | Default                                         | Description                                                                               |
+| ------------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `firstPartyHosts`         | Auto-inferred majority host, or `[]` if unclear | See **The first-party allowlist default** above.                                          |
+| `minRequestsForInference` | `3`                                             | Minimum captured requests before auto-inferring a first-party host.                       |
+| `fieldBaseline`           | `{}`                                            | A prior call's `fieldBaseline`, threaded back in to persist detector 2's baseline.        |
+| `newFieldBaselineMin`     | `3`                                             | Prior observations of an endpoint required before "new field" detection activates for it. |
+| `maxFindings`             | `50`                                            | Cap on findings returned, ranked highest confidence first.                                |
 
 ## Platform matrix
 
 Not a distinct row in SPEC §5 — JS-only today (backs the MCP `detect_leaks` tool over
-`hakka-core`'s `NetworkRequest[]`). No native (iOS/Android/RN) equivalent exists yet.
+`hakka-core`'s `NetworkRequest[]`). No native (iOS/Android/RN) equivalent exists yet, and the
+desktop app has no capture engine of its own to run it over (see SPEC.md §5's "Mac app" note).
 
-| Capability     | RN  | iOS | Android | Web |
-| -------------- | --- | --- | ------- | --- |
-| Leak detection | ○   | ○   | ○       | ●   |
+| Capability     | RN  | iOS | Android | Web | Mac app |
+| -------------- | --- | --- | ------- | --- | ------- |
+| Leak detection | ○   | ○   | ○       | ●   | ○       |
 
 ## Test anchors
 

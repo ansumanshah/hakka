@@ -37,6 +37,9 @@ extension ControlCommandEncoder {
         if let redirectTo = rule.redirectTo { object["redirectTo"] = redirectTo }
         if rule.block { object["block"] = true }
         if let modify = rule.modify { object["modify"] = modifyObject(modify) }
+        if let failure = rule.failure { object["failure"] = ["code": failure.code.rawValue] }
+        if rule.skipCount > 0 { object["skipCount"] = rule.skipCount }
+        if let stopAfter = rule.stopAfter { object["stopAfter"] = stopAfter }
         return object
     }
 

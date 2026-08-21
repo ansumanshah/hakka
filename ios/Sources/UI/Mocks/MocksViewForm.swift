@@ -71,7 +71,10 @@ extension MocksView {
             case .mock:     mockFields
             case .redirect: redirectFields
             case .block:    blockHint
+            case .failure:  failureFields
             }
+
+            skipStopFields
 
             HStack {
                 Spacer()

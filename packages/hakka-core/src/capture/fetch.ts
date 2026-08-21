@@ -1,7 +1,12 @@
 import type { CaptureSource, CaptureSourceContext } from '../contract/captureSource'
 import { createCycleGuard } from '../contract/cycleGuard'
 import { breakpointEngine } from '../engine/BreakpointEngine'
-import { mockEngine, type MockRequestContext, type MockResponseContext } from '../engine/MockEngine'
+import {
+  MOCK_FAILURE_MESSAGES,
+  mockEngine,
+  type MockRequestContext,
+  type MockResponseContext,
+} from '../engine/MockEngine'
 import { ThrottleEngine } from '../engine/ThrottleEngine'
 import { HAKKA_TRACE_HEADER, resolveOutgoingTrace } from '../engine/trace'
 import { TRACEPARENT_HEADER, buildTraceparent } from '../engine/traceparent'
@@ -235,9 +240,44 @@ export function enableFetchInterceptor(
 
       // peek() does not count a hit — recorded only when a rule is actually applied.
       mockRule = mockEngine.peek(url, method)
+      // skipCount/stopAfter gate: consumes this rule's match budget and
+      // decides whether it actually applies to this request. A `false`
+      // means "treat as unmatched" — fall through to real traffic below,
+      // same as if peek() had returned nothing.
+      if (mockRule && !mockEngine.admitMatch(mockRule)) mockRule = null
     } catch {
       // Hakka's own capture/redaction/mock-matching threw — never break the app.
       return savedFetch(origInput, origInit)
+    }
+
+    // Failure: simulate a transport-level error (no real response ever exists),
+    // rather than serving `response`. Takes priority over `block`.
+    if (mockRule?.failure) {
+      mockEngine.recordHit(mockRule)
+      const endTime = Date.now()
+      try {
+        onRequest({
+          id,
+          url,
+          method,
+          status: null,
+          startTime,
+          endTime,
+          duration: endTime - startTime,
+          requestHeaders,
+          requestBody,
+          requestBodySize,
+          responseBody: null,
+          error: MOCK_FAILURE_MESSAGES[mockRule.failure.code],
+          source: 'fetch',
+          initiator,
+          mocked: true,
+          graphql,
+        } as NetworkRequest)
+      } catch {
+        /* never break the real request */
+      }
+      throw new TypeError('Failed to fetch')
     }
 
     // Block: abort the matched request with a network error before it is sent.

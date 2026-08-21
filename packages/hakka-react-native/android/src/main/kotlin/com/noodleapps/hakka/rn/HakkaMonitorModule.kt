@@ -303,6 +303,9 @@ class HakkaMonitorModule(private val reactContext: ReactApplicationContext) :
             redirectTo = readString(rule, "redirectTo"),
             block = readBoolean(rule, "block") ?: false,
             modify = readMockRuleModify(rule.getMapOrNull("modify")),
+            failure = readMockFailure(rule.getMapOrNull("failure")),
+            skipCount = readNonNegativeInt(rule, "skipCount") ?: 0,
+            stopAfter = readNonNegativeInt(rule, "stopAfter"),
         )
     }
 
@@ -484,6 +487,29 @@ class HakkaMonitorModule(private val reactContext: ReactApplicationContext) :
     private fun ReadableMap.getMapOrNull(key: String): ReadableMap? {
         if (!hasKey(key) || isNull(key)) return null
         return if (getType(key) == ReadableType.Map) getMap(key) else null
+    }
+
+    /**
+     * Parses the optional `failure` block (see [MockFailure]) from a JS-authored mock rule.
+     * Unknown/missing `code` drops the whole block — a rule never ends up "failure-shaped"
+     * with no actual code to throw.
+     */
+    private fun readMockFailure(raw: ReadableMap?): MockFailure? {
+        if (raw == null) return null
+        val codeString = readString(raw, "code") ?: return null
+        val code = MockFailureCode.fromWireValue(codeString) ?: return null
+        return MockFailure(code)
+    }
+
+    /**
+     * A non-negative integer count (`skipCount`/`stopAfter`). `null` on absence, a negative
+     * value, or a non-numeric type — mirrors [readInt]'s leniency (string coercion allowed,
+     * since this is a same-process JS->native bridge, not the hostile external control-frame
+     * wire) while still rejecting values that would make no sense as a match budget.
+     */
+    private fun readNonNegativeInt(raw: ReadableMap, key: String): Int? {
+        val value = readInt(raw, key) ?: return null
+        return if (value >= 0) value else null
     }
 
     /**

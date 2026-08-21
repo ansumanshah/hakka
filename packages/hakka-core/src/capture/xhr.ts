@@ -1,7 +1,7 @@
 import type { CaptureSource, CaptureSourceContext } from '../contract/captureSource'
 import { createCycleGuard } from '../contract/cycleGuard'
 import { breakpointEngine } from '../engine/BreakpointEngine'
-import { mockEngine, type MockRequestContext } from '../engine/MockEngine'
+import { MOCK_FAILURE_MESSAGES, mockEngine, type MockRequestContext } from '../engine/MockEngine'
 import { ThrottleEngine } from '../engine/ThrottleEngine'
 import { HAKKA_TRACE_HEADER, resolveOutgoingTrace } from '../engine/trace'
 import { TRACEPARENT_HEADER, buildTraceparent } from '../engine/traceparent'
@@ -201,7 +201,55 @@ export function enableXHRInterceptor(
       return
     }
 
-    const mockRule = state ? mockEngine.peek(state.url, state.method) : null
+    let mockRule = state ? mockEngine.peek(state.url, state.method) : null
+    // skipCount/stopAfter gate — see fetch.ts's identical comment. Consumes
+    // the rule's match budget; `false` means treat this request as unmatched.
+    if (mockRule && !mockEngine.admitMatch(mockRule)) mockRule = null
+
+    // Mirrors fetch.ts's failure semantics: a failure-only rule carries no
+    // mode/redirectTo/modify, so isRewrite() is false for it — without this
+    // check first, it would fall through to mock-serve and be SERVED instead
+    // of failed. XHR can't throw synchronously like fetch rejects, so this
+    // defers to the next tick, like the offline short-circuit above.
+    if (mockRule?.failure && state) {
+      const failure = mockRule.failure
+      mockEngine.recordHit(mockRule)
+      setTimeout(() => {
+        const endTime = Date.now()
+        const duration = endTime - state.startTime
+        const errRecord: NetworkRequest = {
+          id: state.id,
+          url: state.url,
+          method: state.method,
+          status: null,
+          startTime: state.startTime,
+          endTime,
+          duration,
+          requestHeaders: state.requestHeaders,
+          responseHeaders: {},
+          requestBodySize: state.requestBodySize,
+          responseBodySize: 0,
+          requestBody: state.requestBody,
+          responseBody: null,
+          correlationId: state.correlationId,
+          error: MOCK_FAILURE_MESSAGES[failure.code],
+          source: 'xhr',
+          initiator: state.initiator,
+          mocked: true,
+        }
+        try {
+          onRequest(errRecord)
+        } catch {
+          /* never break callers */
+        }
+        ;(xhr as unknown as { _fire?: (e: string) => void })._fire?.('error')
+        if (typeof ProgressEvent !== 'undefined') {
+          xhr.dispatchEvent?.(new ProgressEvent('error'))
+        }
+      }, 0)
+      // Don't call savedSend — request failed before any real response.
+      return
+    }
 
     // Mirrors fetch.ts's block semantics: a block-only rule carries no mode/redirectTo/modify, so
     // isRewrite() is false for it — without this check first, it would fall through to

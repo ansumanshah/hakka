@@ -72,6 +72,11 @@ extension MocksView {
                 Text("\(rule.hitCount) \(rule.hitCount == 1 ? "hit" : "hits")")
                     .font(.caption2)
                     .foregroundStyle(Theme.textTertiary)
+                if let budget = skipStopLabel(rule) {
+                    Text(budget)
+                        .font(.caption2)
+                        .foregroundStyle(Theme.textTertiary)
+                }
                 Spacer()
                 inlineToggle(isOn: rule.enabled) {
                     if rule.enabled {
@@ -100,6 +105,10 @@ extension MocksView {
             Text("aborted")
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(Theme.error)
+        case .failure:
+            Text(rule.failure?.code.displayName ?? "failure")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(Theme.error)
         case .redirect:
             Text("\u{2192} \(rule.redirectTo ?? "")")
                 .font(.caption2.monospaced())
@@ -118,6 +127,19 @@ extension MocksView {
                 }
             }
         }
+    }
+
+    /// Static skip/stop config label (e.g. "skip 2 · stop after 5") — the
+    /// budget's *configuration*, not live progress through it. This panel
+    /// reads the same in-process `MockEngine` that owns the counter, so
+    /// `hitCount` above is live and accurate; a desktop peer driving this
+    /// rule over the control channel has no such visibility (fire-and-
+    /// forget, no feedback frame) and must not claim to show live progress.
+    private func skipStopLabel(_ rule: MockRule) -> String? {
+        var parts: [String] = []
+        if rule.skipCount > 0 { parts.append("skip \(rule.skipCount)") }
+        if let stopAfter = rule.stopAfter { parts.append("stop after \(stopAfter)") }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
     // MARK: - Empty state
@@ -148,6 +170,7 @@ extension MocksView {
         case .mock:     return Theme.accent
         case .redirect: return Theme.warning
         case .block:    return Theme.error
+        case .failure:  return Theme.error
         }
     }
 

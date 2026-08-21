@@ -124,6 +124,27 @@ func parseMockRuleModify(_ v: Any?) -> MockRuleModify? {
     )
 }
 
+/// Validates the `MockFailure` shape — a single required `code` from the
+/// fixed vocabulary. Mirrors `control.ts`'s `parseMockFailure`.
+func parseMockFailure(_ v: Any?) -> MockFailure? {
+    guard let obj = asObject(v) else { return nil }
+    guard let codeString = obj["code"] as? String,
+          let code = MockFailureCode(rawValue: codeString)
+    else { return nil }
+    return MockFailure(code: code)
+}
+
+/// A non-negative integer count (`skipCount`/`stopAfter`) — rejects negatives,
+/// non-finite, non-integer. Mirrors `control.ts`'s `isNonNegativeInt`.
+func parseNonNegativeInt(_ v: Any) -> Int? {
+    guard let n = v as? NSNumber else { return nil }
+    // Reject booleans (NSNumber wraps Bool too) and non-integral doubles.
+    if CFGetTypeID(n) == CFBooleanGetTypeID() { return nil }
+    let d = n.doubleValue
+    guard d.isFinite, d == d.rounded(), d >= 0 else { return nil }
+    return n.intValue
+}
+
 func parseMockRuleInput(_ v: Any?) -> (id: String, rule: MockRuleInput)? {
     guard let obj = asObject(v) else { return nil }
     guard let id = obj["id"] as? String, isExternalId(id) else { return nil }
@@ -159,6 +180,24 @@ func parseMockRuleInput(_ v: Any?) -> (id: String, rule: MockRuleInput)? {
         modify = m
     }
 
+    var failure: MockFailure?
+    if let rawFailure = obj["failure"], !(rawFailure is NSNull) {
+        guard let f = parseMockFailure(rawFailure) else { return nil }
+        failure = f
+    }
+
+    var skipCount = 0
+    if let rawSkip = obj["skipCount"], !(rawSkip is NSNull) {
+        guard let n = parseNonNegativeInt(rawSkip) else { return nil }
+        skipCount = n
+    }
+
+    var stopAfter: Int?
+    if let rawStop = obj["stopAfter"], !(rawStop is NSNull) {
+        guard let n = parseNonNegativeInt(rawStop) else { return nil }
+        stopAfter = n
+    }
+
     guard let response = parseMockResponse(obj["response"]) else { return nil }
 
     let rule = MockRuleInput(
@@ -170,7 +209,10 @@ func parseMockRuleInput(_ v: Any?) -> (id: String, rule: MockRuleInput)? {
         enabled: enabled,
         redirectTo: redirectTo,
         block: block,
-        modify: modify
+        modify: modify,
+        failure: failure,
+        skipCount: skipCount,
+        stopAfter: stopAfter
     )
     return (id, rule)
 }

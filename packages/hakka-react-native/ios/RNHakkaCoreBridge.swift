@@ -189,7 +189,10 @@ public final class RNHakkaCoreBridge: NSObject, HakkaDelegate, @unchecked Sendab
                 enabled: Self.boolValue(rule["enabled"]) ?? true,
                 redirectTo: rule["redirectTo"] as? String,
                 block: Self.boolValue(rule["block"]) ?? false,
-                modify: Self.mockRuleModify(from: rule["modify"])
+                modify: Self.mockRuleModify(from: rule["modify"]),
+                failure: Self.mockFailure(from: rule["failure"]),
+                skipCount: Self.nonNegativeIntValue(rule["skipCount"]) ?? 0,
+                stopAfter: Self.nonNegativeIntValue(rule["stopAfter"])
             ),
             id: id
         )
@@ -634,6 +637,29 @@ public final class RNHakkaCoreBridge: NSObject, HakkaDelegate, @unchecked Sendab
             removeResponseHeaders: removeResponseHeaders,
             replaceBody: replaceBody
         )
+    }
+
+    /// Parses the optional `failure` block from a JS-authored mock rule
+    /// (`NativeMockRulePayload.failure` in `MockEngine.ts`). Unknown/missing
+    /// `code` drops the whole block — a rule never ends up "failure-shaped"
+    /// with no actual code to throw.
+    private static func mockFailure(from value: Any?) -> MockFailure? {
+        guard let obj = value as? [String: Any],
+              let codeString = obj["code"] as? String,
+              let code = MockFailureCode(rawValue: codeString)
+        else { return nil }
+        return MockFailure(code: code)
+    }
+
+    /// A non-negative integer count (`skipCount`/`stopAfter`) — mirrors
+    /// `parseNonNegativeInt` in `ControlCommandParsingMock.swift`. Booleans
+    /// (`NSNumber` also wraps `Bool`) and non-integral values are rejected.
+    private static func nonNegativeIntValue(_ value: Any?) -> Int? {
+        guard let number = value as? NSNumber else { return nil }
+        if CFGetTypeID(number) == CFBooleanGetTypeID() { return nil }
+        let d = number.doubleValue
+        guard d.isFinite, d == d.rounded(), d >= 0 else { return nil }
+        return number.intValue
     }
 }
 

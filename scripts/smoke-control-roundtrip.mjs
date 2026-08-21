@@ -280,6 +280,33 @@ async function main() {
     assert.equal(mockEngine.isRewrite(modifyRule), true, 'a rule with only a modify block must be isRewrite')
     mockEngine.removeRule(modifyRuleId)
 
+    // `create_mock` also has no `failure`/`skipCount`/`stopAfter` params yet —
+    // drive the wire shape directly the same way, proving the relay path
+    // covers the transport-error mock + match-budget shapes too.
+    const failureRuleId = 'smoke-failure-rule'
+    const sentFailure = listener.sendControl({
+      kind: 'mock.add',
+      rule: {
+        id: failureRuleId,
+        pattern: '/api/failure-smoke',
+        enabled: true,
+        failure: { code: 'timeout' },
+        skipCount: 1,
+        stopAfter: 2,
+        response: { status: 200, body: '' },
+      },
+    })
+    assert.equal(sentFailure, true, 'sendControl(mock.add with failure/skipCount/stopAfter) should report true')
+
+    await pollUntil('mockEngine.getRules() contains the failure-rule id', () =>
+      mockEngine.getRules().some((r) => r.id === failureRuleId),
+    )
+    const failureRule = mockEngine.getRules().find((r) => r.id === failureRuleId)
+    assert.equal(failureRule.failure?.code, 'timeout', 'failure.code mismatch')
+    assert.equal(failureRule.skipCount, 1, 'skipCount mismatch')
+    assert.equal(failureRule.stopAfter, 2, 'stopAfter mismatch')
+    mockEngine.removeRule(failureRuleId)
+
     // ── breakpoint.resume / breakpoint.abort: raw sendControl frames (no MCP
     //    tool exposes these yet — that is deliberately a later task's UI
     //    surface) relayed over the real bridge into the app peer's real

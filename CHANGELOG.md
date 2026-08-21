@@ -6,7 +6,15 @@ so there is a single entry per release rather than one per package.
 
 ## Unreleased
 
-_Nothing yet._
+### Added
+
+- **Transport-error mocks (`failure`) and match-budget mocks (`skipCount`/`stopAfter`)** —
+  parity with Pulse Pro's in-process-only mocking advantages. A mock rule can now simulate a
+  specific transport failure (timeout, no connection, TLS failure, …) instead of serving any
+  response, and can be scoped to a match budget: skip the first N matches (serve real traffic),
+  then apply for the next N, then stop forever. Shipped atomically across every engine —
+  `hakka-core`, iOS (`HakkaCommon`/`HakkaNetwork`), Android (`hakka-network`), the RN native
+  bridges, and the desktop app's Rules surface.
 
 ## 0.1.0 - 2026-08-02
 

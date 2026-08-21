@@ -11,7 +11,7 @@
  */
 import { breakpointEngine, type BreakpointInput } from './BreakpointEngine'
 import { Hakka } from './HakkaFacade'
-import { mockEngine, type MockRuleInput, type MockRuleModify } from './MockEngine'
+import { MOCK_FAILURE_CODES, mockEngine, type MockFailure, type MockRuleInput, type MockRuleModify } from './MockEngine'
 import { replayRequest } from './replayRequest'
 import { ThrottleEngine, type ThrottleProfile } from './ThrottleEngine'
 
@@ -189,9 +189,22 @@ function parseMockResponse(
   }
 }
 
+/** Validates the `MockFailure` shape — a single required `code` from the fixed vocabulary. */
+function parseMockFailure(v: unknown): MockFailure | null {
+  if (!isPlainObject(v)) return null
+  const { code } = v
+  if (typeof code !== 'string' || !MOCK_FAILURE_CODES.has(code)) return null
+  return { code: code as MockFailure['code'] }
+}
+
+/** A non-negative integer count (`skipCount`/`stopAfter`) — rejects negatives, non-finite, non-integer. */
+function isNonNegativeInt(v: unknown): v is number {
+  return typeof v === 'number' && Number.isFinite(v) && Number.isInteger(v) && v >= 0
+}
+
 function parseMockRuleInput(v: unknown): (MockRuleInput & { id: string }) | null {
   if (!isPlainObject(v)) return null
-  const { id, pattern, method, mode, response, enabled, redirectTo, block, modify } = v
+  const { id, pattern, method, mode, response, enabled, redirectTo, block, modify, failure, skipCount, stopAfter } = v
 
   if (!isExternalId(id)) return null
   if (typeof pattern !== 'string' || pattern.length === 0) return null
@@ -200,12 +213,21 @@ function parseMockRuleInput(v: unknown): (MockRuleInput & { id: string }) | null
   if (typeof enabled !== 'boolean') return null
   if (redirectTo !== undefined && typeof redirectTo !== 'string') return null
   if (block !== undefined && typeof block !== 'boolean') return null
+  if (skipCount !== undefined && !isNonNegativeInt(skipCount)) return null
+  if (stopAfter !== undefined && !isNonNegativeInt(stopAfter)) return null
 
   let parsedModify: MockRuleModify | undefined
   if (modify !== undefined) {
     const m = parseMockRuleModify(modify)
     if (!m) return null
     parsedModify = m
+  }
+
+  let parsedFailure: MockFailure | undefined
+  if (failure !== undefined) {
+    const f = parseMockFailure(failure)
+    if (!f) return null
+    parsedFailure = f
   }
 
   const parsedResponse = parseMockResponse(response)
@@ -221,6 +243,9 @@ function parseMockRuleInput(v: unknown): (MockRuleInput & { id: string }) | null
     redirectTo: redirectTo as string | undefined,
     block: block as boolean | undefined,
     modify: parsedModify,
+    failure: parsedFailure,
+    skipCount: skipCount as number | undefined,
+    stopAfter: stopAfter as number | undefined,
   }
 }
 
