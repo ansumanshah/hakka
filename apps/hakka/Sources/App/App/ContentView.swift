@@ -40,6 +40,36 @@ struct ContentView: View {
             actions: {},
             message: { Text(model.environment.lastError ?? "") },
         )
+        .alert(
+            "Compare Sessions",
+            isPresented: sessionCompareErrorPresented,
+            actions: {},
+            message: { Text(model.sessionCompare.lastError ?? "") },
+        )
+        .sheet(isPresented: sessionComparePresented) {
+            if let diff = model.sessionCompare.diff {
+                SessionCompareView(
+                    diff: diff,
+                    beforeName: model.sessionCompare.beforeName ?? "Before",
+                    afterName: model.sessionCompare.afterName ?? "After",
+                    dismiss: { model.sessionCompare.dismiss() },
+                )
+            }
+        }
+    }
+
+    private var sessionComparePresented: Binding<Bool> {
+        Binding(
+            get: { model.sessionCompare.diff != nil },
+            set: { isPresented in if !isPresented { model.sessionCompare.dismiss() } },
+        )
+    }
+
+    private var sessionCompareErrorPresented: Binding<Bool> {
+        Binding(
+            get: { model.sessionCompare.lastError != nil },
+            set: { isPresented in if !isPresented { model.sessionCompare.clearError() } },
+        )
     }
 
     private var collectionErrorPresented: Binding<Bool> {
