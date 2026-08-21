@@ -1,7 +1,12 @@
 {
   "extends": "../../tsconfig.json",
   "include": ["src/**/*", "../hakka-core/src/**/*"],
-  "exclude": ["src/**/__tests__", "src/**/__mocks__", "../hakka-core/src/**/*.test.ts"],
+  "exclude": [
+    "src/**/__tests__",
+    "src/**/__mocks__",
+    "../hakka-core/src/**/*.test.ts",
+    "../hakka-core/src/**/__tests__/**"
+  ],
   "compilerOptions": {
     "paths": {
       "hakka-core": ["../hakka-core/src/index.ts"]

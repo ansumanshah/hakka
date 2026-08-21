@@ -20,7 +20,48 @@ const EXTERNAL_ID_RE = /^[A-Za-z0-9_-]{1,64}$/
 
 const THROTTLE_PROFILES: ReadonlySet<string> = new Set(['none', 'fast-3g', 'slow-3g', 'offline', 'edge', 'custom'])
 const BREAKPOINT_PHASES: ReadonlySet<string> = new Set(['request', 'response', 'both'])
+/** A live pause is always at one concrete phase — never `both` (that's a rule-matching concept, not a paused-entry one). */
+const PAUSE_PHASES: ReadonlySet<string> = new Set(['request', 'response'])
 const MOCK_MODES: ReadonlySet<string> = new Set(['mock', 'rewrite'])
+
+/** Pause ids are minted by the pausing device, not charset-restricted like external ids — just bounded so a hostile peer can't wedge a huge string into engine state. */
+const MAX_PAUSE_ID_LEN = 256
+const MAX_DEVICE_LEN = 256
+
+/** The paused request's context — present for every `breakpoint.paused` frame regardless of phase. */
+export interface BreakpointPausedRequest {
+  url: string
+  method: string
+  headers: Record<string, string>
+  body?: string
+}
+
+/**
+ * The paused response snapshot — present only when `phase` is `'response'`.
+ * `body` is required (not optional) — it mirrors `PausedResponse.body` in
+ * `BreakpointEngine.ts`, which is always a string (already read from the
+ * real response before pausing), never absent.
+ */
+export interface BreakpointPausedResponse {
+  status: number
+  headers: Record<string, string>
+  body: string
+}
+
+/** Edits to apply to a request-phase pause on resume. All fields optional — absent means "keep original". */
+export interface BreakpointRequestEdits {
+  url?: string
+  method?: string
+  headers?: Record<string, string>
+  body?: string
+}
+
+/** Edits to apply to a response-phase pause on resume. All fields optional — absent means "keep original". */
+export interface BreakpointResponseEdits {
+  status?: number
+  headers?: Record<string, string>
+  body?: string
+}
 
 export type ControlCommand =
   | { kind: 'mock.add'; rule: MockRuleInput & { id: string } }
@@ -28,8 +69,42 @@ export type ControlCommand =
   | { kind: 'mock.clear' }
   | { kind: 'breakpoint.add'; breakpoint: BreakpointInput & { id: string } }
   | { kind: 'breakpoint.remove'; id: string }
+  | {
+      /**
+       * Device -> host only. Sent by the paused device when a breakpoint
+       * fires; a host must never construct/send this (see
+       * `isDeviceToHostCommand`) and a device must never "apply" one of its
+       * own (see `applyControlCommand`'s refusal below).
+       */
+      kind: 'breakpoint.paused'
+      pauseId: string
+      ruleId?: string
+      phase: 'request' | 'response'
+      device: string
+      request: BreakpointPausedRequest
+      response?: BreakpointPausedResponse
+    }
+  | {
+      /** Host -> device. Releases a pause, optionally with edits matching the pause's own phase. */
+      kind: 'breakpoint.resume'
+      pauseId: string
+      requestEdits?: BreakpointRequestEdits
+      responseEdits?: BreakpointResponseEdits
+    }
+  | { kind: 'breakpoint.abort'; pauseId: string }
   | { kind: 'throttle.set'; profile: ThrottleProfile; latencyMs?: number; downloadKbps?: number }
   | { kind: 'request.replay'; requestId: string; replayMarker?: string }
+
+/**
+ * `breakpoint.paused` is the one command kind that travels device -> host;
+ * every other kind travels host -> device. This is the single source of
+ * truth for that split — the host-side send seam (`dispatch()` in
+ * `packages/hakka/src/mcp/tools/controlDispatch.ts`) refuses to transmit a
+ * command this returns `true` for.
+ */
+export function isDeviceToHostCommand(cmd: ControlCommand): boolean {
+  return cmd.kind === 'breakpoint.paused'
+}
 
 // Parsing below is strict and never throws.
 
@@ -149,6 +224,57 @@ function parseMockRuleInput(v: unknown): (MockRuleInput & { id: string }) | null
   }
 }
 
+function isPauseId(v: unknown): v is string {
+  return typeof v === 'string' && v.length > 0 && v.length <= MAX_PAUSE_ID_LEN
+}
+
+function parseBreakpointPausedRequest(v: unknown): BreakpointPausedRequest | null {
+  if (!isPlainObject(v)) return null
+  const { url, method, headers, body } = v
+  if (typeof url !== 'string' || url.length === 0) return null
+  if (typeof method !== 'string' || method.length === 0) return null
+  if (!isHeaders(headers)) return null
+  if (body !== undefined && typeof body !== 'string') return null
+  return { url, method, headers: headers as Record<string, string>, body: body as string | undefined }
+}
+
+function parseBreakpointPausedResponse(v: unknown): BreakpointPausedResponse | null {
+  if (!isPlainObject(v)) return null
+  const { status, headers, body } = v
+  if (typeof status !== 'number' || !Number.isFinite(status)) return null
+  if (!isHeaders(headers)) return null
+  if (typeof body !== 'string') return null
+  return { status, headers: headers as Record<string, string>, body }
+}
+
+function parseBreakpointRequestEdits(v: unknown): BreakpointRequestEdits | null {
+  if (!isPlainObject(v)) return null
+  const { url, method, headers, body } = v
+  if (url !== undefined && typeof url !== 'string') return null
+  if (method !== undefined && typeof method !== 'string') return null
+  if (headers !== undefined && !isHeaders(headers)) return null
+  if (body !== undefined && typeof body !== 'string') return null
+  return {
+    url: url as string | undefined,
+    method: method as string | undefined,
+    headers: headers as Record<string, string> | undefined,
+    body: body as string | undefined,
+  }
+}
+
+function parseBreakpointResponseEdits(v: unknown): BreakpointResponseEdits | null {
+  if (!isPlainObject(v)) return null
+  const { status, headers, body } = v
+  if (status !== undefined && (typeof status !== 'number' || !Number.isFinite(status))) return null
+  if (headers !== undefined && !isHeaders(headers)) return null
+  if (body !== undefined && typeof body !== 'string') return null
+  return {
+    status: status as number | undefined,
+    headers: headers as Record<string, string> | undefined,
+    body: body as string | undefined,
+  }
+}
+
 function parseBreakpointInput(v: unknown): (BreakpointInput & { id: string }) | null {
   if (!isPlainObject(v)) return null
   const { id, pattern, method, on, enabled } = v
@@ -199,6 +325,57 @@ export function parseControlCommand(raw: unknown): ControlCommand | null {
       case 'breakpoint.remove': {
         if (!isExternalId(raw.id)) return null
         return { kind: 'breakpoint.remove', id: raw.id }
+      }
+      case 'breakpoint.paused': {
+        const { pauseId, ruleId, phase, device, request, response } = raw
+        if (!isPauseId(pauseId)) return null
+        if (ruleId !== undefined && !isExternalId(ruleId)) return null
+        if (typeof phase !== 'string' || !PAUSE_PHASES.has(phase)) return null
+        if (typeof device !== 'string' || device.length === 0 || device.length > MAX_DEVICE_LEN) return null
+        const parsedRequest = parseBreakpointPausedRequest(request)
+        if (!parsedRequest) return null
+        let parsedResponse: BreakpointPausedResponse | undefined
+        if (response !== undefined) {
+          const r = parseBreakpointPausedResponse(response)
+          if (!r) return null
+          parsedResponse = r
+        }
+        return {
+          kind: 'breakpoint.paused',
+          pauseId,
+          ruleId: ruleId as string | undefined,
+          phase: phase as 'request' | 'response',
+          device,
+          request: parsedRequest,
+          response: parsedResponse,
+        }
+      }
+      case 'breakpoint.resume': {
+        const { pauseId, requestEdits, responseEdits } = raw
+        if (!isPauseId(pauseId)) return null
+        let parsedRequestEdits: BreakpointRequestEdits | undefined
+        if (requestEdits !== undefined) {
+          const r = parseBreakpointRequestEdits(requestEdits)
+          if (!r) return null
+          parsedRequestEdits = r
+        }
+        let parsedResponseEdits: BreakpointResponseEdits | undefined
+        if (responseEdits !== undefined) {
+          const r = parseBreakpointResponseEdits(responseEdits)
+          if (!r) return null
+          parsedResponseEdits = r
+        }
+        return {
+          kind: 'breakpoint.resume',
+          pauseId,
+          requestEdits: parsedRequestEdits,
+          responseEdits: parsedResponseEdits,
+        }
+      }
+      case 'breakpoint.abort': {
+        const { pauseId } = raw
+        if (!isPauseId(pauseId)) return null
+        return { kind: 'breakpoint.abort', pauseId }
       }
       case 'throttle.set': {
         const { profile, latencyMs, downloadKbps } = raw
@@ -258,6 +435,20 @@ export function applyControlCommand(cmd: ControlCommand): { ok: true } | { ok: f
       }
       case 'breakpoint.remove': {
         breakpointEngine.removeBreakpoint(cmd.id)
+        return { ok: true }
+      }
+      case 'breakpoint.paused': {
+        // Device-to-host only (see `isDeviceToHostCommand`) — a device
+        // applying its own pause notification is a protocol bug, not
+        // something to silently no-op. Still must never throw.
+        return { ok: false, error: 'breakpoint.paused travels device to host only; a device must never apply it' }
+      }
+      case 'breakpoint.resume': {
+        breakpointEngine.resume(cmd.pauseId, cmd.requestEdits ?? cmd.responseEdits)
+        return { ok: true }
+      }
+      case 'breakpoint.abort': {
+        breakpointEngine.abort(cmd.pauseId)
         return { ok: true }
       }
       case 'throttle.set': {

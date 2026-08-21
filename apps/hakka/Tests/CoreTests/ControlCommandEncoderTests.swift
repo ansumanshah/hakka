@@ -55,6 +55,34 @@ struct ControlCommandEncoderTests {
                 #"{"id":"bp-ext-1","kind":"breakpoint.remove"}"#
             ),
             (
+                "breakpoint.abort",
+                ControlCommand.breakpointAbort(pauseId: "pause_1"),
+                #"{"kind":"breakpoint.abort","pauseId":"pause_1"}"#
+            ),
+            (
+                "breakpoint.resume with no edits",
+                ControlCommand.breakpointResume(pauseId: "pause_1", requestEdits: nil, responseEdits: nil),
+                #"{"kind":"breakpoint.resume","pauseId":"pause_1"}"#
+            ),
+            (
+                "breakpoint.resume with requestEdits only",
+                ControlCommand.breakpointResume(
+                    pauseId: "pause_1",
+                    requestEdits: BreakpointRequestEdits(method: "POST"),
+                    responseEdits: nil
+                ),
+                #"{"kind":"breakpoint.resume","pauseId":"pause_1","requestEdits":{"method":"POST"}}"#
+            ),
+            (
+                "breakpoint.resume with responseEdits only",
+                ControlCommand.breakpointResume(
+                    pauseId: "pause_1",
+                    requestEdits: nil,
+                    responseEdits: BreakpointResponseEdits(status: 500, headers: ["x-a": "1"])
+                ),
+                #"{"kind":"breakpoint.resume","pauseId":"pause_1","responseEdits":{"headers":{"x-a":"1"},"status":500}}"#
+            ),
+            (
                 "throttle.set none",
                 ControlCommand.throttleSet(profile: .none, latencyMs: nil, downloadKbps: nil),
                 #"{"kind":"throttle.set","profile":"none"}"#
@@ -148,6 +176,17 @@ struct ControlCommandEncoderTests {
             id: "rt-bp",
             breakpoint: BreakpointInput(pattern: "/checkout", method: "post", on: .response, enabled: false)
         ),
+        ControlCommand.breakpointResume(
+            pauseId: "rt-pause-1",
+            requestEdits: BreakpointRequestEdits(url: "https://api.example.com/x", method: "POST", headers: ["x-a": "b"], body: "{}"),
+            responseEdits: nil
+        ),
+        ControlCommand.breakpointResume(
+            pauseId: "rt-pause-2",
+            requestEdits: nil,
+            responseEdits: BreakpointResponseEdits(status: 500, headers: ["x-a": "b"], body: "err")
+        ),
+        ControlCommand.breakpointAbort(pauseId: "rt-pause-3"),
         ControlCommand.throttleSet(profile: .custom, latencyMs: 777, downloadKbps: 42),
         ControlCommand.throttleSet(profile: .offline, latencyMs: nil, downloadKbps: nil),
     ])
@@ -182,6 +221,45 @@ struct ControlCommandEncoderTests {
         }
         #expect(throws: ControlWireError.invalidRuleID(id)) {
             _ = try ControlCommandEncoder.encodePayload(.breakpointRemove(id: id))
+        }
+    }
+
+    @Test("empty pauseId throws instead of encoding, unlike an external id it is not charset-restricted")
+    func emptyPauseIDThrows() {
+        #expect(throws: ControlWireError.invalidRuleID("")) {
+            _ = try ControlCommandEncoder.encodePayload(.breakpointAbort(pauseId: ""))
+        }
+        #expect(throws: ControlWireError.invalidRuleID("")) {
+            _ = try ControlCommandEncoder.encodePayload(.breakpointResume(pauseId: "", requestEdits: nil, responseEdits: nil))
+        }
+    }
+
+    /// Unlike `mock.add`/`breakpoint.add` ids, a pause id is minted by the
+    /// device — a colon or unicode character must NOT throw here (only
+    /// emptiness does). Confirms the encoder does not over-apply the
+    /// external-id charset rule to pause ids.
+    @Test("pause ids are not charset-restricted like external ids")
+    func pauseIDsSkipTheExternalIDCharset() throws {
+        let data = try ControlCommandEncoder.encodePayload(.breakpointAbort(pauseId: "device:pause#7"))
+        #expect(data == Data(#"{"kind":"breakpoint.abort","pauseId":"device:pause#7"}"#.utf8))
+    }
+
+    /// `breakpoint.paused` is device -> host only — the encoder must refuse
+    /// to produce it rather than silently emitting a frame no device would
+    /// ever receive from a host.
+    @Test("breakpoint.paused throws unsupportedDirection instead of encoding")
+    func breakpointPausedThrowsUnsupportedDirection() {
+        #expect(throws: ControlWireError.unsupportedDirection("breakpoint.paused")) {
+            _ = try ControlCommandEncoder.encodePayload(
+                .breakpointPaused(
+                    pauseId: "pause_1",
+                    ruleId: nil,
+                    phase: .request,
+                    device: "ios-simulator",
+                    request: BreakpointPausedRequestSnapshot(url: "https://api.example.com/x", method: "GET", headers: [:]),
+                    response: nil
+                )
+            )
         }
     }
 
@@ -247,6 +325,8 @@ struct ControlCommandEncoderTests {
         #"{"kind":"throttle.set","profile":"super-fast"}"#,
         #"{"kind":"breakpoint.add","breakpoint":{"id":"a","pattern":"/x","on":"sometimes","enabled":true}}"#,
         #"{"kind":"mock.add","rule":{"id":"a","pattern":"/x","mode":"bogus","enabled":true,"response":{"status":200,"body":""}}}"#,
+        #"{"kind":"breakpoint.paused","pauseId":"p1","phase":"both","device":"x","request":{"url":"u","method":"GET","headers":{}}}"#,
+        #"{"kind":"breakpoint.paused","pauseId":"p1","phase":"sideways","device":"x","request":{"url":"u","method":"GET","headers":{}}}"#,
     ])
     func unknownEnumValuesAreDropped(_ payloadJSON: String) throws {
         let payload = try #require(try JSONSerialization.jsonObject(with: Data(payloadJSON.utf8)))
