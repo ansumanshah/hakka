@@ -38,6 +38,11 @@ struct RequestDiffView: View {
             }
         }
         .frame(minWidth: 640, minHeight: 460)
+        // Escape closes the diff, matching every other dismissible surface
+        // in the app (`SessionCompareView`'s "Done" already uses
+        // `.cancelAction`) — `onExitCommand` is the modifier macOS reserves
+        // for exactly this, independent of which control has focus.
+        .onExitCommand(perform: dismiss)
     }
 
     private var header: some View {

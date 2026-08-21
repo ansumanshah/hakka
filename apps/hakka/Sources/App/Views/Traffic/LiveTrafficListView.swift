@@ -7,6 +7,10 @@ import SwiftUI
 /// collection promotion this app exists for.
 struct LiveTrafficListView: View {
     @Environment(AppModel.self) private var model
+    /// So arrow keys move the selection the moment this pane appears,
+    /// rather than only after the user clicks a row once to give the list
+    /// keyboard focus — reading traffic is a keyboard-first scan loop.
+    @FocusState private var listFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -24,25 +28,53 @@ struct LiveTrafficListView: View {
                     title: "No matching requests",
                     message: emptyMessage,
                 )
+            } else if model.traffic.displayMode == .table, #available(macOS 14.4, *) {
+                LiveTrafficTableView()
             } else {
-                List(selection: selectionBinding) {
-                    ForEach(model.traffic.visibleRequests, id: \.id) { request in
-                        LiveTrafficRowView(request: request, deviceLabel: model.traffic.deviceLabel(for: request.id))
-                            .tag(request.id)
-                            .contextMenu {
-                                Button("Save to Collection") { model.saveCaptured(request) }
-                                Button("Compare with Selected") {
-                                    model.traffic.comparisonBaselineID = request.id
-                                }
-                                .disabled(!canCompare(with: request))
-                                Divider()
-                                Button(noiseMenuTitle(for: request)) { toggleMute(request) }
-                            }
-                    }
-                }
-                .listStyle(.plain)
+                // Table mode's `TableColumnForEach` needs macOS 14.4; the
+                // package floor stays 14.0 (a deployment-target bump is a
+                // business call the owner hasn't made, not something a
+                // column-resize affordance gets to force), so a 14.0-14.3
+                // user — or `displayMode` persisted as `.table` from a
+                // newer machine — falls back here instead of losing the
+                // pane. List mode is the default and loses nothing.
+                listView
             }
         }
+    }
+
+    private var listView: some View {
+        List(selection: selectionBinding) {
+            ForEach(model.traffic.visibleRequests, id: \.id) { request in
+                LiveTrafficRowView(request: request, deviceLabel: model.traffic.deviceLabel(for: request.id))
+                    .tag(request.id)
+                    .contextMenu {
+                        Button("Save to Collection") { model.saveCaptured(request) }
+                        Button("Compare with Selected") {
+                            model.traffic.comparisonBaselineID = request.id
+                        }
+                        .disabled(!canCompare(with: request))
+                        Divider()
+                        Button(noiseMenuTitle(for: request)) { toggleMute(request) }
+                    }
+            }
+        }
+        .listStyle(.plain)
+        .focused($listFocused)
+        .onAppear { seedSelectionIfNeeded() }
+        .onChange(of: model.traffic.visibleRequests.map(\.id)) { _, _ in seedSelectionIfNeeded() }
+        .task { listFocused = true }
+    }
+
+    /// Up/Down only moves an *existing* selection — with none set, the
+    /// first arrow press would otherwise do nothing. Pre-selecting the
+    /// newest row (the list's first, since it's newest-first) means arrow
+    /// keys work the instant the pane appears, same as Mail's message list.
+    private func seedSelectionIfNeeded() {
+        guard model.traffic.selectedRequestID == nil,
+              let first = model.traffic.visibleRequests.first
+        else { return }
+        model.traffic.selectedRequestID = first.id
     }
 
     private var selectionBinding: Binding<String?> {
