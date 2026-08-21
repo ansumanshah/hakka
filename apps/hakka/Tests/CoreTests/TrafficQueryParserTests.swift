@@ -60,6 +60,29 @@ struct TrafficQueryParserTests {
         #expect(query.tokens.map(\.value) == ["users"])
     }
 
+    /// `device:` has no matching behavior in `TrafficQueryCompiler` — device
+    /// identity lives only in the desktop app's `DeviceLabelIndex`, never on
+    /// `NetworkRequest` — so this only checks the parser side of the
+    /// contract: the term is recognised, removed from free text, and its
+    /// negation flag round-trips like every other named filter's.
+    @Test("device is recognised as a named filter, not free text")
+    func deviceFilter() {
+        let query = TrafficQueryParser.parse(#"device:"Device 2" users"#)
+
+        #expect(query.device == "device 2")
+        #expect(query.deviceNegate == false)
+        #expect(query.tokens.map(\.value) == ["users"])
+    }
+
+    @Test("a negated device filter is recognised, not degraded to free text")
+    func negatedDeviceFilter() {
+        let query = TrafficQueryParser.parse("-device:Device1")
+
+        #expect(query.device == "device1")
+        #expect(query.deviceNegate == true)
+        #expect(query.tokens.isEmpty)
+    }
+
     @Test("duration bounds honour inclusive and exclusive comparators")
     func durationRanges() {
         #expect(TrafficQueryParser.parse("dur>100").durationMin == 101)

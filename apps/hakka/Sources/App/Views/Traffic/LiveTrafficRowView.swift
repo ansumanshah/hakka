@@ -2,11 +2,17 @@ import HakkaCommon
 import HakkaCore
 import SwiftUI
 
-/// Compact single-line row: method, status, URL, duration. The left-edge
-/// stripe encodes severity at a glance — chili for failures, turmeric for
-/// 4xx — matching the traffic grammar on the other four platforms.
+/// Compact single-line row: method, status, URL, device, duration. The
+/// left-edge stripe encodes severity at a glance — chili for failures,
+/// turmeric for 4xx — matching the traffic grammar on the other four
+/// platforms. `deviceLabel` is the one thing no other platform can show:
+/// which connected device this row came from (see `BridgeDeviceLabel`).
 struct LiveTrafficRowView: View {
     let request: NetworkRequest
+    /// nil for a request the bridge never attributed (e.g. one restored
+    /// from an imported session) — the tag is simply omitted, never shown
+    /// as a guess.
+    let deviceLabel: String?
 
     var body: some View {
         HStack(spacing: 8) {
@@ -23,6 +29,9 @@ struct LiveTrafficRowView: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
             Spacer()
+            if let deviceLabel {
+                DeviceTagView(label: deviceLabel)
+            }
             Text(Fmt.duration(request.duration))
                 .font(.caption)
                 .foregroundStyle(.secondary)

@@ -9,6 +9,9 @@ import SwiftUI
 /// by `DetailTab`.
 struct NetworkRequestDetailView: View {
     let record: NetworkRequest
+    /// nil for a manually-sent request (no bridge peer) or an imported
+    /// session's record — see `DetailOverviewSection`.
+    let deviceLabel: String?
 
     @State private var activeTab: DetailTab = .overview
 
@@ -22,8 +25,9 @@ struct NetworkRequestDetailView: View {
     /// event array, which is not a shape usage parses from.
     private let llmUsage: LlmUsage?
 
-    init(record: NetworkRequest) {
+    init(record: NetworkRequest, deviceLabel: String? = nil) {
         self.record = record
+        self.deviceLabel = deviceLabel
         self.requestBody = RecordBodyExtractor.requestBody(from: record)
         self.responseBody = RecordBodyExtractor.responseBody(from: record)
         self.llmUsage = parseLlmUsage(record.responseBody, provider: detectLlmProvider(url: record.url)?.id)
@@ -42,7 +46,7 @@ struct NetworkRequestDetailView: View {
         switch activeTab {
         case .overview:
             VStack(alignment: .leading, spacing: 16) {
-                DetailOverviewSection(record: record)
+                DetailOverviewSection(record: record, deviceLabel: deviceLabel)
                 if let llmUsage {
                     LlmUsageSectionView(usage: llmUsage)
                 }

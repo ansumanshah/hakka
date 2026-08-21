@@ -84,7 +84,7 @@ struct DetailPaneView: View {
                             onMock: { model.promoteCapturedToMock(request) },
                             mockNote: model.mockPromotionNote
                         )
-                        NetworkRequestDetailView(record: request)
+                        NetworkRequestDetailView(record: request, deviceLabel: model.traffic.deviceLabel(for: request.id))
                             .id(request.id)
                     }
                     .padding(16)

@@ -3,6 +3,9 @@ import SwiftUI
 
 struct DetailOverviewSection: View {
     let record: NetworkRequest
+    /// nil when this record wasn't attributed to a device — a manually-sent
+    /// request from the editor, or one restored from an imported session.
+    let deviceLabel: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -32,6 +35,9 @@ struct DetailOverviewSection: View {
                 metric("Response", Fmt.bytes(record.responseBodySize))
                 if let networkProtocol = record.networkProtocol {
                     metric("Protocol", networkProtocol)
+                }
+                if let deviceLabel {
+                    metric("Device", deviceLabel)
                 }
             }
         }

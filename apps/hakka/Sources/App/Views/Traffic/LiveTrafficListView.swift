@@ -26,7 +26,7 @@ struct LiveTrafficListView: View {
             } else {
                 List(selection: selectionBinding) {
                     ForEach(model.traffic.visibleRequests, id: \.id) { request in
-                        LiveTrafficRowView(request: request)
+                        LiveTrafficRowView(request: request, deviceLabel: model.traffic.deviceLabel(for: request.id))
                             .tag(request.id)
                             .contextMenu {
                                 Button("Save to Collection") { model.saveCaptured(request) }

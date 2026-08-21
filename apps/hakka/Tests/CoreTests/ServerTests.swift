@@ -151,6 +151,34 @@ struct BridgeHubTests {
         var iterator = hub.requests.makeAsyncIterator() // `requests` is `nonisolated` — no actor hop needed
         let received = await iterator.next()
         #expect(received?.id == "req-42")
+        #expect(received?.peerID == sender.id)
+        #expect(received?.deviceLabel == "Device 1", "the first peer ever seen must get the first device label")
+    }
+
+    /// `BridgeDeviceLabeler`'s contract, exercised through `ingest` rather
+    /// than directly: distinct peers get distinct, stable-per-peer labels,
+    /// assigned in the order their first frame arrives.
+    @Test func distinctSendersGetDistinctStableDeviceLabels() async {
+        let hub = BridgeHub()
+        let peerA = FakeBridgePeer()
+        let peerB = FakeBridgePeer()
+        await hub.addPeer(peerA)
+        await hub.addPeer(peerB)
+
+        var iterator = hub.requests.makeAsyncIterator()
+
+        _ = await hub.ingest(requestFrameJSON(id: "a-1"), from: peerA.id)
+        let fromA1 = await iterator.next()
+
+        _ = await hub.ingest(requestFrameJSON(id: "b-1"), from: peerB.id)
+        let fromB1 = await iterator.next()
+
+        _ = await hub.ingest(requestFrameJSON(id: "a-2"), from: peerA.id)
+        let fromA2 = await iterator.next()
+
+        #expect(fromA1?.deviceLabel == "Device 1")
+        #expect(fromB1?.deviceLabel == "Device 2")
+        #expect(fromA2?.deviceLabel == "Device 1", "the same peer's later frame keeps its original label")
     }
 
     @Test func malformedFrameIsDroppedNotRelayed() async {
