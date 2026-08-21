@@ -86,9 +86,9 @@ global mock on/off flag; an empty rule list is a no-op.
 
 SPEC §5 row "Mocking / throttle" (footnotes 5, 6):
 
-| Capability         | RN  | iOS | Android | Web |
-| ------------------ | --- | --- | ------- | --- |
-| Mocking / throttle | ●   | ●   | ●       | ●   |
+| Capability         | RN  | iOS | Android | Web | Mac app |
+| ------------------ | --- | --- | ------- | --- | ------- |
+| Mocking / throttle | ●   | ●   | ●       | ●   | ●       |
 
 iOS: mock rules (block / canned response / redirectTo / declarative `modify`, per-rule delay).
 `redirectTo`/`modify` route the match through `HakkaURLProtocol`'s passthrough-then-transform

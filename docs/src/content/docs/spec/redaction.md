@@ -60,9 +60,9 @@ separately (not a `HakkaConfig` key) via `configureBodyRedaction()`.
 Not a distinct row in SPEC §5 — verified directly against per-platform sources rather than a
 table cell:
 
-| Capability | RN  | iOS | Android | Web |
-| ---------- | --- | --- | ------- | --- |
-| Redaction  | ●   | ●   | ●       | ●   |
+| Capability | RN  | iOS | Android | Web | Mac app |
+| ---------- | --- | --- | ------- | --- | ------- |
+| Redaction  | ●   | ●   | ●       | ●   | ◐       |
 
 iOS ships `Network/Redaction.swift`; Android ships `hakka-common/LogRedaction.kt`
 (`LogRedactionTest.kt`) and `HakkaInterceptor.redactBodyFields`. All four platforms apply header

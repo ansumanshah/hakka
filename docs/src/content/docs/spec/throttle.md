@@ -45,9 +45,9 @@ Presets (`latencyMs`, `downloadKbps`) from `packages/hakka-core/src/engine/Throt
 
 SPEC §5 row "Mocking / throttle" (footnotes 5, 6) — throttle shares its parity row with mocking:
 
-| Capability         | RN  | iOS | Android | Web |
-| ------------------ | --- | --- | ------- | --- |
-| Mocking / throttle | ●   | ●   | ●       | ●   |
+| Capability         | RN  | iOS | Android | Web | Mac app |
+| ------------------ | --- | --- | ------- | --- | ------- |
+| Mocking / throttle | ●   | ●   | ●       | ●   | ●       |
 
 iOS and Android both ship the same named profiles (fast-3g / slow-3g / edge / offline) with
 latency **and** bandwidth drip applied to real requests (iOS via `URLProtocol`, Android via an

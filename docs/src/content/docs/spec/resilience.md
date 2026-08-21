@@ -28,10 +28,10 @@ Two behaviors keep the inspector a safe guest in a host app:
 
 ## Platform matrix
 
-| Capability              | RN  | iOS | Android | Web |
-| ----------------------- | --- | --- | ------- | --- |
-| Crash containment       | ●   | —   | —       | ●   |
-| Stale-body revalidation | ○   | ⊘   | ⊘       | ●   |
+| Capability              | RN  | iOS | Android | Web | Mac app |
+| ----------------------- | --- | --- | ------- | --- | ------- |
+| Crash containment       | ●   | —   | —       | ●   | —       |
+| Stale-body revalidation | ○   | ⊘   | ⊘       | ●   | ⊘       |
 
 iOS/Android native panels read bodies in-process with no async gap, so stale-body
 revalidation has nothing to revalidate (out of scope by design), and inspector crash

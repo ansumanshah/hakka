@@ -52,9 +52,9 @@ hub.size
 
 SPEC §5 row "Bridge to hub" (footnote 8):
 
-| Capability    | RN  | iOS | Android | Web |
-| ------------- | --- | --- | ------- | --- |
-| Bridge to hub | ●   | ●   | ●       | ●   |
+| Capability    | RN  | iOS | Android | Web | Mac app |
+| ------------- | --- | --- | ------- | --- | ------- |
+| Bridge to hub | ●   | ●   | ●       | ●   | ●       |
 
 All three native platforms stream canonical `{ type: 'request', payload }` frames to the hub: RN
 via `HakkaBridge` (WebSocket client, TS), iOS via `HakkaBridgeClient` (Swift,

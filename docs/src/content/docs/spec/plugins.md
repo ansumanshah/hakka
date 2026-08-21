@@ -62,9 +62,9 @@ None — plugins are registered imperatively via `Hakka.use()`, not through `Hak
 
 SPEC §5 row "Plugin system":
 
-| Capability    | RN  | iOS | Android | Web |
-| ------------- | --- | --- | ------- | --- |
-| Plugin system | ●   | ●   | ●       | ●   |
+| Capability    | RN  | iOS | Android | Web | Mac app |
+| ------------- | --- | --- | ------- | --- | ------- |
+| Plugin system | ●   | ●   | ●       | ●   | —       |
 
 SPEC marks the RN cell `●(core)` — RN consumes the same core-TS plugin system directly (no
 separate RN-native plugin layer); iOS and Android ship their own native equivalents.

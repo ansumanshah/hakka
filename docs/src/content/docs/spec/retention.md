@@ -55,9 +55,9 @@ high-throughput caller trade a bounded amount of retention slop for fewer sweeps
 SPEC §5 row "Pause/resume" (footnote 2) — the closest matrix row, since retention's
 buffer/eviction behavior and pause/resume both live in the same ring-buffer gate:
 
-| Capability   | RN  | iOS | Android | Web |
-| ------------ | --- | --- | ------- | --- |
-| Pause/resume | ●   | ●   | ●       | ●   |
+| Capability   | RN  | iOS | Android | Web | Mac app |
+| ------------ | --- | --- | ------- | --- | ------- |
+| Pause/resume | ●   | ●   | ●       | ●   | ●       |
 
 RN native-mode `pause`/`resume` forwards through the `HakkaMonitor` TurboModule
 (`HakkaInterceptor.pause()` on iOS, `LogStore.pause()` via `HakkaInterceptor` on Android) — so

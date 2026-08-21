@@ -51,9 +51,9 @@ read/write/clear operation.
 
 SPEC §5 row "Storage panel":
 
-| Capability    | RN  | iOS | Android | Web |
-| ------------- | --- | --- | ------- | --- |
-| Storage panel | ●   | ●   | ●       | ●   |
+| Capability    | RN  | iOS | Android | Web | Mac app |
+| ------------- | --- | --- | ------- | --- | ------- |
+| Storage panel | ●   | ●   | ●       | ●   | —       |
 
 Per SPEC §2 (panel set): web covers localStorage/sessionStorage/cookies; RN covers
 AsyncStorage/MMKV (view + delete, **in-place edit** only on RN); iOS covers `UserDefaults`;

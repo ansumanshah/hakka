@@ -52,9 +52,9 @@ rule list is a no-op.
 
 SPEC §5 row "Breakpoints" (footnote 3):
 
-| Capability  | RN  | iOS | Android | Web |
-| ----------- | --- | --- | ------- | --- |
-| Breakpoints | ●   | ●   | ●       | ●   |
+| Capability  | RN  | iOS | Android | Web | Mac app |
+| ----------- | --- | --- | ------- | --- | ------- |
+| Breakpoints | ●   | ●   | ●       | ●   | ●       |
 
 Request **and** response-phase breakpoints, pause-and-edit, no proxy or cert. The shared TS
 `breakpointEngine` (`hakka-core`) is consumed by the web overlay today; iOS

@@ -19,7 +19,7 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const specPath = join(repoRoot, 'SPEC.md')
 const specDocsDir = join(repoRoot, 'docs/src/content/docs/spec')
 
-const PLATFORMS = ['RN', 'iOS', 'Android', 'Web']
+const PLATFORMS = ['RN', 'iOS', 'Android', 'Web', 'Mac app']
 // DESIGN.md "No emojis" status marks: ● shipped, ◐ partial, ○ roadmap, — not
 // offered, ⊘ out of scope.
 const VALID_SYMBOLS = new Set(['●', '◐', '○', '—', '⊘'])
