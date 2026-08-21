@@ -100,6 +100,29 @@ final class RulesModel {
         }
     }
 
+    /// Freeze a captured response into a mock and install it.
+    ///
+    /// Sends BEFORE storing, which is the opposite order from `setEnabled`
+    /// and `remove` above, on purpose. Those two flip a control the user is
+    /// looking at, so the list has to move under their finger and roll back
+    /// if the send fails. Promotion has no such control: the user picked an
+    /// action on a captured request and waits for one note either way, so
+    /// there is nothing to keep responsive and no reason to admit a rule to
+    /// the store that no device ever received. `send` encodes through the
+    /// same `ControlCommandEncoder` that `add` validates with, so a payload
+    /// that survives the send cannot then be rejected by the store.
+    ///
+    /// Returns the number of devices written to. Zero is a real outcome, not
+    /// a failure: the rule is kept so it ships to the next device that
+    /// connects.
+    @discardableResult
+    func promote(_ request: NetworkRequest) async throws -> Int {
+        let entry = try CapturedMockConverter.entry(from: request)
+        let delivered = try await traffic.send(installCommand(for: entry))
+        try await traffic.rules.add(entry.payload, id: entry.id)
+        return delivered
+    }
+
     private func note(_ delivered: Int) {
         deliveryNote = delivered == 0
             ? "Saved — no devices connected"

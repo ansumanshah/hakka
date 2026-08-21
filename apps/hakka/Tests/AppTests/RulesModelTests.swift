@@ -131,3 +131,70 @@ struct RulesModelTests {
         #expect(model.deliveryNote == "Delivered to 1 device")
     }
 }
+
+/// Promotion sequences the other way round from the toggles above: send
+/// first, store on success. These pin that invariant, because the failure it
+/// prevents is invisible in the UI. A rule that entered the store after a
+/// failed send would sit in the Rules list looking installed forever.
+@Suite("RulesModel promotion")
+@MainActor
+struct RulesModelPromotionTests {
+    private func capture(status: Int? = 200, error: String? = nil) -> NetworkRequest {
+        NetworkRequest(
+            id: "cap-1",
+            url: "https://api.example.com/users?page=2",
+            method: .get,
+            status: status,
+            startTime: 0,
+            responseBody: "[]",
+            error: error
+        )
+    }
+
+    @Test func aFailedSendStoresNothing() async throws {
+        let channel = FakeControlChannel()
+        channel.sendResult = .failure(ControlWireError.encodingFailed("boom"))
+        let model = RulesModel(traffic: channel)
+
+        await #expect(throws: (any Error).self) { try await model.promote(capture()) }
+
+        let count = await channel.rules.count
+        #expect(count == 0, "a rule no device received must not appear in the Rules list")
+    }
+
+    @Test func aSuccessfulSendStoresTheRule() async throws {
+        let channel = FakeControlChannel()
+        let model = RulesModel(traffic: channel)
+
+        let delivered = try await model.promote(capture())
+
+        #expect(delivered == 1)
+        let count = await channel.rules.count
+        #expect(count == 1)
+    }
+
+    @Test func noDevicesConnectedStillStoresTheRule() async throws {
+        let channel = FakeControlChannel()
+        channel.sendResult = .success(0)
+        let model = RulesModel(traffic: channel)
+
+        let delivered = try await model.promote(capture())
+
+        #expect(delivered == 0)
+        let count = await channel.rules.count
+        #expect(count == 1, "zero devices is not a failure; the rule ships to the next one that connects")
+    }
+
+    @Test func anErroredCaptureIsRefusedBeforeAnythingIsSent() async throws {
+        let channel = FakeControlChannel()
+        let model = RulesModel(traffic: channel)
+
+        await #expect(throws: (any Error).self) {
+            try await model.promote(capture(status: nil, error: "connection refused"))
+        }
+
+        #expect(channel.sentCommands.isEmpty, "a failed capture has no response to freeze")
+        let count = await channel.rules.count
+        #expect(count == 0)
+    }
+}

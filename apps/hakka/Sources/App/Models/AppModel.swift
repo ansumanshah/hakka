@@ -101,17 +101,17 @@ final class AppModel {
     func promoteCapturedToMock(_ request: NetworkRequest) {
         Task {
             do {
-                let entry = try CapturedMockConverter.entry(from: request)
-                try await traffic.rules.add(entry.payload, id: entry.id)
-                let delivered = try await traffic.send(installCommand(for: entry))
+                let delivered = try await rules.promote(request)
                 mockPromotionNote = delivered == 0
                     ? "Mock saved — no devices connected"
                     : "Mock installed to \(delivered) device\(delivered == 1 ? "" : "s")"
             } catch {
                 mockPromotionNote = "Mock failed: \(error.localizedDescription)"
             }
+            let shown = mockPromotionNote
             try? await Task.sleep(for: .seconds(2.5))
-            mockPromotionNote = nil
+            // A second promotion during the window owns the note now.
+            if mockPromotionNote == shown { mockPromotionNote = nil }
         }
     }
 
