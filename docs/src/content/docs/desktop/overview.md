@@ -3,7 +3,7 @@ title: Hakka for macOS
 description: A native desktop app that is an API client and a live traffic inspector in one, with no proxy and no CA certificate.
 ---
 
-**Status: in development.** The core is built and tested (318 tests) and
+**Status: in development.** The core is built and tested (500 tests) and
 `Scripts/package_app.sh` produces a runnable `Hakka.app`, but there is no signed release
 yet. Track [ADR 0008](/contributing/adr/0008-desktop-plugin-products/) for the design
 and scope.
@@ -38,7 +38,7 @@ same surfaces ([ADR 0008](/contributing/adr/0008-desktop-plugin-products/)):
 
 | Product       | Contains                                                                                                                          |
 | ------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `HakkaCore`   | Collections, environments, the request runner, importers, code generators, the traffic store. No UI.                              |
+| `HakkaCore`   | Collections, environments, the request runner, importers, code generators, the traffic store, the trace store.                    |
 | `HakkaServer` | The bridge hub as a Swift actor — speaks the same wire protocol as `hakka-bridge`, so it replaces that process for desktop users. |
 | `Hakka`       | The SwiftUI app itself.                                                                                                           |
 
@@ -49,47 +49,27 @@ import.
 
 ## What it does
 
-**As an API client**
+**As an API client**, it is collections of files, environments, assertions and
+captures, cURL/Postman/OpenAPI/HAR import, code generation into six languages, a
+folder runner for smoke-testing a whole tree of requests in order, editor support for
+multipart, binary and GraphQL bodies, OAuth2 (client credentials, refresh, and
+authorization code with PKCE), and a per-run cookie jar. See
+[The API client](/desktop/api-client/).
 
-|                 |                                                                                                                                                                      |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Collections     | Folders and requests, each request its own file. Headers and auth inherit collection → folder → request.                                                             |
-| Environments    | Named variable sets with `{{name}}` interpolation. A request that references a variable with no value is refused rather than sent with the placeholder intact.       |
-| Assertions      | Declarative checks on status, duration, headers, JSON paths, and body text — no embedded scripting language, so they stay diffable and runnable headlessly.          |
-| Captures        | Pull a value out of a response into a variable, so a login request feeds the token to everything after it.                                                           |
-| Import          | cURL commands, Postman v2.1, OpenAPI 3, and HAR (including Hakka's own export).                                                                                      |
-| Code generation | cURL, JavaScript `fetch`, Swift `URLSession`, Python `requests`, Go `net/http`, HTTPie — each with a redacting mode so a snippet is safe to paste into a bug report. |
-| Cookies         | A private cookie jar per run, so a session survives a login and nothing ever touches your system cookie store. A `Cookie` header you set yourself always wins.       |
+**As an inspector**, it streams live traffic from your app — on this Mac or a device
+on the same network — with filtering, content-type-aware body viewers, a
+per-request timing waterfall, WebSocket frame consoles, gRPC frame inspection, LLM
+stream and token-usage display, structural diffing, and export. A deterministic,
+evidence-backed one-line diagnosis explains common failures (a 401 with no
+`Authorization` header, a 304 matched by `If-None-Match`, and others) without calling
+out to a model. See [The inspector](/desktop/inspector/).
 
-**As an inspector**
+**Cross-target tracing** puts a mobile request and the server calls it caused on one
+timeline, and labels which connected device produced each row. See
+[Trace and device attribution](/desktop/trace/).
 
-|              |                                                                                                                                                                          |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Live traffic | Streamed from your app over the bridge, on this Mac or a device on the same network.                                                                                     |
-| Filtering    | Method, status class, host, content type, duration and size thresholds, and text search across URL, headers, and body. Filters you use often can be saved as presets.    |
-| Bodies       | Content-type dispatch: JSON tree with syntax highlighting and search, image preview, hex dump, plain text. A display cap keeps a huge body from freezing the window.     |
-| Timing       | A per-request waterfall built from URLSession task metrics, so DNS, TLS, connect, time to first byte and download are measured rather than guessed.                      |
-| LLM streams  | A `text/event-stream` response gets its events assembled and its token usage surfaced. Capture keeps the tail of a stream, because that is where the usage numbers live. |
-| Diff         | Compare two requests structurally — status, headers added/removed/changed, and a line-level body diff.                                                                   |
-| Export       | HAR and session files, using the same field mapping the SDKs already use.                                                                                                |
-| Bridge hub   | Built in, so there is no separate `hakka-bridge` process to run. Bonjour advertises it to devices; LAN exposure is opt-in.                                               |
-
-## Rules, aimed at a running device
-
-The mock, breakpoint and throttle engines already ship inside every Hakka SDK.
-The desktop app is a way to drive them from your Mac, over the same bridge the
-traffic arrives on. No certificate is involved, because nothing is being
-intercepted: the engine doing the work is already inside your app.
-
-| Section     | What it does                                                                                                                                                                                                    |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Mocks       | Serve a canned response for matching requests. **Promote a real captured response into a mock in one action** — the move a proxy cannot make, because a proxy never had your app's response in the first place. |
-| Breakpoints | Install and remove breakpoint rules on the device. Pausing and editing a request in flight is not wired up yet.                                                                                                 |
-| Throttle    | One device-global network condition: a named profile or a custom latency and bandwidth pair.                                                                                                                    |
-
-Delivery is always reported, including "no devices connected". The wire is
-fire-and-forget with no acknowledgement, so silence would be indistinguishable
-from success.
+**Rules** — mocks, breakpoints, and throttle — run on the device's own SDK; the
+desktop drives them over the bridge. See [Rules over the bridge](/desktop/rules/).
 
 ## Collections are files
 

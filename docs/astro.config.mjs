@@ -167,6 +167,10 @@ export default defineConfig({
             'testing/overview',
             'cdp/overview',
             'desktop/overview',
+            'desktop/api-client',
+            'desktop/inspector',
+            'desktop/trace',
+            'desktop/rules',
           ],
         },
         {
