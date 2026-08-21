@@ -15,6 +15,7 @@ function controlledStream(): {
   stream: ReadableStream<Uint8Array>
   push: (text: string) => void
   close: () => void
+  error: () => void
 } {
   const enc = new TextEncoder()
   let ctrl!: ReadableStreamDefaultController<Uint8Array>
@@ -27,6 +28,7 @@ function controlledStream(): {
     stream,
     push: (text: string) => ctrl.enqueue(enc.encode(text)),
     close: () => ctrl.close(),
+    error: () => ctrl.error(new Error('connection reset')),
   }
 }
 
@@ -144,21 +146,17 @@ describe('captureSseBody — terminal emit', () => {
 })
 
 describe('captureSseBody — cap discipline (mirrors readCappedBody.ts cancel-at-cap)', () => {
-  it('cancels the stream instead of draining it once maxBodySize is crossed (pull-count pattern)', async () => {
+  it('drains a never-ending stream only up to the tail ceiling, then cancels (pull-count pattern)', async () => {
     const MAX = 100
     const enc = new TextEncoder()
-    const CHUNK = 'a'.repeat(50) // 2 pulls (100 chars) reaches the cap; a 3rd would cross it
-    const TOTAL_AVAILABLE_CHUNKS = 1000
+    const CHUNK = 'a'.repeat(64 * 1024) // 4MB past the cap is reached after ~64 pulls
     let pullCount = 0
     let cancelled = false
     const stream = new ReadableStream<Uint8Array>({
       pull(controller) {
         pullCount++
-        if (pullCount > TOTAL_AVAILABLE_CHUNKS) {
-          controller.close()
-          return
-        }
         controller.enqueue(enc.encode(CHUNK))
+        // Never closes — a rogue infinite stream.
       },
       cancel() {
         cancelled = true
@@ -169,15 +167,16 @@ describe('captureSseBody — cap discipline (mirrors readCappedBody.ts cancel-at
     await captureSseBody(new Response(stream), MAX, (u) => updates.push(u))
 
     expect(cancelled).toBe(true)
-    // Only a handful of pulls are needed to cross the cap — a count anywhere near TOTAL_AVAILABLE_CHUNKS would mean the stream was drained rather than cancelled.
-    expect(pullCount).toBeLessThan(10)
+    // ~64 pulls cover the 4MB drain ceiling; anything near the unbounded stream's
+    // total would mean capture forgot how to stop.
+    expect(pullCount).toBeLessThan(100)
 
     const final = updates[updates.length - 1]
     expect(final?.done).toBe(true)
     expect(final?.truncated).toBe(true)
-    // Stops growing exactly at the cap — NOT nulled out the way a one-shot readCappedBody capture would be; the partial transcript is the point.
-    expect(final?.text.length).toBe(MAX)
-    expect(final?.size).toBeGreaterThanOrEqual(MAX)
+    // Prefix + tail window is the hard memory bound, whatever the stream's real size.
+    expect(final?.text.length).toBeLessThanOrEqual(MAX + 8 * 1024 + 2)
+    expect(final?.size).toBe(CHUNK.length * pullCount)
   })
 
   it('keeps a body exactly at the cap without marking it truncated', async () => {
@@ -195,6 +194,110 @@ describe('captureSseBody — cap discipline (mirrors readCappedBody.ts cancel-at
     expect(final?.truncated).toBe(false)
     expect(final?.text).toBe('e'.repeat(MAX))
     expect(final?.size).toBe(MAX)
+  })
+})
+
+describe('captureSseBody — tail preservation past the cap (LLM usage arrives LAST)', () => {
+  // A long token stream whose accounting rides in the FINAL events (the wire shape
+  // every major LLM API uses) — the case a stop-dead-at-the-cap capture loses.
+  const openAiEvent = (payload: string) => `data: ${payload}\n\n`
+  const delta = (i: number, text: string) =>
+    openAiEvent(
+      `{"id":"chatcmpl-1","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"${text}"},"finish_reason":null}]}`,
+    ) + `: ping ${i}\n\n` // a comment line — part of the wire format, zero data
+
+  it('keeps the head prefix AND the final usage-bearing events when the cap is crossed mid-stream', async () => {
+    const MAX = 300
+    const enc = new TextEncoder()
+    const usageEvent = openAiEvent('{"usage":{"prompt_tokens":25,"completion_tokens":180,"total_tokens":205}}')
+    const doneEvent = 'data: [DONE]\n\n'
+    // A middle event larger than the 8KB tail window, with a marker only at its start —
+    // everything from the marker on is filler, so the marker's absence proves the middle
+    // was dropped rather than merely trimmed.
+    const middle = openAiEvent(
+      '{"choices":[{"delta":{"content":"MIDDLE_DROPPED_MARKER' + 'm'.repeat(20 * 1024) + '"}}]}',
+    )
+    const full =
+      delta(0, 'Hello') +
+      delta(1, ' world') +
+      middle +
+      openAiEvent('{"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}') +
+      usageEvent +
+      doneEvent
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(enc.encode(full))
+        controller.close()
+      },
+    })
+
+    const updates: SseCaptureUpdate[] = []
+    await captureSseBody(new Response(stream), MAX, (u) => updates.push(u))
+
+    const final = updates[updates.length - 1]
+    expect(final?.done).toBe(true)
+    // Honest truncation — the middle WAS dropped, and the flag says so.
+    expect(final?.truncated).toBe(true)
+    expect(final?.text).toContain('"Hello"') // head prefix kept
+    expect(final?.text).toContain('"total_tokens":205') // usage survives
+    expect(final?.text).toContain('data: [DONE]') // terminal event survives
+    expect(final?.text).toContain('"finish_reason":"stop"')
+    expect(final?.text).not.toContain('MIDDLE_DROPPED_MARKER')
+    // Exact decoded size even though the retained text is a head+tail projection.
+    expect(final?.size).toBe(full.length)
+    // Every emit, not just the terminal one, respects the prefix+tail memory bound.
+    for (const u of updates) {
+      expect(u.text.length).toBeLessThanOrEqual(MAX + 8 * 1024 + 2)
+    }
+  })
+
+  it('joins prefix and tail on whole-event boundaries — no data line is a half-event', async () => {
+    const MAX = 200
+    const enc = new TextEncoder()
+    const event = (n: number) => `data: {"n":${n},"pad":"${'x'.repeat(120)}"}\n\n`
+    const COUNT = 120 // ~17KB of events — the 8KB tail window holds only the last few
+    let full = ''
+    for (let i = 0; i < COUNT; i++) full += event(i)
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(enc.encode(full))
+        controller.close()
+      },
+    })
+
+    const updates: SseCaptureUpdate[] = []
+    await captureSseBody(new Response(stream), MAX, (u) => updates.push(u))
+    const final = updates[updates.length - 1]
+    expect(final?.truncated).toBe(true)
+
+    // Whatever survived the head+tail join must be WHOLE events: every data line in
+    // the captured text parses as the JSON it was on the wire.
+    const dataLines = final!.text.split('\n').filter((l) => l.startsWith('data: '))
+    expect(dataLines.length).toBeGreaterThan(3)
+    for (const line of dataLines) {
+      expect(() => JSON.parse(line.slice('data: '.length))).not.toThrow()
+    }
+    // The tail window's events are the stream's LAST ones, not the first ones past the cap.
+    expect(final?.text).toContain(`"n":${COUNT - 1}`)
+    expect(final?.text).not.toContain(`"n":3`)
+  })
+
+  it('still ends with a single terminal emit when the stream errors mid-tail', async () => {
+    const { stream, push, error } = controlledStream()
+    const updates: SseCaptureUpdate[] = []
+    const donePromise = captureSseBody(new Response(stream), 100, (u) => updates.push(u))
+
+    push(`data: {"a":"${'x'.repeat(300)}"}\n\n`) // crosses the tiny cap
+    await tick()
+    push('data: {"usage":{"total_tokens":7}}\n\n')
+    await tick()
+    error()
+    await donePromise
+
+    expect(updates.filter((u) => u.done)).toHaveLength(1)
+    const final = updates[updates.length - 1]
+    expect(final?.truncated).toBe(true)
+    expect(final?.text).toContain('"total_tokens":7')
   })
 })
 
@@ -216,7 +319,7 @@ describe('captureSseBody — tee independence', () => {
     expect(await appBranch.text()).toBe(full)
   })
 
-  it("cancelling the capture branch at the cap does not cancel the app's own branch", async () => {
+  it("reading the capture branch past the cap (tail draining) never affects a sibling clone's own read", async () => {
     const MAX = 10
     const enc = new TextEncoder()
     const full = 'x'.repeat(50)

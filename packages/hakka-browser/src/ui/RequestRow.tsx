@@ -4,6 +4,7 @@ import { Show } from 'solid-js'
 import type { Component } from 'solid-js'
 
 import { IconCheck } from './icons'
+import { detectLlmProvider } from './llm/llmProvider'
 import { durationTier, sizeTier } from './numberGates'
 
 // Exported — Inspector.tsx's floating-launcher HUD reuses this for its
@@ -146,6 +147,15 @@ export const RequestRow: Component<RequestRowProps> = (props) => {
             <span class="hakka-gql-tag" title={`GraphQL ${props.req.graphql!.operationType}`}>
               {props.req.graphql!.operationName ?? 'GQL'}
             </span>
+          </Show>
+          {/* LLM provider badge — URL/host detection only: rows are slim (no
+              bodies), so model/tokens wait for the detail pane. */}
+          <Show when={detectLlmProvider(props.req.url)}>
+            {(llm) => (
+              <span class="hakka-llm-tag" title={`LLM provider: ${llm().label}`}>
+                {llm().label}
+              </span>
+            )}
           </Show>
           <Show when={props.req.mocked}>
             <span class="hakka-mocked-tag">mock</span>

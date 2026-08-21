@@ -1,0 +1,16 @@
+: hakka fixture — a plain (non-LLM) event stream
+retry: 3000
+
+event: status
+id: 1
+data: {"state":"running","progress":0.25}
+
+event: log
+id: 2
+data: {"line":"step 1 complete"}
+data: {"line":"step 2 complete"}
+
+event: done
+id: 3
+data: {"state":"complete","result":"ok"}
+

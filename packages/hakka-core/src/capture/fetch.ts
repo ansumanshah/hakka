@@ -614,8 +614,10 @@ export function enableFetchInterceptor(
       // stream). Hand a synchronous clone to sseCapture's incremental reader as a detached task
       // instead — it pushes throttled updates through the same onRequest path as the ordinary
       // body-read below. `return response` still resolves at headers-received time. A stream
-      // that never closes emits at most maxBodySize worth of updates, then cancels (sseCapture.ts).
-      // NetworkRequest has no `streaming` field; `contentType` doubles as that signal here.
+      // that never closes is bounded by sseCapture's tail drain ceiling (prefix + rolling tail
+      // window, then cancel), and an over-cap stream keeps its FINAL events so LLM usage
+      // chunks arrive intact (sseCapture.ts). NetworkRequest has no `streaming` field;
+      // `contentType` doubles as that signal here.
       if (isEventStream) {
         const sseClone = response.clone()
         void (async () => {

@@ -63,10 +63,15 @@ response is long-lived — an LLM token stream may stay open for the whole reply
 `clone().text()` would leak a pending read that never resolves. This reads the clone's stream
 incrementally, decoding chunks as they arrive and invoking the caller's update callback on a
 throttled cadence: at most once every 250ms or every 8KB of newly decoded text, whichever comes
-first, plus exactly one terminal `done: true` emit when the stream closes, errors, or the cap
-is hit. Bounding mirrors the body-capture algorithm's cancel-at-cap discipline above, but with
-one deliberate difference: an over-cap SSE capture KEEPS the up-to-cap prefix instead of
-nulling it out, since a live token stream's partial transcript is still useful to show.
+first, plus exactly one terminal `done: true` emit when the stream closes, errors, or the tail
+drain ceiling gives up on it. Bounding mirrors the body-capture algorithm's cancel-at-cap
+discipline above, but with two deliberate differences. First, an over-cap SSE capture KEEPS the
+up-to-cap prefix instead of nulling it out, since a live token stream's partial transcript is
+still useful to show. Second, it also keeps a bounded 8KB tail of the stream's FINAL events:
+LLM APIs deliver token accounting in their last chunks (usage / `message_delta`), so capture
+keeps reading past the cap — retaining only prefix + tail, never the middle — until the stream
+ends or a 4MB drain ceiling cancels it, which keeps a never-ending stream bounded in CPU,
+memory, and update count.
 
 **Nothing blocks the caller.** `await fetch()` resolves at headers-received
 time; body capture reads a synchronous clone in a detached task. The server

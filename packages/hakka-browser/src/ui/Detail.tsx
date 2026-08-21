@@ -21,6 +21,8 @@ import { DetailGraphQLTab } from './DetailGraphQLTab'
 import { DetailOverviewTab } from './DetailOverviewTab'
 import { DetailTimingTab } from './DetailTimingTab'
 import { IconArrowDown, IconArrowLeft, IconArrowUp } from './icons'
+import { LazyDetailSseTab } from './LazyDetailSseTab'
+import { LazyLlmUsageSection } from './LazyLlmUsageSection'
 import { consumeRowTapOrigin, RequestRow } from './RequestRow'
 import { createRequestDetailViewModel, type RequestDetailViewModel } from './viewModels'
 
@@ -29,7 +31,7 @@ import { createRequestDetailViewModel, type RequestDetailViewModel } from './vie
 // unit — the body viewer + inline search bar).
 export { BodySearch } from './DetailBodySearch'
 
-type Tab = 'overview' | 'request' | 'response' | 'timing' | 'cookies' | 'messages' | 'graphql'
+type Tab = 'overview' | 'request' | 'response' | 'timing' | 'sse' | 'cookies' | 'messages' | 'graphql'
 
 // Case-insensitive header lookup.
 const getHeader = (headers: Record<string, string> | undefined | null, name: string): string | undefined =>
@@ -125,6 +127,11 @@ export const Detail: Component<DetailProps> = (props) => {
 
   const messages = () => props.req.messages ?? []
   const isWebSocket = () => props.req.source === 'websocket' || messages().length > 0
+  // Event-stream responses get their own tab (assembled LLM message + raw
+  // events). Headers-only signal — works on the slim row mirror, no body fetch.
+  const isEventStream = () =>
+    getHeader(props.req.responseHeaders, 'content-type')?.toLowerCase().includes('text/event-stream') === true ||
+    props.req.contentType?.toLowerCase().includes('text/event-stream') === true
 
   const requestCookieHeader = createMemo(
     () => props.req.requestHeaders?.['Cookie'] ?? props.req.requestHeaders?.['cookie'],
@@ -157,6 +164,7 @@ export const Detail: Component<DetailProps> = (props) => {
       { id: 'timing', label: 'Timing' },
     ]
     if (props.req.graphql) base.push({ id: 'graphql', label: 'GraphQL' })
+    if (isEventStream()) base.push({ id: 'sse', label: 'SSE' })
     if (hasCookies()) base.push({ id: 'cookies', label: 'Cookies' })
     if (isWebSocket())
       base.push({ id: 'messages', label: `Frames${messages().length ? ` (${messages().length})` : ''}` })
@@ -285,6 +293,10 @@ export const Detail: Component<DetailProps> = (props) => {
       <div class="hakka-tab-content" style="animation:hakka-tab-fade 150ms cubic-bezier(0.4,0,0.2,1)">
         <Show when={tab() === 'overview'}>
           <DetailOverviewTab req={props.req} />
+          {/* LLM usage rows — additive to Overview, and only for provider
+              hosts; parses the body via the same getBody path as the body
+              region, never the slim mirror's (usually absent) copy. */}
+          <LazyLlmUsageSection url={props.req.url} body={() => bodyAsync().responseBody} />
         </Show>
 
         {/* Headers live with their own side — request headers above the
@@ -317,6 +329,13 @@ export const Detail: Component<DetailProps> = (props) => {
 
         <Show when={tab() === 'timing'}>
           <DetailTimingTab req={props.req} />
+        </Show>
+
+        {/* Raw body accessor here, NOT decodedResponseBody — the shared decoder
+            registry re-renders event-stream bodies as a JSON array of events,
+            and the SSE tab wants the original wire text to parse itself. */}
+        <Show when={tab() === 'sse'}>
+          <LazyDetailSseTab req={props.req} body={() => bodyAsync().responseBody} />
         </Show>
 
         <Show when={tab() === 'graphql'}>

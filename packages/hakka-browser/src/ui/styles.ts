@@ -1244,7 +1244,8 @@ button, input, select, textarea {
 }
 .hakka-mocked-tag,
 .hakka-gql-tag,
-.hakka-rt-tag {
+.hakka-rt-tag,
+.hakka-llm-tag {
   font-family: var(--hakka-font-mono);
   font-size: var(--hakka-font-xs);
   font-weight: 600;
@@ -1267,6 +1268,11 @@ button, input, select, textarea {
   text-transform: uppercase;
   letter-spacing: 0.3px;
 }
+/* LLM provider badge — host-detected (rows are slim, no bodies), steel like
+   the runtime "server" voice: informational, not a status verdict. */
+.hakka-llm-tag {
+  color: var(--hakka-method-put);
+}
 .hakka-initiator {
   font-family: var(--hakka-font-mono);
   font-size: var(--hakka-font-xs);
@@ -1279,6 +1285,14 @@ button, input, select, textarea {
   white-space: pre;
   overflow-x: auto;
   line-height: 1.5;
+}
+
+/* An SSE event's data block sits inline in the event row — no bottom gap,
+   and wraps instead of scrolling so deltas stay readable. */
+.hakka-sse-event-data {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-x: visible;
 }
 /* Runtime tags speak in theme voices like every other badge: outlined tint via
    the .hakka-rt-tag base — steel for server, plum for edge. Never a filled pill. */
