@@ -74,7 +74,18 @@ struct DetailPaneView: View {
 
     @ViewBuilder
     private var trafficDetail: some View {
-            if let id = model.traffic.selectedRequestID, let request = model.traffic.request(id: id) {
+            if let pair = model.traffic.comparison {
+                // A diff is a pane mode, not a modal (competitive-ux-2026-08
+                // finding 5): staying in the three-pane layout keeps the row
+                // list reachable, since the usual next step after a diff is
+                // picking a third similar request to compare against —
+                // selecting a different row simply changes which "after" this
+                // pane shows, without leaving the comparison. "Done" is the
+                // only way out now that there is no sheet to swipe away.
+                RequestDiffView(before: pair.before, after: pair.after) {
+                    model.traffic.comparisonBaselineID = nil
+                }
+            } else if let id = model.traffic.selectedRequestID, let request = model.traffic.request(id: id) {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         HStack {

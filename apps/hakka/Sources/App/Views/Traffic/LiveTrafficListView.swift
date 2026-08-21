@@ -40,20 +40,6 @@ struct LiveTrafficListView: View {
                 .listStyle(.plain)
             }
         }
-        .sheet(isPresented: comparisonPresented) {
-            if let pair = model.traffic.comparison {
-                RequestDiffView(before: pair.before, after: pair.after) {
-                    model.traffic.comparisonBaselineID = nil
-                }
-            }
-        }
-    }
-
-    private var comparisonPresented: Binding<Bool> {
-        Binding(
-            get: { model.traffic.comparison != nil },
-            set: { if !$0 { model.traffic.comparisonBaselineID = nil } },
-        )
     }
 
     private var selectionBinding: Binding<String?> {

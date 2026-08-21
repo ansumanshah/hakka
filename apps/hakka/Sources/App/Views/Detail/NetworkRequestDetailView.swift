@@ -71,6 +71,8 @@ struct NetworkRequestDetailView: View {
             DetailTimingSection(record: record)
         case .sse:
             DetailSseTabView(record: record)
+        case .cookies:
+            DetailCookiesTabView(record: record)
         }
     }
 }
