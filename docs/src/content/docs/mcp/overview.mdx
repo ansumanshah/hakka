@@ -86,7 +86,7 @@ hakka mcp --no-serve           # never host a hub; only connect as a client
 
 ## Tools
 
-Nineteen tools, grouped by what they do. The see and diagnose tools only observe the buffer. The change tools send fire-and-forget control commands over the bridge to the connected app(s) and take effect in **dev builds only**. The reproduce tools return generated artifacts for the agent to write to disk.
+Twenty tools, grouped by what they do. The see and diagnose tools only observe the buffer. The change tools send fire-and-forget control commands over the bridge to the connected app(s) and take effect in **dev builds only**. The reproduce tools return generated artifacts for the agent to write to disk.
 
 ### See
 
@@ -110,6 +110,7 @@ Nineteen tools, grouped by what they do. The see and diagnose tools only observe
 | Tool                | What it does                                                                                                                                    |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | `create_mock`       | Add a mock (canned response), `block`, or `redirect` rule matching a URL pattern.                                                               |
+| `promote_capture_to_mock` | Freeze a captured request's real response into a mock rule and install it — match on scheme/host/port/path (query string dropped), re-promoting the same capture replaces the rule instead of duplicating it. Refuses an errored or still-pending capture. |
 | `delete_mock`       | Remove a mock rule by id.                                                                                                                       |
 | `clear_mocks`       | Remove all mock rules.                                                                                                                          |
 | `set_breakpoint`    | Pause matching requests or responses in the app for inspection or editing.                                                                      |

@@ -2,9 +2,14 @@
  * Unit tests for hakka mcp:
  * - RequestStore: redaction, filters, stats, clear
  * - Tool handlers: all five read tools against a seeded store
- * - Write tools: create_mock/delete_mock/clear_mocks/set_breakpoint/
- *   delete_breakpoint/set_throttle — assert the exact ControlCommand shape
- *   sent to a fake sender, and isError when disconnected
+ * - Write tools: create_mock/promote_capture_to_mock/delete_mock/clear_mocks/
+ *   set_breakpoint/delete_breakpoint/set_throttle — assert the exact
+ *   ControlCommand shape sent to a fake sender, and isError when disconnected.
+ *   promote_capture_to_mock also covers: query-string-dropped pattern,
+ *   Content-Encoding/Content-Length/Transfer-Encoding stripped from the
+ *   replayed response, other headers (incl. comma-joined multi-value ones)
+ *   surviving untouched, not_found/errored/incomplete refusals, and
+ *   re-promotion replacing the same rule id instead of duplicating it
  * - generate_mocks: generation from seeded store, apply path asserts the
  *   exact mock.add ControlCommands sent, DSL narrowing, disconnected error
  * - generate_test: seeded store → generated hakka-core/test file content, DSL/
@@ -20,7 +25,7 @@
  * - RequestStore.onAdd: fires on add/update, unsubscribe works
  * - search_requests query DSL: scopes, regex/glob, negation, dur/size ranges
  * - BridgeListener parser: malformed frames, parseBridgeSpanFrame
- * - Smoke: InMemoryTransport tools/list listing all nineteen tool names
+ * - Smoke: InMemoryTransport tools/list listing all twenty tool names
  * - planServe: bridge-hosting decision (local vs remote, serve on/off)
  */
 
@@ -476,7 +481,7 @@ import { registerResources } from '../resources.js'
 import { registerTools } from '../tools/index.js'
 
 describe('MCP smoke test — tools/list via InMemoryTransport', () => {
-  it('lists all nineteen tool names', async () => {
+  it('lists all twenty tool names', async () => {
     const s = new RequestStore(10)
     const sender = new FakeSender()
     const spanStore = new SpanStore(50)
@@ -500,6 +505,7 @@ describe('MCP smoke test — tools/list via InMemoryTransport', () => {
     expect(names).toContain('stats')
     expect(names).toContain('clear')
     expect(names).toContain('create_mock')
+    expect(names).toContain('promote_capture_to_mock')
     expect(names).toContain('delete_mock')
     expect(names).toContain('clear_mocks')
     expect(names).toContain('set_breakpoint')
@@ -512,7 +518,7 @@ describe('MCP smoke test — tools/list via InMemoryTransport', () => {
     expect(names).toContain('export_evidence')
     expect(names).toContain('replay_request')
     expect(names).toContain('verify_fix')
-    expect(names.length).toBe(19)
+    expect(names.length).toBe(20)
 
     await client.close()
     await mcpServer.close()
@@ -706,6 +712,136 @@ describe('write tools — MCP tools/call against a FakeSender', () => {
     const text = (result.content as { text: string }[])[0]!.text
     expect(JSON.parse(text).sent).toBe(false)
     expect(sender.sent.length).toBe(0)
+    await closeAll()
+  })
+
+  it('promote_capture_to_mock freezes a captured response and installs it as a mock rule', async () => {
+    store.add(
+      makeRequest({
+        id: 'cap-1',
+        method: 'GET',
+        url: 'https://api.example.com/v1/users/42?debug=1&token=abc',
+        status: 201,
+        responseHeaders: { 'content-type': 'application/json', 'content-encoding': 'gzip', 'content-length': '9' },
+        responseBody: '{"ok":true}',
+      }),
+    )
+
+    const result = await client.callTool({ name: 'promote_capture_to_mock', arguments: { id: 'cap-1' } })
+    expect(result.isError).toBeFalsy()
+    const text = (result.content as { text: string }[])[0]!.text
+    const parsed = JSON.parse(text)
+    expect(parsed.sent).toBe(true)
+    expect(parsed.pattern).toBe('https://api.example.com/v1/users/42')
+    expect(typeof parsed.id).toBe('string')
+
+    expect(sender.sent.length).toBe(1)
+    const sent = sender.sent[0] as { kind: string; rule: Record<string, unknown> }
+    expect(sent.kind).toBe('mock.add')
+    expect(sent.rule.pattern).toBe('https://api.example.com/v1/users/42')
+    expect(sent.rule.method).toBe('GET')
+    // query string dropped from the match pattern — target the endpoint, not this one query string
+    expect(sent.rule.pattern).not.toContain('debug')
+    expect(sent.rule.pattern).not.toContain('token')
+    expect(sent.rule.response).toEqual({
+      status: 201,
+      headers: { 'content-type': 'application/json' },
+      body: '{"ok":true}',
+      delay: 0,
+    })
+    await closeAll()
+  })
+
+  it('promote_capture_to_mock drops Content-Encoding/Content-Length/Transfer-Encoding but keeps other headers', async () => {
+    store.add(
+      makeRequest({
+        id: 'cap-headers',
+        url: 'https://api.example.com/thing',
+        status: 200,
+        responseHeaders: {
+          'content-type': 'text/plain',
+          'content-encoding': 'br',
+          'content-length': '123',
+          'transfer-encoding': 'chunked',
+          vary: 'Accept, Accept-Encoding',
+        },
+        responseBody: 'hello',
+      }),
+    )
+
+    await client.callTool({ name: 'promote_capture_to_mock', arguments: { id: 'cap-headers' } })
+    const rule = (sender.sent[0] as { rule: { response: { headers: Record<string, string> } } }).rule
+    expect(rule.response.headers).toEqual({
+      'content-type': 'text/plain',
+      // comma-joined multi-value header (already merged at capture time) survives untouched
+      vary: 'Accept, Accept-Encoding',
+    })
+    await closeAll()
+  })
+
+  it('promote_capture_to_mock is not_found for an unknown id', async () => {
+    const result = await client.callTool({ name: 'promote_capture_to_mock', arguments: { id: 'does-not-exist' } })
+    expect(result.isError).toBe(true)
+    const text = (result.content as { text: string }[])[0]!.text
+    expect(JSON.parse(text).error).toBe('not_found')
+    expect(sender.sent.length).toBe(0)
+    await closeAll()
+  })
+
+  it('promote_capture_to_mock refuses an errored capture instead of fabricating a 200 mock', async () => {
+    store.add(
+      makeRequest({ id: 'cap-err', url: 'https://api.example.com/broken', status: undefined, error: 'timeout' }),
+    )
+
+    const result = await client.callTool({ name: 'promote_capture_to_mock', arguments: { id: 'cap-err' } })
+    expect(result.isError).toBe(true)
+    const text = (result.content as { text: string }[])[0]!.text
+    expect(JSON.parse(text).error).toBe('errored_capture')
+    expect(sender.sent.length).toBe(0)
+    await closeAll()
+  })
+
+  it('promote_capture_to_mock refuses an incomplete (still pending) capture', async () => {
+    store.add(makeRequest({ id: 'cap-pending', url: 'https://api.example.com/slow', status: undefined }))
+
+    const result = await client.callTool({ name: 'promote_capture_to_mock', arguments: { id: 'cap-pending' } })
+    expect(result.isError).toBe(true)
+    const text = (result.content as { text: string }[])[0]!.text
+    expect(JSON.parse(text).error).toBe('incomplete_capture')
+    expect(sender.sent.length).toBe(0)
+    await closeAll()
+  })
+
+  it('promote_capture_to_mock is isError when the bridge is disconnected', async () => {
+    store.add(makeRequest({ id: 'cap-disc', url: 'https://api.example.com/thing', status: 200 }))
+    sender.connected = false
+
+    const result = await client.callTool({ name: 'promote_capture_to_mock', arguments: { id: 'cap-disc' } })
+    expect(result.isError).toBe(true)
+    const text = (result.content as { text: string }[])[0]!.text
+    expect(JSON.parse(text).sent).toBe(false)
+    expect(sender.sent.length).toBe(0)
+    await closeAll()
+  })
+
+  it('re-promoting the same capture id yields the same mock rule id (replace, not duplicate)', async () => {
+    store.add(makeRequest({ id: 'cap-dup', url: 'https://api.example.com/thing', status: 200, responseBody: 'a' }))
+
+    const first = await client.callTool({ name: 'promote_capture_to_mock', arguments: { id: 'cap-dup' } })
+    const firstId = JSON.parse((first.content as { text: string }[])[0]!.text).id
+
+    // a second, different capture at the exact same endpoint (method + pattern)
+    store.add(
+      makeRequest({ id: 'cap-dup-2', url: 'https://api.example.com/thing?x=2', status: 200, responseBody: 'b' }),
+    )
+    const second = await client.callTool({ name: 'promote_capture_to_mock', arguments: { id: 'cap-dup-2' } })
+    const secondId = JSON.parse((second.content as { text: string }[])[0]!.text).id
+
+    expect(secondId).toBe(firstId)
+    expect(sender.sent.length).toBe(2)
+    expect((sender.sent[0] as { rule: { id: string } }).rule.id).toBe(
+      (sender.sent[1] as { rule: { id: string } }).rule.id,
+    )
     await closeAll()
   })
 
