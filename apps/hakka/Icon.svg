@@ -1,21 +1,33 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
-  <!-- Hakka app icon. Artwork is the studio mark from docs/public/favicon.svg,
-       inset into a 824pt squircle on a 1024pt canvas so the shipped icon sits
-       on the macOS grid instead of bleeding to the edge. Colors are the Wok
-       Hei tokens: flame bowl, jade broadcast fan, on the ink background. -->
-  <g transform="translate(100,100) scale(34.3333)">
-    <rect x="0" y="0" width="24" height="24" rx="5.4" fill="#121110" />
-    <path
-      d="M3.5 12.5h17a8.5 8.5 0 0 1-6 7.3v0.7h-5v-0.7a8.5 8.5 0 0 1-6-7.3z"
-      fill="rgba(238,131,32,0.16)"
-      stroke="#EE8320"
-      stroke-width="1.6"
-      stroke-linejoin="round"
-    />
-    <g stroke="#3AA981" stroke-width="1.6" stroke-linecap="round" fill="none">
-      <path d="M9.9 7.4a3 3 0 0 1 4.2 0" />
-      <path d="M8.2 5a5.4 5.4 0 0 1 7.6 0" />
-      <path d="M6.4 2.7a7.9 7.9 0 0 1 11.2 0" />
+  <!-- Hakka app icon: a static frame of the animated mark the app already
+       draws in its welcome pane (HakkaUI.AppIcon, ios/Sources/UI/Brand).
+       Same geometry, same colors, with the pulse frozen at its midpoint.
+       Change one and change the other, or the Dock stops matching the app.
+
+       The inner group works in AppIcon's own 64pt box, scaled 12.875x into an
+       824pt squircle on a 1024pt canvas so the result sits on the macOS grid
+       instead of bleeding to the edge. -->
+  <defs>
+    <linearGradient id="bowl" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#61A6FA" />
+      <stop offset="1" stop-color="#2663EB" />
+    </linearGradient>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="#121110" />
+  <g transform="translate(100,100) scale(12.875)">
+    <!-- broadcast fan, three arcs rising out of the bowl -->
+    <g fill="none" stroke="#21D4ED" stroke-width="1.7" stroke-linecap="round">
+      <path d="M23.543 21.242 A9 9 0 0 1 40.457 21.242" opacity="0.9" />
+      <path d="M17.904 19.190 A15 15 0 0 1 46.096 19.190" opacity="0.68" />
+      <path d="M12.266 17.138 A21 21 0 0 1 51.734 17.138" opacity="0.46" />
     </g>
+    <!-- chopsticks -->
+    <g stroke="#FFFFFF" stroke-opacity="0.62" stroke-width="2" stroke-linecap="round">
+      <path d="M41.60 24.96 L50.56 11.52" />
+      <path d="M46.08 26.24 L53.76 17.28" />
+    </g>
+    <!-- bowl and rim -->
+    <ellipse cx="32" cy="39.68" rx="24.32" ry="14.08" fill="url(#bowl)" />
+    <path d="M6.4 26.88 L57.6 26.88" stroke="#94C4FD" stroke-width="3.2" stroke-linecap="round" />
   </g>
 </svg>
