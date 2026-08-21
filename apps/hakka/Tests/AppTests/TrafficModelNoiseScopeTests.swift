@@ -1,3 +1,4 @@
+import Foundation
 import HakkaCommon
 import HakkaCore
 import Testing
@@ -14,8 +15,17 @@ struct TrafficModelNoiseScopeTests {
         NetworkRequest(id: id, url: "https://\(host)/\(id)", method: .get, status: status, startTime: 0)
     }
 
+    /// A UserDefaults suite unique to each call. `NoiseScopeStore` persists,
+    /// so a shared suite would leak a mute from one test into the next and
+    /// into the real app's saved state. `noActiveScopeMeansNothingIsHidden`
+    /// caught this the hard way: it failed only when it ran after a test that
+    /// had muted a host.
+    private func isolatedScope() -> NoiseScopeStore {
+        NoiseScopeStore(defaults: UserDefaults(suiteName: "hakka.tests.\(UUID().uuidString)")!)
+    }
+
     private func seeded() -> TrafficModel {
-        let model = TrafficModel()
+        let model = TrafficModel(noiseScope: isolatedScope())
         model.setBuffer(
             [
                 request(id: "a", host: "api.example.com", status: 200),

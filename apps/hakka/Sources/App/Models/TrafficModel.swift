@@ -47,7 +47,11 @@ final class TrafficModel {
     /// The standing Focus/Noise lens (see the type's doc comment) — a
     /// muted/focused host stays fully captured, `visibleRequests` just
     /// stops showing it.
-    let noiseScope = NoiseScopeStore()
+    /// Injectable so a test can hand in an isolated `UserDefaults` suite.
+    /// The default store writes to `.standard`, which means a test that mutes
+    /// a host would otherwise persist that mute into the real app AND leak it
+    /// into the next test in the same process.
+    let noiseScope: NoiseScopeStore
     /// Sends typed control commands; nil until `start()` hands it the hub.
     private(set) var ruleSender: ControlSender?
     /// Which connected device produced each buffered request. See
@@ -55,6 +59,10 @@ final class TrafficModel {
     /// `NetworkRequest`. Same visibility reasoning as `store` above.
     @ObservationIgnored
     var deviceIndex = DeviceLabelIndex()
+
+    init(noiseScope: NoiseScopeStore = NoiseScopeStore()) {
+        self.noiseScope = noiseScope
+    }
 
     /// Starts the bridge listener, then consumes its request stream for the
     /// lifetime of the calling task — meant to be driven by a SwiftUI
