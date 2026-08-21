@@ -657,6 +657,10 @@ struct ControlCommandTests {
     private final class ThrowingBreakpointEngine: ControlBreakpointEngine {
         func controlAddBreakpoint(_ input: BreakpointInput) throws { throw ForcedError() }
         func controlRemoveBreakpoint(id: String) throws { throw ForcedError() }
+        func controlResumeBreakpoint(pauseId: String, requestEdits: BreakpointRequestEdits?, responseEdits: BreakpointResponseEdits?) throws {
+            throw ForcedError()
+        }
+        func controlAbortBreakpoint(pauseId: String) throws { throw ForcedError() }
     }
 
     private final class ThrowingThrottleEngine: ControlThrottleEngine {

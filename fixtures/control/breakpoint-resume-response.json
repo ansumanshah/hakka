@@ -1,0 +1,5 @@
+{
+  "kind": "breakpoint.resume",
+  "pauseId": "pause_7",
+  "responseEdits": { "headers": { "x-injected": "1" }, "status": 201 }
+}

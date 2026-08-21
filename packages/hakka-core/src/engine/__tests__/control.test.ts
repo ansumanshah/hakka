@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, test, beforeEach } from 'bun:test'
 
 import { breakpointEngine } from '../BreakpointEngine'
-import { applyControlCommand, parseControlCommand, type ControlCommand } from '../control'
+import { applyControlCommand, isDeviceToHostCommand, parseControlCommand, type ControlCommand } from '../control'
 import { Hakka } from '../HakkaFacade'
 import { mockEngine } from '../MockEngine'
 import { ThrottleEngine } from '../ThrottleEngine'
+import { readControlFixture } from './controlFixtures'
 
 beforeEach(() => {
   mockEngine.clearRules()
@@ -144,6 +145,107 @@ describe('parseControlCommand — valid shapes', () => {
   test('breakpoint.remove', () => {
     const cmd = parseControlCommand({ kind: 'breakpoint.remove', id: 'bp-ext-1' })
     expect(cmd).toEqual({ kind: 'breakpoint.remove', id: 'bp-ext-1' })
+  })
+
+  test('breakpoint.paused — response phase, minimal', () => {
+    const raw = {
+      kind: 'breakpoint.paused',
+      pauseId: 'pause_1',
+      phase: 'response',
+      device: 'ios-simulator',
+      request: { url: 'https://api.example.com/x', method: 'GET', headers: {} },
+      response: { status: 200, headers: {}, body: '' },
+    }
+    const cmd = parseControlCommand(raw)
+    expect(cmd).toEqual({
+      kind: 'breakpoint.paused',
+      pauseId: 'pause_1',
+      ruleId: undefined,
+      phase: 'response',
+      device: 'ios-simulator',
+      request: { url: 'https://api.example.com/x', method: 'GET', headers: {}, body: undefined },
+      response: { status: 200, headers: {}, body: '' },
+    })
+  })
+
+  test('breakpoint.paused — request phase, no response block', () => {
+    const cmd = parseControlCommand({
+      kind: 'breakpoint.paused',
+      pauseId: 'pause_2',
+      ruleId: 'bp-1',
+      phase: 'request',
+      device: 'android-emulator',
+      request: { url: 'https://api.example.com/x', method: 'POST', headers: { 'x-a': 'b' }, body: '{}' },
+    })
+    expect(cmd?.kind).toBe('breakpoint.paused')
+    if (cmd?.kind === 'breakpoint.paused') {
+      expect(cmd.ruleId).toBe('bp-1')
+      expect(cmd.phase).toBe('request')
+      expect(cmd.response).toBeUndefined()
+      expect(cmd.request.body).toBe('{}')
+    }
+  })
+
+  test('breakpoint.paused — matches the pinned fixture', () => {
+    const cmd = parseControlCommand(readControlFixture('breakpoint-paused.json'))
+    expect(cmd).toEqual({
+      kind: 'breakpoint.paused',
+      pauseId: 'pause_7',
+      ruleId: 'bp-checkout',
+      phase: 'response',
+      device: 'ios-simulator-6',
+      request: {
+        url: 'https://api.example.com/checkout',
+        method: 'POST',
+        headers: { accept: 'application/json' },
+        body: undefined,
+      },
+      response: {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+        body: '{"ok":true}',
+      },
+    })
+  })
+
+  test('breakpoint.resume — request edits, matches the pinned fixture', () => {
+    const cmd = parseControlCommand(readControlFixture('breakpoint-resume-request.json'))
+    expect(cmd).toEqual({
+      kind: 'breakpoint.resume',
+      pauseId: 'pause_3',
+      requestEdits: {
+        url: 'https://api.example.com/checkout?debug=1',
+        method: 'POST',
+        headers: { 'x-injected': '1' },
+        body: undefined,
+      },
+      responseEdits: undefined,
+    })
+  })
+
+  test('breakpoint.resume — response edits, matches the pinned fixture', () => {
+    const cmd = parseControlCommand(readControlFixture('breakpoint-resume-response.json'))
+    expect(cmd).toEqual({
+      kind: 'breakpoint.resume',
+      pauseId: 'pause_7',
+      requestEdits: undefined,
+      responseEdits: { status: 201, headers: { 'x-injected': '1' }, body: undefined },
+    })
+  })
+
+  test('breakpoint.resume — no edits (bare release)', () => {
+    const cmd = parseControlCommand({ kind: 'breakpoint.resume', pauseId: 'pause_9' })
+    expect(cmd).toEqual({
+      kind: 'breakpoint.resume',
+      pauseId: 'pause_9',
+      requestEdits: undefined,
+      responseEdits: undefined,
+    })
+  })
+
+  test('breakpoint.abort — matches the pinned fixture', () => {
+    const cmd = parseControlCommand(readControlFixture('breakpoint-abort.json'))
+    expect(cmd).toEqual({ kind: 'breakpoint.abort', pauseId: 'pause_7' })
   })
 
   test('throttle.set — none', () => {
@@ -310,6 +412,114 @@ describe('parseControlCommand — malformed shapes', () => {
       { kind: 'breakpoint.add', breakpoint: { id: 'a', pattern: 'x', on: 'sometimes', enabled: true } },
     ],
     ['breakpoint.remove hostile id', { kind: 'breakpoint.remove', id: '' }],
+    [
+      'breakpoint.paused missing pauseId',
+      { kind: 'breakpoint.paused', phase: 'request', device: 'x', request: { url: 'u', method: 'GET', headers: {} } },
+    ],
+    [
+      'breakpoint.paused empty pauseId',
+      {
+        kind: 'breakpoint.paused',
+        pauseId: '',
+        phase: 'request',
+        device: 'x',
+        request: { url: 'u', method: 'GET', headers: {} },
+      },
+    ],
+    [
+      'breakpoint.paused oversized pauseId',
+      {
+        kind: 'breakpoint.paused',
+        pauseId: 'a'.repeat(257),
+        phase: 'request',
+        device: 'x',
+        request: { url: 'u', method: 'GET', headers: {} },
+      },
+    ],
+    [
+      'breakpoint.paused unknown phase',
+      {
+        kind: 'breakpoint.paused',
+        pauseId: 'p1',
+        phase: 'sideways',
+        device: 'x',
+        request: { url: 'u', method: 'GET', headers: {} },
+      },
+    ],
+    [
+      'breakpoint.paused phase "both" is not a valid pause phase',
+      {
+        kind: 'breakpoint.paused',
+        pauseId: 'p1',
+        phase: 'both',
+        device: 'x',
+        request: { url: 'u', method: 'GET', headers: {} },
+      },
+    ],
+    [
+      'breakpoint.paused missing device',
+      { kind: 'breakpoint.paused', pauseId: 'p1', phase: 'request', request: { url: 'u', method: 'GET', headers: {} } },
+    ],
+    [
+      'breakpoint.paused wrong type device',
+      {
+        kind: 'breakpoint.paused',
+        pauseId: 'p1',
+        phase: 'request',
+        device: 42,
+        request: { url: 'u', method: 'GET', headers: {} },
+      },
+    ],
+    ['breakpoint.paused missing request', { kind: 'breakpoint.paused', pauseId: 'p1', phase: 'request', device: 'x' }],
+    [
+      'breakpoint.paused request missing url',
+      {
+        kind: 'breakpoint.paused',
+        pauseId: 'p1',
+        phase: 'request',
+        device: 'x',
+        request: { method: 'GET', headers: {} },
+      },
+    ],
+    [
+      'breakpoint.paused request wrong type headers',
+      {
+        kind: 'breakpoint.paused',
+        pauseId: 'p1',
+        phase: 'request',
+        device: 'x',
+        request: { url: 'u', method: 'GET', headers: 'nope' },
+      },
+    ],
+    [
+      'breakpoint.paused response wrong type status',
+      {
+        kind: 'breakpoint.paused',
+        pauseId: 'p1',
+        phase: 'response',
+        device: 'x',
+        request: { url: 'u', method: 'GET', headers: {} },
+        response: { status: 'nope', headers: {} },
+      },
+    ],
+    ['breakpoint.resume missing pauseId', { kind: 'breakpoint.resume' }],
+    ['breakpoint.resume empty pauseId', { kind: 'breakpoint.resume', pauseId: '' }],
+    ['breakpoint.resume oversized pauseId', { kind: 'breakpoint.resume', pauseId: 'a'.repeat(257) }],
+    [
+      'breakpoint.resume requestEdits not an object',
+      { kind: 'breakpoint.resume', pauseId: 'p1', requestEdits: 'nope' },
+    ],
+    [
+      'breakpoint.resume requestEdits wrong type headers',
+      { kind: 'breakpoint.resume', pauseId: 'p1', requestEdits: { headers: 'nope' } },
+    ],
+    [
+      'breakpoint.resume responseEdits wrong type status',
+      { kind: 'breakpoint.resume', pauseId: 'p1', responseEdits: { status: 'nope' } },
+    ],
+    ['breakpoint.abort missing pauseId', { kind: 'breakpoint.abort' }],
+    ['breakpoint.abort empty pauseId', { kind: 'breakpoint.abort', pauseId: '' }],
+    ['breakpoint.abort non-string pauseId', { kind: 'breakpoint.abort', pauseId: 42 }],
     ['throttle.set missing profile', { kind: 'throttle.set' }],
     ['throttle.set invalid profile', { kind: 'throttle.set', profile: 'super-fast' }],
     ['throttle.set negative latency', { kind: 'throttle.set', profile: 'custom', latencyMs: -5 }],
@@ -449,6 +659,107 @@ describe('applyControlCommand — breakpoint.add / breakpoint.remove', () => {
     const result = applyControlCommand({ kind: 'breakpoint.remove', id: 'bp-remove' })
     expect(result).toEqual({ ok: true })
     expect(breakpointEngine.getBreakpoints()).toHaveLength(0)
+  })
+})
+
+describe('applyControlCommand — breakpoint.resume / breakpoint.abort / breakpoint.paused', () => {
+  test('breakpoint.resume with requestEdits releases a request-phase pause with the edits applied', async () => {
+    const pausePromise = breakpointEngine.pause('req-1', 'request', {
+      url: 'https://api.example.com/x',
+      method: 'GET',
+      headers: {},
+      body: null,
+    })
+    const [pending] = breakpointEngine.getPaused()
+    expect(pending?.phase).toBe('request')
+
+    const result = applyControlCommand({
+      kind: 'breakpoint.resume',
+      pauseId: pending!.id,
+      requestEdits: { method: 'POST' },
+    })
+    expect(result).toEqual({ ok: true })
+
+    const action = await pausePromise
+    expect(action).toEqual({ type: 'resume', edits: { method: 'POST' } })
+    expect(breakpointEngine.getPaused()).toHaveLength(0)
+  })
+
+  test('breakpoint.resume with responseEdits releases a response-phase pause with the edits applied', async () => {
+    const pausePromise = breakpointEngine.pause('req-2', 'response', { status: 200, headers: {}, body: '' })
+    const [pending] = breakpointEngine.getPaused()
+    expect(pending?.phase).toBe('response')
+
+    const result = applyControlCommand({
+      kind: 'breakpoint.resume',
+      pauseId: pending!.id,
+      responseEdits: { status: 500 },
+    })
+    expect(result).toEqual({ ok: true })
+
+    const action = await pausePromise
+    expect(action).toEqual({ type: 'resume', edits: { status: 500 } })
+  })
+
+  test('breakpoint.resume for an unknown pauseId is still ok:true (idempotent, mirrors mock.remove)', () => {
+    const result = applyControlCommand({ kind: 'breakpoint.resume', pauseId: 'never-existed' })
+    expect(result).toEqual({ ok: true })
+  })
+
+  test('breakpoint.abort resolves the pause with an abort action', async () => {
+    const pausePromise = breakpointEngine.pause('req-3', 'request', {
+      url: 'https://api.example.com/y',
+      method: 'GET',
+      headers: {},
+      body: null,
+    })
+    const [pending] = breakpointEngine.getPaused()
+
+    const result = applyControlCommand({ kind: 'breakpoint.abort', pauseId: pending!.id })
+    expect(result).toEqual({ ok: true })
+
+    const action = await pausePromise
+    expect(action).toEqual({ type: 'abort' })
+  })
+
+  test('breakpoint.paused is refused — a device must never apply its own pause notification', () => {
+    const result = applyControlCommand({
+      kind: 'breakpoint.paused',
+      pauseId: 'pause_1',
+      phase: 'request',
+      device: 'ios-simulator',
+      request: { url: 'https://api.example.com/x', method: 'GET', headers: {} },
+    })
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.error).toContain('device to host only')
+    }
+  })
+})
+
+describe('isDeviceToHostCommand — direction guard', () => {
+  test('breakpoint.paused is device-to-host', () => {
+    expect(
+      isDeviceToHostCommand({
+        kind: 'breakpoint.paused',
+        pauseId: 'p1',
+        phase: 'request',
+        device: 'x',
+        request: { url: 'u', method: 'GET', headers: {} },
+      }),
+    ).toBe(true)
+  })
+
+  test('every other kind is host-to-device', () => {
+    const hostToDevice: ControlCommand[] = [
+      { kind: 'mock.clear' },
+      { kind: 'breakpoint.resume', pauseId: 'p1' },
+      { kind: 'breakpoint.abort', pauseId: 'p1' },
+      { kind: 'throttle.set', profile: 'none' },
+    ]
+    for (const cmd of hostToDevice) {
+      expect(isDeviceToHostCommand(cmd)).toBe(false)
+    }
   })
 })
 

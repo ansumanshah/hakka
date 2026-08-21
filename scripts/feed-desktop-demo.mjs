@@ -19,10 +19,20 @@ const now = Date.now()
 
 const jsonBody = (status, url) => {
   if (status >= 500) return JSON.stringify({ error: 'internal_error', requestId: 'r_9f2b1c', retryable: true }, null, 2)
-  if (status === 422) return JSON.stringify({ error: 'validation_failed', fields: { phone: 'invalid format' } }, null, 2)
-  if (status === 401) return JSON.stringify({ error: { message: 'Incorrect API key provided', type: 'invalid_request_error' } }, null, 2)
+  if (status === 422)
+    return JSON.stringify({ error: 'validation_failed', fields: { phone: 'invalid format' } }, null, 2)
+  if (status === 401)
+    return JSON.stringify({ error: { message: 'Incorrect API key provided', type: 'invalid_request_error' } }, null, 2)
   return JSON.stringify(
-    { ok: true, path: new URL(url).pathname, count: 2, items: [{ id: 'a1', name: 'Item A', tags: ['x', 'y'] }, { id: 'b2', name: 'Item B', tags: [] }] },
+    {
+      ok: true,
+      path: new URL(url).pathname,
+      count: 2,
+      items: [
+        { id: 'a1', name: 'Item A', tags: ['x', 'y'] },
+        { id: 'b2', name: 'Item B', tags: [] },
+      ],
+    },
     null,
     2,
   )
@@ -52,9 +62,14 @@ function record(i, [method, url, status, duration, ctype]) {
     startTime: start,
     endTime: start + duration,
     duration,
-    requestHeaders: { accept: ['application/json'], authorization: ['[REDACTED]'], 'user-agent': ['Hakka/0.1.0 (macOS)'] },
+    requestHeaders: {
+      accept: ['application/json'],
+      authorization: ['[REDACTED]'],
+      'user-agent': ['Hakka/0.1.0 (macOS)'],
+    },
     responseHeaders: { 'content-type': [ctype], 'x-request-id': [`rq_${i}${now % 997}`], server: ['cloudflare'] },
-    requestBody: method === 'POST' || method === 'PATCH' ? JSON.stringify({ amount: 4200, currency: 'inr' }, null, 2) : null,
+    requestBody:
+      method === 'POST' || method === 'PATCH' ? JSON.stringify({ amount: 4200, currency: 'inr' }, null, 2) : null,
     responseBody: ctype.includes('json') ? jsonBody(status, url) : null,
     requestBodySize: method === 'POST' || method === 'PATCH' ? 48 : 0,
     responseBodySize: ctype.includes('json') ? 512 : 18_400,
@@ -78,8 +93,36 @@ function diffPair() {
     source: 'fetch',
   }
   return [
-    { ...base, id: `req_diff_a_${now}`, startTime: now - 400, endTime: now - 190, duration: 210, responseHeaders: { 'content-type': ['application/json'], 'x-cache': ['HIT'] }, responseBody: JSON.stringify({ orders: [{ id: 'o1', total: 420 }], page: 1 }, null, 2), responseBodySize: 96 },
-    { ...base, id: `req_diff_b_${now}`, startTime: now, endTime: now + 260, duration: 260, responseHeaders: { 'content-type': ['application/json'], etag: ['"7f3a"'] }, responseBody: JSON.stringify({ orders: [{ id: 'o1', total: 480 }, { id: 'o2', total: 190 }], page: 1 }, null, 2), responseBodySize: 148 },
+    {
+      ...base,
+      id: `req_diff_a_${now}`,
+      startTime: now - 400,
+      endTime: now - 190,
+      duration: 210,
+      responseHeaders: { 'content-type': ['application/json'], 'x-cache': ['HIT'] },
+      responseBody: JSON.stringify({ orders: [{ id: 'o1', total: 420 }], page: 1 }, null, 2),
+      responseBodySize: 96,
+    },
+    {
+      ...base,
+      id: `req_diff_b_${now}`,
+      startTime: now,
+      endTime: now + 260,
+      duration: 260,
+      responseHeaders: { 'content-type': ['application/json'], etag: ['"7f3a"'] },
+      responseBody: JSON.stringify(
+        {
+          orders: [
+            { id: 'o1', total: 480 },
+            { id: 'o2', total: 190 },
+          ],
+          page: 1,
+        },
+        null,
+        2,
+      ),
+      responseBodySize: 148,
+    },
   ]
 }
 
@@ -96,7 +139,16 @@ function llmStream() {
     duration: 2400,
     requestHeaders: { accept: ['text/event-stream'], authorization: ['[REDACTED]'] },
     responseHeaders: { 'content-type': ['text/event-stream'] },
-    requestBody: JSON.stringify({ model: 'gpt-4o-mini', stream: true, stream_options: { include_usage: true }, messages: [{ role: 'user', content: 'say hi' }] }, null, 2),
+    requestBody: JSON.stringify(
+      {
+        model: 'gpt-4o-mini',
+        stream: true,
+        stream_options: { include_usage: true },
+        messages: [{ role: 'user', content: 'say hi' }],
+      },
+      null,
+      2,
+    ),
     responseBody: sse,
     requestBodySize: 148,
     responseBodySize: sse.length,

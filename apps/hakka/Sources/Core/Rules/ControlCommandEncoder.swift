@@ -22,6 +22,10 @@ import HakkaCommon
 /// - `breakpoint.add`: `{"kind":"breakpoint.add","breakpoint":{ id, pattern,
 ///   on, enabled, method? }}`; `breakpoint.remove`:
 ///   `{"kind":"breakpoint.remove","id":...}`.
+/// - `breakpoint.resume`: `{"kind":"breakpoint.resume","pauseId":...,
+///   "requestEdits"?:{ url?, method?, headers?, body? },
+///   "responseEdits"?:{ status?, headers?, body? }}`; `breakpoint.abort`:
+///   `{"kind":"breakpoint.abort","pauseId":...}`.
 /// - `throttle.set`: `{"kind":"throttle.set","profile":...,"latencyMs?:...,
 ///   "downloadKbps"?:...}`.
 ///
@@ -32,6 +36,12 @@ import HakkaCommon
 /// fields — devices match patterns as substrings). Optional fields absent
 /// from the typed value are omitted rather than emitted as nulls, matching
 /// the field-absent shapes the contract's own tests pin.
+///
+/// Direction: `breakpoint.paused` travels device -> host only — this host
+/// encoder refuses to produce it (`ControlWireError.unsupportedDirection`)
+/// rather than silently emitting a frame no device would ever expect from a
+/// host. `breakpoint.resume` / `.abort` are host -> device and encode
+/// normally.
 public enum ControlCommandEncoder {
     /// External ids must match `^[A-Za-z0-9_-]{1,64}$` — the same pattern
     /// the device-side parser enforces on every id-bearing command. Internal
@@ -59,29 +69,23 @@ public enum ControlCommandEncoder {
             return ["kind": "breakpoint.add", "breakpoint": try breakpointObject(id: id, breakpoint: breakpoint)]
         case let .breakpointRemove(id):
             return try removeObject(kind: "breakpoint.remove", id: id)
+        case .breakpointPaused:
+            // Device -> host only. A host has no pause of its own to report —
+            // encoding this here would produce a frame no device's
+            // `parseControlCommand` is ever meant to receive from a host.
+            throw ControlWireError.unsupportedDirection("breakpoint.paused")
+        case let .breakpointResume(pauseId, requestEdits, responseEdits):
+            let id = try validPauseID(pauseId)
+            var object: [String: Any] = ["kind": "breakpoint.resume", "pauseId": id]
+            if let requestEdits { object["requestEdits"] = requestEditsObject(requestEdits) }
+            if let responseEdits { object["responseEdits"] = responseEditsObject(responseEdits) }
+            return object
+        case let .breakpointAbort(pauseId):
+            let id = try validPauseID(pauseId)
+            return ["kind": "breakpoint.abort", "pauseId": id]
         case let .throttleSet(profile, latencyMs, downloadKbps):
             return try throttleObject(profile: profile, latencyMs: latencyMs, downloadKbps: downloadKbps)
         }
-    }
-
-    /// Pause ids come from the pausing device, not this host — mirror the
-    /// device parser's non-empty check without the external-id charset rule
-    /// (a device may quote its own ids however it likes).
-    private static func validPauseID(_ pauseId: String) throws -> String {
-        guard !pauseId.isEmpty else { throw ControlWireError.invalidRuleID(pauseId) }
-        return pauseId
-    }
-
-    private static func pausedRequestObject(_ request: PausedRequest) -> [String: Any] {
-        var object: [String: Any] = [
-            "url": request.url,
-            "method": request.method,
-            "headers": request.headers,
-        ]
-        if let body = request.body {
-            object["body"] = body
-        }
-        return object
     }
 
     /// The payload as deterministic JSON bytes: `.sortedKeys` fixes every
@@ -95,91 +99,8 @@ public enum ControlCommandEncoder {
         }
     }
 
-    // MARK: - Command bodies
-
-    private static func removeObject(kind: String, id: String) throws -> [String: Any] {
+    static func removeObject(kind: String, id: String) throws -> [String: Any] {
         try validateExternalID(id)
         return ["kind": kind, "id": id]
-    }
-
-    private static func mockRuleObject(id: String, rule: MockRuleInput) throws -> [String: Any] {
-        try validateExternalID(id)
-        guard !rule.pattern.isEmpty else { throw ControlWireError.emptyPattern }
-
-        // The wire carries whole milliseconds; the native engine stores
-        // seconds. Round to nearest so a 50 ms authored delay survives the
-        // seconds<->ms round trip exactly.
-        guard rule.response.delay.isFinite, rule.response.delay >= 0 else {
-            throw ControlWireError.invalidDelay(rule.response.delay)
-        }
-
-        var response: [String: Any] = [
-            "status": rule.response.status,
-            // The wire body is required and cannot be null — an absent native
-            // body encodes as the empty string.
-            "body": rule.response.body ?? "",
-        ]
-        if !rule.response.headers.isEmpty { response["headers"] = rule.response.headers }
-        if rule.response.delay > 0 { response["delay"] = Int((rule.response.delay * 1000).rounded()) }
-
-        var object: [String: Any] = [
-            "id": id,
-            "pattern": rule.pattern,
-            "enabled": rule.enabled,
-            "response": response,
-        ]
-        if let method = rule.method { object["method"] = method }
-        if let redirectTo = rule.redirectTo { object["redirectTo"] = redirectTo }
-        if rule.block { object["block"] = true }
-        if let modify = rule.modify { object["modify"] = modifyObject(modify) }
-        return object
-    }
-
-    private static func modifyObject(_ modify: MockRuleModify) -> [String: Any] {
-        var object: [String: Any] = [:]
-        if let v = modify.setRequestHeaders { object["setRequestHeaders"] = v }
-        if let v = modify.removeRequestHeaders { object["removeRequestHeaders"] = v }
-        if let v = modify.setQueryParams { object["setQueryParams"] = v }
-        if let v = modify.removeQueryParams { object["removeQueryParams"] = v }
-        if let v = modify.status { object["status"] = v }
-        if let v = modify.setResponseHeaders { object["setResponseHeaders"] = v }
-        if let v = modify.removeResponseHeaders { object["removeResponseHeaders"] = v }
-        if let v = modify.replaceBody {
-            object["replaceBody"] = v.map { ["find": $0.find, "replace": $0.replace] }
-        }
-        return object
-    }
-
-    private static func breakpointObject(id: String, breakpoint: BreakpointInput) throws -> [String: Any] {
-        try validateExternalID(id)
-        guard !breakpoint.pattern.isEmpty else { throw ControlWireError.emptyPattern }
-
-        var object: [String: Any] = [
-            "id": id,
-            "pattern": breakpoint.pattern,
-            "on": breakpoint.on.rawValue,
-            "enabled": breakpoint.enabled,
-        ]
-        if let method = breakpoint.method { object["method"] = method }
-        return object
-    }
-
-    private static func throttleObject(profile: ThrottleProfile, latencyMs: Int?, downloadKbps: Int?) throws -> [String: Any] {
-        var object: [String: Any] = [
-            "kind": "throttle.set",
-            // A typed enum can only hold raw values the contract lists, so an
-            // unknown profile is unrepresentable at this API — the loud
-            // failure for those lives on the parse side.
-            "profile": profile.rawValue,
-        ]
-        if let latencyMs {
-            guard latencyMs >= 0 else { throw ControlWireError.invalidLatencyMs(latencyMs) }
-            object["latencyMs"] = latencyMs
-        }
-        if let downloadKbps {
-            guard downloadKbps >= 0 else { throw ControlWireError.invalidDownloadKbps(downloadKbps) }
-            object["downloadKbps"] = downloadKbps
-        }
-        return object
     }
 }

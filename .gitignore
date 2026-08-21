@@ -24,6 +24,11 @@ DerivedData/
 # Dependencies
 node_modules/
 **/node_modules/
+# Trailing-slash patterns above only match real directories — a worktree may
+# have node_modules as a symlink (shared from the main checkout) instead, so
+# also match without the trailing slash to catch that case.
+node_modules
+**/node_modules
 **/.gradle/
 
 # Caches

@@ -34,13 +34,21 @@ extension CollectionModel {
     }
 
     static func removing(id: String, from nodes: [CollectionNode]) -> [CollectionNode] {
+        removingAll(ids: [id], from: nodes)
+    }
+
+    /// Same as `removing(id:from:)` but for a whole batch at once — the
+    /// pure-tree half of multi-select delete. A folder in `ids` takes every
+    /// descendant with it, so listing a descendant's id too is harmless,
+    /// not a double-delete.
+    static func removingAll(ids: Set<String>, from nodes: [CollectionNode]) -> [CollectionNode] {
         nodes.compactMap { node -> CollectionNode? in
             switch node {
             case let .request(spec):
-                return spec.id == id ? nil : node
+                return ids.contains(spec.id) ? nil : node
             case var .folder(folder):
-                if folder.id == id { return nil }
-                folder.children = removing(id: id, from: folder.children)
+                if ids.contains(folder.id) { return nil }
+                folder.children = removingAll(ids: ids, from: folder.children)
                 return .folder(folder)
             }
         }

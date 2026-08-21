@@ -167,8 +167,14 @@ export type { WsFrameDecoder, WsFrameInfo } from './engine/wsDecoders'
 export { wsFrameDecoders, decodeWsFrame } from './engine/wsDecoders'
 export { ThrottleEngine } from './engine/ThrottleEngine'
 export type { ThrottleProfile, ThrottleConfig } from './engine/ThrottleEngine'
-export { applyControlCommand, parseControlCommand } from './engine/control'
-export type { ControlCommand } from './engine/control'
+export { applyControlCommand, isDeviceToHostCommand, parseControlCommand } from './engine/control'
+export type {
+  BreakpointPausedRequest,
+  BreakpointPausedResponse,
+  BreakpointRequestEdits,
+  BreakpointResponseEdits,
+  ControlCommand,
+} from './engine/control'
 export { generateMockRules } from './engine/mockFromTraffic'
 export type { GenerateMockRulesOptions } from './engine/mockFromTraffic'
 export { buildReplayInit, replayRequest, REPLAY_MARKER_HEADER } from './engine/replayRequest'

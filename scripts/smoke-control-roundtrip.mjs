@@ -280,6 +280,61 @@ async function main() {
     assert.equal(mockEngine.isRewrite(modifyRule), true, 'a rule with only a modify block must be isRewrite')
     mockEngine.removeRule(modifyRuleId)
 
+    // ── breakpoint.resume / breakpoint.abort: raw sendControl frames (no MCP
+    //    tool exposes these yet — that is deliberately a later task's UI
+    //    surface) relayed over the real bridge into the app peer's real
+    //    breakpointEngine singleton, proving the resume/abort wire seam
+    //    end to end, not just unit-tested in isolation ──────────────────────
+    const resumePause = breakpointEngine.pause('smoke-req-resume', 'request', {
+      url: 'https://api.example.com/checkout',
+      method: 'GET',
+      headers: {},
+      body: null,
+    })
+    const [pendingResume] = await pollUntil('breakpointEngine has a pending request-phase pause', () => {
+      const paused = breakpointEngine.getPaused()
+      return paused.length > 0 ? paused : null
+    })
+    const sentResume = listener.sendControl({
+      kind: 'breakpoint.resume',
+      pauseId: pendingResume.id,
+      requestEdits: { method: 'PUT' },
+    })
+    assert.equal(sentResume, true, 'sendControl(breakpoint.resume) should report true (bridge connected)')
+    const resumeAction = await withTimeout('breakpoint.resume resolves the pause', resumePause)
+    assert.equal(
+      resumeAction.type,
+      'resume',
+      'breakpoint.resume relayed over the real bridge should resolve with type "resume"',
+    )
+    // parseControlCommand fills every optional edit field in explicitly (undefined for absent) — same
+    // convention every other kind's parser uses — so assert the one field that was actually sent rather
+    // than a byte-exact object.
+    assert.equal(
+      resumeAction.edits?.method,
+      'PUT',
+      'breakpoint.resume relayed over the real bridge should carry the sent edits',
+    )
+
+    const abortPause = breakpointEngine.pause('smoke-req-abort', 'request', {
+      url: 'https://api.example.com/checkout',
+      method: 'GET',
+      headers: {},
+      body: null,
+    })
+    const [pendingAbort] = await pollUntil('breakpointEngine has a pending request-phase pause to abort', () => {
+      const paused = breakpointEngine.getPaused()
+      return paused.length > 0 ? paused : null
+    })
+    const sentAbort = listener.sendControl({ kind: 'breakpoint.abort', pauseId: pendingAbort.id })
+    assert.equal(sentAbort, true, 'sendControl(breakpoint.abort) should report true (bridge connected)')
+    const abortAction = await withTimeout('breakpoint.abort resolves the pause', abortPause)
+    assert.deepEqual(
+      abortAction,
+      { type: 'abort' },
+      'breakpoint.abort relayed over the real bridge should abort the pause',
+    )
+
     const deleteResult = await withTimeout(
       'delete_mock',
       client.callTool({ name: 'delete_mock', arguments: { id: mintedId } }),
@@ -305,10 +360,10 @@ async function main() {
     assert.equal(disconnectedBody.sent, false, 'create_mock while disconnected should report sent:false')
 
     process.stdout.write(
-      'PASS smoke-control-roundtrip: create_mock/set_throttle/delete_mock + a raw mock.add-with-modify frame ' +
-        'relayed over a REAL bridge socket into a real peer process running parseControlCommand+' +
-        'applyControlCommand against the real mockEngine/ThrottleEngine singletons; disconnected-bridge path ' +
-        'verified isError without throwing\n',
+      'PASS smoke-control-roundtrip: create_mock/set_throttle/delete_mock + a raw mock.add-with-modify frame + ' +
+        'raw breakpoint.resume/breakpoint.abort frames relayed over a REAL bridge socket into a real peer process ' +
+        'running parseControlCommand+applyControlCommand against the real mockEngine/breakpointEngine/' +
+        'ThrottleEngine singletons; disconnected-bridge path verified isError without throwing\n',
     )
   } finally {
     // ── cleanup — never leave a listening socket or child process behind ───

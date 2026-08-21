@@ -88,6 +88,50 @@ final class CollectionModel {
         }
     }
 
+    /// Persists `updated` (if a directory is bound) before adopting it as
+    /// the live tree — write-then-swap, so a failed save never leaves the
+    /// UI showing content the disk doesn't actually have. `duplicate` and
+    /// `move` both fold their tree edit through this. With no directory
+    /// bound yet there's nothing on disk to protect, so the tree just
+    /// updates.
+    @discardableResult
+    func adopt(_ updated: Collection) async -> Bool {
+        guard let directoryURL else {
+            collection = updated
+            lastError = nil
+            return true
+        }
+        do {
+            try await store.save(updated, to: directoryURL)
+            collection = updated
+            lastError = nil
+            return true
+        } catch {
+            lastError = "Couldn't save collection: \(error.localizedDescription)"
+            return false
+        }
+    }
+
+    /// Deletes every id in `ids` as one atomic disk operation — see
+    /// `CollectionStore.deleteNodes`. Either the whole batch comes off disk
+    /// and out of the tree, or (on any failure) neither does, so a
+    /// mid-batch failure never leaves a half-deleted collection with no way
+    /// back.
+    func deleteNodes(ids: Set<String>) async {
+        guard !ids.isEmpty else { return }
+        guard let directoryURL else {
+            collection.nodes = Self.removingAll(ids: ids, from: collection.nodes)
+            return
+        }
+        do {
+            try await store.deleteNodes(ids: ids, in: collection, from: directoryURL)
+            collection.nodes = Self.removingAll(ids: ids, from: collection.nodes)
+            lastError = nil
+        } catch {
+            lastError = "Couldn't delete \(ids.count) item\(ids.count == 1 ? "" : "s"): \(error.localizedDescription)"
+        }
+    }
+
     private static func seedCollection() -> Collection {
         let example = RequestSpec(
             name: "GET httpbin",
