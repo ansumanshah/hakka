@@ -50,5 +50,10 @@ let package = Package(
             dependencies: ["HakkaCore", "HakkaServer"],
             path: "Tests/CoreTests",
         ),
+        .testTarget(
+            name: "HakkaAppTests",
+            dependencies: ["HakkaApp", "HakkaCore"],
+            path: "Tests/AppTests",
+        ),
     ],
 )

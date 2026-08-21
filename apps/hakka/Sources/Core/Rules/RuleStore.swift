@@ -69,20 +69,43 @@ public actor RuleStore {
 
     /// Flip an entry's enable toggle. The wire has no toggle command — the
     /// caller re-sends `installCommand(for:)` and the device engine replaces
-    /// the rule by id with the new enabled value. Unknown ids are a no-op.
-    public func setEnabled(_ enabled: Bool, id: String) {
-        guard let index = entries.firstIndex(where: { $0.id == id }),
-            entries[index].isEnabled != enabled
-        else { return }
+    /// the rule by id with the new enabled value. Unknown ids are a no-op
+    /// (returns nil). Returns the entry's previous enabled value otherwise,
+    /// so a caller that mutates local state ahead of a wire send can flip it
+    /// straight back if that send fails — an exact rollback, not a guess.
+    @discardableResult
+    public func setEnabled(_ enabled: Bool, id: String) -> Bool? {
+        guard let index = entries.firstIndex(where: { $0.id == id }) else { return nil }
+        let previous = entries[index].isEnabled
+        guard previous != enabled else { return previous }
         entries[index].isEnabled = enabled
         notifyChanged()
+        return previous
     }
 
-    /// Remove an entry by id. Unknown ids are a no-op.
-    public func remove(id: String) {
-        let before = entries.count
-        entries.removeAll { $0.id == id }
-        guard entries.count != before else { return }
+    /// Remove an entry by id. Unknown ids are a no-op (returns nil).
+    /// Returns the removed entry and the index it occupied, so a caller can
+    /// hand both to `restore(_:at:)` for an exact rollback — same payload,
+    /// same `hitCount`, same list position — if the wire send that was
+    /// supposed to follow the removal fails.
+    @discardableResult
+    public func remove(id: String) -> (entry: RuleEntry, index: Int)? {
+        guard let index = entries.firstIndex(where: { $0.id == id }) else { return nil }
+        let entry = entries.remove(at: index)
+        notifyChanged()
+        return (entry, index)
+    }
+
+    /// Reinserts a previously removed entry at its prior index — the other
+    /// half of `remove(id:)`'s rollback contract. Clamped to the current
+    /// count so a store that changed shape underneath (another mutation
+    /// raced in while the failed send was in flight) still gets a valid
+    /// insert instead of a trap; the position is best-effort in that case,
+    /// but the entry itself — payload and `hitCount` — is exact because the
+    /// caller hands back the very snapshot `remove` returned.
+    public func restore(_ entry: RuleEntry, at index: Int) {
+        let clamped = min(max(index, 0), entries.count)
+        entries.insert(entry, at: clamped)
         notifyChanged()
     }
 
