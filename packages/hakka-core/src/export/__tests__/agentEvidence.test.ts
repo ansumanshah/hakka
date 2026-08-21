@@ -26,13 +26,13 @@ function extractJsonFence(formatted: string): string {
 }
 
 describe('formatEvidenceBundleForAgent', () => {
-  test('preamble is 2-3 lines before the json fence', () => {
+  test('preamble is 3-4 lines before the json fence (headline, stats, scrub notice)', () => {
     const bundle = buildEvidenceBundle([req()], { exportedAt: EXPORTED_AT })
     const formatted = formatEvidenceBundleForAgent(bundle)
     const preamble = formatted.split('```json')[0]!
     const lines = preamble.split('\n').filter((l) => l.trim().length > 0)
-    expect(lines.length).toBeGreaterThanOrEqual(2)
-    expect(lines.length).toBeLessThanOrEqual(3)
+    expect(lines.length).toBeGreaterThanOrEqual(3)
+    expect(lines.length).toBeLessThanOrEqual(4)
   })
 
   test('contains exactly one ```json fence', () => {
@@ -74,5 +74,34 @@ describe('formatEvidenceBundleForAgent', () => {
     const formatted = formatEvidenceBundleForAgent(bundle)
     const parsed = JSON.parse(extractJsonFence(formatted))
     expect(parsed).toEqual(bundle)
+  })
+
+  test('preamble states what was scrubbed, by category — never silent', () => {
+    const SECRET = 'sk-live-abcdef0123456789'
+    const bundle = buildEvidenceBundle(
+      [
+        req({
+          requestHeaders: { Authorization: `Bearer ${SECRET}` },
+          requestBody: JSON.stringify({ password: SECRET }),
+        }),
+      ],
+      { exportedAt: EXPORTED_AT },
+    )
+    const formatted = formatEvidenceBundleForAgent(bundle)
+    const preamble = formatted.split('```json')[0]!
+    expect(preamble).toContain('Scrubbed before sharing')
+    expect(formatted).not.toContain(SECRET)
+  })
+
+  test('preamble says nothing matched when scrubbing ran but found nothing', () => {
+    const bundle = buildEvidenceBundle([req()], { exportedAt: EXPORTED_AT })
+    const formatted = formatEvidenceBundleForAgent(bundle)
+    expect(formatted.toLowerCase()).toContain('nothing matched')
+  })
+
+  test('preamble says scrubbing was not applied when the bundle opted out', () => {
+    const bundle = buildEvidenceBundle([req()], { exportedAt: EXPORTED_AT, scrub: false })
+    const formatted = formatEvidenceBundleForAgent(bundle)
+    expect(formatted.toLowerCase()).toContain('not applied')
   })
 })

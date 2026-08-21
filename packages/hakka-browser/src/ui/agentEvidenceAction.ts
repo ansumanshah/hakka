@@ -16,8 +16,26 @@ import type { StoreClient } from '../worker'
  * `console: []` even though real entries exist main-thread-side. This helper
  * is the only place both `store` (bodies/spans) and `logStore` (console) are
  * simultaneously reachable.
+ *
+ * Share-time scrubbing: `buildEvidenceBundle` defaults to scrubbing this
+ * bundle before it is copied — the whole point of this action is putting
+ * captured bodies into a clipboard the user is about to paste into an AI
+ * agent thread, which is exactly the case the strong local-first prior
+ * covers ("anything crossing a machine boundary defaults to scrubbed").
+ * `formatEvidenceBundleForAgent` surfaces what was removed in the preamble,
+ * never silently. Pass `{ scrub: false }` for the rare case a developer has
+ * explicitly decided this specific paste is fine unredacted.
  */
-export async function copyAgentContextForRequest(store: StoreClient, req: NetworkRequest): Promise<boolean> {
+export interface CopyAgentContextOptions {
+  /** Default true. Set false to skip share-time scrubbing for this one copy. */
+  scrub?: boolean
+}
+
+export async function copyAgentContextForRequest(
+  store: StoreClient,
+  req: NetworkRequest,
+  options: CopyAgentContextOptions = {},
+): Promise<boolean> {
   const groupId = req.correlationId ?? req.id
   const all = await store.getSnapshot()
   // groupRequests(all, 'trace') is the SAME grouping function
@@ -43,6 +61,7 @@ export async function copyAgentContextForRequest(store: StoreClient, req: Networ
     focusRequestId: req.id,
     spans,
     logs: logStore.getEntries(),
+    scrub: options.scrub ?? true,
   })
 
   return copyToClipboard(formatEvidenceBundleForAgent(bundle))

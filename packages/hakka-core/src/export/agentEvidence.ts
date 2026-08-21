@@ -1,6 +1,7 @@
 import type { Exporter } from '../contract/exporter'
 import { buildEvidenceBundle } from '../repro/buildEvidenceBundle'
 import type { EvidenceBundle, EvidenceBundleOptions } from '../repro/buildEvidenceBundle'
+import { describeShareScrub } from '../utils/shareScrub'
 
 /**
  * Formats an `EvidenceBundle` for pasting into an AI agent: a short preamble +
@@ -33,9 +34,10 @@ function describeFocalOutcome(req: EvidenceBundle['requests'][number] | undefine
 }
 
 /**
- * 2-3 line preamble (what failed, when, how many hops/spans) + one
- * ```json fenced block containing the exact `EvidenceBundle` JSON — the same
- * shape `export_evidence`/`get_trace` return.
+ * Preamble (what failed, when, how many hops/spans, whether it was scrubbed
+ * before sharing) + one ```json fenced block containing the exact
+ * `EvidenceBundle` JSON — the same shape `export_evidence`/`get_trace`
+ * return.
  */
 export function formatEvidenceBundleForAgent(
   bundle: EvidenceBundle,
@@ -53,6 +55,11 @@ export function formatEvidenceBundleForAgent(
     `${bundle.exportedAt} · ${hopCount} hop${hopCount === 1 ? '' : 's'} · ${spanCount} span${spanCount === 1 ? '' : 's'}${
       options.reason ? ` · ${options.reason}` : ''
     }`,
+    // Visibility (never silent): the recipient must be able to tell "scrubbed and clean"
+    // apart from "never scrubbed at all" — a category truncations-style array on the
+    // bundle JSON isn't enough on its own, since a human skimming the preamble before the
+    // fenced block is the actual audience here, not just an agent parsing JSON.
+    describeShareScrub(bundle.redaction),
     '',
     '```json',
     JSON.stringify(bundle, null, 2),

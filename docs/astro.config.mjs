@@ -201,6 +201,7 @@ export default defineConfig({
             'spec/export',
             'spec/retention',
             'spec/redaction',
+            'spec/share-scrubbing',
             'spec/bridge',
             'spec/control-channel',
             'spec/plugins',

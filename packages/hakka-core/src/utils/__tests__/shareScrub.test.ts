@@ -1,0 +1,196 @@
+import { describe, expect, test } from 'bun:test'
+
+import type { NetworkRequest } from '../../model/types'
+import {
+  describeShareScrub,
+  scrubBodyForShare,
+  scrubHeadersForShare,
+  scrubNetworkRequestForShare,
+  scrubRequestsForShare,
+  scrubUrlForShare,
+} from '../shareScrub'
+
+const SECRET = 'sk-live-abcdef0123456789'
+const JWT = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U'
+
+function baseRequest(overrides: Partial<NetworkRequest> = {}): NetworkRequest {
+  return {
+    id: 'req-1',
+    url: 'https://api.example.com/v1/chat',
+    method: 'POST',
+    status: 200,
+    startTime: 0,
+    duration: 100,
+    requestHeaders: {},
+    responseHeaders: {},
+    ...overrides,
+  }
+}
+
+describe('scrubUrlForShare', () => {
+  test('redacts Basic-auth credentials embedded in the URL', () => {
+    const { url, removed } = scrubUrlForShare(`https://user:${SECRET}@api.example.com/path`)
+    expect(url).not.toContain(SECRET)
+    expect(url).toBe('https://[REDACTED]@api.example.com/path')
+    expect(removed).toEqual([{ category: 'basicAuthUrl', count: 1 }])
+  })
+
+  test('redacts sensitive query string params', () => {
+    const { url, removed } = scrubUrlForShare(`https://api.example.com/data?api_key=${SECRET}&page=2`)
+    expect(url).not.toContain(SECRET)
+    expect(url).toContain('page=2')
+    expect(removed).toEqual([{ category: 'apiKeyQueryParam', count: 1 }])
+  })
+
+  test('leaves a clean URL untouched and reports no removals', () => {
+    const { url, removed } = scrubUrlForShare('https://api.example.com/users?page=2')
+    expect(url).toBe('https://api.example.com/users?page=2')
+    expect(removed).toEqual([])
+  })
+
+  test('does not throw on a relative or malformed URL', () => {
+    expect(() => scrubUrlForShare('/relative/path?x=1')).not.toThrow()
+  })
+})
+
+describe('scrubHeadersForShare', () => {
+  test('blanks a sensitive header value, preserving the key', () => {
+    const { headers, removed } = scrubHeadersForShare({ Authorization: `Bearer ${SECRET}`, 'x-request-id': 'abc' })
+    expect(headers?.Authorization).toBe('[REDACTED]')
+    expect(headers?.['x-request-id']).toBe('abc')
+    expect(removed).toEqual([{ category: 'header', count: 1 }])
+  })
+
+  test('redacts a Cookie header', () => {
+    const { headers, removed } = scrubHeadersForShare({ Cookie: `session=${SECRET}` })
+    expect(headers?.Cookie).toBe('[REDACTED]')
+    expect(removed).toEqual([{ category: 'header', count: 1 }])
+  })
+
+  test('undefined headers pass through unchanged', () => {
+    const { headers, removed } = scrubHeadersForShare(undefined)
+    expect(headers).toBeUndefined()
+    expect(removed).toEqual([])
+  })
+})
+
+describe('scrubBodyForShare', () => {
+  test('redacts a matching top-level JSON field', () => {
+    const { body, removed } = scrubBodyForShare(JSON.stringify({ password: SECRET, username: 'ansuman' }))
+    const parsed = JSON.parse(body!) as Record<string, unknown>
+    expect(parsed.password).toBe('[REDACTED]')
+    expect(parsed.username).toBe('ansuman')
+    expect(removed).toEqual([{ category: 'jsonField', count: 1 }])
+  })
+
+  test('redacts a matching field nested inside a body object', () => {
+    const { body } = scrubBodyForShare(JSON.stringify({ user: { profile: { credentials: { apiKey: SECRET } } } }))
+    expect(body).not.toContain(SECRET)
+  })
+
+  test('pattern-scans a JSON string leaf under an unlisted field name', () => {
+    const { body, removed } = scrubBodyForShare(JSON.stringify({ note: `token was Bearer ${SECRET}` }))
+    expect(body).not.toContain(SECRET)
+    expect(removed.some((r) => r.category === 'bearerToken')).toBe(true)
+  })
+
+  test('redacts a bare JWT in a non-JSON body', () => {
+    const { body, removed } = scrubBodyForShare(`the id_token is ${JWT}`)
+    expect(body).not.toContain(JWT)
+    expect(removed).toEqual([{ category: 'jwt', count: 1 }])
+  })
+
+  test('redacts an email address by default', () => {
+    const { body, removed } = scrubBodyForShare('contact ansuman@example.com for access')
+    expect(body).not.toContain('ansuman@example.com')
+    expect(removed).toEqual([{ category: 'email', count: 1 }])
+  })
+
+  test('email scrubbing can be opted out', () => {
+    const { body } = scrubBodyForShare('contact ansuman@example.com for access', { scrubEmails: false })
+    expect(body).toContain('ansuman@example.com')
+  })
+
+  test('leaves a clean body unchanged and reports no removals', () => {
+    const clean = JSON.stringify({ id: 1, name: 'widget' })
+    const { body, removed } = scrubBodyForShare(clean)
+    expect(body).toBe(clean)
+    expect(removed).toEqual([])
+  })
+
+  test('null/empty body passes through', () => {
+    expect(scrubBodyForShare(null).body).toBeNull()
+    expect(scrubBodyForShare('').body).toBe('')
+  })
+
+  test('malformed JSON falls back to pattern scan without throwing', () => {
+    expect(() => scrubBodyForShare(`{not json, Bearer ${SECRET}`)).not.toThrow()
+  })
+})
+
+describe('scrubNetworkRequestForShare — the point of the whole task', () => {
+  test('a secret placed in a header, a JSON body field, a query string, a cookie, and a nested body object does not appear anywhere in the scrubbed request', () => {
+    const request = baseRequest({
+      url: `https://api.example.com/v1/chat?api_key=${SECRET}`,
+      requestHeaders: {
+        Authorization: `Bearer ${SECRET}`,
+        Cookie: `session_id=${SECRET}`,
+      },
+      responseHeaders: {},
+      requestBody: JSON.stringify({
+        password: SECRET,
+        nested: { auth: { token: SECRET } },
+      }),
+      responseBody: JSON.stringify({ ok: true }),
+    })
+
+    const { request: scrubbed, removed } = scrubNetworkRequestForShare(request)
+    const serialized = JSON.stringify(scrubbed)
+
+    expect(serialized).not.toContain(SECRET)
+    expect(removed.length).toBeGreaterThan(0)
+  })
+
+  test('never mutates the input request', () => {
+    const request = baseRequest({ requestBody: JSON.stringify({ password: SECRET }) })
+    const original = JSON.stringify(request)
+    scrubNetworkRequestForShare(request)
+    expect(JSON.stringify(request)).toBe(original)
+  })
+
+  test('returns an empty removal list for a request with nothing to scrub', () => {
+    const request = baseRequest({ requestBody: JSON.stringify({ id: 1 }) })
+    const { removed } = scrubNetworkRequestForShare(request)
+    expect(removed).toEqual([])
+  })
+})
+
+describe('scrubRequestsForShare', () => {
+  test('merges removal tallies across multiple requests', () => {
+    const requests = [
+      baseRequest({ id: 'a', requestBody: JSON.stringify({ password: SECRET }) }),
+      baseRequest({ id: 'b', requestBody: JSON.stringify({ secret: SECRET }) }),
+    ]
+    const { requests: scrubbed, removed } = scrubRequestsForShare(requests)
+    expect(scrubbed.every((r) => !JSON.stringify(r).includes(SECRET))).toBe(true)
+    const jsonFieldTally = removed.find((r) => r.category === 'jsonField')
+    expect(jsonFieldTally?.count).toBe(2)
+  })
+})
+
+describe('describeShareScrub', () => {
+  test('reports what was removed, by category', () => {
+    const text = describeShareScrub({ applied: true, removed: [{ category: 'header', count: 2 }] })
+    expect(text).toContain('2 header')
+  })
+
+  test('is explicit when scrubbing ran but found nothing', () => {
+    const text = describeShareScrub({ applied: true, removed: [] })
+    expect(text.toLowerCase()).toContain('nothing matched')
+  })
+
+  test('is explicit when scrubbing was not applied at all', () => {
+    const text = describeShareScrub({ applied: false, removed: [] })
+    expect(text.toLowerCase()).toContain('not applied')
+  })
+})

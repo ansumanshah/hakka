@@ -1,5 +1,6 @@
 import type { Exporter } from '../contract/exporter'
 import type { NetworkRequest } from '../model/types'
+import type { ShareScrubSummary } from '../utils/shareScrub'
 import type { BuildReproBundleOptions, ReproBundle, ReproBundleMeta, ReproMockRule } from './buildReproBundle'
 import { buildReproBundle, REPRO_BUNDLE_SCHEMA_VERSION } from './buildReproBundle'
 
@@ -16,6 +17,8 @@ export interface HakkaReproBundleFile {
   meta?: ReproBundleMeta
   requests: NetworkRequest[]
   mocks: ReproMockRule[]
+  /** Whether share-time scrubbing ran before this file was written, and what it found. Absent on files written before this field existed — `deserializeReproBundle` treats that tolerantly as "unknown," never as "confirmed clean." */
+  redaction?: ShareScrubSummary
 }
 
 /** Result of a successful `deserializeReproBundle` parse. */
@@ -24,6 +27,8 @@ export interface DeserializedReproBundle {
   mocks: ReproMockRule[]
   meta?: ReproBundleMeta
   version: number
+  /** `undefined` when the file predates this field — treat as unknown scrub status, not as "not scrubbed." */
+  redaction?: ShareScrubSummary
 }
 
 /**
@@ -36,6 +41,7 @@ export function serializeReproBundle(bundle: ReproBundle): string {
     ...(bundle.meta !== undefined ? { meta: bundle.meta } : {}),
     requests: [...bundle.requests],
     mocks: [...bundle.mocks],
+    ...(bundle.redaction !== undefined ? { redaction: bundle.redaction } : {}),
   }
   return JSON.stringify(file, null, 2)
 }
@@ -84,10 +90,16 @@ export function deserializeReproBundle(json: string): DeserializedReproBundle {
       ? (obj.meta as ReproBundleMeta)
       : undefined
 
+  const redaction =
+    typeof obj.redaction === 'object' && obj.redaction !== null && !Array.isArray(obj.redaction)
+      ? (obj.redaction as ShareScrubSummary)
+      : undefined
+
   return {
     requests: obj.requests as NetworkRequest[],
     mocks: obj.mocks as ReproMockRule[],
     ...(meta !== undefined ? { meta } : {}),
+    ...(redaction !== undefined ? { redaction } : {}),
     version: obj.hakkaReproBundle,
   }
 }
@@ -105,6 +117,17 @@ export function deserializeReproBundle(json: string): DeserializedReproBundle {
  * the only thing added is the derived `mocks` array, which is new
  * information, not lost information. `options` (meta, mock-generation
  * options, `exportedAt`) is captured at construction time, not per-call.
+ *
+ * `buildReproBundle` defaults to share-time scrubbing ON (see its
+ * docblock) because most callers (the `generate_repro` MCP tool chief among
+ * them) build a bundle specifically to hand to an agent or file as a bug.
+ * This exporter is the one caller that must NOT inherit that default: it is
+ * the `Exporter` contract's byte-for-byte "save this session to a file"
+ * path, `lossy: false` is a binding claim `exporterConformance.ts` checks,
+ * and scrubbing is itself a lossy transform. `scrub` is force-set to
+ * `false` here regardless of what `options` requests, so a caller wanting a
+ * scrubbed `.hakka-repro` file must call `buildReproBundle` +
+ * `serializeReproBundle` directly rather than through this wrapper.
  */
 export function createReproBundleExporter(options?: BuildReproBundleOptions): Exporter {
   return {
@@ -116,7 +139,7 @@ export function createReproBundleExporter(options?: BuildReproBundleOptions): Ex
     includesBodies: true,
     streaming: false,
     export(requests) {
-      return serializeReproBundle(buildReproBundle([...requests], options))
+      return serializeReproBundle(buildReproBundle([...requests], { ...options, scrub: false }))
     },
   }
 }
