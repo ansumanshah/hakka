@@ -5,6 +5,38 @@ description: The completion plan for the desktop app — what we copy from Proxy
 
 Status: Proposed · Date: 2026-08-21 · Extends [ADR 0008](/contributing/adr/0008-desktop-plugin-products/) · Applies [ADR 0009](/contributing/adr/0009-contracts-first-internals/)
 
+## Amendment 2026-08-22: gRPC is no longer deferred
+
+Sub-decision 4 below defers gRPC past completion. **The owner has reversed
+that.** gRPC is prioritised, and this section records why the original
+reasoning does not survive contact with the codebase.
+
+The deferral rested on gRPC costing "weeks of lift" for proto descriptor
+loading or server reflection plus a `grpc-swift` dependency. That estimate
+covers the SENDING half only. gRPC-Web and raw protobuf wire decoding
+already ship across the whole SDK fleet and were not counted:
+`ios/Sources/Common/BodyDecoders/GrpcWebDecoder.swift` and
+`ProtobufDetectors.swift`, `android/hakka-common/.../GrpcWebDecoder.kt` and
+`ProtoWireDecoder.kt`, and `packages/hakka-core/src/engine/decode/grpcWeb.ts`,
+each with tests.
+
+So the work splits, and only the second half was ever expensive:
+
+- **Inspection** is mostly wiring. The decoders exist; the desktop app routes
+  gRPC content types to a hex fallback instead of to them. The genuinely
+  new work is small and specific: frame structure with the compression flag,
+  schema-less protobuf field rendering that is honest about being inferred,
+  and surfacing `grpc-status` from the trailers rather than the HTTP status,
+  since a failed gRPC call is usually HTTP 200. That last point is the most
+  confusing thing about reading gRPC in a tool built for HTTP, and it is
+  where most of the value sits.
+- **Sending** keeps the original cost and the original open questions. It is
+  scoped separately in `.claude/strategy/grpc-sending-2026-08.md` rather
+  than estimated here.
+
+The transport seam argument in sub-decision 4 still holds; it is now the
+reason sending stays cheap to add rather than the reason to postpone it.
+
 ## Context
 
 ADR 0008 shipped the desktop app as embeddable SPM products with an honest
