@@ -33,11 +33,18 @@ final class TrafficModel {
     var comparisonBaselineID: String?
 
     let server = BridgeServer()
-    private let store = TrafficStore()
+    /// Internal, not `private`: `TrafficModel+Session.swift`'s extension
+    /// needs it too, and an extension in another file can't see `private`.
+    let store = TrafficStore()
     /// The authored rules pushed to devices over the bridge.
     let rules = RuleStore()
     /// Sends typed control commands; nil until `start()` hands it the hub.
     private(set) var ruleSender: ControlSender?
+    /// Which connected device produced each buffered request. See
+    /// `DeviceLabelIndex`'s doc comment for why this isn't just a field on
+    /// `NetworkRequest`. Same visibility reasoning as `store` above.
+    @ObservationIgnored
+    var deviceIndex = DeviceLabelIndex()
 
     /// Starts the bridge listener, then consumes its request stream for the
     /// lifetime of the calling task — meant to be driven by a SwiftUI
@@ -55,15 +62,25 @@ final class TrafficModel {
         }
         let hub = await server.hub
         ruleSender = ControlSender(hub: hub)
-        for await request in await server.hub.requests {
+        for await captured in await server.hub.requests {
+            let request = captured.request
             await store.append(request)
             requests.append(request)
+            deviceIndex.record(requestID: request.id, label: captured.deviceLabel)
             if requests.count > TrafficStore.defaultCapacity {
-                requests.removeFirst(requests.count - TrafficStore.defaultCapacity)
+                let overflow = requests.count - TrafficStore.defaultCapacity
+                deviceIndex.evict(requestIDs: requests.prefix(overflow).map(\.id))
+                requests.removeFirst(overflow)
             }
             await countRuleHits(for: request)
             stats = await store.stats()
         }
+    }
+
+    /// Which device produced `requestID`'s row, or nil for a request the
+    /// bridge never attributed (e.g. one restored from an imported session).
+    func deviceLabel(for requestID: String) -> BridgeDeviceLabel? {
+        deviceIndex[requestID]
     }
 
     /// Delivers a control command to every connected device, returning the
@@ -93,7 +110,17 @@ final class TrafficModel {
         guard !trimmed.isEmpty else { return requests.reversed() }
 
         let compiled = compiledQuery(for: trimmed)
-        let matched = requests.filter(compiled.match)
+        var matched = requests.filter(compiled.match)
+        // `device:` has no reach into `TrafficQueryCompiler` — the compiler
+        // works over a bare `NetworkRequest`, which carries no device
+        // identity (see `DeviceLabelIndex`), so the model applies this term
+        // itself using its own `deviceIndex`.
+        if let device = compiled.query.device {
+            matched = matched.filter { request in
+                let matches = (deviceIndex[request.id] ?? "").lowercased().contains(device)
+                return matches != compiled.query.deviceNegate
+            }
+        }
         guard let field = compiled.query.sort else { return matched.reversed() }
         return TrafficSort.sort(matched, field: field, order: compiled.query.order)
     }
@@ -139,39 +166,19 @@ final class TrafficModel {
     func clear() async {
         await store.clear()
         requests = []
+        deviceIndex.removeAll()
         stats = await store.stats()
         selectedRequestID = nil
         comparisonBaselineID = nil
     }
 
-    // MARK: - Session export / import
-
-    /// The captured buffer as a `.hakka-session` document.
-    func exportSession(named name: String) async -> Data? {
-        let session = await store.exportSession(name: name)
-        return try? TrafficSessionCodec.encode(session)
-    }
-
-    /// HAR 1.2, for handing the capture to a tool that isn't Hakka.
-    func exportHar() async -> Data? {
-        guard let json = await store.exportHar(prettyPrint: true) else { return nil }
-        return Data(json.utf8)
-    }
-
-    /// Replaces the buffer with a saved session. Returns an error message on
-    /// failure rather than throwing, since every caller is a menu action whose
-    /// only recourse is to show it.
-    func importSession(from data: Data) async -> String? {
-        do {
-            let session = try TrafficSessionCodec.decode(data)
-            await store.importSession(session)
-            requests = await store.all()
-            stats = await store.stats()
-            selectedRequestID = nil
-            comparisonBaselineID = nil
-            return nil
-        } catch {
-            return "Could not open that session: \(error.localizedDescription)"
-        }
+    /// Replaces the mirrored buffer wholesale. `requests`/`stats` stay
+    /// `private(set)` so nothing outside this type can drift them from
+    /// `store`'s truth by accident; `TrafficModel+Session.swift` (session
+    /// import, which legitimately needs to replace the whole buffer) goes
+    /// through this rather than getting its own setter access.
+    func setBuffer(_ requests: [NetworkRequest], stats: TrafficStats) {
+        self.requests = requests
+        self.stats = stats
     }
 }

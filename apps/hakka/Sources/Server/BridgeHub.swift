@@ -26,6 +26,20 @@ public struct BridgeIngestResult: Sendable, Equatable {
     public let request: NetworkRequest?
 }
 
+/// A captured `.request` frame paired with the identity of the peer that
+/// sent it. `NetworkRequest` itself never carries this — see
+/// `BridgeDeviceLabel`'s doc comment for why — so this is the desktop app's
+/// own pairing, built only from what the hub observes at ingest time.
+public struct CapturedRequest: Sendable, Equatable {
+    public let request: NetworkRequest
+    public let peerID: BridgePeerID
+    public let deviceLabel: BridgeDeviceLabel
+
+    /// Forwards `request.id` so call sites that only care about identity
+    /// (existing tests included) don't need to reach through `.request`.
+    public var id: String { request.id }
+}
+
 /// Transport-agnostic core of the desktop bridge hub — the Swift mirror of
 /// `packages/hakka-bridge/src/BridgeHub.ts`'s relay behavior. Parses each raw
 /// frame with `parseBridgeFrame`; a frame that parses is relayed verbatim to
@@ -40,17 +54,22 @@ public struct BridgeIngestResult: Sendable, Equatable {
 /// peers connect to inspect, so there is no "late joiner" to replay to.
 public actor BridgeHub {
     private var peers: [BridgePeerID: any BridgeRelayPeer] = [:]
-    private let requestContinuation: AsyncStream<NetworkRequest>.Continuation
+    private let requestContinuation: AsyncStream<CapturedRequest>.Continuation
+    /// Assigns "Device N" labels to peers as their frames are first seen —
+    /// see `BridgeDeviceLabel.swift` for why this is the honest amount of
+    /// identity the hub can offer.
+    private var deviceLabeler = BridgeDeviceLabeler()
 
-    /// Decoded `request` frames, in ingestion order. One logical consumer
-    /// (the desktop app's capture store) — `AsyncStream` does not fan out to
-    /// multiple concurrent iterators. `nonisolated`: the stream itself is an
-    /// immutable, `Sendable` handle with its own internal thread-safe
-    /// buffering, so consuming it needs no actor hop.
-    public nonisolated let requests: AsyncStream<NetworkRequest>
+    /// Decoded `request` frames paired with sender identity, in ingestion
+    /// order. One logical consumer (the desktop app's capture store) —
+    /// `AsyncStream` does not fan out to multiple concurrent iterators.
+    /// `nonisolated`: the stream itself is an immutable, `Sendable` handle
+    /// with its own internal thread-safe buffering, so consuming it needs
+    /// no actor hop.
+    public nonisolated let requests: AsyncStream<CapturedRequest>
 
     public init() {
-        var continuation: AsyncStream<NetworkRequest>.Continuation?
+        var continuation: AsyncStream<CapturedRequest>.Continuation?
         requests = AsyncStream { continuation = $0 }
         requestContinuation = continuation!
     }
@@ -77,7 +96,8 @@ public actor BridgeHub {
             peer.send(raw)
         }
         if let request = frame.request {
-            requestContinuation.yield(request)
+            let deviceLabel = deviceLabeler.label(for: senderID)
+            requestContinuation.yield(CapturedRequest(request: request, peerID: senderID, deviceLabel: deviceLabel))
         }
         return BridgeIngestResult(kind: frame.kind, request: frame.request)
     }

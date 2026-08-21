@@ -12,7 +12,7 @@ import HakkaCommon
 ///
 /// Filter tokens are recognised and removed before the rest becomes free-text:
 ///
-/// - `method:GET`, `host:api.example.com`, `type:json`
+/// - `method:GET`, `host:api.example.com`, `type:json`, `device:"Device 2"`
 /// - `dur>100`, `dur<=500` — milliseconds
 /// - `size>1kb`, `size<2mb` — `b`/`kb`/`mb`, default bytes
 /// - `2xx`, `>=400`, `200..299`, `404` — status, per `TrafficStatusDsl`
@@ -59,6 +59,14 @@ public enum TrafficQueryParser {
         if let value = prefixValue(lower, "type:") ?? prefixValue(lower, "content-type:") {
             query.contentType = value
             query.contentTypeNegate = negate
+            return true
+        }
+        // Substring match against the device label ("Device 1", …) —
+        // `TrafficQueryCompiler` doesn't know what a device is, so this
+        // rides along on the parsed query only for `TrafficModel` to apply.
+        if let value = prefixValue(lower, "device:") {
+            query.device = value
+            query.deviceNegate = negate
             return true
         }
         // Sort and order describe presentation, so negating them is meaningless

@@ -52,12 +52,21 @@ public struct TrafficQuery: Sendable, Equatable {
     public var contentType: String?
     /// Substring match against the request URL's host.
     public var host: String?
-    /// When true, `method`/`contentType`/`host` must NOT match. Separate flags
-    /// rather than a negate on the whole query so `-method:GET type:json` means
-    /// what it reads as.
+    /// Substring match against the connected-device label ("Device 1", …)
+    /// that produced the request. Unlike every other field here, this has
+    /// no meaning to `TrafficQueryCompiler` — device identity lives only in
+    /// the desktop app's `DeviceLabelIndex`, never on `NetworkRequest` — so
+    /// `TrafficModel` applies this term itself. It stays part of the parsed
+    /// query anyway so `device:` participates in the same grammar (quoting,
+    /// negation) as every other filter instead of needing a bespoke parser.
+    public var device: String?
+    /// When true, `method`/`contentType`/`host`/`device` must NOT match.
+    /// Separate flags rather than a negate on the whole query so
+    /// `-method:GET type:json` means what it reads as.
     public var methodNegate: Bool
     public var contentTypeNegate: Bool
     public var hostNegate: Bool
+    public var deviceNegate: Bool
     /// When true, the status range must NOT contain the request's status.
     public var statusNegate: Bool
     public var durationMin: Int64?
@@ -73,9 +82,11 @@ public struct TrafficQuery: Sendable, Equatable {
         method: String? = nil,
         contentType: String? = nil,
         host: String? = nil,
+        device: String? = nil,
         methodNegate: Bool = false,
         contentTypeNegate: Bool = false,
         hostNegate: Bool = false,
+        deviceNegate: Bool = false,
         statusNegate: Bool = false,
         durationMin: Int64? = nil,
         durationMax: Int64? = nil,
@@ -89,9 +100,11 @@ public struct TrafficQuery: Sendable, Equatable {
         self.method = method
         self.contentType = contentType
         self.host = host
+        self.device = device
         self.methodNegate = methodNegate
         self.contentTypeNegate = contentTypeNegate
         self.hostNegate = hostNegate
+        self.deviceNegate = deviceNegate
         self.statusNegate = statusNegate
         self.durationMin = durationMin
         self.durationMax = durationMax
