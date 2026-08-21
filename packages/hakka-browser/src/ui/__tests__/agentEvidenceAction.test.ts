@@ -163,4 +163,32 @@ describe('copyAgentContextForRequest', () => {
 
     await expect(copyAgentContextForRequest(client, r)).resolves.toBe(false)
   })
+
+  it('scrubs a secret out of the clipboard payload by default', async () => {
+    const SECRET = 'sk-live-abcdef0123456789'
+    const r = req({
+      id: 'secret-1',
+      url: `https://api.example.com/chat?api_key=${SECRET}`,
+      requestHeaders: { Authorization: `Bearer ${SECRET}`, Cookie: `session=${SECRET}` },
+      requestBody: JSON.stringify({ password: SECRET, nested: { token: SECRET } }),
+    })
+    client.ingest(r)
+
+    await copyAgentContextForRequest(client, r)
+
+    const payload = vi.mocked(copyToClipboard).mock.calls[0]![0]
+    expect(payload).not.toContain(SECRET)
+    expect(payload).toContain('Scrubbed before sharing')
+  })
+
+  it('{ scrub: false } opts out and the secret survives', async () => {
+    const SECRET = 'sk-live-abcdef0123456789'
+    const r = req({ id: 'secret-2', requestBody: JSON.stringify({ password: SECRET }) })
+    client.ingest(r)
+
+    await copyAgentContextForRequest(client, r, { scrub: false })
+
+    const payload = vi.mocked(copyToClipboard).mock.calls[0]![0]
+    expect(payload).toContain(SECRET)
+  })
 })

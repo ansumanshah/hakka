@@ -99,6 +99,11 @@ on this page: `buildReproBundle` for `requests`/`mocks`, `assembleTraceTree` for
 span/request correlation tree (shared with the browser's trace waterfall), `summarizeTraceGroup`
 for the badge summary, and `analyzeRequests` for the diagnose ranking.
 
+**Scrubbed for share by default** — before any of the above runs, `requests` passes through
+[share scrubbing](/spec/share-scrubbing/) (`scrub: true` unless the caller opts out), since every
+consumer of this bundle hands captured bodies to an AI agent. The bundle's `redaction` field
+records what ran and what it found.
+
 **Determinism:** requests are sorted (`startTime` asc, `id` tie-break) before anything else
 runs, and every truncation pass is a pure function of that sorted input — same input + same
 `exportedAt` always produce a byte-identical `JSON.stringify` output.
@@ -152,6 +157,11 @@ call. Three deliberate design choices, documented here so they don't get "fixed"
   reimplementing dedup/pattern-derivation here means a repro bundle's mocks always stay
   behaviorally identical to what `generate_mocks`/the mock-tab "record, then mock" flow would
   produce from the same requests — one source of truth for how traffic turns into a mock.
+- **Scrubbed for share by default** (`scrub: true`) — see [Share Scrubbing](/spec/share-scrubbing/).
+  Mocks are generated FROM the already-scrubbed requests, not the raw input, so a mock built from
+  a repro bundle never replays a secret value. The one exception is
+  `createReproBundleExporter` (the `Exporter`-contract `.hakka-repro` file save), which force-sets
+  `scrub: false` to preserve its `lossy: false` byte-for-byte contractual guarantee.
 
 ## Web: hydrating the slim mirror before export
 

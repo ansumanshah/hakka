@@ -113,3 +113,7 @@ capturing platform used.
   able to take it down.
 - Redaction is a value replace, not encryption — `[REDACTED]` is visible proof capture happened,
   not a way to recover the original value later.
+- This card covers CAPTURE-time redaction only — what the developer told the SDK to hide before a
+  record is ever stored. It says nothing about what leaves the machine afterward in an MCP tool
+  result, a `.hakka-repro` bundle, or an agent-context clipboard payload — see
+  [Share Scrubbing](/spec/share-scrubbing/) for that second, independent pass.

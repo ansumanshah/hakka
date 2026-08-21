@@ -354,3 +354,39 @@ describe('buildEvidenceBundle — truncation passes', () => {
     expect(fallback).toBeDefined()
   })
 })
+
+describe('buildEvidenceBundle — share-time scrubbing (default on)', () => {
+  const SECRET = 'sk-live-abcdef0123456789'
+
+  function secretRequest(): NetworkRequest {
+    return req({
+      url: `https://api.example.com/chat?api_key=${SECRET}`,
+      requestHeaders: { Authorization: `Bearer ${SECRET}`, Cookie: `session=${SECRET}` },
+      requestBody: JSON.stringify({ password: SECRET, nested: { token: SECRET } }),
+      responseBody: JSON.stringify({ ok: true }),
+    })
+  }
+
+  test('a secret in a header, JSON body field, query string, cookie, and nested body object does not appear anywhere in the serialized bundle by default', () => {
+    const b = buildEvidenceBundle([secretRequest()], { exportedAt: EXPORTED_AT })
+    expect(JSON.stringify(b)).not.toContain(SECRET)
+    expect(b.redaction.applied).toBe(true)
+    expect(b.redaction.removed.length).toBeGreaterThan(0)
+  })
+
+  test('mocks derived from the requests are also scrubbed, not just the requests list', () => {
+    const b = buildEvidenceBundle([secretRequest()], { exportedAt: EXPORTED_AT })
+    expect(JSON.stringify(b.mocks)).not.toContain(SECRET)
+  })
+
+  test('scrub: false opts out explicitly and the secret survives, with redaction.applied false', () => {
+    const b = buildEvidenceBundle([secretRequest()], { exportedAt: EXPORTED_AT, scrub: false })
+    expect(JSON.stringify(b)).toContain(SECRET)
+    expect(b.redaction).toEqual({ applied: false, removed: [] })
+  })
+
+  test('a clean request reports redaction.applied true with an empty removed list', () => {
+    const b = buildEvidenceBundle([req({ requestBody: JSON.stringify({ id: 1 }) })], { exportedAt: EXPORTED_AT })
+    expect(b.redaction).toEqual({ applied: true, removed: [] })
+  })
+})

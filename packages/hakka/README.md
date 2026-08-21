@@ -79,6 +79,8 @@ Wire it into an MCP client config (Claude Code `.claude/settings.json`, Claude D
 
 Read tools: `list_requests`, `get_request`, `search_requests` (see the query DSL below), `stats`, `diagnose`, `clear`, `generate_test`, `generate_repro`. Write tools (relayed to your app over the bridge, dev builds only): `create_mock`, `promote_capture_to_mock`, `delete_mock`, `clear_mocks`, `set_breakpoint`, `delete_breakpoint`, `set_throttle`, `generate_mocks`. All logging goes to **stderr** — stdout is the JSON-RPC channel.
 
+`list_requests`, `get_request`, `search_requests`, `export_evidence`, and `generate_repro` scrub likely secrets (bearer tokens, JWTs, API keys in query strings, cookies, Basic-auth URLs, credential-shaped JSON fields, email addresses) from their output by default before it reaches your agent — pass `unredacted: true` to see a request exactly as captured. Pattern matching, not a secret scanner; see [Share Scrubbing](https://hakka.noodleapps.com/spec/share-scrubbing/) for what it does and doesn't catch.
+
 `search_requests`'s `query` param: `url:`/`header:`/`body:` scopes, `/regex/`, `*glob*`, `-negation`, `dur>100`/`size>1kb` ranges, space-separated tokens ANDed.
 
 Also importable directly: `import { main, RequestStore, registerTools } from 'hakka/mcp'`.

@@ -1,5 +1,5 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { compileQuery, parseRangeFilters, parseSearchTokens } from 'hakka-core'
+import { compileQuery, parseRangeFilters, parseSearchTokens, scrubRequestsForShare } from 'hakka-core'
 import { z } from 'zod'
 
 import type { RequestStore } from '../RequestStore.js'
@@ -32,10 +32,18 @@ export function registerSearchRequestsTool(server: McpServer, store: RequestStor
           .describe('Filter by capture runtime (client / server / edge)'),
         errorOnly: z.boolean().optional().default(false).describe('Only return errored or 4xx/5xx requests'),
         limit: z.number().int().min(1).max(500).optional().default(50),
+        unredacted: z
+          .boolean()
+          .optional()
+          .default(false)
+          .describe(
+            'Skip share-time scrubbing (secrets/PII pattern-matched and removed by default, since this hands ' +
+              'requests straight into agent context) and return requests exactly as captured. Default false.',
+          ),
       },
     },
     (args) => {
-      const { query, method, status, urlContains, runtime, errorOnly, limit = 50 } = args
+      const { query, method, status, urlContains, runtime, errorOnly, limit = 50, unredacted = false } = args
 
       // DSL narrows the pool first (unbounded); structured filters and `limit` apply afterward — same order as the web/RN/iOS/Android UIs.
       let pool = store.getAll()
@@ -67,7 +75,15 @@ export function registerSearchRequestsTool(server: McpServer, store: RequestStor
         results = results.slice(0, limit)
       }
 
-      return textResult({ count: results.length, requests: results })
+      if (unredacted) {
+        return textResult({ count: results.length, requests: results, redaction: { applied: false, removed: [] } })
+      }
+      const { requests: scrubbedResults, removed } = scrubRequestsForShare(results)
+      return textResult({
+        count: scrubbedResults.length,
+        requests: scrubbedResults,
+        redaction: { applied: true, removed },
+      })
     },
   )
 }

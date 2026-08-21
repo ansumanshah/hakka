@@ -237,6 +237,18 @@ export { formatBytes, formatDuration, formatTimestamp, truncateText } from './ut
 export { extractGraphQLOperationName, extractGraphQLQuery, getRequestDisplayName } from './utils/graphql'
 export { DEFAULT_SENSITIVE_HEADERS, isSensitiveHeader, redactHeaders, stripHeaders } from './utils/headerRedaction'
 export { configureBodyRedaction, getBodyRedactionFields, redactJsonBody } from './utils/bodyRedaction'
+export {
+  DEFAULT_SHARE_SCRUB_HEADERS,
+  DEFAULT_SHARE_SCRUB_JSON_FIELDS,
+  DEFAULT_SHARE_SCRUB_QUERY_PARAMS,
+  describeShareScrub,
+  scrubBodyForShare,
+  scrubHeadersForShare,
+  scrubNetworkRequestForShare,
+  scrubRequestsForShare,
+  scrubUrlForShare,
+} from './utils/shareScrub'
+export type { ShareScrubCategory, ShareScrubOptions, ShareScrubRemoval, ShareScrubSummary } from './utils/shareScrub'
 export { hostMatchesList, matchesIgnoredPattern, shouldCaptureUrl } from './utils/hostFilter'
 export type { HostFilterConfig } from './utils/hostFilter'
 export { DEFAULT_MAX_BODY_SIZE, estimateBodySize, isBodyTruncated, limitBodySize } from './utils/bodySizeLimit'

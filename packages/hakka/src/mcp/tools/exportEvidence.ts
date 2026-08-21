@@ -45,10 +45,18 @@ export function registerExportEvidenceTool(server: McpServer, store: RequestStor
           .optional()
           .describe('Which request the bundle is "about". Default: earliest in the selected pool.'),
         maxBytes: z.number().int().min(1).optional().describe('Size budget for the serialized bundle. Default 65536.'),
+        unredacted: z
+          .boolean()
+          .optional()
+          .default(false)
+          .describe(
+            'Skip share-time scrubbing (secrets/PII pattern-matched and removed by default, since this bundle ' +
+              'hands bodies to an agent). Default false. See the `redaction` field on the result.',
+          ),
       },
     },
     (args) => {
-      const { query, method, urlContains, limit = 50, focusRequestId, maxBytes } = args
+      const { query, method, urlContains, limit = 50, focusRequestId, maxBytes, unredacted = false } = args
 
       let pool = store.getAll()
       if (query && query.trim()) {
@@ -81,6 +89,7 @@ export function registerExportEvidenceTool(server: McpServer, store: RequestStor
         ...(focusRequestId !== undefined ? { focusRequestId } : {}),
         spans,
         logs: [],
+        scrub: !unredacted,
         ...(maxBytes !== undefined ? { maxBytes } : {}),
       })
 

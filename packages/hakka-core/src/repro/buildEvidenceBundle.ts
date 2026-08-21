@@ -7,6 +7,8 @@ import { summarizeTraceGroup } from '../query/traceSummary'
 import type { TraceBadgeSummary } from '../query/traceSummary'
 import { assembleTraceTree } from '../query/traceTree'
 import type { TraceTree } from '../query/traceTree'
+import { scrubRequestsForShare } from '../utils/shareScrub'
+import type { ShareScrubOptions, ShareScrubSummary } from '../utils/shareScrub'
 import { buildReproBundle } from './buildReproBundle'
 import type { BuildReproBundleOptions, ReproMockRule } from './buildReproBundle'
 
@@ -51,10 +53,19 @@ export interface EvidenceBundleOptions {
   logWindowMs?: number
   /** Default: computed via `analyzeRequests(requests)`. */
   diagnosis?: RequestDiagnosis
-  /** Forwarded to `buildReproBundle` for the requests+mocks derivation. */
+  /** Forwarded to `buildReproBundle` for the requests+mocks derivation. `scrub` is ignored here — see `scrub`/`scrubOptions` below, which control the ONE scrub pass this function runs before deriving anything (repro, trace, diagnosis) from the requests. */
   reproOptions?: BuildReproBundleOptions
   /** ISO timestamp to stamp the bundle with. Default `new Date().toISOString()` — for deterministic tests, pass one explicitly. */
   exportedAt?: string
+  /**
+   * Apply share-time scrubbing (`shareScrub.ts`) to `requests` before anything is derived
+   * from them (repro, trace, diagnosis, non-focal body trimming). Default true: this is
+   * the ONE bundling primitive behind `export_evidence` and the browser's "Copy as agent
+   * context" action, both of which hand bodies to an agent — see the module docblock.
+   */
+  scrub?: boolean
+  /** Forwarded to the scrub pass when `scrub` is true (or defaulted true). */
+  scrubOptions?: ShareScrubOptions
 }
 
 export interface EvidenceBundle {
@@ -73,6 +84,8 @@ export interface EvidenceBundle {
   storage: null
   /** `[]` when nothing was cut — never a silently-shrunk field. */
   truncations: EvidenceBundleTruncation[]
+  /** Whether share-time scrubbing ran on this bundle and what it found. See `shareScrub.ts`. */
+  redaction: ShareScrubSummary
 }
 
 const DEFAULT_MAX_BYTES = 65536
@@ -280,8 +293,16 @@ export function buildEvidenceBundle(requests: NetworkRequest[], options: Evidenc
   const exportedAt = options.exportedAt ?? new Date().toISOString()
   const spans = options.spans ?? []
   const logs = options.logs ?? []
+  const scrub = options.scrub ?? true
 
-  const sorted = [...requests].sort(compareRequests)
+  // Scrub BEFORE anything downstream (repro/trace/diagnosis) derives from `requests` —
+  // every one of those reads bodies, so scrubbing after the fact would leave secrets in
+  // whichever derived view ran first.
+  const { requests: scrubbedInput, removed: redactionRemoved } = scrub
+    ? scrubRequestsForShare(requests, options.scrubOptions)
+    : { requests: [...requests], removed: [] as ShareScrubSummary['removed'] }
+
+  const sorted = [...scrubbedInput].sort(compareRequests)
   const fallbackFocusRequestId = sorted[0]?.id ?? ''
   // An unmatched `focusRequestId` must not propagate silently — every pass
   // below keys off `r.id === focusRequestId`, so it would make every request
@@ -292,7 +313,9 @@ export function buildEvidenceBundle(requests: NetworkRequest[], options: Evidenc
     ? fallbackFocusRequestId
     : (options.focusRequestId ?? fallbackFocusRequestId)
 
-  const repro = buildReproBundle(sorted, options.reproOptions)
+  // `sorted` is already scrubbed above; tell buildReproBundle not to scrub again (it
+  // would be idempotent, but skipping it avoids the redundant walk).
+  const repro = buildReproBundle(sorted, { ...options.reproOptions, scrub: false })
   const trace = assembleTraceTree(sorted, spans, { verbose: true })
   const traceSummary = sorted.length === 0 ? null : summarizeTraceGroup(sorted, spans)
   const diagnosis = options.diagnosis ?? analyzeRequests(sorted)
@@ -310,6 +333,7 @@ export function buildEvidenceBundle(requests: NetworkRequest[], options: Evidenc
     console: console_,
     storage: null,
     truncations: [],
+    redaction: { applied: scrub, removed: redactionRemoved },
   }
 
   if (requestedFocusMissing) {

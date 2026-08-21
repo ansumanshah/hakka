@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import type { NetworkRequest } from '../../model/types'
 import { buildReproBundle, REPRO_BUNDLE_SCHEMA_VERSION } from '../buildReproBundle'
-import { deserializeReproBundle, serializeReproBundle } from '../serializeReproBundle'
+import { createReproBundleExporter, deserializeReproBundle, serializeReproBundle } from '../serializeReproBundle'
 
 let idSeq = 0
 function makeRequest(overrides: Partial<NetworkRequest> = {}): NetworkRequest {
@@ -181,5 +181,60 @@ describe('deserializeReproBundle — tolerant parse', () => {
     const json = JSON.stringify({ hakkaReproBundle: 1, requests: [], mocks: [], meta: 'not-an-object' })
     const result = deserializeReproBundle(json)
     expect(result.meta).toBeUndefined()
+  })
+
+  test('round-trips redaction when present', () => {
+    const bundle = buildReproBundle([makeRequest({ requestBody: JSON.stringify({ password: 'sk-live-secret' }) })])
+    const json = serializeReproBundle(bundle)
+    const result = deserializeReproBundle(json)
+    expect(result.redaction?.applied).toBe(true)
+    expect(result.redaction?.removed.length).toBeGreaterThan(0)
+  })
+
+  test('leaves redaction undefined for a file that predates the field', () => {
+    const json = JSON.stringify({ hakkaReproBundle: 1, requests: [], mocks: [] })
+    const result = deserializeReproBundle(json)
+    expect(result.redaction).toBeUndefined()
+  })
+})
+
+describe('buildReproBundle — share-time scrubbing (default on)', () => {
+  const SECRET = 'sk-live-abcdef0123456789'
+
+  test('a secret in a header, JSON body field, query string, cookie, and nested body object does not appear anywhere in the bundle by default', () => {
+    const request = makeRequest({
+      url: `https://api.example.com/chat?api_key=${SECRET}`,
+      requestHeaders: { Authorization: `Bearer ${SECRET}`, Cookie: `session=${SECRET}` },
+      requestBody: JSON.stringify({ password: SECRET, nested: { token: SECRET } }),
+      responseBody: JSON.stringify({ ok: true }),
+    })
+    const bundle = buildReproBundle([request])
+    expect(JSON.stringify(bundle)).not.toContain(SECRET)
+    expect(bundle.redaction.applied).toBe(true)
+    expect(bundle.redaction.removed.length).toBeGreaterThan(0)
+  })
+
+  test('mocks generated from the request are scrubbed too — a mock built from an unscrubbed capture would replay the secret forever', () => {
+    const request = makeRequest({
+      url: 'https://api.example.com/users/1',
+      responseBody: JSON.stringify({ token: SECRET }),
+    })
+    const bundle = buildReproBundle([request])
+    expect(JSON.stringify(bundle.mocks)).not.toContain(SECRET)
+  })
+
+  test('scrub: false opts out explicitly', () => {
+    const request = makeRequest({ requestBody: JSON.stringify({ password: SECRET }) })
+    const bundle = buildReproBundle([request], { scrub: false })
+    expect(JSON.stringify(bundle)).toContain(SECRET)
+    expect(bundle.redaction).toEqual({ applied: false, removed: [] })
+  })
+
+  test('createReproBundleExporter stays byte-for-byte lossless — it force-disables scrub regardless of the secret present', () => {
+    const request = makeRequest({ requestBody: JSON.stringify({ password: SECRET }) })
+    const exporter = createReproBundleExporter()
+    const output = exporter.export([request]) as string
+    expect(exporter.lossy).toBe(false)
+    expect(output).toContain(SECRET)
   })
 })

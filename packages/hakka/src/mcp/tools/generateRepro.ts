@@ -49,10 +49,18 @@ export function registerGenerateReproTool(server: McpServer, store: RequestStore
           .record(z.string(), z.unknown())
           .optional()
           .describe('Free-form metadata to attach to the bundle (failure description, device, app version, …).'),
+        unredacted: z
+          .boolean()
+          .optional()
+          .default(false)
+          .describe(
+            'Skip share-time scrubbing (secrets/PII pattern-matched and removed by default, since this bundle ' +
+              'is built to hand to an agent or file as a bug). Default false. See the `redaction` field on the result.',
+          ),
       },
     },
     (args) => {
-      const { query, method, urlContains, limit = 50, suiteName, framework = 'vitest', meta } = args
+      const { query, method, urlContains, limit = 50, suiteName, framework = 'vitest', meta, unredacted = false } = args
 
       let pool = store.getAll()
       if (query && query.trim()) {
@@ -74,9 +82,15 @@ export function registerGenerateReproTool(server: McpServer, store: RequestStore
 
       const bundle = buildReproBundle(pool, {
         mockOptions: { idPrefix: 'mcp-repro' },
+        scrub: !unredacted,
         ...(meta !== undefined ? { meta } : {}),
       })
-      const testFile = generateTestFile(pool, { suiteName, framework })
+      // Build the test file from bundle.requests (scrubbed), never the raw `pool` — the
+      // whole point of buildReproBundle's default scrub is that nothing built from these
+      // requests downstream carries a secret. Generating from `pool` here would silently
+      // undo that for the one artifact (assertions bake in literal body text) most likely
+      // to embed a secret value in plain sight.
+      const testFile = generateTestFile(bundle.requests, { suiteName, framework })
 
       return textResult({
         version: bundle.version,
@@ -85,6 +99,7 @@ export function registerGenerateReproTool(server: McpServer, store: RequestStore
         requests: bundle.requests,
         mocks: bundle.mocks,
         testFile,
+        redaction: bundle.redaction,
       })
     },
   )
