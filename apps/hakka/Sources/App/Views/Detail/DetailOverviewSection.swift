@@ -1,11 +1,19 @@
 import HakkaCommon
+import HakkaCore
 import SwiftUI
 
 struct DetailOverviewSection: View {
     let record: NetworkRequest
 
+    private var diagnosis: RequestDiagnosis? {
+        RequestDiagnoser.diagnose(record)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
+            if let diagnosis {
+                DiagnosisBanner(diagnosis: diagnosis)
+            }
             HStack(spacing: 8) {
                 Text(record.method.rawValue)
                     .font(.headline)
@@ -41,6 +49,28 @@ struct DetailOverviewSection: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label).font(.caption2).foregroundStyle(.tertiary)
             Text(value).font(.caption)
+        }
+    }
+}
+
+/// The one-line deterministic diagnosis at the top of Overview. Color and
+/// icon follow `RequestDiagnosis.severity`, which mirrors the same
+/// success/warning/error/info buckets `Fmt.statusColor` already uses.
+private struct DiagnosisBanner: View {
+    let diagnosis: RequestDiagnosis
+
+    var body: some View {
+        Label(diagnosis.text, systemImage: diagnosis.systemImage)
+            .font(.callout)
+            .foregroundStyle(color)
+            .textSelection(.enabled)
+    }
+
+    private var color: Color {
+        switch diagnosis.severity {
+        case .error: ThemeTokens.Status.error
+        case .warning: ThemeTokens.Status.warning
+        case .info: ThemeTokens.Status.info
         }
     }
 }
