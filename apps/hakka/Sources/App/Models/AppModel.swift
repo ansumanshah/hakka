@@ -16,6 +16,7 @@ final class AppModel {
     let traffic: TrafficModel
     let editor = RequestEditorModel()
     let rules: RulesModel
+    let webSocket = WebSocketConnectionModel()
 
     init() {
         let traffic = TrafficModel()
