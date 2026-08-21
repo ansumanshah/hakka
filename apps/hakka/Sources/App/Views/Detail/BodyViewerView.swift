@@ -1,0 +1,82 @@
+import AppKit
+import HakkaCore
+import SwiftUI
+
+/// Dispatches a decoded body to the viewer its content type selected, with
+/// a shared header (content type, size, save-to-file). The viewer kind and
+/// display state live in `BodyViewerModel`.
+struct BodyViewerView: View {
+    @State private var model: BodyViewerModel
+    @State private var saveError: String?
+
+    init(body: RecordBody, url: String) {
+        _model = State(initialValue: BodyViewerModel(body: body, url: url))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            header
+            viewer
+            if let saveError {
+                Text(saveError).font(.caption).foregroundStyle(.red)
+            }
+        }
+    }
+
+    private var header: some View {
+        HStack(spacing: 8) {
+            if let contentType = model.body.contentType {
+                Text(contentType)
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+            }
+            if let encoding = model.body.contentEncoding, encoding != "identity" {
+                Text("decoded from \(encoding)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Text(Fmt.bytes(Int64(model.body.text.utf8.count)))
+                .font(.caption.monospaced())
+                .foregroundStyle(.secondary)
+            Spacer()
+            Button(action: saveBody) {
+                Image(systemName: "square.and.arrow.down")
+            }
+            .buttonStyle(.borderless)
+            .help("Save body to file")
+        }
+    }
+
+    @ViewBuilder
+    private var viewer: some View {
+        switch model.kind {
+        case .image:
+            ImageBodyView(
+                bytes: model.bytes,
+                contentType: model.body.contentType,
+                byteCount: Int64(model.body.text.utf8.count)
+            )
+        case .hex:
+            HexBodyView(bytes: model.bytes)
+        case .text:
+            BodyTextView(model: model)
+        case .jsonPretty, .jsonTree:
+            JSONViewerView(model: model)
+        }
+    }
+
+    /// Writes the complete decoded body (never the capped window) to a
+    /// user-chosen file, extension suggested from the content type.
+    private func saveBody() {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = "body.\(BodyFileSuggestion.fileExtension(forContentType: model.body.contentType))"
+        panel.prompt = "Save"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try Data(model.completeText.utf8).write(to: url, options: .atomic)
+            saveError = nil
+        } catch {
+            saveError = "Could not save body: \(error.localizedDescription)"
+        }
+    }
+}
