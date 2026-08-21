@@ -38,6 +38,14 @@ struct SidebarView: View {
                 }
                 .help("New Folder")
             }
+            if !model.markedForDeletion.isEmpty {
+                ToolbarItem {
+                    Button(role: .destructive) { model.deleteMarkedNodes() } label: {
+                        Label("Delete \(model.markedForDeletion.count) Marked", systemImage: "trash")
+                    }
+                    .help("Delete every item marked for deletion")
+                }
+            }
         }
         .safeAreaInset(edge: .bottom) {
             openCollectionButton
