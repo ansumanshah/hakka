@@ -21,6 +21,13 @@ public struct BridgeFrame: Sendable, Equatable {
     /// like an object but fails that decode is still a *parseable* frame
     /// (`nil` here, not a parse failure) — see `parseBridgeFrame`.
     public let request: NetworkRequest?
+    /// Set only for `.control` frames whose `payload` decoded into a
+    /// `ControlCommand` via `parseControlCommand` (HakkaCommon). Same rule as
+    /// `request` above: a `.control` frame whose payload is object-shaped but
+    /// fails that strict parse is still a *parseable* frame (`nil` here, not
+    /// a parse failure) — this hub must never be stricter than the TS hub it
+    /// mirrors, which relays a control frame it cannot itself interpret.
+    public let control: ControlCommand?
 }
 
 public enum BridgeWireLimits {
@@ -68,5 +75,15 @@ public func parseBridgeFrame(_ raw: String, maxBytes: Int = BridgeWireLimits.max
     if kind == .request {
         decodedRequest = try? JSONDecoder().decode(BridgeRequestEnvelope.self, from: data).payload
     }
-    return BridgeFrame(kind: kind, raw: raw, request: decodedRequest)
+    var decodedControl: ControlCommand?
+    if kind == .control {
+        // `payload` here is the already-parsed `Any` from the shallow check
+        // above (an object or array) — `parseControlCommand` takes it
+        // directly rather than re-decoding `data`, matching how it is called
+        // everywhere else in the fleet (`parseControlCommand(fromPayloadJSON:)`
+        // is the `Data`-first convenience for callers that have not already
+        // parsed the frame).
+        decodedControl = parseControlCommand(payload)
+    }
+    return BridgeFrame(kind: kind, raw: raw, request: decodedRequest, control: decodedControl)
 }

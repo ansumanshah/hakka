@@ -36,6 +36,8 @@ final class TrafficModel {
     private let store = TrafficStore()
     /// The authored rules pushed to devices over the bridge.
     let rules = RuleStore()
+    /// Breakpoint pauses reported *by* devices, waiting on this desktop.
+    let pauses = PauseStore()
     /// Sends typed control commands; nil until `start()` hands it the hub.
     private(set) var ruleSender: ControlSender?
 
@@ -55,7 +57,14 @@ final class TrafficModel {
         }
         let hub = await server.hub
         ruleSender = ControlSender(hub: hub)
-        for await request in await server.hub.requests {
+        // A concurrent child, not a sequential `await` after the requests
+        // loop: `hub.hostControls` is an infinite stream just like
+        // `hub.requests`, so consuming it after would mean never consuming
+        // it at all. `async let` runs it alongside for `start()`'s own
+        // lifetime (mirrors `HakkaApp.swift`'s `async let mirrorRules`
+        // pattern one level up).
+        async let controlLoop: Void = consumeHostControls(hub: hub)
+        for await request in hub.requests {
             await store.append(request)
             requests.append(request)
             if requests.count > TrafficStore.defaultCapacity {
@@ -63,6 +72,19 @@ final class TrafficModel {
             }
             await countRuleHits(for: request)
             stats = await store.stats()
+        }
+        await controlLoop
+    }
+
+    /// Feeds every device -> host control frame (today: `breakpoint.paused`
+    /// only — `BridgeHub.hostControls` already filtered to that direction)
+    /// into `pauses`. A command that fails to convert to `PendingPause` is
+    /// dropped rather than trusted, matching `PendingPause.init?(command:)`'s
+    /// own defensiveness.
+    private func consumeHostControls(hub: BridgeHub) async {
+        for await command in hub.hostControls {
+            guard let pause = PendingPause(command: command) else { continue }
+            await pauses.ingest(pause)
         }
     }
 

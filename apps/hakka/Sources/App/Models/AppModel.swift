@@ -17,11 +17,13 @@ final class AppModel {
     let rules: RulesModel
     let folderRun = FolderRunModel()
     let webSocket = WebSocketConnectionModel()
+    let pauseInbox: PauseInboxModel
 
     init() {
         let traffic = TrafficModel()
         self.traffic = traffic
         self.rules = RulesModel(traffic: traffic)
+        self.pauseInbox = PauseInboxModel(channel: traffic)
     }
 
     private(set) var selection: SidebarSelection?

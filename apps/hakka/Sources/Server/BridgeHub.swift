@@ -41,6 +41,7 @@ public struct BridgeIngestResult: Sendable, Equatable {
 public actor BridgeHub {
     private var peers: [BridgePeerID: any BridgeRelayPeer] = [:]
     private let requestContinuation: AsyncStream<NetworkRequest>.Continuation
+    private let hostControlContinuation: AsyncStream<ControlCommand>.Continuation
 
     /// Decoded `request` frames, in ingestion order. One logical consumer
     /// (the desktop app's capture store) — `AsyncStream` does not fan out to
@@ -49,10 +50,23 @@ public actor BridgeHub {
     /// buffering, so consuming it needs no actor hop.
     public nonisolated let requests: AsyncStream<NetworkRequest>
 
+    /// Decoded `control` frames a device sent *to* this host, in ingestion
+    /// order — today that means `breakpoint.paused` only. Filtered through
+    /// `isDeviceToHostCommand` (HakkaCommon, the single source of truth for
+    /// the contract's direction split) rather than yielding every control
+    /// frame: a host-authored command relayed back by some misbehaving peer
+    /// must never be mistaken here for a device reporting a pause. One
+    /// logical consumer, same `nonisolated` reasoning as `requests`.
+    public nonisolated let hostControls: AsyncStream<ControlCommand>
+
     public init() {
         var continuation: AsyncStream<NetworkRequest>.Continuation?
         requests = AsyncStream { continuation = $0 }
         requestContinuation = continuation!
+
+        var controlContinuation: AsyncStream<ControlCommand>.Continuation?
+        hostControls = AsyncStream { controlContinuation = $0 }
+        hostControlContinuation = controlContinuation!
     }
 
     public var peerCount: Int { peers.count }
@@ -79,6 +93,9 @@ public actor BridgeHub {
         if let request = frame.request {
             requestContinuation.yield(request)
         }
+        if let control = frame.control, isDeviceToHostCommand(control) {
+            hostControlContinuation.yield(control)
+        }
         return BridgeIngestResult(kind: frame.kind, request: frame.request)
     }
 
@@ -100,5 +117,6 @@ public actor BridgeHub {
 
     deinit {
         requestContinuation.finish()
+        hostControlContinuation.finish()
     }
 }

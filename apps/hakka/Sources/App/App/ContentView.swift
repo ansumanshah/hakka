@@ -19,6 +19,12 @@ struct ContentView: View {
                 .navigationSplitViewColumnWidth(min: 320, ideal: 420)
         }
         .frame(minWidth: 900, minHeight: 560)
+        // Mounted once here, above the split view, so it is visible from
+        // every pane — see `PauseInboxBanner`'s own doc comment for why that
+        // matters more than it would for an ordinary status strip.
+        .safeAreaInset(edge: .top) {
+            PauseInboxBanner()
+        }
         // `CollectionModel`/`EnvironmentModel` set `lastError` on every failed
         // disk op (including a failed Save) but never clear it on their own —
         // without this, nothing ever surfaced the failure to the user.
