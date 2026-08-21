@@ -151,6 +151,39 @@ function kotlinGroup(name, group) {
   return `    object ${name} {\n${body}\n    }`
 }
 
+// The macOS app is the fifth UI surface. It cannot import the iOS UI module
+// (UIKit-only), so it gets its own generated SwiftUI companion — data only,
+// same rule as every platform: mappings live in hand-written code.
+function emitSwiftDesktop() {
+  const color = (hex) => {
+    const r = parseInt(hex.slice(0, 2), 16) / 255
+    const g = parseInt(hex.slice(2, 4), 16) / 255
+    const b = parseInt(hex.slice(4, 6), 16) / 255
+    return `Color(red: ${r.toFixed(4)}, green: ${g.toFixed(4)}, blue: ${b.toFixed(4)})`
+  }
+  const group = (name, o) => {
+    const body = Object.entries(o)
+      .map(([k, v]) => `        static let ${k} = ${color(v)}`)
+      .join('\n')
+    return `    enum ${name} {\n${body}\n    }`
+  }
+  return (
+    banner('// Run `just sync-tokens` after editing design-tokens.json.') +
+    `import SwiftUI
+
+/// Canonical Hakka color tokens for the macOS app — same source as the four
+/// inspector platforms. Data only; status/method/timing mappings live in Fmt.
+enum ThemeTokens {
+${group('Status', t.status)}
+
+${group('Method', t.method)}
+
+${group('Timing', t.timing)}
+}
+`
+  )
+}
+
 function emitCSS() {
   const cssKey = (k) => (k === 'background' ? 'bg' : k.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase())
   const vars = (group, o) =>
@@ -251,6 +284,7 @@ const targets = [
   ['ios/Sources/UI/ThemeTokens.generated.swift', emitSwift()],
   ['android/hakka-ui/src/main/kotlin/com/noodleapps/hakka/ui/GeneratedTokens.kt', emitKotlin()],
   ['packages/hakka-browser/src/ui/tokens.css', emitCSS()],
+  ['apps/hakka/Sources/App/Shared/ThemeTokens.generated.swift', emitSwiftDesktop()],
 ]
 
 const check = process.argv.includes('--check')

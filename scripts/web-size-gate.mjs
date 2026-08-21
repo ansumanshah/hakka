@@ -54,12 +54,19 @@ const NAMED = {
     // (task #51) adds prop-boundary overhead on top of that. None of these
     // are reducible without reverting Solid 2.0 or the crash-containment
     // safety net, so the honest budget is measured-current (136.82 KB as of
-    // this re-baseline, itself after a terser passes:2->3 bump) plus ~2.3%
+    // that re-baseline, itself after a terser passes:2->3 bump) plus ~2.3%
     // headroom, not a number chosen to flatter a regression. Re-derive with
     // `node scripts/web-size-gate.mjs` after `bun run --cwd
     // packages/hakka-browser build`.
+    //
+    // Re-baselined 2026-08-21 (140 -> 143 KB) for the AI P0 surface (plan
+    // slots 1.10/1.11): the LLM usage presenter and the SSE assembly tab.
+    // Both load as lazy chunks in the ESM build (LazyJsonViewer precedent),
+    // but the IIFE is all-in-one by construction, so they land here —
+    // measured 140.72 KB, budget = measured + ~1.6% headroom, same
+    // arithmetic as the 2026-08-16 pass.
     label: 'IIFE (<script>)',
-    budget: Number(process.env.HAKKA_WEB_GLOBAL_BUDGET) || 140 * 1024,
+    budget: Number(process.env.HAKKA_WEB_GLOBAL_BUDGET) || 143 * 1024,
   },
   'worker.js': {
     // workerCapture.ts's own build (vite.config.ts's `worker` mode, `hakka-browser/worker`)
@@ -83,7 +90,14 @@ const NAMED = {
 // 'hakka-browser.global.js' above for the full justification. Measured
 // current total was 145.69 KB (35 chunks) at re-baseline time; this budget
 // gives it the same ~1.6% headroom.
-const LAZY_BUDGET = Number(process.env.HAKKA_WEB_LAZY_BUDGET) || 148 * 1024
+//
+// Re-baselined 2026-08-21 (148 -> 154 KB) for the AI P0 surface (plan slots
+// 1.10/1.11): the LLM usage presenter, the SSE assembly tab, and the shared
+// provider-detection chunk they and the row badge split on — three new lazy
+// chunks plus one re-split shared chunk, exactly the lazy-loading shape the
+// plan mandates for this feature. Measured 150.92 KB (39 chunks); budget =
+// measured + ~2% headroom.
+const LAZY_BUDGET = Number(process.env.HAKKA_WEB_LAZY_BUDGET) || 154 * 1024
 
 const kb = (n) => `${(n / 1024).toFixed(2)} KB`
 const pad = (s, n) => String(s).padEnd(n)
@@ -263,11 +277,18 @@ if (existsSync(COMPONENTS_DIST)) {
   // is a real per-user cost (bytes fetched only once someone actually opens
   // the element) that `ownWeightOf()` doesn't cover — it only follows static
   // imports, and a `lazy()` import is dynamic by definition.
+  //
+  // Re-baselined 2026-08-21 (27 -> 31 KB) for the AI P0 surface (plan slots
+  // 1.10/1.11): the same LLM usage + SSE assembly chunks the inspector's
+  // lazy bucket above absorbed, reached here through `<hakka-request-detail>`'s
+  // lazy Detail. Measured 30.39 KB (15 chunks); budget = measured + ~2%
+  // headroom, same arithmetic as the two main-build lines re-baselined the
+  // same day.
   const lazyFiles = componentFiles.filter((f) => !attributed.has(f))
   if (lazyFiles.length > 0) {
     const raw = lazyFiles.reduce((sum, f) => sum + readFileSync(resolve(COMPONENTS_DIST, f)).length, 0)
     const g = lazyFiles.reduce((sum, f) => sum + gzOf(f), 0)
-    const budget = Number(process.env.HAKKA_COMPONENTS_LAZY_BUDGET) || 27 * 1024
+    const budget = Number(process.env.HAKKA_COMPONENTS_LAZY_BUDGET) || 31 * 1024
     const over = g > budget
     if (over) failed = true
     componentRows.push({ label: `Lazy component chunks (${lazyFiles.length})`, raw, gz: g, budget, over })

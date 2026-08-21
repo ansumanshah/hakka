@@ -27,3 +27,4 @@ before treating anything in it as current behavior.
 | [0007](/contributing/adr/0007-solid-2-rc/)                     | Ship on Solid 2.0 at the RC                         | Implemented                   |
 | [0008](/contributing/adr/0008-desktop-plugin-products/)        | Hakka for macOS as SPM products, not an app         | Implemented (unreleased)      |
 | [0009](/contributing/adr/0009-contracts-first-internals/)      | Contracts-first internals, plugins on the open axes | Implemented — all three axes  |
+| [0010](/contributing/adr/0010-desktop-completion/)             | Completing Hakka for macOS                          | Proposed                      |

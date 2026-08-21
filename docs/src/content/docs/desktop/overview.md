@@ -3,7 +3,7 @@ title: Hakka for macOS
 description: A native desktop app that is an API client and a live traffic inspector in one, with no proxy and no CA certificate.
 ---
 
-**Status: in development.** The core is built and tested (163 tests) and
+**Status: in development.** The core is built and tested (318 tests) and
 `Scripts/package_app.sh` produces a runnable `Hakka.app`, but there is no signed release
 yet. Track [ADR 0008](/contributing/adr/0008-desktop-plugin-products/) for the design
 and scope.
@@ -36,13 +36,13 @@ you need, a proxy is the right tool and Proxyman is a good one.
 The app ships as Swift packages, not just a binary, so other Swift apps can host the
 same surfaces ([ADR 0008](/contributing/adr/0008-desktop-plugin-products/)):
 
-| Product              | Contains                                                                                                                          |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `HakkaDesktopCore`   | Collections, environments, the request runner, importers, code generators, the traffic store. No UI.                              |
-| `HakkaDesktopServer` | The bridge hub as a Swift actor — speaks the same wire protocol as `hakka-bridge`, so it replaces that process for desktop users. |
-| `HakkaDesktop`       | The SwiftUI app itself.                                                                                                           |
+| Product       | Contains                                                                                                                          |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `HakkaCore`   | Collections, environments, the request runner, importers, code generators, the traffic store. No UI.                              |
+| `HakkaServer` | The bridge hub as a Swift actor — speaks the same wire protocol as `hakka-bridge`, so it replaces that process for desktop users. |
+| `Hakka`       | The SwiftUI app itself.                                                                                                           |
 
-`HakkaDesktopCore` depends on `HakkaCommon` — the same package the iOS SDK captures
+`HakkaCore` depends on `HakkaCommon` — the same package the iOS SDK captures
 into. A request that arrives from a device and a request the desktop app sends are the
 same Swift type, which is why promoting one to the other is a conversion rather than an
 import.
