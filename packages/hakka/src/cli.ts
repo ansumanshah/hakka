@@ -10,6 +10,7 @@ import type { CdpAttachOptions } from './cdp/index'
 import { detectFramework, readPkg } from './detectFramework'
 import { diagnose } from './diagnose'
 import { detectPackageManager, installCommand, type PackageManager } from './packageManager'
+import { runSimAttach, simUsage, type SimAttachOptions } from './sim'
 
 const cwd = process.cwd()
 
@@ -203,6 +204,21 @@ async function runCdp(rest: string[]): Promise<void> {
   await runCdpAttach(parseCdpArgs(rest))
 }
 
+/** `hakka sim attach <bundle-id> [--device ...] [--dylib ...] [--bridge-url ...]` */
+function parseSimAttachArgs(rest: string[]): SimAttachOptions | undefined {
+  const bundleId = rest.find((a) => !a.startsWith('--'))
+  if (!bundleId) return undefined
+  const opts: SimAttachOptions = { bundleId }
+  for (let i = 0; i < rest.length; i++) {
+    const arg = rest[i]
+    const next = (): string | undefined => rest[++i]
+    if (arg === '--device') opts.device = next()
+    else if (arg === '--dylib') opts.dylibPath = next()
+    else if (arg === '--bridge-url') opts.bridgeUrl = next()
+  }
+  return opts
+}
+
 async function main(): Promise<void> {
   const [, , cmd, ...rest] = process.argv
   switch (cmd ?? 'init') {
@@ -238,6 +254,22 @@ async function main(): Promise<void> {
     case 'cdp':
       await runCdp(rest)
       break
+    case 'sim': {
+      const [sub, ...simRest] = rest
+      if (sub !== 'attach') {
+        simUsage()
+        process.exitCode = 1
+        break
+      }
+      const opts = parseSimAttachArgs(simRest)
+      if (!opts) {
+        simUsage()
+        process.exitCode = 1
+        break
+      }
+      process.exitCode = runSimAttach(opts)
+      break
+    }
     default:
       log(`Unknown command: ${cmd}\n`)
       log(`Usage: ${c.cyan('hakka init')}`)
@@ -245,6 +277,7 @@ async function main(): Promise<void> {
       assertUsage()
       mcpUsage()
       cdpUsage()
+      simUsage()
       process.exitCode = 1
   }
 }
