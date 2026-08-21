@@ -23,23 +23,34 @@ public enum EffectiveBody: Sendable, Equatable {
             self = .multipart(parts: parts.filter(\.enabled).map {
                 EffectiveMultipartPart(name: $0.name, value: $0.value, filePath: $0.filePath, contentType: $0.contentType)
             })
-        case let .graphql(query, variables):
-            self = .text(body: Self.graphqlPayload(query: query, variables: variables), contentType: "application/json")
+        case let .graphql(query, variables, operationName):
+            self = .text(
+                body: Self.graphqlPayload(query: query, variables: variables, operationName: operationName),
+                contentType: "application/json",
+            )
         case let .file(path, contentType):
             self = .file(path: path, contentType: contentType)
         }
     }
 
-    /// GraphQL is sent as `{"query": ..., "variables": ...}` — `variables`
-    /// is already JSON text (see `BodySpec.graphql`'s doc comment), so it's
-    /// spliced in verbatim rather than round-tripped through
-    /// `JSONSerialization`, which has no way to embed a pre-serialized
-    /// fragment without re-parsing it first.
-    private static func graphqlPayload(query: String, variables: String) -> String {
+    /// GraphQL is sent as `{"query": ..., "variables": ..., "operationName": ...}`
+    /// — `variables` is already JSON text (see `BodySpec.graphql`'s doc
+    /// comment), so it's spliced in verbatim rather than round-tripped
+    /// through `JSONSerialization`, which has no way to embed a
+    /// pre-serialized fragment without re-parsing it first. `operationName`
+    /// is only emitted when set, matching what `RequestBodyEncoder` actually
+    /// sends on the wire — a generated code snippet that omitted it when the
+    /// real request includes it would be misleading.
+    private static func graphqlPayload(query: String, variables: String, operationName: String?) -> String {
         let trimmed = variables.trimmingCharacters(in: .whitespacesAndNewlines)
         let variablesJSON = trimmed.isEmpty ? "{}" : trimmed
         let escapedQuery = LanguageEscaping.escapeForQuotedString(query, quote: "\"")
-        return "{\"query\":\"\(escapedQuery)\",\"variables\":\(variablesJSON)}"
+        var fields = "\"query\":\"\(escapedQuery)\",\"variables\":\(variablesJSON)"
+        if let operationName, !operationName.isEmpty {
+            let escapedName = LanguageEscaping.escapeForQuotedString(operationName, quote: "\"")
+            fields += ",\"operationName\":\"\(escapedName)\""
+        }
+        return "{\(fields)}"
     }
 }
 

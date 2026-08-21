@@ -5,6 +5,8 @@ enum BodyKind: String, CaseIterable, Identifiable {
     case none = "None"
     case raw = "Raw"
     case form = "Form"
+    case multipart = "Multipart"
+    case binary = "Binary"
     case graphql = "GraphQL"
 
     var id: String { rawValue }
@@ -14,8 +16,9 @@ enum BodyKind: String, CaseIterable, Identifiable {
         case .none: self = .none
         case .raw: self = .raw
         case .form: self = .form
+        case .multipart: self = .multipart
+        case .file: self = .binary
         case .graphql: self = .graphql
-        case .multipart, .file: self = .none
         }
     }
 
@@ -24,27 +27,20 @@ enum BodyKind: String, CaseIterable, Identifiable {
         case .none: .none
         case .raw: .raw(text: "", contentType: "application/json")
         case .form: .form([])
-        case .graphql: .graphql(query: "", variables: "{}")
+        case .multipart: .multipart([])
+        case .binary: .file(path: "", contentType: "application/octet-stream")
+        case .graphql: .graphql(query: "", variables: "{}", operationName: nil)
         }
     }
 }
 
-/// Body editor for the kinds the UI can build from scratch — None/Raw/Form/
-/// GraphQL. Multipart and file bodies (created via cURL/HAR/OpenAPI import,
-/// not from this tab) render read-only instead of being silently dropped.
+/// Body editor for the request's Body tab. Every `BodySpec` case the app can
+/// send is editable from here — including multipart and binary, which used
+/// to arrive only via cURL/HAR/OpenAPI import and render read-only.
 struct RequestBodyTabView: View {
     @Binding var spec: RequestSpec
 
     var body: some View {
-        switch spec.body {
-        case .multipart, .file:
-            readOnlySummary
-        default:
-            editableBody
-        }
-    }
-
-    private var editableBody: some View {
         VStack(alignment: .leading, spacing: 12) {
             Picker("", selection: kindBinding) {
                 ForEach(BodyKind.allCases) { Text($0.rawValue).tag($0) }
@@ -59,21 +55,14 @@ struct RequestBodyTabView: View {
                 RequestRawBodyEditor(spec: $spec)
             case .form:
                 HeaderPairListEditor(pairs: formBinding, namePlaceholder: "Field", addTitle: "Add Field")
+            case .multipart:
+                RequestMultipartBodyEditor(spec: $spec)
+            case .file:
+                RequestBinaryBodyEditor(spec: $spec)
             case .graphql:
                 RequestGraphQLBodyEditor(spec: $spec)
-            case .multipart, .file:
-                EmptyView()
             }
         }
-    }
-
-    private var readOnlySummary: some View {
-        let message: String = switch spec.body {
-        case let .multipart(parts): "Multipart body — \(parts.count) part(s)."
-        case let .file(path, _): "File body — \(path)"
-        default: ""
-        }
-        return EmptyStateView(systemImage: "doc", title: "Body not editable here", message: message)
     }
 
     private var kindBinding: Binding<BodyKind> {
