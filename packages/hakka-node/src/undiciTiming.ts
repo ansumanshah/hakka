@@ -22,6 +22,22 @@
  * interceptor emits each fetch TWICE under the same id (headers, then a
  * body-captured update) — re-querying on the second call could hand it a
  * different concurrent request's entry.
+ *
+ * Channel objects returned by `diagnosticsChannel.channel(name)` live in a
+ * `WeakRef`-backed process-wide registry (both Node's real implementation and
+ * Bun's compat shim). `diagnosticsChannel.subscribe(name, fn)` is shorthand
+ * for `channel(name).subscribe(fn)` and does NOT keep the `Channel` object
+ * itself alive afterwards — only the subscriber function is referenced from
+ * inside it. If nothing else holds a strong reference to that `Channel`,
+ * GC is free to reclaim it, silently dropping every subscriber even though
+ * `subscribe()` reported success; a later `publish()` call finds the registry
+ * slot empty and lazily creates a brand-new, subscriber-less `Channel` in its
+ * place. This is not hypothetical: it reproduces under real GC pressure
+ * (confirmed against Bun's diagnostics_channel with `--expose-gc`), which is
+ * exactly what a test file with many prior tests generates. The fix is to
+ * grab each `Channel` via `diagnosticsChannel.channel(name)` up front and
+ * keep it in this closure so it can never be collected for the lifetime of
+ * the returned handle.
  */
 import diagnosticsChannel from 'node:diagnostics_channel'
 
@@ -152,10 +168,20 @@ export function enableUndiciTiming(): UndiciTimingHandle {
     }
   }
 
-  diagnosticsChannel.subscribe('undici:client:beforeConnect', onBeforeConnect)
-  diagnosticsChannel.subscribe('undici:client:connected', onConnected)
-  diagnosticsChannel.subscribe('undici:client:connectError', onConnectError)
-  diagnosticsChannel.subscribe('undici:client:sendHeaders', onSendHeaders)
+  // Hold the Channel objects themselves (not just the subscriber functions) so
+  // the process-wide WeakRef registry can never reclaim them out from under us
+  // — see the module doc. `subscribe`/`unsubscribe` are called on these local
+  // instances directly, equivalent to but safer than the `diagnosticsChannel.
+  // subscribe(name, fn)` shorthand, which grabs-and-drops the channel inline.
+  const beforeConnectChannel = diagnosticsChannel.channel('undici:client:beforeConnect')
+  const connectedChannel = diagnosticsChannel.channel('undici:client:connected')
+  const connectErrorChannel = diagnosticsChannel.channel('undici:client:connectError')
+  const sendHeadersChannel = diagnosticsChannel.channel('undici:client:sendHeaders')
+
+  beforeConnectChannel.subscribe(onBeforeConnect)
+  connectedChannel.subscribe(onConnected)
+  connectErrorChannel.subscribe(onConnectError)
+  sendHeadersChannel.subscribe(onSendHeaders)
 
   // `null` = "resolved, no safe enrichment" (no match, or ambiguous). Distinct
   // from "absent" (not resolved yet) so a legitimately-reused-socket match
@@ -210,10 +236,10 @@ export function enableUndiciTiming(): UndiciTimingHandle {
       record.timing = { ...record.timing, connectMs, total: record.timing?.total ?? record.duration ?? undefined }
     },
     teardown(): void {
-      diagnosticsChannel.unsubscribe('undici:client:beforeConnect', onBeforeConnect)
-      diagnosticsChannel.unsubscribe('undici:client:connected', onConnected)
-      diagnosticsChannel.unsubscribe('undici:client:connectError', onConnectError)
-      diagnosticsChannel.unsubscribe('undici:client:sendHeaders', onSendHeaders)
+      beforeConnectChannel.unsubscribe(onBeforeConnect)
+      connectedChannel.unsubscribe(onConnected)
+      connectErrorChannel.unsubscribe(onConnectError)
+      sendHeadersChannel.unsubscribe(onSendHeaders)
       connectStartsByOrigin.clear()
       pendingByKey.clear()
       matchedById.clear()
