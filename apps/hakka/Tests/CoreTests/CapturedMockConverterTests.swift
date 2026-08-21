@@ -66,8 +66,12 @@ struct CapturedMockConverterTests {
         #expect(rule.response.headers["Transfer-Encoding"] == nil)
     }
 
-    @Test func missingStatusAndBodyGetDefaults()
+    @Test func missingStatusAndBodyGetDefaultsAtTheLowLevelConverter()
     async throws {
+        // `mockRule(from:)` is the unguarded low-level formatter; the refusal
+        // lives one level up in `entry(from:)`, which never calls this with
+        // an incomplete capture. Pinning the default here documents that
+        // split rather than leaving it undefined.
         let rule = CapturedMockConverter.mockRule(
             from: record(url: "https://api.example.com/y", status: nil, body: nil, headers: [:])
         )
@@ -76,13 +80,50 @@ struct CapturedMockConverterTests {
         #expect(rule.response.headers.isEmpty)
     }
 
+    @Test func entryRefusesAPendingOrFailedCapture()
+    async throws {
+        // No status at all: request never got a response (dropped, still
+        // in flight when promoted, etc).
+        #expect(throws: CapturedMockConverter.PromotionError.self) {
+            _ = try CapturedMockConverter.entry(
+                from: record(url: "https://api.example.com/y", status: nil, body: nil, headers: [:])
+            )
+        }
+    }
+
+    @Test func entryRefusesARecordedTransportError()
+    async throws {
+        var request = record(url: "https://api.example.com/y", status: nil, body: nil, headers: [:])
+        request = NetworkRequest(
+            id: request.id,
+            url: request.url,
+            method: request.method,
+            status: nil,
+            startTime: request.startTime,
+            responseHeaders: [:],
+            responseBody: nil,
+            error: "The network connection was lost"
+        )
+        #expect(throws: CapturedMockConverter.PromotionError.self) {
+            _ = try CapturedMockConverter.entry(from: request)
+        }
+    }
+
+    @Test func entryPromotesACompleteCapture()
+    async throws {
+        // A real status, even a "failure" HTTP status, is a real response —
+        // only a missing status or a transport error is refused.
+        let entry = try CapturedMockConverter.entry(from: record(url: "https://api.example.com/y", status: 503))
+        #expect(entry.id.hasPrefix("mck-"))
+    }
+
     @Test func promotionIsIdempotentPerEndpoint()
     async throws {
-        let first = CapturedMockConverter.entry(from: record(url: "https://api.example.com/v1/users?page=1"))
-        let second = CapturedMockConverter.entry(from: record(url: "https://api.example.com/v1/users?page=9"))
+        let first = try CapturedMockConverter.entry(from: record(url: "https://api.example.com/v1/users?page=1"))
+        let second = try CapturedMockConverter.entry(from: record(url: "https://api.example.com/v1/users?page=9"))
         #expect(first.id == second.id)
         #expect(first.id.hasPrefix("mck-"))
-        let other = CapturedMockConverter.entry(
+        let other = try CapturedMockConverter.entry(
             from: record(url: "https://api.example.com/v1/users", method: .post)
         )
         #expect(other.id != first.id)
@@ -92,10 +133,37 @@ struct CapturedMockConverterTests {
     async throws {
         // The promotion is only real if the produced entry survives the same
         // encode → device-parse path ControlSender uses.
-        let entry = CapturedMockConverter.entry(from: record(url: "https://api.example.com/z"))
+        let entry = try CapturedMockConverter.entry(from: record(url: "https://api.example.com/z"))
         let command = installCommand(for: entry)
         let payload = try ControlCommandEncoder.payloadObject(for: command)
         let roundTrip = parseControlCommand(payload)
         #expect(roundTrip != nil)
+    }
+
+    @Test func duplicateOrdinaryHeadersAreCommaJoinedPerRfc7230()
+    async throws {
+        let rule = CapturedMockConverter.mockRule(
+            from: record(
+                url: "https://api.example.com/w",
+                headers: ["Vary": ["Accept", "Origin"]]
+            )
+        )
+        #expect(rule.response.headers["Vary"] == "Accept, Origin")
+    }
+
+    @Test func duplicateSetCookieHeadersKeepOnlyTheFirst()
+    async throws {
+        // The wire shape (`MockResponse.headers: [String: String]`) can only
+        // carry one value per name, and RFC 6265 forbids folding multiple
+        // Set-Cookie values into one comma-joined field (a comma can appear
+        // inside a cookie's own Expires attribute). Keeping the first cookie
+        // is the documented, tested choice over emitting a corrupt fold.
+        let rule = CapturedMockConverter.mockRule(
+            from: record(
+                url: "https://api.example.com/w",
+                headers: ["Set-Cookie": ["session=1; Path=/", "theme=dark; Path=/"]]
+            )
+        )
+        #expect(rule.response.headers["Set-Cookie"] == "session=1; Path=/")
     }
 }
