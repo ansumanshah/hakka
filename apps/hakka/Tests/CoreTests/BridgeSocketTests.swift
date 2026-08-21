@@ -268,3 +268,62 @@ struct BridgeSocketTests {
         #expect(requestEdits?.method == "PUT")
     }
 }
+
+/// The device-to-desktop path with BOTH real implementations: the SDK's own
+/// `HakkaBridgeClient` talking to the desktop's `BridgeServer` over a real
+/// loopback socket. Every other test in this file drives the server with a
+/// raw `URLSessionWebSocketTask`, which is why a defect in the SDK client
+/// could never fail them. A simulator-capture spike reported that the client
+/// connects but never delivers; this is where that claim gets settled.
+@Suite("SDK bridge client to desktop hub")
+struct SDKBridgeClientTests {
+    private func boundPort(of server: BridgeServer) async -> UInt16? {
+        for _ in 0..<100 {
+            if let port = await server.boundPort, port != 0 { return port }
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+        return nil
+    }
+
+    private func firstRequest(_ server: BridgeServer, timeout: Duration = .seconds(8)) async -> NetworkRequest? {
+        await withTaskGroup(of: NetworkRequest?.self) { group in
+            group.addTask {
+                for await captured in await server.hub.requests { return captured.request }
+                return nil
+            }
+            group.addTask {
+                try? await Task.sleep(for: timeout)
+                return nil
+            }
+            let first = await group.next() ?? nil
+            group.cancelAll()
+            return first
+        }
+    }
+
+    @Test func aCaptureSentByTheSDKClientReachesTheDesktopHub() async throws {
+        let server = BridgeServer(options: BridgeServerOptions(port: 0, advertise: false))
+        try await server.start()
+        let port = try #require(await boundPort(of: server))
+        defer { Task { await server.stop() } }
+
+        let client = HakkaBridgeClient(url: URL(string: "ws://127.0.0.1:\(port)")!)
+        client.start()
+        defer { client.stop() }
+
+        let record = NetworkRequest(
+            id: "sdk-1",
+            url: "https://sdk.test/capture",
+            method: .get,
+            status: 200,
+            startTime: 1
+        )
+        client.send(record)
+
+        let received = try #require(
+            await firstRequest(server),
+            "the SDK's own bridge client connected but its frame never reached the hub"
+        )
+        #expect(received.id == "sdk-1")
+    }
+}
