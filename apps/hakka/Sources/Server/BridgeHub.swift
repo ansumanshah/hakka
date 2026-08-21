@@ -67,6 +67,7 @@ public actor BridgeHub {
     private let requestContinuation: AsyncStream<CapturedRequest>.Continuation
     private let hostControlContinuation: AsyncStream<ControlCommand>.Continuation
     private let spanContinuation: AsyncStream<FrameworkSpan>.Continuation
+    private let deviceEventContinuation: AsyncStream<BridgeDeviceEvent>.Continuation
     /// Assigns "Device N" labels to peers as their frames are first seen —
     /// see `BridgeDeviceLabel.swift` for why this is the honest amount of
     /// identity the hub can offer.
@@ -93,6 +94,11 @@ public actor BridgeHub {
     /// counterpart to `requests`. Same single-consumer contract.
     public nonisolated let spans: AsyncStream<FrameworkSpan>
 
+    /// Connect/disconnect transitions, in the order `addPeer`/`removePeer`
+    /// observe them — the device sidebar's connection signal. Same
+    /// single-consumer, `nonisolated` reasoning as the streams above.
+    public nonisolated let deviceEvents: AsyncStream<BridgeDeviceEvent>
+
     public init() {
         var continuation: AsyncStream<CapturedRequest>.Continuation?
         requests = AsyncStream { continuation = $0 }
@@ -105,16 +111,26 @@ public actor BridgeHub {
         var spanCont: AsyncStream<FrameworkSpan>.Continuation?
         spans = AsyncStream { spanCont = $0 }
         spanContinuation = spanCont!
+
+        var deviceEventCont: AsyncStream<BridgeDeviceEvent>.Continuation?
+        deviceEvents = AsyncStream { deviceEventCont = $0 }
+        deviceEventContinuation = deviceEventCont!
     }
 
     public var peerCount: Int { peers.count }
 
     public func addPeer(_ peer: any BridgeRelayPeer) {
         peers[peer.id] = peer
+        deviceEventContinuation.yield(.connected(peer.id))
     }
 
     public func removePeer(_ id: BridgePeerID) {
-        peers.removeValue(forKey: id)
+        // Only a peer that was actually registered can meaningfully
+        // disconnect — guards against a duplicate `.failed`/`.cancelled`
+        // delivery (or an id that was never added) yielding a spurious
+        // event the sidebar would have nothing to reconcile it against.
+        guard peers.removeValue(forKey: id) != nil else { return }
+        deviceEventContinuation.yield(.disconnected(id))
     }
 
     /// Ingest one raw text frame from `senderID`. Never throws: a malformed
@@ -161,5 +177,6 @@ public actor BridgeHub {
         requestContinuation.finish()
         hostControlContinuation.finish()
         spanContinuation.finish()
+        deviceEventContinuation.finish()
     }
 }

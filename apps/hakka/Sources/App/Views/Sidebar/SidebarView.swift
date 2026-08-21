@@ -19,6 +19,9 @@ struct SidebarView: View {
                 Label("Rules", systemImage: "slider.horizontal.3")
                     .tag(SidebarSelection.rules)
             }
+            Section("Devices") {
+                devicesSectionContent
+            }
             Section("Environment") {
                 EnvironmentPickerView()
             }
@@ -67,5 +70,33 @@ struct SidebarView: View {
 
     private var selectionBinding: Binding<SidebarSelection?> {
         Binding(get: { model.selection }, set: { model.select($0) })
+    }
+
+    /// Not `List` selection rows — see `DeviceRowView`'s doc comment for
+    /// why. An always-present, empty-state-aware section, so the hub's
+    /// many-peers architecture reads even before anything has connected.
+    @ViewBuilder
+    private var devicesSectionContent: some View {
+        if model.traffic.deviceSummaries.isEmpty {
+            Text("No devices connected")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        } else {
+            ForEach(model.traffic.deviceSummaries) { summary in
+                DeviceRowView(summary: summary, isScoped: isScoped(summary.device)) {
+                    model.traffic.selectDevice(summary.device)
+                    model.select(.traffic)
+                }
+            }
+        }
+    }
+
+    /// Whether the traffic list is currently scoped to `device` — drives
+    /// `DeviceRowView`'s highlight. Reads `traffic.searchText` directly
+    /// rather than a stored flag, so it can never drift from the actual
+    /// filter (e.g. if the user edits the search bar by hand).
+    private func isScoped(_ device: ConnectedDevice) -> Bool {
+        guard let label = device.label else { return false }
+        return model.traffic.searchText.trimmingCharacters(in: .whitespaces) == "device:\(label)"
     }
 }

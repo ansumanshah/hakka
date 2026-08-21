@@ -32,7 +32,10 @@ final class TrafficModel {
     /// which pairs it with `selectedRequestID`; nil closes the sheet.
     var comparisonBaselineID: String?
 
-    let server = BridgeServer()
+    /// Injectable (default: the well-known port) so a test can hand in an
+    /// ephemeral-port `BridgeServer` instead of fighting every other test
+    /// for `bridgeDefaultPort` — same rationale as `noiseScope` below.
+    let server: BridgeServer
     /// Internal, not `private`: `TrafficModel+Session.swift`'s extension
     /// needs it too, and an extension in another file can't see `private`.
     let store = TrafficStore()
@@ -59,9 +62,17 @@ final class TrafficModel {
     /// `NetworkRequest`. Same visibility reasoning as `store` above.
     @ObservationIgnored
     var deviceIndex = DeviceLabelIndex()
+    /// Every bridge peer seen this session, connection order — the sidebar's
+    /// Devices section. Owned by `TrafficModel+Devices.swift`; not
+    /// `private(set)` for the same cross-file reason as `deviceIndex` above.
+    var devices: [ConnectedDevice] = []
+    /// `devices`' index by peer id, to avoid a linear scan per event.
+    @ObservationIgnored
+    var deviceIndexByPeer: [BridgePeerID: Int] = [:]
 
-    init(noiseScope: NoiseScopeStore = NoiseScopeStore()) {
+    init(noiseScope: NoiseScopeStore = NoiseScopeStore(), server: BridgeServer = BridgeServer()) {
         self.noiseScope = noiseScope
+        self.server = server
     }
 
     /// Starts the bridge listener, then consumes its request stream for the
@@ -80,11 +91,11 @@ final class TrafficModel {
         }
         let hub = await server.hub
         ruleSender = ControlSender(hub: hub)
-        // Three indefinitely-running consumers of the same hub: captured
-        // requests, device-to-host control frames, and framework spans. All
-        // three live under one group so they are cancelled together with
-        // this task, rather than any of them being an untracked detached
-        // `Task` that outlives the scene.
+        // Four indefinitely-running consumers of the same hub: captured
+        // requests, device-to-host control frames, framework spans, and
+        // connect/disconnect events. All four live under one group so they
+        // are cancelled together with this task, rather than any of them
+        // being an untracked detached `Task` that outlives the scene.
         await withTaskGroup(of: Void.self) { group in
             group.addTask { [traceStore] in
                 for await span in hub.spans {
@@ -93,6 +104,7 @@ final class TrafficModel {
             }
             group.addTask { await self.consumeHostControls(hub: hub) }
             group.addTask { await self.consumeRequests(hub: hub) }
+            group.addTask { await self.consumeDeviceEvents(hub: hub) }
         }
     }
 
@@ -102,6 +114,7 @@ final class TrafficModel {
             await store.append(request)
             requests.append(request)
             deviceIndex.record(requestID: request.id, label: captured.deviceLabel)
+            attributeToDevice(peerID: captured.peerID, label: captured.deviceLabel)
             if requests.count > TrafficStore.defaultCapacity {
                 let overflow = requests.count - TrafficStore.defaultCapacity
                 deviceIndex.evict(requestIDs: requests.prefix(overflow).map(\.id))
@@ -123,12 +136,6 @@ final class TrafficModel {
             guard let pause = PendingPause(command: command) else { continue }
             await pauses.ingest(pause)
         }
-    }
-
-    /// Which device produced `requestID`'s row, or nil for a request the
-    /// bridge never attributed (e.g. one restored from an imported session).
-    func deviceLabel(for requestID: String) -> BridgeDeviceLabel? {
-        deviceIndex[requestID]
     }
 
     /// Delivers a control command to every connected device, returning the
@@ -166,21 +173,6 @@ final class TrafficModel {
 
     func request(id: String) -> NetworkRequest? {
         requests.first { $0.id == id }
-    }
-
-    /// The pair to compare, oldest first, or nil when no comparison is open.
-    /// Ordered by arrival rather than by which row was right-clicked, so the
-    /// diff always reads "what changed since", not "what changed backwards".
-    var comparison: (before: NetworkRequest, after: NetworkRequest)? {
-        guard let baselineID = comparisonBaselineID,
-              let selectedID = selectedRequestID,
-              baselineID != selectedID,
-              let baselineIndex = requests.firstIndex(where: { $0.id == baselineID }),
-              let selectedIndex = requests.firstIndex(where: { $0.id == selectedID })
-        else { return nil }
-        return baselineIndex < selectedIndex
-            ? (requests[baselineIndex], requests[selectedIndex])
-            : (requests[selectedIndex], requests[baselineIndex])
     }
 
     func clear() async {
