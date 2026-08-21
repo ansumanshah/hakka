@@ -74,12 +74,12 @@ Not part of `HakkaConfig` — sessions/analytics are called on-demand, not confi
 SPEC §3's Sessions/Analytics bullet has no row in §5 today — these rows are new, chosen not to
 collide with any existing §5 row name:
 
-| Capability                    | RN  | iOS | Android | Web |
-| ----------------------------- | --- | --- | ------- | --- |
-| Per-launch sessions           | ●   | ●   | ●       | ●   |
-| Session share/export (.hakka) | ●   | —   | —       | ●   |
-| Repro bundle (.hakka-repro)   | —   | —   | —       | ●   |
-| Store-size view               | ●   | ●   | ●       | ●   |
+| Capability                    | RN  | iOS | Android | Web | Mac app |
+| ----------------------------- | --- | --- | ------- | --- | ------- |
+| Per-launch sessions           | ●   | ●   | ●       | ●   | ●       |
+| Session share/export (.hakka) | ●   | —   | —       | ●   | ●       |
+| Repro bundle (.hakka-repro)   | —   | —   | —       | ●   | —       |
+| Store-size view               | ●   | ●   | ●       | ●   | ◐       |
 
 - **Per-launch sessions** — verified structurally: `LogStore` on iOS (`ios/Sources/Common/LogStore.swift`)
   and Android (`android/hakka-network/.../LogStore.kt`) are plain in-memory ring buffers with no

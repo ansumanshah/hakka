@@ -52,9 +52,9 @@ grammar via its `query` string param.
 
 SPEC §5 row "Advanced search":
 
-| Capability      | RN  | iOS | Android | Web |
-| --------------- | --- | --- | ------- | --- |
-| Advanced search | ●   | ●   | ●       | ●   |
+| Capability      | RN  | iOS | Android | Web | Mac app |
+| --------------- | --- | --- | ------- | --- | ------- |
+| Advanced search | ●   | ●   | ●       | ●   | ●       |
 
 The parser/compiler/sort/group engine is core-TS, shared by RN, web, and `hakka mcp`'s
 `search_requests`/`diagnose`/`generate_mocks` tools; iOS and Android ship equivalent native

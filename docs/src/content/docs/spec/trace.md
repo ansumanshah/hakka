@@ -43,9 +43,9 @@ without core ever importing Node.
 
 SPEC §5 row "Trace correlation" (footnote 9):
 
-| Capability        | RN  | iOS | Android | Web |
-| ----------------- | --- | --- | ------- | --- |
-| Trace correlation | ●   | ●   | ●       | ●   |
+| Capability        | RN  | iOS | Android | Web | Mac app |
+| ----------------- | --- | --- | ------- | --- | ------- |
+| Trace correlation | ●   | ●   | ●       | ●   | ●       |
 
 Nuance from SPEC footnote 9: **Web** ships full client↔server join (the `hakka-node/next` full-stack
 case). **RN/iOS/Android** originate and stamp `x-hakka-trace` + `correlationId` on outgoing
@@ -57,13 +57,13 @@ SPEC §5 rows "Framework span capture" (footnote 11), "Trace-id adoption" (footn
 badge row" (footnote 13), "Verbose span toggle" (footnote 14), and "Request-kind filter"
 (footnote 16) — the Next.js Request Insights feature set, `hakka-node` + `hakka-browser` only:
 
-| Capability             | RN  | iOS | Android | Web |
-| ---------------------- | --- | --- | ------- | --- |
-| Framework span capture | —   | —   | —       | ●   |
-| Trace-id adoption      | —   | —   | —       | ●   |
-| Trace badge row        | —   | —   | —       | ●   |
-| Verbose span toggle    | —   | —   | —       | ●   |
-| Request-kind filter    | —   | —   | —       | ●   |
+| Capability             | RN  | iOS | Android | Web | Mac app |
+| ---------------------- | --- | --- | ------- | --- | ------- |
+| Framework span capture | —   | —   | —       | ●   | ●       |
+| Trace-id adoption      | —   | —   | —       | ●   | —       |
+| Trace badge row        | —   | —   | —       | ●   | —       |
+| Verbose span toggle    | —   | —   | —       | ●   | ●       |
+| Request-kind filter    | —   | —   | —       | ●   | —       |
 
 None of the five have a native counterpart: there is no RN/iOS/Android OTel SDK integration to
 surface framework spans from, so trace grouping, the badge row, the verbose toggle, and the

@@ -63,11 +63,11 @@ Not exposed via `HakkaConfig` — these are fixed constants in `capture/websocke
 WebSocket capture rides the same interceptor layer as HTTP capture — see SPEC §5 "Native
 capture" / "JS capture" rows:
 
-| Capability       | RN  | iOS | Android | Web |
-| ---------------- | --- | --- | ------- | --- |
-| Native capture   | ●   | ●   | ●       | —   |
-| JS capture       | ●   | —   | —       | ●   |
-| WebSocket frames | ●   | ●   | ●       | ●   |
+| Capability       | RN  | iOS | Android | Web | Mac app |
+| ---------------- | --- | --- | ------- | --- | ------- |
+| Native capture   | ●   | ●   | ●       | —   | —       |
+| JS capture       | ●   | —   | —       | ●   | —       |
+| WebSocket frames | ●   | ●   | ●       | ●   | ●       |
 
 iOS ships `WebSocketMonitor.swift`; Android ships `HakkaWebSocketWrapper.kt`. The sub-protocol
 frame-decoder registry (MQTT/Socket.IO/STOMP/graphql-ws) exists on all four platforms:

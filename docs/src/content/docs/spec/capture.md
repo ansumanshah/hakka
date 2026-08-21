@@ -62,11 +62,11 @@ of 256 KB that the interceptors actually use.
 
 ## Platform matrix
 
-| Capability     | RN  | iOS | Android | Web |
-| -------------- | --- | --- | ------- | --- |
-| Native capture | ●   | ●   | ●       | —   |
-| JS capture     | ●   | —   | —       | ●   |
-| BodyDecoder    | ●   | ●   | ●       | ●   |
+| Capability     | RN  | iOS | Android | Web | Mac app |
+| -------------- | --- | --- | ------- | --- | ------- |
+| Native capture | ●   | ●   | ●       | —   | —       |
+| JS capture     | ●   | —   | —       | ●   | —       |
+| BodyDecoder    | ●   | ●   | ●       | ●   | ◐       |
 
 RN's `'auto'` mode prefers the native `HakkaMonitor` TurboModule and falls back to JS
 monkey-patches; Web and Next.js are JS-capture only. iOS/Android BodyDecoder is a Swift/Kotlin
@@ -74,9 +74,9 @@ port matched against core's `decoders.test.ts` fixtures (SPEC §5 footnote 10).
 
 SPEC §5 row "Cache-status tags" (footnote 15), `hakka-node` only:
 
-| Capability        | RN  | iOS | Android | Web |
-| ----------------- | --- | --- | ------- | --- |
-| Cache-status tags | —   | —   | —       | ●   |
+| Capability        | RN  | iOS | Android | Web | Mac app |
+| ----------------- | --- | --- | ------- | --- | ------- |
+| Cache-status tags | —   | —   | —       | ●   | —       |
 
 `NetworkRequest.cacheStatus` is never set by the core fetch/XHR interceptors themselves — it's
 populated after capture by `hakka-node`'s server capture (`next/serverCapture.ts`), which reads a

@@ -55,9 +55,9 @@ rejecting the add or creating a duplicate.
 Not a distinct SPEC §5 row — reuses "Bridge to hub" (footnote 8), since control frames ride the
 same wire as request frames:
 
-| Capability    | RN  | iOS | Android | Web |
-| ------------- | --- | --- | ------- | --- |
-| Bridge to hub | ●   | ●   | ●       | ●   |
+| Capability    | RN  | iOS | Android | Web | Mac app |
+| ------------- | --- | --- | ------- | --- | ------- |
+| Bridge to hub | ●   | ●   | ●       | ●   | ●       |
 
 Per SPEC footnote 8, control-frame **consumers** are: web ● (worker → main-thread engines) · RN
 ● (`HakkaBridge`) · iOS ● (`HakkaBridgeClient` receive loop + `Common/ControlCommand.swift`) ·

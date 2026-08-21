@@ -97,13 +97,13 @@ Not part of `HakkaConfig` — configured per-call/per-component, not through sha
 SPEC §3's Triggers bullet has no row in §5 today — these rows are new, chosen not to collide with
 any existing §5 row name:
 
-| Capability              | RN  | iOS | Android | Web |
-| ----------------------- | --- | --- | ------- | --- |
-| Shake to open           | ●   | ●   | ●       | —   |
-| Draggable bubble / FAB  | ●   | ●   | ●       | ●   |
-| Live-stats notification | —   | ◐   | ●       | —   |
-| App launcher shortcut   | —   | —   | ○       | —   |
-| Imperative trigger API  | ●   | ●   | ●       | —   |
+| Capability              | RN  | iOS | Android | Web | Mac app |
+| ----------------------- | --- | --- | ------- | --- | ------- |
+| Shake to open           | ●   | ●   | ●       | —   | ⊘       |
+| Draggable bubble / FAB  | ●   | ●   | ●       | ●   | ⊘       |
+| Live-stats notification | —   | ◐   | ●       | —   | ⊘       |
+| App launcher shortcut   | —   | —   | ○       | —   | ⊘       |
+| Imperative trigger API  | ●   | ●   | ●       | —   | ⊘       |
 
 - **Shake to open** — RN's `useShakeDetection` listens for RN's own `'shake'` `DeviceEventEmitter`
   event (iOS/Android both fire it). iOS additionally wires `CMMotionManager` directly

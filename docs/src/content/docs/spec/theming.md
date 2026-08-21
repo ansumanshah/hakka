@@ -42,9 +42,9 @@ Not a runtime config surface — `design-tokens.json` top-level groups: `status`
 Not a distinct row in SPEC §5 — verified directly against `sync-design-tokens.mjs`'s `targets`
 list, which writes all four:
 
-| Capability           | RN  | iOS | Android | Web |
-| -------------------- | --- | --- | ------- | --- |
-| Theming (token sync) | ●   | ●   | ●       | ●   |
+| Capability           | RN  | iOS | Android | Web | Mac app |
+| -------------------- | --- | --- | ------- | --- | ------- |
+| Theming (token sync) | ●   | ●   | ●       | ●   | ●       |
 
 ## Wire format
 

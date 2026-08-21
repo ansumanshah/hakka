@@ -43,9 +43,9 @@ is no config flag to disable it independently of capture itself.
 
 SPEC §5 row "GraphQL detail":
 
-| Capability     | RN  | iOS | Android | Web |
-| -------------- | --- | --- | ------- | --- |
-| GraphQL detail | ●   | ●   | ●       | ●   |
+| Capability     | RN  | iOS | Android | Web | Mac app |
+| -------------- | --- | --- | ------- | --- | ------- |
+| GraphQL detail | ●   | ●   | ●       | ●   | —       |
 
 ## Wire format
 

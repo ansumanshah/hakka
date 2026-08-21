@@ -91,9 +91,9 @@ Not a distinct row in SPEC §5 — JS-only today (Node/MCP + Web). No native (iO
 equivalent exists yet; each of those platforms' own share/export paths still needs the same
 share-time pass, tracked as follow-up work rather than claimed here.
 
-| Capability      | RN  | iOS | Android | Web |
-| --------------- | --- | --- | ------- | --- |
-| Share scrubbing | ○   | ○   | ○       | ●   |
+| Capability      | RN  | iOS | Android | Web | Mac app |
+| --------------- | --- | --- | ------- | --- | ------- |
+| Share scrubbing | ○   | ○   | ○       | ●   | —       |
 
 ## Wire format
 
