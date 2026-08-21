@@ -41,9 +41,6 @@ struct DetailOverviewSection: View {
             HStack(spacing: 16) {
                 metric("Request", Fmt.bytes(record.requestBodySize))
                 metric("Response", Fmt.bytes(record.responseBodySize))
-                if let networkProtocol = record.networkProtocol {
-                    metric("Protocol", networkProtocol)
-                }
                 if let deviceLabel {
                     metric("Device", deviceLabel)
                 }
