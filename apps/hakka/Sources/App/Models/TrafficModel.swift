@@ -48,6 +48,30 @@ final class TrafficModel {
     /// muted/focused host stays fully captured, `visibleRequests` just
     /// stops showing it.
     let noiseScope = NoiseScopeStore()
+    /// Which columns the table display mode shows, in what order — see the
+    /// type's doc comment for why this is a persisted model rather than
+    /// view `@State`.
+    let columnConfig = TrafficColumnConfigStore()
+    /// List (dense, scan-first) or Table (customizable columns,
+    /// compare-first) — both read the same `visibleRequests`. Persisted
+    /// directly to user defaults rather than routed through a store type:
+    /// it is one enum, not a collection with its own invariants to guard.
+    /// A stored property (not computed) so `@Observable` actually tracks
+    /// reads/writes of it — a computed get/set over `UserDefaults` would be
+    /// invisible to Observation and views would never refresh.
+    var displayMode: TrafficDisplayMode = TrafficModel.loadDisplayMode() {
+        didSet { UserDefaults.standard.set(displayMode.rawValue, forKey: Self.displayModeKey) }
+    }
+    private static let displayModeKey = "hakka.traffic.displayMode"
+
+    private static func loadDisplayMode() -> TrafficDisplayMode {
+        TrafficDisplayMode(rawValue: UserDefaults.standard.string(forKey: displayModeKey) ?? "") ?? .list
+    }
+    /// Toggled by the header's "Focus Search" command (Cmd-F) — the search
+    /// field observes this and grabs keyboard focus each time it changes.
+    /// A counter rather than a bool so pressing Cmd-F twice in a row (the
+    /// field already focused) still fires an observable change.
+    var focusSearchToken = 0
     /// Sends typed control commands; nil until `start()` hands it the hub.
     private(set) var ruleSender: ControlSender?
     /// Which connected device produced each buffered request. See

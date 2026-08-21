@@ -7,6 +7,10 @@ import SwiftUI
 /// collection promotion this app exists for.
 struct LiveTrafficListView: View {
     @Environment(AppModel.self) private var model
+    /// So arrow keys move the selection the moment this pane appears,
+    /// rather than only after the user clicks a row once to give the list
+    /// keyboard focus — reading traffic is a keyboard-first scan loop.
+    @FocusState private var listFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -24,6 +28,8 @@ struct LiveTrafficListView: View {
                     title: "No matching requests",
                     message: emptyMessage,
                 )
+            } else if model.traffic.displayMode == .table {
+                LiveTrafficTableView()
             } else {
                 List(selection: selectionBinding) {
                     ForEach(model.traffic.visibleRequests, id: \.id) { request in
@@ -41,8 +47,23 @@ struct LiveTrafficListView: View {
                     }
                 }
                 .listStyle(.plain)
+                .focused($listFocused)
+                .onAppear { seedSelectionIfNeeded() }
+                .onChange(of: model.traffic.visibleRequests.map(\.id)) { _, _ in seedSelectionIfNeeded() }
+                .task { listFocused = true }
             }
         }
+    }
+
+    /// Up/Down only moves an *existing* selection — with none set, the
+    /// first arrow press would otherwise do nothing. Pre-selecting the
+    /// newest row (the list's first, since it's newest-first) means arrow
+    /// keys work the instant the pane appears, same as Mail's message list.
+    private func seedSelectionIfNeeded() {
+        guard model.traffic.selectedRequestID == nil,
+              let first = model.traffic.visibleRequests.first
+        else { return }
+        model.traffic.selectedRequestID = first.id
     }
 
     private var selectionBinding: Binding<String?> {

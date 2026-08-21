@@ -16,7 +16,10 @@ import PackageDescription
 /// fixed on one side only.
 let package = Package(
     name: "HakkaApp",
-    platforms: [.macOS(.v14)],
+    // v15, not v14: the traffic table's column customization uses
+    // `TableColumnForEach`, which needs 14.4 — bumping to the next major
+    // avoids pinning to an odd minor version for one API.
+    platforms: [.macOS(.v15)],
     products: [
         .library(name: "HakkaCore", targets: ["HakkaCore"]),
         .library(name: "HakkaServer", targets: ["HakkaServer"]),

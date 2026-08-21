@@ -34,10 +34,25 @@ struct NetworkRequestDetailView: View {
     }
 
     var body: some View {
+        let tabs = DetailTab.visible(for: record)
         VStack(alignment: .leading, spacing: 0) {
-            DetailTabStrip(activeTab: $activeTab, tabs: DetailTab.visible(for: record))
+            DetailTabStrip(activeTab: $activeTab, tabs: tabs)
             tabContent
                 .padding(16)
+        }
+        .background(tabShortcuts(tabs))
+    }
+
+    /// Cmd-1 through Cmd-6 switch tabs, Safari/Chrome's tab-switching
+    /// convention — hidden buttons rather than a menu command, since which
+    /// tabs exist depends on the selected record and there is no sensible
+    /// app-menu placement for "whatever tab strip happens to be on screen".
+    private func tabShortcuts(_ tabs: [DetailTab]) -> some View {
+        ForEach(Array(tabs.prefix(9).enumerated()), id: \.element) { index, tab in
+            Button("") { activeTab = tab }
+                .keyboardShortcut(KeyEquivalent(Character("\(index + 1)")), modifiers: .command)
+                .hidden()
+                .frame(width: 0, height: 0)
         }
     }
 

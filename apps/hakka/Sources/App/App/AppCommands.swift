@@ -20,6 +20,14 @@ struct AppCommands: Commands {
                 .keyboardShortcut(.return, modifiers: .command)
                 .disabled(model.selection?.isRequest != true || model.editor.isSending)
         }
+        CommandMenu("Traffic") {
+            Button("Focus Search") { model.traffic.focusSearchToken += 1 }
+                .keyboardShortcut("f", modifiers: .command)
+            Divider()
+            Button("Clear Traffic") { Task { await model.traffic.clear() } }
+                .keyboardShortcut("k", modifiers: .command)
+                .disabled(model.traffic.requests.isEmpty)
+        }
         CommandGroup(replacing: .importExport) {
             Button("Open Session…") { Task { await model.importTrafficSession() } }
             Divider()

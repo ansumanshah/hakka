@@ -5,6 +5,8 @@ import SwiftUI
 struct LiveTrafficHeader: View {
     @Environment(AppModel.self) private var model
     @State private var presetStore = FilterPresetStore()
+    @State private var columnPickerPresented = false
+    @FocusState private var searchFieldFocused: Bool
 
     var body: some View {
         VStack(spacing: 8) {
@@ -24,13 +26,53 @@ struct LiveTrafficHeader: View {
                     hiddenCount: model.traffic.hiddenByNoiseScopeCount,
                     hiddenErrorCount: model.traffic.hiddenNoiseScopeErrorCount,
                 )
+                displayModePicker
                 Button("Clear") { Task { await model.traffic.clear() } }
                     .font(.caption)
                     .buttonStyle(.plain)
+                    .disabled(model.traffic.requests.isEmpty)
             }
             searchField
         }
         .padding(10)
+        // `AppCommands`' Cmd-F bumps this token; picking it up here (rather
+        // than the command mutating `searchFieldFocused` directly) is the
+        // only way a menu action — which has no view of this view's local
+        // `@FocusState` — can still drive focus into it.
+        .onChange(of: model.traffic.focusSearchToken) { _, _ in
+            searchFieldFocused = true
+        }
+    }
+
+    private var displayModePicker: some View {
+        HStack(spacing: 2) {
+            modeButton(.list, systemImage: "list.bullet")
+            modeButton(.table, systemImage: "tablecells")
+            if model.traffic.displayMode == .table {
+                Button {
+                    columnPickerPresented = true
+                } label: {
+                    Image(systemName: "slider.horizontal.3")
+                }
+                .buttonStyle(.plain)
+                .help("Customize Columns")
+                .popover(isPresented: $columnPickerPresented) {
+                    TrafficColumnPickerView(store: model.traffic.columnConfig)
+                }
+            }
+        }
+        .font(.caption)
+    }
+
+    private func modeButton(_ mode: TrafficDisplayMode, systemImage: String) -> some View {
+        Button {
+            model.traffic.displayMode = mode
+        } label: {
+            Image(systemName: systemImage)
+                .foregroundStyle(model.traffic.displayMode == mode ? Color.accentColor : .secondary)
+        }
+        .buttonStyle(.plain)
+        .help(mode == .list ? "List" : "Table")
     }
 
     private var searchField: some View {
@@ -41,6 +83,7 @@ struct LiveTrafficHeader: View {
             TextField("Search — try 2xx, method:POST, dur>100", text: searchBinding)
                 .textFieldStyle(.plain)
                 .font(.caption)
+                .focused($searchFieldFocused)
             if !model.traffic.searchText.isEmpty {
                 Button {
                     model.traffic.searchText = ""
