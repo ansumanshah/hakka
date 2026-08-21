@@ -69,7 +69,11 @@ public enum TrafficQueryCompiler {
         return trimmed.isEmpty ? nil : trimmed
     }
 
-    private static func requestHost(_ request: NetworkRequest) -> String {
+    /// The host a request's URL resolves to, or the raw URL string when it
+    /// doesn't parse. Public because `NoiseScopeStore`/`TrafficModel` need
+    /// the exact same host extraction the `host:` query term uses — a mute
+    /// rule and a search term must agree on what "this host" means.
+    public static func requestHost(_ request: NetworkRequest) -> String {
         URLComponents(string: request.url)?.host ?? request.url
     }
 

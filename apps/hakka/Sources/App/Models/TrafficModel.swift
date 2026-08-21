@@ -44,6 +44,10 @@ final class TrafficModel {
     let rules = RuleStore()
     /// Breakpoint pauses reported *by* devices, waiting on this desktop.
     let pauses = PauseStore()
+    /// The standing Focus/Noise lens (see the type's doc comment) — a
+    /// muted/focused host stays fully captured, `visibleRequests` just
+    /// stops showing it.
+    let noiseScope = NoiseScopeStore()
     /// Sends typed control commands; nil until `start()` hands it the hub.
     private(set) var ruleSender: ControlSender?
     /// Which connected device produced each buffered request. See
@@ -138,29 +142,6 @@ final class TrafficModel {
         }
     }
 
-    /// `requests` filtered and sorted by `searchText`, newest first when the
-    /// query names no sort of its own. Empty search returns the buffer
-    /// unchanged, so the common case pays nothing.
-    var visibleRequests: [NetworkRequest] {
-        let trimmed = searchText.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { return requests.reversed() }
-
-        let compiled = compiledQuery(for: trimmed)
-        var matched = requests.filter(compiled.match)
-        // `device:` has no reach into `TrafficQueryCompiler` — the compiler
-        // works over a bare `NetworkRequest`, which carries no device
-        // identity (see `DeviceLabelIndex`), so the model applies this term
-        // itself using its own `deviceIndex`.
-        if let device = compiled.query.device {
-            matched = matched.filter { request in
-                let matches = (deviceIndex[request.id] ?? "").lowercased().contains(device)
-                return matches != compiled.query.deviceNegate
-            }
-        }
-        guard let field = compiled.query.sort else { return matched.reversed() }
-        return TrafficSort.sort(matched, field: field, order: compiled.query.order)
-    }
-
     /// Parsing and compiling are cached against the search text because
     /// SwiftUI reads a computed property several times per frame, and
     /// compiling means building an `NSRegularExpression` per regex token —
@@ -168,17 +149,12 @@ final class TrafficModel {
     /// to make typing feel slow in a tool whose whole point is not being slow.
     /// `@ObservationIgnored` is load-bearing: this is written *during* a read
     /// of `visibleRequests`, so a tracked property would invalidate the view
-    /// that is currently rendering and spin.
+    /// that is currently rendering and spin. Not `private`: an extension
+    /// can't add a stored property, so `searchMatchedRequests`/
+    /// `compiledQuery` live in `TrafficModel+Search.swift` instead and need
+    /// to reach this one.
     @ObservationIgnored
-    private var queryCache: (text: String, query: TrafficQuery, match: @Sendable (NetworkRequest) -> Bool)?
-
-    private func compiledQuery(for text: String) -> (query: TrafficQuery, match: @Sendable (NetworkRequest) -> Bool) {
-        if let cached = queryCache, cached.text == text { return (cached.query, cached.match) }
-        let query = TrafficQueryParser.parse(text)
-        let match = TrafficQueryCompiler.compile(query)
-        queryCache = (text, query, match)
-        return (query, match)
-    }
+    var queryCache: (text: String, query: TrafficQuery, match: @Sendable (NetworkRequest) -> Bool)?
 
     func request(id: String) -> NetworkRequest? {
         requests.first { $0.id == id }
