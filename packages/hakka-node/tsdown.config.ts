@@ -4,6 +4,7 @@ export default defineConfig({
   entry: {
     index: 'src/index.ts',
     prod: 'src/prod.ts',
+    'ci/index': 'src/ci/index.ts',
     'next/index': 'src/next/index.ts',
     'next/server': 'src/next/server.ts',
     'next/client': 'src/next/client.ts',

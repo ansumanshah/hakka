@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 
 import { parseAssertArgs, assertCommand } from './assert'
 import type { CdpAttachOptions } from './cdp/index'
+import { ciBaselineCommand } from './ciBaseline'
 import { detectFramework, readPkg } from './detectFramework'
 import { diagnose } from './diagnose'
 import { detectPackageManager, installCommand, type PackageManager } from './packageManager'
@@ -159,6 +160,11 @@ function assertUsage(): void {
   )
 }
 
+function ciBaselineUsage(): void {
+  log(`Usage: ${c.cyan('hakka ci-baseline record <capture.hakka> <baseline.txt>')}`)
+  log(`       ${c.cyan('hakka ci-baseline check <capture.hakka> <baseline.txt>')} ${c.dim('[--allow-host <host>]')}`)
+}
+
 function mcpUsage(): void {
   log(`Usage: ${c.cyan('hakka mcp')} ${c.dim('[--url ws://host:port] [--port <n>] [--serve|--no-serve]')}`)
 }
@@ -231,6 +237,9 @@ async function main(): Promise<void> {
       assertCommand(filePath, options)
       break
     }
+    case 'ci-baseline':
+      ciBaselineCommand(rest)
+      break
     case 'mcp':
       // stdout is the JSON-RPC channel once this starts — nothing above this branch may print after it runs.
       await runMcp()
@@ -243,6 +252,7 @@ async function main(): Promise<void> {
       log(`Usage: ${c.cyan('hakka init')}`)
       diagnoseUsage()
       assertUsage()
+      ciBaselineUsage()
       mcpUsage()
       cdpUsage()
       process.exitCode = 1

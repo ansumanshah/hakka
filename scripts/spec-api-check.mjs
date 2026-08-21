@@ -31,6 +31,7 @@ const packageEntries = {
   'hakka-browser': 'packages/hakka-browser/src/index.ts',
   'hakka-node': 'packages/hakka-node/src/index.ts',
   'hakka-node/prod': 'packages/hakka-node/src/prod.ts',
+  'hakka-node/ci': 'packages/hakka-node/src/ci/index.ts',
   'hakka-bridge': 'packages/hakka-bridge/src/index.ts',
   'hakka-react-native': 'packages/hakka-react-native/src/index.ts',
   'hakka-react-native/ui': 'packages/hakka-react-native/src/ui.ts',

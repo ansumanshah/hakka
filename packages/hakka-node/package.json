@@ -53,6 +53,11 @@
       "types": "./dist/prod.d.mts",
       "default": "./dist/prod.mjs"
     },
+    "./ci": {
+      "source": "./src/ci/index.ts",
+      "types": "./dist/ci/index.d.mts",
+      "default": "./dist/ci/index.mjs"
+    },
     "./next": {
       "source": "./src/next/index.ts",
       "types": "./dist/next/index.d.mts",
