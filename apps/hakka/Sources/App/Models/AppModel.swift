@@ -18,6 +18,7 @@ final class AppModel {
     let folderRun = FolderRunModel()
     let webSocket = WebSocketConnectionModel()
     let pauseInbox: PauseInboxModel
+    let sessionCompare = SessionCompareModel()
 
     /// Ids currently marked for a batch delete — toggled from the sidebar's
     /// context menu, cleared once `deleteMarkedNodes()` (in
