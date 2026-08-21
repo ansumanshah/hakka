@@ -15,9 +15,6 @@ public enum BodyViewerRegistry {
         "application/x-protobuf",
         "application/protobuf",
         "application/vnd.google.protobuf",
-        "application/grpc",
-        "application/grpc+proto",
-        "application/grpc-web+proto",
         "application/msgpack",
         "application/cbor",
     ]
@@ -31,6 +28,12 @@ public enum BodyViewerRegistry {
 
         if isImageBody(mime: mime, url: url, body: body) {
             return .image
+        }
+        // Every `application/grpc*` shape — plain gRPC and every gRPC-Web
+        // sub-codec (`-web`, `-web+proto`, `-web-text`, `-web+text`,
+        // `+json`) — routes to the frame viewer instead of the hex dump.
+        if let mime, mime.hasPrefix("application/grpc") {
+            return .grpc
         }
         if let mime, binaryMimeTypes.contains(mime) {
             return .hex

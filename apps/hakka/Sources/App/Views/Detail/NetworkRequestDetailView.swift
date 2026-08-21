@@ -56,14 +56,16 @@ struct NetworkRequestDetailView: View {
                 headersSection: DetailHeadersSection("Request Headers", headers: record.requestHeaders),
                 recordBody: requestBody,
                 url: record.url,
-                noBodyLabel: "No request body"
+                noBodyLabel: "No request body",
+                responseHeaders: record.responseHeaders
             )
         case .response:
             DetailBodyTabSide(
                 headersSection: DetailHeadersSection("Response Headers", headers: record.responseHeaders),
                 recordBody: responseBody,
                 url: record.url,
-                noBodyLabel: "No response body"
+                noBodyLabel: "No response body",
+                responseHeaders: record.responseHeaders
             )
         case .timing:
             DetailTimingSection(record: record)
@@ -80,12 +82,13 @@ private struct DetailBodyTabSide: View {
     let recordBody: RecordBody?
     let url: String
     let noBodyLabel: String
+    let responseHeaders: [String: [String]]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             headersSection
             if let recordBody {
-                BodyViewerView(body: recordBody, url: url)
+                BodyViewerView(body: recordBody, url: url, responseHeaders: responseHeaders)
             } else {
                 Text(noBodyLabel)
                     .font(.caption)

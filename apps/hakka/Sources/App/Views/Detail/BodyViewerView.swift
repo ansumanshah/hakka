@@ -9,8 +9,14 @@ struct BodyViewerView: View {
     @State private var model: BodyViewerModel
     @State private var saveError: String?
 
-    init(body: RecordBody, url: String) {
+    /// The record's response headers — only consulted by the `.grpc` viewer,
+    /// as the fallback status source for a "Trailers-Only" HTTP/2 response
+    /// (where `grpc-status` rides in the ordinary response headers).
+    private let responseHeaders: [String: [String]]
+
+    init(body: RecordBody, url: String, responseHeaders: [String: [String]] = [:]) {
         _model = State(initialValue: BodyViewerModel(body: body, url: url))
+        self.responseHeaders = responseHeaders
     }
 
     var body: some View {
@@ -62,6 +68,12 @@ struct BodyViewerView: View {
             BodyTextView(model: model)
         case .jsonPretty, .jsonTree:
             JSONViewerView(model: model)
+        case .grpc:
+            GrpcBodyView(decoded: GrpcBodyDecoder.decode(
+                rawBase64Text: model.body.text,
+                contentType: model.body.contentType,
+                responseHeaders: responseHeaders
+            ))
         }
     }
 
