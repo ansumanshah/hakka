@@ -14,8 +14,27 @@ struct DetailPaneView: View {
             trafficDetail
         case .rules:
             EmptyStateView(systemImage: "slider.horizontal.3", title: "Rules", message: "Select a rule section to manage device rules.")
+        case .folderRun:
+            folderRunDetail
         case nil:
             EmptyStateView(systemImage: "doc.text.magnifyingglass", title: "Nothing selected")
+        }
+    }
+
+    @ViewBuilder
+    private var folderRunDetail: some View {
+        if model.folderRun.isRunning {
+            EmptyStateView(systemImage: "play.circle", title: "Running…", message: "Requests are running in order.")
+        } else if let summary = model.folderRun.summary {
+            ScrollView {
+                FolderRunSummaryView(summary: summary)
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        } else if model.folderRun.lastRunWasEmpty {
+            EmptyStateView(systemImage: "tray", title: "No requests", message: "This folder has no requests to run.")
+        } else {
+            EmptyStateView(systemImage: "checklist", title: "No run yet")
         }
     }
 

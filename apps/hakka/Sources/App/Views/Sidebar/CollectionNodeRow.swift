@@ -11,10 +11,28 @@ struct CollectionNodeRow: View {
     var body: some View {
         switch node {
         case let .folder(folder):
-            Label(folder.name, systemImage: "folder")
-                .contextMenu {
-                    Button("Delete", role: .destructive) { model.deleteNode(id: folder.id) }
+            HStack(spacing: 6) {
+                Label(folder.name, systemImage: "folder")
+                Spacer()
+                if model.folderRun.isRunning, model.folderRun.runningFolderID == folder.id {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Button {
+                        Task { await model.runFolder(folder) }
+                    } label: {
+                        Image(systemName: "play.circle")
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                    .help("Run Folder")
                 }
+            }
+            .contextMenu {
+                Button("Run") { Task { await model.runFolder(folder) } }
+                Divider()
+                Button("Delete", role: .destructive) { model.deleteNode(id: folder.id) }
+            }
         case let .request(spec):
             HStack(spacing: 6) {
                 Text(spec.method.rawValue)

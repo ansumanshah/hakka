@@ -2,7 +2,6 @@ import AppKit
 import HakkaCommon
 import HakkaCore
 import Observation
-import UniformTypeIdentifiers
 
 /// Composition root: one instance per window, injected via `.environment`.
 /// Owns the four sub-models and the cross-cutting actions (select, send,
@@ -16,6 +15,7 @@ final class AppModel {
     let traffic: TrafficModel
     let editor = RequestEditorModel()
     let rules: RulesModel
+    let folderRun = FolderRunModel()
 
     init() {
         let traffic = TrafficModel()
@@ -69,6 +69,16 @@ final class AppModel {
             scope: environment.scope,
         ) else { return }
         environment.adoptRuntime(from: updatedScope)
+    }
+
+    /// The folder-run affordance: runs every request nested under `folder`
+    /// in order, threading captures and cookies forward, then selects the
+    /// folder so `DetailPaneView` shows the resulting summary.
+    func runFolder(_ folder: Folder) async {
+        let folderChain = collection.folderChain(for: folder.id)
+        let updatedScope = await folderRun.run(folder, folderChain: folderChain, collection: collection.collection, scope: environment.scope)
+        if let updatedScope { environment.adoptRuntime(from: updatedScope) }
+        select(.folderRun(id: folder.id))
     }
 
     /// The capture → collection promotion: builds a `RequestSpec` from a
@@ -130,65 +140,11 @@ final class AppModel {
         await environment.load(forCollectionAt: url)
     }
 
-    // MARK: - Traffic session files
-
-    /// Writes the captured buffer to a `.hakka-session` file the user names.
-    func exportTrafficSession() async {
-        guard let data = await traffic.exportSession(named: "Capture") else {
-            traffic.lastError = "Nothing to export."
-            return
-        }
-        await writeToPanel(data: data, suggestedName: "capture.\(TrafficSession.fileExtension)")
-    }
-
-    /// HAR 1.2, for handing the capture to a tool that isn't Hakka.
-    func exportTrafficHar() async {
-        guard let data = await traffic.exportHar() else {
-            traffic.lastError = "Nothing to export."
-            return
-        }
-        await writeToPanel(data: data, suggestedName: "capture.har")
-    }
-
-    func importTrafficSession() async {
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = false
-        panel.canChooseFiles = true
-        panel.allowsMultipleSelection = false
-        // `.hakka-session` has no registered UTI, so derive a dynamic one from
-        // the extension rather than reaching for the deprecated
-        // `allowedFileTypes`. A nil result means the picker simply doesn't
-        // filter, which is a better failure than refusing to open.
-        if let type = UTType(filenameExtension: TrafficSession.fileExtension) {
-            panel.allowedContentTypes = [type]
-        }
-        panel.prompt = "Open"
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        guard let data = try? Data(contentsOf: url) else {
-            traffic.lastError = "Could not read \(url.lastPathComponent)."
-            return
-        }
-        traffic.lastError = await traffic.importSession(from: data)
-    }
-
-    private func writeToPanel(data: Data, suggestedName: String) async {
-        let panel = NSSavePanel()
-        panel.nameFieldStringValue = suggestedName
-        panel.prompt = "Export"
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        do {
-            try data.write(to: url, options: .atomic)
-            traffic.lastError = nil
-        } catch {
-            traffic.lastError = "Export failed: \(error.localizedDescription)"
-        }
-    }
-
     /// Clears the selection whenever it points at a request id the current
     /// `collection` tree no longer resolves — after a delete, or after the
     /// whole tree was swapped by opening a different directory. `.traffic`
     /// and `nil` selections are untouched.
-    private func clearSelectionIfOrphaned() {
+    func clearSelectionIfOrphaned() {
         guard case let .request(id) = selection, collection.request(id: id) == nil else { return }
         selection = nil
         editor.clear()

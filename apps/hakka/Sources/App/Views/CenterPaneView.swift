@@ -18,6 +18,8 @@ struct CenterPaneView: View {
             LiveTrafficListView()
         case .rules:
             RulesView()
+        case .folderRun:
+            EmptyStateView(systemImage: "checklist", title: "Folder Run", message: "Results are in the detail pane.")
         case nil:
             WelcomeView()
         }
