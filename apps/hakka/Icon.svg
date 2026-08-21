@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Hakka app icon. Artwork is the studio mark from docs/public/favicon.svg,
+       inset into a 824pt squircle on a 1024pt canvas so the shipped icon sits
+       on the macOS grid instead of bleeding to the edge. Colors are the Wok
+       Hei tokens: flame bowl, jade broadcast fan, on the ink background. -->
+  <g transform="translate(100,100) scale(34.3333)">
+    <rect x="0" y="0" width="24" height="24" rx="5.4" fill="#121110" />
+    <path
+      d="M3.5 12.5h17a8.5 8.5 0 0 1-6 7.3v0.7h-5v-0.7a8.5 8.5 0 0 1-6-7.3z"
+      fill="rgba(238,131,32,0.16)"
+      stroke="#EE8320"
+      stroke-width="1.6"
+      stroke-linejoin="round"
+    />
+    <g stroke="#3AA981" stroke-width="1.6" stroke-linecap="round" fill="none">
+      <path d="M9.9 7.4a3 3 0 0 1 4.2 0" />
+      <path d="M8.2 5a5.4 5.4 0 0 1 7.6 0" />
+      <path d="M6.4 2.7a7.9 7.9 0 0 1 11.2 0" />
+    </g>
+  </g>
+</svg>
