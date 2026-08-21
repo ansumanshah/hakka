@@ -4,6 +4,11 @@ import HakkaCommon
 public enum RequestBodyEncodingError: Error, Equatable, Sendable {
     case invalidGraphQLVariables(String)
     case fileNotFound(String)
+    /// Every generated boundary candidate collided with part content.
+    /// Astronomically unlikely with a UUID-based generator — this exists so
+    /// a pathological or adversarial candidate source fails loudly instead
+    /// of silently shipping a corrupt multipart body.
+    case boundaryGenerationFailed
 }
 
 struct EncodedBody: Sendable, Equatable {
@@ -26,8 +31,8 @@ enum RequestBodyEncoder {
             encodeForm(pairs)
         case let .multipart(parts):
             try encodeMultipart(parts)
-        case let .graphql(query, variables):
-            try encodeGraphQL(query: query, variables: variables)
+        case let .graphql(query, variables, operationName):
+            try encodeGraphQL(query: query, variables: variables, operationName: operationName)
         case let .file(path, contentType):
             try encodeFile(path: path, contentType: contentType)
         }
@@ -38,10 +43,24 @@ enum RequestBodyEncoder {
         return EncodedBody(data: Data(text.utf8), contentType: "application/x-www-form-urlencoded")
     }
 
+    // MARK: - Multipart
+
     private static func encodeMultipart(_ parts: [MultipartPart]) throws(RequestBodyEncodingError) -> EncodedBody {
-        let boundary = "hakka-\(UUID().uuidString)"
-        var data = Data()
+        var resolved: [(MultipartPart, Data)] = []
         for part in parts {
+            if let filePath = part.filePath {
+                guard let fileData = FileManager.default.contents(atPath: filePath) else {
+                    throw .fileNotFound(filePath)
+                }
+                resolved.append((part, fileData))
+            } else {
+                resolved.append((part, Data(part.value.utf8)))
+            }
+        }
+        let boundary = try chooseBoundary(avoiding: resolved.map(\.1))
+
+        var data = Data()
+        for (part, content) in resolved {
             data.append(Data("--\(boundary)\r\n".utf8))
             var disposition = "Content-Disposition: form-data; name=\"\(dispositionEscaped(part.name))\""
             if let filePath = part.filePath {
@@ -53,18 +72,39 @@ enum RequestBodyEncoder {
                 data.append(Data("Content-Type: \(contentType)\r\n".utf8))
             }
             data.append(Data("\r\n".utf8))
-            if let filePath = part.filePath {
-                guard let fileData = FileManager.default.contents(atPath: filePath) else {
-                    throw .fileNotFound(filePath)
-                }
-                data.append(fileData)
-            } else {
-                data.append(Data(part.value.utf8))
-            }
+            data.append(content)
             data.append(Data("\r\n".utf8))
         }
         data.append(Data("--\(boundary)--\r\n".utf8))
         return EncodedBody(data: data, contentType: "multipart/form-data; boundary=\(boundary)")
+    }
+
+    /// Picks a boundary that cannot appear inside any part's own content —
+    /// if it did, a part whose bytes happened to contain `--<boundary>` would
+    /// be indistinguishable from a real delimiter and the body would decode
+    /// wrong on the receiving end. A UUID-based candidate colliding with real
+    /// content is vanishingly unlikely, but "vanishingly unlikely" isn't a
+    /// correctness guarantee, so this actually checks and retries rather than
+    /// trusting the odds. `candidates` and `maxAttempts` are internal (not
+    /// private) so tests can inject a rigged sequence.
+    static func chooseBoundary(
+        avoiding contents: [Data],
+        candidates: () -> String = { "hakka-\(UUID().uuidString)" },
+        maxAttempts: Int = 25,
+    ) throws(RequestBodyEncodingError) -> String {
+        for _ in 0..<maxAttempts {
+            let candidate = candidates()
+            if !boundaryCollides(candidate, in: contents) { return candidate }
+        }
+        throw .boundaryGenerationFailed
+    }
+
+    /// True if `boundary` occurs anywhere inside any of `contents` — checked
+    /// as raw bytes, not text, so it also catches a collision inside a binary
+    /// file part where UTF-8 decoding wouldn't apply.
+    static func boundaryCollides(_ boundary: String, in contents: [Data]) -> Bool {
+        let needle = Data(boundary.utf8)
+        return contents.contains { $0.range(of: needle) != nil }
     }
 
     /// Makes a value safe to sit inside a `Content-Disposition` quoted-string.
@@ -83,9 +123,19 @@ enum RequestBodyEncoder {
             .replacingOccurrences(of: "\n", with: "")
     }
 
+    // MARK: - GraphQL
+
     /// `variables` is JSON text; an empty template becomes `{}`, and text
     /// that fails to parse is refused rather than sent as a broken payload.
-    private static func encodeGraphQL(query: String, variables: String) throws(RequestBodyEncodingError) -> EncodedBody {
+    /// `operationName` is only written when the query selected one — GraphQL
+    /// servers treat a present-but-null `operationName` the same as an
+    /// absent one for a single-operation document, but an absent key is the
+    /// less surprising thing to send.
+    private static func encodeGraphQL(
+        query: String,
+        variables: String,
+        operationName: String?,
+    ) throws(RequestBodyEncodingError) -> EncodedBody {
         let trimmed = variables.trimmingCharacters(in: .whitespacesAndNewlines)
         let variablesObject: Any
         if trimmed.isEmpty {
@@ -95,12 +145,17 @@ enum RequestBodyEncoder {
         } else {
             throw .invalidGraphQLVariables(variables)
         }
-        let payload: [String: Any] = ["query": query, "variables": variablesObject]
+        var payload: [String: Any] = ["query": query, "variables": variablesObject]
+        if let operationName, !operationName.isEmpty {
+            payload["operationName"] = operationName
+        }
         guard let data = try? JSONSerialization.data(withJSONObject: payload) else {
             throw .invalidGraphQLVariables(variables)
         }
         return EncodedBody(data: data, contentType: "application/json")
     }
+
+    // MARK: - File
 
     private static func encodeFile(path: String, contentType: String) throws(RequestBodyEncodingError) -> EncodedBody {
         guard let data = FileManager.default.contents(atPath: path) else {

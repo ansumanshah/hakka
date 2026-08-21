@@ -36,7 +36,7 @@ struct CollectionStoreTests {
             .raw(text: "{\"a\":1}", contentType: "application/json"),
             .form([HeaderPair(name: "f", value: "1")]),
             .multipart([MultipartPart(name: "file", filePath: "/tmp/x", contentType: "text/plain")]),
-            .graphql(query: "{ me }", variables: "{}"),
+            .graphql(query: "query Me { me } query Other { other }", variables: "{}", operationName: "Me"),
             .file(path: "/tmp/upload.bin", contentType: "application/octet-stream"),
         ]
 

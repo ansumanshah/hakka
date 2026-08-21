@@ -47,6 +47,13 @@ public enum RequestResolver {
         // than inserting a boundary-less placeholder here (see `EffectiveRequest`
         // for the same split).
         let isMultipartBody = if case .multipart = body { true } else { false }
+        // Precedence: an explicit header the user typed always wins over the
+        // body kind's implied Content-Type — `hasHeader` gates this entirely,
+        // so a body-derived value is only appended when no such header
+        // exists yet. This direction, not the reverse, is what lets picking
+        // a body kind act as a *default* (raw JSON, form-urlencoded, a
+        // GraphQL request) without silently clobbering a Content-Type a user
+        // set on purpose, e.g. to send JSON with a nonstandard `+json` suffix.
         if !isMultipartBody, let contentType = body.contentTypeHeader, !hasHeader("Content-Type", in: headers) {
             headers.append((name: "Content-Type", value: contentType))
         }
@@ -127,10 +134,15 @@ public enum RequestResolver {
                     contentType: $0.contentType,
                 )
             })
-        case let .graphql(query, variables):
+        case let .graphql(query, variables, operationName):
+            // `operationName` is a literal choice from the parsed operation
+            // list (picked in the editor), not user-typed template text, so
+            // it isn't run through variable interpolation like the other
+            // fields — there's nothing in it that could contain `{{...}}`.
             .graphql(
                 query: interpolate(query, scope: scope, missing: &missing),
                 variables: interpolate(variables, scope: scope, missing: &missing),
+                operationName: operationName,
             )
         case let .file(path, contentType):
             .file(path: interpolate(path, scope: scope, missing: &missing), contentType: contentType)

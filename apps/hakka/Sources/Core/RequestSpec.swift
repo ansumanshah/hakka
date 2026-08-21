@@ -31,7 +31,12 @@ public enum BodySpec: Sendable, Codable, Equatable {
     /// file must stay small and diffable.
     case multipart([MultipartPart])
     /// A GraphQL query plus its variables JSON, sent as a JSON body.
-    case graphql(query: String, variables: String)
+    /// `operationName` selects which operation runs when `query` defines more
+    /// than one (GraphQL requires it in that case); nil for a document with a
+    /// single, possibly anonymous, operation. Added in format version 3 —
+    /// `operationName` is a trailing `Optional`, so a version-2 file (with no
+    /// such key at all) still decodes, reading as nil.
+    case graphql(query: String, variables: String, operationName: String?)
     /// Body read from a file at send time (large uploads never enter the collection file).
     case file(path: String, contentType: String)
 

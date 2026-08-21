@@ -27,7 +27,14 @@ import HakkaCommon
 /// variables) — a real shape change to what a `.hakka` file can contain,
 /// even though `OAuth2Config`'s own decode still reads a version-1 file's
 /// `{"accessToken": "..."}` shape without complaint.
-public let collectionFormatVersion = 2
+///
+/// Bumped to 3 when `BodySpec.graphql` grew an `operationName` field for the
+/// multi-operation picker. `operationName` is a trailing `Optional` on the
+/// case, so Swift's synthesized decode reads a version-2 file (no such key)
+/// as nil without any custom decode logic — the version bump exists purely
+/// so a *future* Hakka build with a real breaking `BodySpec` change gets to
+/// refuse an old file cleanly, not because this particular change needed it.
+public let collectionFormatVersion = 3
 
 struct CollectionMetadataFile: Codable, Equatable, Sendable {
     var version: Int?

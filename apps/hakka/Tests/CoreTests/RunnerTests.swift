@@ -423,17 +423,27 @@ struct RedirectTrackingDelegateTests {
 @Suite("RequestBodyEncoder")
 struct RequestBodyEncoderTests {
     @Test func graphQLEncodesQueryAndParsedVariables() throws {
-        let encoded = try RequestBodyEncoder.encode(.graphql(query: "{ me }", variables: #"{"id":1}"#))
+        let encoded = try RequestBodyEncoder.encode(.graphql(query: "{ me }", variables: #"{"id":1}"#, operationName: nil))
         let data = try #require(encoded.data)
         let parsed = try JSONSerialization.jsonObject(with: data)
         let object = try #require(parsed as? [String: Any])
         #expect(object["query"] as? String == "{ me }")
         #expect((object["variables"] as? [String: Any])?["id"] as? Int == 1)
+        #expect(object["operationName"] == nil)
+    }
+
+    @Test func graphQLIncludesOperationNameWhenSet() throws {
+        let encoded = try RequestBodyEncoder.encode(
+            .graphql(query: "query A { a } query B { b }", variables: "{}", operationName: "B"),
+        )
+        let data = try #require(encoded.data)
+        let object = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        #expect(object["operationName"] as? String == "B")
     }
 
     @Test func graphQLRejectsInvalidVariablesJSON() {
         #expect(throws: RequestBodyEncodingError.self) {
-            try RequestBodyEncoder.encode(.graphql(query: "{ me }", variables: "not json"))
+            try RequestBodyEncoder.encode(.graphql(query: "{ me }", variables: "not json", operationName: nil))
         }
     }
 
@@ -462,5 +472,75 @@ struct RequestBodyEncoderTests {
         // The embedded quote is escaped rather than left to close the
         // quoted-string early.
         #expect(body.contains("name=\"field\\\"X-Injected: evil--INJECTED--\""))
+    }
+
+    /// Pins the exact wire framing — CRLF placement, `Content-Disposition`,
+    /// the per-part `Content-Type`, the trailing `--boundary--` — against a
+    /// fixed expected string. The boundary itself is random per encode, so
+    /// it's extracted from the returned `Content-Type` and substituted into
+    /// the expected template rather than hardcoded.
+    @Test func multipartPinsExactByteFraming() throws {
+        let parts = [
+            MultipartPart(name: "field1", value: "value1"),
+            MultipartPart(name: "field2", value: "value2", contentType: "text/plain"),
+        ]
+        let encoded = try RequestBodyEncoder.encode(.multipart(parts))
+        let contentType = try #require(encoded.contentType)
+        let boundary = try #require(contentType.split(separator: "boundary=").last).description
+        let body = try #require(encoded.data.flatMap { String(data: $0, encoding: .utf8) })
+
+        let expected = "--\(boundary)\r\n"
+            + "Content-Disposition: form-data; name=\"field1\"\r\n\r\n"
+            + "value1\r\n"
+            + "--\(boundary)\r\n"
+            + "Content-Disposition: form-data; name=\"field2\"\r\n"
+            + "Content-Type: text/plain\r\n\r\n"
+            + "value2\r\n"
+            + "--\(boundary)--\r\n"
+        #expect(body == expected)
+    }
+
+    /// A file part's disposition carries `filename="…"` in addition to
+    /// `name="…"`, taken from the last path component, and the file's bytes
+    /// land verbatim rather than being re-encoded as text.
+    @Test func multipartFilePartCarriesFilenameAndRawBytes() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("hakka-multipart-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let fileURL = dir.appendingPathComponent("upload.bin")
+        let fileBytes = Data([0x00, 0xFF, 0x10, 0x9A])
+        try fileBytes.write(to: fileURL)
+
+        let part = MultipartPart(name: "upload", filePath: fileURL.path, contentType: "application/octet-stream")
+        let encoded = try RequestBodyEncoder.encode(.multipart([part]))
+        let data = try #require(encoded.data)
+
+        #expect(data.range(of: Data("filename=\"upload.bin\"".utf8)) != nil)
+        #expect(data.range(of: Data("Content-Type: application/octet-stream".utf8)) != nil)
+        #expect(data.range(of: fileBytes) != nil)
+    }
+
+    // MARK: - Boundary collision guard
+
+    @Test func boundaryCollidesDetectsSubstringAcrossContents() {
+        #expect(RequestBodyEncoder.boundaryCollides("BOUND", in: [Data("hello BOUND world".utf8)]))
+        #expect(!RequestBodyEncoder.boundaryCollides("BOUND", in: [Data("hello world".utf8)]))
+    }
+
+    /// A candidate that collides with existing content must be discarded and
+    /// retried, not shipped anyway — this is the guard itself, exercised
+    /// directly against a rigged candidate sequence so the test doesn't
+    /// depend on ever actually winning the UUID lottery.
+    @Test func chooseBoundaryRetriesPastACollidingCandidate() throws {
+        var candidates = ["colliding", "safe"]
+        let content = Data("...colliding...".utf8)
+        let picked = try RequestBodyEncoder.chooseBoundary(avoiding: [content], candidates: { candidates.removeFirst() })
+        #expect(picked == "safe")
+    }
+
+    @Test func chooseBoundaryGivesUpAfterMaxAttempts() {
+        #expect(throws: RequestBodyEncodingError.self) {
+            _ = try RequestBodyEncoder.chooseBoundary(avoiding: [Data("x".utf8)], candidates: { "x" }, maxAttempts: 3)
+        }
     }
 }

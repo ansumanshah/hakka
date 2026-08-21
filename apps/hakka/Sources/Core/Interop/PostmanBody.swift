@@ -21,7 +21,11 @@ enum PostmanBody {
             return .multipart(parts)
         case "graphql":
             let gql = body.dict("graphql")
-            return .graphql(query: gql?.string("query") ?? "", variables: gql?.string("variables") ?? "")
+            return .graphql(
+                query: gql?.string("query") ?? "",
+                variables: gql?.string("variables") ?? "",
+                operationName: gql?.string("operationName"),
+            )
         case "file":
             return .file(path: body.dict("file")?.string("src") ?? "", contentType: "application/octet-stream")
         default:
