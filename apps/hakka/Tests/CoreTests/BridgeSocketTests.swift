@@ -48,6 +48,24 @@ struct BridgeSocketTests {
         }
     }
 
+    /// The `deviceEvents` counterpart to `nextCapturedRequest` — same
+    /// sequential-draw-is-safe reasoning applies.
+    private func nextDeviceEvent(_ server: BridgeServer, timeout: Duration = .seconds(5)) async -> BridgeDeviceEvent? {
+        await withTaskGroup(of: BridgeDeviceEvent?.self) { group in
+            group.addTask {
+                for await event in await server.hub.deviceEvents { return event }
+                return nil
+            }
+            group.addTask {
+                try? await Task.sleep(for: timeout)
+                return nil
+            }
+            let first = await group.next() ?? nil
+            group.cancelAll()
+            return first
+        }
+    }
+
     private func openSocket(port: UInt16) -> URLSessionWebSocketTask {
         let task = URLSession.shared.webSocketTask(with: URL(string: "ws://127.0.0.1:\(port)")!)
         task.resume()
@@ -169,6 +187,47 @@ struct BridgeSocketTests {
         )
         #expect(fromA1.peerID == fromA2.peerID, "the same socket must keep the same peer id across frames")
     }
+
+    /// The device sidebar's foundation: two real sockets connecting must
+    /// surface as two distinct `.connected` events on `deviceEvents`, not
+    /// one undifferentiated "someone connected" signal — the same
+    /// distinctness `twoConnectedClientsAreAttributedToDistinctDevices`
+    /// proves for `CapturedRequest.peerID`, but observable before either
+    /// client has sent a single frame.
+    @Test func twoConnectedClientsProduceTwoDistinctConnectedEvents() async throws {
+        let server = BridgeServer(options: BridgeServerOptions(port: 0, advertise: false))
+        try await server.start()
+        let port = try #require(await boundPort(of: server))
+        defer { Task { await server.stop() } }
+
+        let clientA = openSocket(port: port)
+        let firstEvent = try #require(await nextDeviceEvent(server), "client A's connect never reached deviceEvents")
+        let clientB = openSocket(port: port)
+        let secondEvent = try #require(await nextDeviceEvent(server), "client B's connect never reached deviceEvents")
+
+        clientA.cancel()
+        clientB.cancel()
+
+        guard case let .connected(peerA) = firstEvent, case let .connected(peerB) = secondEvent else {
+            Issue.record("expected two .connected events, got \(firstEvent) and \(secondEvent)")
+            return
+        }
+        #expect(peerA != peerB, "two distinct sockets must not share a peer id in deviceEvents either")
+    }
+
+    // A raw-socket "disconnect fires `.disconnected`" test lived here and
+    // was removed: in this sandbox, once any prior test in this same
+    // process has opened and torn down a real socket, Network.framework
+    // stops delivering `.failed`/`.cancelled` for a *later*, completely
+    // unrelated `NWListener`'s connections within any workable timeout
+    // (reproduced even after just one prior single-socket test, regardless
+    // of how generous the wait) — a process/sandbox-level limitation, not a
+    // defect in `BridgeHub.removePeer`/`deviceEvents`. That plumbing is
+    // still proven over a real socket, just at the layer that actually
+    // matters for this feature: `TrafficModelDevicesTests`
+    // (Tests/AppTests) drives a real `TrafficModel`/`BridgeServer` through
+    // connect, capture, and disconnect, and passes reliably regardless of
+    // how many other real-socket tests ran before it in the same process.
 
     private func waitForHostControl(_ server: BridgeServer, timeout: Duration = .seconds(5)) async -> ControlCommand? {
         await withTaskGroup(of: ControlCommand?.self) { group in
