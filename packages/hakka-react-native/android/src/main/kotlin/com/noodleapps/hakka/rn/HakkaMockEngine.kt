@@ -7,6 +7,49 @@ import java.util.regex.PatternSyntaxException
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /**
+ * Platform-neutral transport-error codes for a [failure]-mode rule. Mirrors
+ * `MockFailureCode` in `packages/hakka-core/src/engine/MockEngine.ts` — the source of
+ * truth; read it there for the full cross-runtime mapping table. Vendored here for the
+ * same reason as [MockRuleModify]: this module runs its own mock engine
+ * ([HakkaMockEngine]) rather than hakka-network's.
+ */
+enum class MockFailureCode(val wireValue: String) {
+    TIMEOUT("timeout"),
+    NO_CONNECTION("noConnection"),
+    CANNOT_FIND_HOST("cannotFindHost"),
+    CANNOT_CONNECT_TO_HOST("cannotConnectToHost"),
+    CONNECTION_LOST("connectionLost"),
+    SECURE_CONNECTION_FAILED("secureConnectionFailed"),
+    CANCELLED("cancelled"),
+    UNKNOWN("unknown");
+
+    /** Human-readable message shared with every reporting call site. */
+    val message: String
+        get() = when (this) {
+            TIMEOUT -> "Mocked failure: the request timed out"
+            NO_CONNECTION -> "Mocked failure: not connected to the internet"
+            CANNOT_FIND_HOST -> "Mocked failure: cannot find host"
+            CANNOT_CONNECT_TO_HOST -> "Mocked failure: cannot connect to host"
+            CONNECTION_LOST -> "Mocked failure: the network connection was lost"
+            SECURE_CONNECTION_FAILED -> "Mocked failure: secure connection failed"
+            CANCELLED -> "Mocked failure: cancelled"
+            UNKNOWN -> "Mocked failure: unknown network error"
+        }
+
+    companion object {
+        fun fromWireValue(value: String): MockFailureCode? = entries.firstOrNull { it.wireValue == value }
+    }
+}
+
+/**
+ * Simulates a transport-level failure — the request never gets a real response —
+ * rather than serving the canned response. Mirrors `MockFailure` in `MockEngine.ts`.
+ * Precedence: [failure] (via [HakkaMockRule.failure]) is checked before `block`, which is
+ * checked before the rewrite path (`redirectTo`/`modify`).
+ */
+data class MockFailure(val code: MockFailureCode)
+
+/**
  * Declarative request/response edits — plain data, no functions, so a rule carrying only a
  * [modify] block is fully serializable over the wire. Mirrors `MockRuleModify` in
  * `packages/hakka-core/src/engine/MockEngine.ts`; vendored here because this module runs its own
@@ -102,11 +145,22 @@ data class HakkaMockRule(
      * `MockEngine.ts` / `hakka-network`'s `MockRule.redirectTo`. */
     val redirectTo: String? = null,
     /** Abort the matched request with a network-error-shaped failure before it is sent. Takes
-     * priority over [redirectTo]/[modify] when true. Mirrors `MockRule.block`. */
+     * priority over [redirectTo]/[modify] when true, but [failure] (if present) takes
+     * priority over [block]. Mirrors `MockRule.block`. */
     val block: Boolean = false,
     /** Declarative header/query/status/body edits (see [MockRuleModify]). Like [redirectTo],
      * this alone routes the match through the passthrough-then-transform path. */
     val modify: MockRuleModify? = null,
+    /** Simulate a specific transport-level failure instead of serving the canned response
+     * (see [MockFailure]). Takes priority over [block]. */
+    val failure: MockFailure? = null,
+    /** Serve the real response for this many initial matches before this rule starts
+     * applying. See [HakkaMockEngine.matchRequest] and `MockRule.skipCount` in
+     * `MockEngine.ts` for the full semantics — in-memory engine state, reset on relaunch. */
+    val skipCount: Int = 0,
+    /** After the rule has applied this many times (post-[skipCount]), stop applying it
+     * forever. null = unlimited. Mirrors `MockRule.stopAfter`. */
+    val stopAfter: Int? = null,
 ) {
     /**
      * True when this rule is served via the passthrough-then-transform path (issue the real
@@ -128,6 +182,10 @@ object HakkaMockEngine {
     private val idCounter = AtomicLong(0)
     private val rules = mutableListOf<HakkaMockRule>()
     private var globalDelayMs: Long = 0L
+
+    /** `skipCount`/`stopAfter` bookkeeping, keyed by rule id — see `MockEngine.kt`'s
+     * `matchCounts` for the full rationale. In-memory only, reset on process relaunch. */
+    private val matchCounts = HashMap<String, Int>()
 
     @Synchronized
     fun addBlockRule(pattern: String, status: Int, headers: Map<String, String> = emptyMap(), body: String = ""): String {
@@ -160,6 +218,9 @@ object HakkaMockEngine {
         redirectTo: String? = null,
         block: Boolean = false,
         modify: MockRuleModify? = null,
+        failure: MockFailure? = null,
+        skipCount: Int = 0,
+        stopAfter: Int? = null,
     ): String {
         val normalized = pattern.trim()
         val ruleId = id?.takeIf { it.isNotBlank() }
@@ -179,7 +240,13 @@ object HakkaMockEngine {
             redirectTo = redirectTo,
             block = block,
             modify = modify,
+            failure = failure,
+            skipCount = skipCount,
+            stopAfter = stopAfter,
         )
+        // A (re-)add always restarts the skip/stop budget — this is a new/edited rule as
+        // far as the engine is concerned.
+        matchCounts.remove(ruleId)
         return ruleId
     }
 
@@ -188,12 +255,14 @@ object HakkaMockEngine {
         val index = rules.indexOfFirst { it.id == id }
         if (index < 0) return false
         rules.removeAt(index)
+        matchCounts.remove(id)
         return true
     }
 
     @Synchronized
     fun clearRules() {
         rules.clear()
+        matchCounts.clear()
     }
 
     @Synchronized
@@ -224,10 +293,35 @@ object HakkaMockEngine {
                 continue
             }
             if (urlMatches(rule, url)) {
+                // skipCount/stopAfter gate: consumes this rule's match budget.
+                // A `false` result means this match should pass through as
+                // real, unmodified traffic — treated the same as "no rule
+                // matched", not "keep checking other rules" (this IS the
+                // matching rule; it just isn't due to apply yet/anymore).
+                if (!admitMatch(rule.id, rule.skipCount, rule.stopAfter)) return null
                 return rule
             }
         }
         return null
+    }
+
+    /**
+     * Consumes one unit of a rule's `skipCount`/`stopAfter` budget and decides
+     * whether this match should actually be applied. Must be called with the
+     * object monitor already held (see [matchRequest], the only caller — this
+     * whole object is `@Synchronized`).
+     */
+    private fun admitMatch(ruleId: String, skipCount: Int, stopAfter: Int?): Boolean {
+        val count = (matchCounts[ruleId] ?: 0) + 1
+        matchCounts[ruleId] = count
+
+        val skip = max(0, skipCount)
+        if (count <= skip) return false
+
+        val appliedIndex = count - skip // 1-based: which applied-match this would be
+        if (stopAfter != null && appliedIndex > max(0, stopAfter)) return false
+
+        return true
     }
 
     private fun methodMatches(rule: HakkaMockRule, requestMethod: String): Boolean {

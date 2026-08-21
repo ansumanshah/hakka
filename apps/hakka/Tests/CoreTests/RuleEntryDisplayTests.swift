@@ -55,6 +55,65 @@ struct RuleEntryDisplayTests {
         #expect(RuleEntryDisplay(redirected).subtitle == "Redirected")
     }
 
+    @Test func failureSaysWhichCode()
+    async throws {
+        let entry = RuleEntry(
+            id: "mck-fail",
+            payload: .mock(MockRuleInput(
+                pattern: "https://api.example.com/flaky",
+                response: MockResponse(status: 200, headers: [:], body: "", delay: 0),
+                failure: MockFailure(code: .timeout)
+            ))
+        )
+        #expect(RuleEntryDisplay(entry).subtitle == "Fails: Timeout")
+    }
+
+    @Test func failureTakesPriorityOverBlockInDisplay()
+    async throws {
+        let entry = RuleEntry(
+            id: "mck-fail-block",
+            payload: .mock(MockRuleInput(
+                pattern: "https://api.example.com/x",
+                response: MockResponse(status: 200, headers: [:], body: "", delay: 0),
+                block: true,
+                failure: MockFailure(code: .cancelled)
+            ))
+        )
+        #expect(RuleEntryDisplay(entry).subtitle == "Fails: Cancelled")
+    }
+
+    @Test func skipStopAppendAConfigSuffixNotLiveProgress()
+    async throws {
+        let skipOnly = RuleEntry(
+            id: "mck-skip",
+            payload: .mock(MockRuleInput(
+                pattern: "https://api.example.com/x",
+                response: MockResponse(status: 200, headers: [:], body: "", delay: 0),
+                skipCount: 2
+            ))
+        )
+        let stopOnly = RuleEntry(
+            id: "mck-stop",
+            payload: .mock(MockRuleInput(
+                pattern: "https://api.example.com/x",
+                response: MockResponse(status: 200, headers: [:], body: "", delay: 0),
+                stopAfter: 5
+            ))
+        )
+        let both = RuleEntry(
+            id: "mck-both",
+            payload: .mock(MockRuleInput(
+                pattern: "https://api.example.com/x",
+                response: MockResponse(status: 200, headers: [:], body: "", delay: 0),
+                skipCount: 2,
+                stopAfter: 5
+            ))
+        )
+        #expect(RuleEntryDisplay(skipOnly).subtitle == "Serves 200 (skip 2)")
+        #expect(RuleEntryDisplay(stopOnly).subtitle == "Serves 200 (stop after 5)")
+        #expect(RuleEntryDisplay(both).subtitle == "Serves 200 (skip 2 · stop after 5)")
+    }
+
     @Test func breakpointPhrasesByPhase()
     async throws {
         func breakpoint(_ phase: BreakpointPhase) -> RuleEntry {

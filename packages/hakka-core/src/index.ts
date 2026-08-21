@@ -150,7 +150,7 @@ export type {
   ResumeAction,
   ResumeResponseAction,
 } from './engine/BreakpointEngine'
-export { mockEngine } from './engine/MockEngine'
+export { mockEngine, MOCK_FAILURE_CODES, MOCK_FAILURE_MESSAGES } from './engine/MockEngine'
 export type {
   MockRule,
   MockRuleInput,
@@ -158,6 +158,8 @@ export type {
   MockResponse,
   MockRequestContext,
   MockResponseContext,
+  MockFailure,
+  MockFailureCode,
   NativeMockBridge,
   NativeMockRulePayload,
 } from './engine/MockEngine'

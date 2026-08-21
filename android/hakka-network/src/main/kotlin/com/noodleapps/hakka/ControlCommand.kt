@@ -135,6 +135,9 @@ data class ParsedMockRule(
     val redirectTo: String?,
     val block: Boolean,
     val modify: MockRuleModify?,
+    val failure: MockFailure?,
+    val skipCount: Int,
+    val stopAfter: Int?,
 )
 
 /** Validated `breakpoint.add` payload — wire shape, prior to mapping onto [BreakpointRuleInput]. */
@@ -308,6 +311,33 @@ private fun parseMockRuleModify(v: JSONObject?): MockRuleModify? {
 private val MALFORMED_MAP: Map<String, String> = emptyMap()
 private val MALFORMED_LIST: List<String> = emptyList()
 
+/**
+ * Validates the [MockFailure] shape — a single required `code` from the fixed
+ * vocabulary. Mirrors `control.ts`'s `parseMockFailure`.
+ */
+private fun parseMockFailure(v: JSONObject?): MockFailure? {
+    if (v == null) return null
+    val codeString = v.optStringOrNull("code") ?: return null
+    val code = MockFailureCode.fromWireValue(codeString) ?: return null
+    return MockFailure(code)
+}
+
+/**
+ * A non-negative integer count (`skipCount`/`stopAfter`) — rejects negatives,
+ * non-finite, non-integer, and non-numeric values. Mirrors `control.ts`'s
+ * `isNonNegativeInt`. `null` means "the key was absent/null", not a parse
+ * failure — callers distinguish presence via [JSONObject.hasNonNull] first.
+ */
+private fun parseNonNegativeInt(raw: Any?): Int? = when (raw) {
+    is Int -> if (raw >= 0) raw else null
+    is Long -> if (raw in 0..Int.MAX_VALUE) raw.toInt() else null
+    is Double ->
+        if (raw.isFinite() && raw == Math.floor(raw) && raw >= 0 && raw <= Int.MAX_VALUE.toDouble()) raw.toInt() else null
+    // JSONObject wraps Kotlin/Java Boolean as-is (not a Number) — explicitly excluded here
+    // so `true`/`false` never masquerade as 1/0.
+    else -> null
+}
+
 private fun parseMockRuleInput(v: JSONObject?): ParsedMockRule? {
     if (v == null) return null
 
@@ -346,6 +376,22 @@ private fun parseMockRuleInput(v: JSONObject?): ParsedMockRule? {
         modify = parseMockRuleModify(modifyObj) ?: return null
     }
 
+    var failure: MockFailure? = null
+    if (v.hasNonNull("failure")) {
+        val failureObj = v.opt("failure") as? JSONObject ?: return null
+        failure = parseMockFailure(failureObj) ?: return null
+    }
+
+    var skipCount = 0
+    if (v.hasNonNull("skipCount")) {
+        skipCount = parseNonNegativeInt(v.opt("skipCount")) ?: return null
+    }
+
+    var stopAfter: Int? = null
+    if (v.hasNonNull("stopAfter")) {
+        stopAfter = parseNonNegativeInt(v.opt("stopAfter")) ?: return null
+    }
+
     return ParsedMockRule(
         id = requireNotNull(id),
         pattern = pattern,
@@ -359,6 +405,9 @@ private fun parseMockRuleInput(v: JSONObject?): ParsedMockRule? {
         redirectTo = redirectTo,
         block = block,
         modify = modify,
+        failure = failure,
+        skipCount = skipCount,
+        stopAfter = stopAfter,
     )
 }
 
@@ -663,6 +712,9 @@ fun applyControlCommand(cmd: ControlCommand): ControlApplyResult {
                         redirectTo = rule.redirectTo,
                         block = rule.block,
                         modify = rule.modify,
+                        failure = rule.failure,
+                        skipCount = rule.skipCount,
+                        stopAfter = rule.stopAfter,
                     )
                 )
                 ControlApplyResult.Success

@@ -1,12 +1,12 @@
 # Control-Channel Wire Fixtures
 
 Pinned JSON transcripts for the `breakpoint.paused` / `breakpoint.resume` /
-`breakpoint.abort` control-command kinds — mirrors the precedent set by
-`fixtures/sse/`: one shared file per wire shape, read by every runtime's
-tests (TypeScript in `packages/hakka-core`, Swift in `ios/Tests/HakkaTests`
-and `apps/hakka/Tests/CoreTests`, Kotlin in `android/hakka-network`) so a
-shape change in one runtime's parser or encoder fails the others' tests
-instead of drifting silently.
+`breakpoint.abort` / `mock.add` control-command kinds — mirrors the
+precedent set by `fixtures/sse/`: one shared file per wire shape, read by
+every runtime's tests (TypeScript in `packages/hakka-core`, Swift in
+`ios/Tests/HakkaTests` and `apps/hakka/Tests/CoreTests`, Kotlin in
+`android/hakka-network`) so a shape change in one runtime's parser or
+encoder fails the others' tests instead of drifting silently.
 
 See `packages/hakka-core/src/engine/control.ts` for the canonical shape
 definitions.
@@ -38,3 +38,13 @@ definitions.
   -> device) with `responseEdits` only.
 - `breakpoint-abort.json` — aborting a pause (host -> device), the minimal
   shape: `kind` + `pauseId` only.
+- `mock-add-failure.json` — a `mock.add` rule with `failure: { code }`
+  (transport-error mock, see `MockFailureCode` in
+  `packages/hakka-core/src/engine/MockEngine.ts`): the request fails as a
+  network error instead of any response, on every runtime.
+- `mock-add-skip-stop.json` — a `mock.add` rule with `skipCount`/`stopAfter`
+  set together: serve the real response for the first `skipCount` matches,
+  then apply for the next `stopAfter` matches, then pass through as real
+  traffic forever. See `MockRule.skipCount`/`.stopAfter` in `MockEngine.ts`
+  for the full semantics (counter lives in device-side engine state, reset
+  on relaunch).

@@ -102,6 +102,143 @@ describe('parseControlCommand — valid shapes', () => {
     }
   })
 
+  test('mock.add with a failure block', () => {
+    const cmd = parseControlCommand({
+      kind: 'mock.add',
+      rule: {
+        id: 'ext-failure-1',
+        pattern: '/api/flaky',
+        response: { status: 200, body: '' },
+        enabled: true,
+        failure: { code: 'timeout' },
+      },
+    })
+    expect(cmd?.kind).toBe('mock.add')
+    if (cmd?.kind === 'mock.add') {
+      expect(cmd.rule.failure).toEqual({ code: 'timeout' })
+    }
+  })
+
+  test('mock.add accepts every MockFailureCode', () => {
+    const codes = [
+      'timeout',
+      'noConnection',
+      'cannotFindHost',
+      'cannotConnectToHost',
+      'connectionLost',
+      'secureConnectionFailed',
+      'cancelled',
+      'unknown',
+    ]
+    for (const code of codes) {
+      const cmd = parseControlCommand({
+        kind: 'mock.add',
+        rule: {
+          id: `ext-code-${code}`,
+          pattern: '/x',
+          response: { status: 200, body: '' },
+          enabled: true,
+          failure: { code },
+        },
+      })
+      expect(cmd?.kind).toBe('mock.add')
+      if (cmd?.kind === 'mock.add') expect(cmd.rule.failure?.code).toBe(code as never)
+    }
+  })
+
+  test('mock.add with skipCount and stopAfter', () => {
+    const cmd = parseControlCommand({
+      kind: 'mock.add',
+      rule: {
+        id: 'ext-skip-stop-1',
+        pattern: '/api/retry',
+        response: { status: 200, body: '' },
+        enabled: true,
+        skipCount: 2,
+        stopAfter: 3,
+      },
+    })
+    expect(cmd?.kind).toBe('mock.add')
+    if (cmd?.kind === 'mock.add') {
+      expect(cmd.rule.skipCount).toBe(2)
+      expect(cmd.rule.stopAfter).toBe(3)
+    }
+  })
+
+  test('mock.add skipCount 0 and stopAfter 0 are valid (not "absent")', () => {
+    const cmd = parseControlCommand({
+      kind: 'mock.add',
+      rule: {
+        id: 'ext-skip-stop-zero',
+        pattern: '/x',
+        response: { status: 200, body: '' },
+        enabled: true,
+        skipCount: 0,
+        stopAfter: 0,
+      },
+    })
+    expect(cmd?.kind).toBe('mock.add')
+    if (cmd?.kind === 'mock.add') {
+      expect(cmd.rule.skipCount).toBe(0)
+      expect(cmd.rule.stopAfter).toBe(0)
+    }
+  })
+
+  test('mock.add without skipCount/stopAfter/failure parses them undefined', () => {
+    const cmd = parseControlCommand({
+      kind: 'mock.add',
+      rule: { id: 'ext-bare', pattern: '/x', response: { status: 200, body: '' }, enabled: true },
+    })
+    expect(cmd?.kind).toBe('mock.add')
+    if (cmd?.kind === 'mock.add') {
+      expect(cmd.rule.skipCount).toBeUndefined()
+      expect(cmd.rule.stopAfter).toBeUndefined()
+      expect(cmd.rule.failure).toBeUndefined()
+    }
+  })
+
+  test('mock.add failure — matches the pinned fixture', () => {
+    const cmd = parseControlCommand(readControlFixture('mock-add-failure.json'))
+    expect(cmd).toEqual({
+      kind: 'mock.add',
+      rule: {
+        id: 'mck-flaky',
+        pattern: '/api/checkout',
+        method: undefined,
+        mode: undefined,
+        response: { status: 200, headers: undefined, body: '{}', delay: undefined },
+        enabled: true,
+        redirectTo: undefined,
+        block: undefined,
+        modify: undefined,
+        failure: { code: 'cannotConnectToHost' },
+        skipCount: undefined,
+        stopAfter: undefined,
+      },
+    })
+  })
+
+  test('mock.add skipCount/stopAfter — matches the pinned fixture', () => {
+    const cmd = parseControlCommand(readControlFixture('mock-add-skip-stop.json'))
+    expect(cmd).toEqual({
+      kind: 'mock.add',
+      rule: {
+        id: 'mck-retry',
+        pattern: '/api/retry',
+        method: undefined,
+        mode: undefined,
+        response: { status: 503, headers: undefined, body: '{"down":true}', delay: undefined },
+        enabled: true,
+        redirectTo: undefined,
+        block: undefined,
+        modify: undefined,
+        failure: undefined,
+        skipCount: 2,
+        stopAfter: 3,
+      },
+    })
+  })
+
   test('mock.remove', () => {
     const cmd = parseControlCommand({ kind: 'mock.remove', id: 'ext-1' })
     expect(cmd).toEqual({ kind: 'mock.remove', id: 'ext-1' })
@@ -395,6 +532,87 @@ describe('parseControlCommand — malformed shapes', () => {
           response: { status: 200, body: '' },
           enabled: true,
           modify: { replaceBody: [{ find: 'x' }] },
+        },
+      },
+    ],
+    [
+      'mock.add failure not an object',
+      {
+        kind: 'mock.add',
+        rule: { id: 'a', pattern: 'x', response: { status: 200, body: '' }, enabled: true, failure: 'nope' },
+      },
+    ],
+    [
+      'mock.add failure missing code',
+      {
+        kind: 'mock.add',
+        rule: { id: 'a', pattern: 'x', response: { status: 200, body: '' }, enabled: true, failure: {} },
+      },
+    ],
+    [
+      'mock.add failure unknown code',
+      {
+        kind: 'mock.add',
+        rule: {
+          id: 'a',
+          pattern: 'x',
+          response: { status: 200, body: '' },
+          enabled: true,
+          failure: { code: 'meteorStrike' },
+        },
+      },
+    ],
+    [
+      'mock.add skipCount negative',
+      {
+        kind: 'mock.add',
+        rule: { id: 'a', pattern: 'x', response: { status: 200, body: '' }, enabled: true, skipCount: -1 },
+      },
+    ],
+    [
+      'mock.add skipCount non-integer',
+      {
+        kind: 'mock.add',
+        rule: { id: 'a', pattern: 'x', response: { status: 200, body: '' }, enabled: true, skipCount: 1.5 },
+      },
+    ],
+    [
+      'mock.add skipCount wrong type',
+      {
+        kind: 'mock.add',
+        rule: { id: 'a', pattern: 'x', response: { status: 200, body: '' }, enabled: true, skipCount: '3' },
+      },
+    ],
+    [
+      'mock.add skipCount not finite',
+      {
+        kind: 'mock.add',
+        rule: {
+          id: 'a',
+          pattern: 'x',
+          response: { status: 200, body: '' },
+          enabled: true,
+          skipCount: Number.POSITIVE_INFINITY,
+        },
+      },
+    ],
+    [
+      'mock.add stopAfter negative',
+      {
+        kind: 'mock.add',
+        rule: { id: 'a', pattern: 'x', response: { status: 200, body: '' }, enabled: true, stopAfter: -1 },
+      },
+    ],
+    [
+      'mock.add stopAfter absurdly non-integer',
+      {
+        kind: 'mock.add',
+        rule: {
+          id: 'a',
+          pattern: 'x',
+          response: { status: 200, body: '' },
+          enabled: true,
+          stopAfter: Number.NaN,
         },
       },
     ],

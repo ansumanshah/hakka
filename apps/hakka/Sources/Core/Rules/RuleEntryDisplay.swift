@@ -20,13 +20,20 @@ public struct RuleEntryDisplay: Sendable, Equatable {
         case let .mock(rule):
             kind = .mock
             title = Self.title(pattern: rule.pattern, method: rule.method)
-            if rule.block {
-                subtitle = "Blocked"
+            var base: String
+            if let failure = rule.failure {
+                base = "Fails: \(failure.code.displayName)"
+            } else if rule.block {
+                base = "Blocked"
             } else if rule.redirectTo != nil {
-                subtitle = "Redirected"
+                base = "Redirected"
             } else {
-                subtitle = "Serves \(rule.response.status)"
+                base = "Serves \(rule.response.status)"
             }
+            if let budget = Self.skipStopSuffix(rule) {
+                base += " (\(budget))"
+            }
+            subtitle = base
         case let .breakpoint(breakpoint):
             kind = .breakpoint
             title = Self.title(pattern: breakpoint.pattern, method: breakpoint.method)
@@ -40,5 +47,17 @@ public struct RuleEntryDisplay: Sendable, Equatable {
 
     private static func title(pattern: String, method: String?) -> String {
         method.map { "\($0) \(pattern)" } ?? pattern
+    }
+
+    /// "skip 2", "stop after 5", or "skip 2 · stop after 5" — the budget's
+    /// *configuration*, not live progress through it. The control channel is
+    /// fire-and-forget with no feedback frame, so the desktop cannot show how
+    /// far into that budget a device actually is — see `RuleEntry.hitCount`'s
+    /// doc for the same limitation on match counts.
+    private static func skipStopSuffix(_ rule: MockRuleInput) -> String? {
+        var parts: [String] = []
+        if rule.skipCount > 0 { parts.append("skip \(rule.skipCount)") }
+        if let stopAfter = rule.stopAfter { parts.append("stop after \(stopAfter)") }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 }

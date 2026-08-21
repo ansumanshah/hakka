@@ -130,13 +130,68 @@ struct ControlCommandEncoderTests {
                     setResponseHeaders: ["x-res": "a"],
                     removeResponseHeaders: ["x-drop"],
                     replaceBody: [.init(find: "foo", replace: "bar")]
-                )
+                ),
+                failure: MockFailure(code: .timeout),
+                skipCount: 2,
+                stopAfter: 5
             )
         )
         #expect(
             try ControlCommandEncoder.encodePayload(command)
                 == Data(
-                    #"{"kind":"mock.add","rule":{"block":true,"enabled":false,"id":"ext-2","method":"POST","modify":{"removeQueryParams":["token"],"removeRequestHeaders":["x-secret"],"removeResponseHeaders":["x-drop"],"replaceBody":[{"find":"foo","replace":"bar"}],"setQueryParams":{"debug":"1"},"setRequestHeaders":{"x-added":"1"},"setResponseHeaders":{"x-res":"a"},"status":201},"pattern":"foo","redirectTo":"https:\/\/example.com","response":{"body":"{\"ok\":true}","delay":50,"headers":{"x-a":"b"},"status":201}}}"#
+                    #"{"kind":"mock.add","rule":{"block":true,"enabled":false,"failure":{"code":"timeout"},"id":"ext-2","method":"POST","modify":{"removeQueryParams":["token"],"removeRequestHeaders":["x-secret"],"removeResponseHeaders":["x-drop"],"replaceBody":[{"find":"foo","replace":"bar"}],"setQueryParams":{"debug":"1"},"setRequestHeaders":{"x-added":"1"},"setResponseHeaders":{"x-res":"a"},"status":201},"pattern":"foo","redirectTo":"https:\/\/example.com","response":{"body":"{\"ok\":true}","delay":50,"headers":{"x-a":"b"},"status":201},"skipCount":2,"stopAfter":5}}"#
+                        .utf8
+                )
+        )
+    }
+
+    @Test("mock.add omits failure/skipCount/stopAfter when absent/zero — field-absent shape")
+    func mockAddOmitsSkipStopFailureWhenAbsent() throws {
+        let command = ControlCommand.mockAdd(
+            id: "ext-bare",
+            rule: MockRuleInput(pattern: "/x", response: MockResponse(status: 200, body: "[]"))
+        )
+        let payload = try ControlCommandEncoder.encodePayload(command)
+        let text = String(data: payload, encoding: .utf8)!
+        #expect(!text.contains("failure"))
+        #expect(!text.contains("skipCount"))
+        #expect(!text.contains("stopAfter"))
+    }
+
+    @Test("mock.add with only skipCount/stopAfter (no failure)")
+    func mockAddSkipStopOnly() throws {
+        let command = ControlCommand.mockAdd(
+            id: "ext-skip",
+            rule: MockRuleInput(
+                pattern: "/x",
+                response: MockResponse(status: 200, body: "[]"),
+                skipCount: 3,
+                stopAfter: 10
+            )
+        )
+        #expect(
+            try ControlCommandEncoder.encodePayload(command)
+                == Data(
+                    #"{"kind":"mock.add","rule":{"enabled":true,"id":"ext-skip","pattern":"\/x","response":{"body":"[]","status":200},"skipCount":3,"stopAfter":10}}"#
+                        .utf8
+                )
+        )
+    }
+
+    @Test("mock.add with only failure (no skip/stop)")
+    func mockAddFailureOnly() throws {
+        let command = ControlCommand.mockAdd(
+            id: "ext-fail",
+            rule: MockRuleInput(
+                pattern: "/x",
+                response: MockResponse(status: 200, body: "[]"),
+                failure: MockFailure(code: .noConnection)
+            )
+        )
+        #expect(
+            try ControlCommandEncoder.encodePayload(command)
+                == Data(
+                    #"{"kind":"mock.add","rule":{"enabled":true,"failure":{"code":"noConnection"},"id":"ext-fail","pattern":"\/x","response":{"body":"[]","status":200}}}"#
                         .utf8
                 )
         )

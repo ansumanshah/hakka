@@ -22,6 +22,25 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
+ * Maps a [MockFailureCode] to the [IOException] subtype OkHttp callers actually see —
+ * mirrors `MockFailureCode`'s cross-runtime mapping table in
+ * `packages/hakka-core/src/engine/MockEngine.ts`.
+ */
+private fun ioExceptionForFailure(code: MockFailureCode): IOException = when (code) {
+    MockFailureCode.TIMEOUT -> java.net.SocketTimeoutException(code.message)
+    // Android has no distinct "no connectivity" exception from a DNS failure —
+    // UnknownHostException is the closest native shape for both NO_CONNECTION and
+    // CANNOT_FIND_HOST, distinguished only by the mock's declared code (message text).
+    MockFailureCode.NO_CONNECTION -> java.net.UnknownHostException(code.message)
+    MockFailureCode.CANNOT_FIND_HOST -> java.net.UnknownHostException(code.message)
+    MockFailureCode.CANNOT_CONNECT_TO_HOST -> java.net.ConnectException(code.message)
+    MockFailureCode.CONNECTION_LOST -> IOException(code.message)
+    MockFailureCode.SECURE_CONNECTION_FAILED -> javax.net.ssl.SSLException(code.message)
+    MockFailureCode.CANCELLED -> IOException(code.message)
+    MockFailureCode.UNKNOWN -> IOException(code.message)
+}
+
+/**
  * OkHttp [Interceptor] that captures network requests and stores them in a [LogStore].
  *
  * Usage:
@@ -382,6 +401,39 @@ class HakkaInterceptor private constructor(
         }
 
         val mockRule = MockEngine.shared.match(urlString, request.method)
+
+        // `failure` takes priority over `block`, which takes priority over
+        // `redirectTo`/`modify` (mirrors MockEngine.ts's fetch-interceptor
+        // ordering: failure, then block, then isRewrite). A more precise
+        // simulation than block's generic "Blocked by Hakka" — throws the
+        // specific IOException subtype the failure code declares.
+        if (mockRule != null && mockRule.failure != null) {
+            val failure = mockRule.failure
+            val failureDuration = System.currentTimeMillis() - startTime
+            captureProcessor.enqueue(
+                RawNetworkCapture(
+                    id = id,
+                    url = urlString,
+                    method = request.method,
+                    startTimeMs = startTime,
+                    durationMs = failureDuration,
+                    requestHeaders = request.headers.toMultimap(),
+                    responseHeaders = emptyMap(),
+                    requestBodySize = reqBodySize,
+                    responseBodySize = 0,
+                    requestContentType = reqContentType,
+                    responseContentType = null,
+                    requestBody = reqBodyText,
+                    responseBody = null,
+                    status = null,
+                    error = failure.code.message,
+                    source = RequestSource.OKHTTP,
+                    timing = null,
+                    correlationId = correlationId,
+                )
+            )
+            throw ioExceptionForFailure(failure.code)
+        }
 
         // `block` takes priority over `redirectTo`/`modify` (mirrors MockEngine.ts's
         // fetch-interceptor ordering: block is checked before isRewrite). Abort with an

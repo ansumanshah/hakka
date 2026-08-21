@@ -22,10 +22,12 @@ enum MockRuleAction: String, CaseIterable {
     case mock = "Mock"
     case redirect = "Redirect"
     case block = "Block"
+    case failure = "Failure"
 }
 
 extension MockRule {
     var action: MockRuleAction {
+        if failure != nil { return .failure }
         if block { return .block }
         if redirectTo != nil { return .redirect }
         return .mock
@@ -65,6 +67,12 @@ struct MocksView: View {
     @State var responseBody: String = "{}"
     @State var delayMs: String = "0"
     @State var targetURL: String = ""
+    @State var selectedFailureCode: MockFailureCode = .timeout
+    /// Skip/stop budget fields, entered as text like `status`/`delayMs`.
+    /// Empty parses as "not set" (skipCount 0 / stopAfter unlimited) —
+    /// see `handleAdd`.
+    @State var skipCountText: String = ""
+    @State var stopAfterText: String = ""
 
     @State private var unsubscribe: (() -> Void)?
 
@@ -146,51 +154,8 @@ struct MocksView: View {
         rules = MockEngine.shared.getRules()
     }
 
-    /// Called from `addSection` (MocksViewForm.swift) on submit/tap.
-    func handleAdd() {
-        guard isAddEnabled else { return }
-        let p = pattern.trimmingCharacters(in: .whitespaces)
-        let method = selectedMethod == "ANY" ? nil : selectedMethod
-        let delaySeconds = max(0, (Double(delayMs) ?? 0) / 1000.0)
-
-        switch selectedAction {
-        case .mock:
-            MockEngine.shared.addRule(MockRuleInput(
-                pattern: p,
-                method: method,
-                response: MockResponse(
-                    status: Int(status) ?? 200,
-                    body: responseBody.isEmpty ? nil : responseBody,
-                    delay: delaySeconds
-                ),
-                enabled: true
-            ))
-        case .redirect:
-            MockEngine.shared.addRule(MockRuleInput(
-                pattern: p,
-                method: method,
-                response: MockResponse(status: 200, delay: delaySeconds),
-                enabled: true,
-                redirectTo: targetURL.trimmingCharacters(in: .whitespaces)
-            ))
-        case .block:
-            MockEngine.shared.addRule(MockRuleInput(
-                pattern: p,
-                method: method,
-                response: MockResponse(status: 0),
-                enabled: true,
-                block: true
-            ))
-        }
-
-        pattern = ""
-        selectedMethod = "ANY"
-        selectedAction = .mock
-        status = "200"
-        responseBody = "{}"
-        delayMs = "0"
-        targetURL = ""
-    }
+    // handleAdd() lives in MocksViewAdd.swift — split out to keep this file
+    // under 200 lines.
 }
 
 #if DEBUG

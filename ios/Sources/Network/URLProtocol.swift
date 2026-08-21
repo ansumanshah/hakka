@@ -124,12 +124,18 @@ public final class HakkaURLProtocol: URLProtocol, @unchecked Sendable {
         let urlString = request.url?.absoluteString ?? ""
         let httpMethod = request.httpMethod ?? "GET"
 
-        // `block` takes priority over `redirectTo`/`modify` (mirrors
-        // `MockEngine.ts`'s fetch-interceptor ordering: block is checked before
-        // `isRewrite`). A rewrite-mode rule (`redirectTo` and/or `modify`) issues
-        // the real request through the passthrough-then-transform path; anything
-        // else is served wholesale from `response`.
+        // `failure` takes priority over `block`, which takes priority over
+        // `redirectTo`/`modify` (mirrors `MockEngine.ts`'s fetch-interceptor
+        // ordering: failure, then block, then isRewrite). A rewrite-mode rule
+        // (`redirectTo` and/or `modify`) issues the real request through the
+        // passthrough-then-transform path; anything else is served wholesale
+        // from `response`.
         if let rule = MockEngine.shared.match(url: urlString, method: httpMethod) {
+            if let failure = rule.failure {
+                prepareBodyStreamForCaptureIfSafe(mutableRequest: mutable, allowUnknownLength: true)
+                serveFailureResponse(rule: rule, failure: failure)
+                return
+            }
             if rule.block {
                 prepareBodyStreamForCaptureIfSafe(mutableRequest: mutable, allowUnknownLength: true)
                 serveBlockedResponse(rule: rule)
@@ -323,6 +329,41 @@ public final class HakkaURLProtocol: URLProtocol, @unchecked Sendable {
             domain: NSURLErrorDomain,
             code: NSURLErrorNotConnectedToInternet,
             userInfo: [NSLocalizedDescriptionKey: "Blocked by Hakka"]
+        )
+        self.client?.urlProtocol(self, didFailWithError: err)
+
+        if let interceptor = Self.interceptor {
+            interceptor.enqueueCompletedCapture(
+                HakkaCompletedCapture(
+                    requestId: self.requestId,
+                    request: self.captureRequest ?? self.request,
+                    requestBodyData: self.captureRequestBodyData,
+                    startTime: self.startTime,
+                    receivedResponse: nil,
+                    receivedData: Data(),
+                    receivedBodySize: 0,
+                    taskMetrics: nil,
+                    error: err,
+                    source: .mock,
+                    correlationId: self.correlationId
+                )
+            )
+        }
+    }
+
+    // MARK: - Failure
+
+    /// Serve a `failure`-mode rule: abort with the specific `URLError.Code`
+    /// the failure declares, before any real request goes out — a more
+    /// precise simulation than `block`'s generic "not connected" error
+    /// (mirrors `MockEngine.ts`'s fetch-interceptor failure path).
+    private func serveFailureResponse(rule: MockRule, failure: MockFailure) {
+        guard beginCompletion() else { return }
+
+        let err = NSError(
+            domain: NSURLErrorDomain,
+            code: failure.code.urlErrorCode,
+            userInfo: [NSLocalizedDescriptionKey: failure.code.message]
         )
         self.client?.urlProtocol(self, didFailWithError: err)
 

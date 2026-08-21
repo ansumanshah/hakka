@@ -3,135 +3,6 @@
 
 import Foundation
 
-// MARK: - MockResponse
-
-/// Response to return when a mock rule matches.
-public struct MockResponse: Sendable {
-    /// HTTP status code. Default: 200.
-    public let status: Int
-    /// Response headers.
-    public let headers: [String: String]
-    /// Response body as a string, or `nil` for an empty body.
-    public let body: String?
-    /// Artificial delay in seconds before responding. 0 = instant.
-    public let delay: TimeInterval
-
-    public init(
-        status: Int = 200,
-        headers: [String: String] = [:],
-        body: String? = nil,
-        delay: TimeInterval = 0
-    ) {
-        self.status = status
-        self.headers = headers
-        self.body = body
-        self.delay = delay
-    }
-}
-
-// MARK: - MockRule
-
-/// Rule matching incoming requests. Returned by `MockEngine.getRules()`.
-public struct MockRule: Sendable, Identifiable {
-    /// Unique identifier assigned by `MockEngine.addRule(_:)`.
-    public let id: String
-    /// URL substring or regex pattern to match against.
-    public let pattern: String
-    /// When `true`, `pattern` is treated as a regular expression.
-    public let isRegex: Bool
-    /// HTTP method filter. `nil` matches all methods.
-    public let method: String?
-    /// Response to return when this rule matches.
-    public let response: MockResponse
-    /// Whether the rule is active.
-    public var enabled: Bool
-    /// Number of times this rule has been matched.
-    public var hitCount: Int
-    /// Regular expression flags passed from JS mock rules.
-    public let regexFlags: String?
-    /// Map Remote: send the real request to a different URL instead of `response`.
-    /// Applied on the passthrough-then-transform path (see `HakkaURLProtocol`) —
-    /// mirrors `MockRule.redirectTo` in `packages/hakka-core/src/engine/MockEngine.ts`.
-    public let redirectTo: String?
-    /// Abort the matched request with a network-error-shaped failure before it
-    /// is sent. Takes priority over `redirectTo`/`modify` when `true`. Mirrors
-    /// `MockRule.block` in `MockEngine.ts`.
-    public let block: Bool
-    /// Declarative header/query/status/body edits (see `MockRuleModify`).
-    /// Like `redirectTo`, this alone routes the match through the
-    /// passthrough-then-transform path — no separate "rewrite mode" flag needed.
-    public let modify: MockRuleModify?
-
-    /// True when this rule is served via the passthrough-then-transform path
-    /// (issue the real request, then rewrite outgoing URL/headers/query and/or
-    /// transform incoming status/headers/body) rather than served wholesale
-    /// from `response`. Mirrors `MockEngine.ts`'s `isRewrite(rule)` — native mock
-    /// rules carry no `rewriteRequest`/`rewriteResponse` functions (those cannot
-    /// cross a native bridge), so a rule is a "rewrite" here purely because it
-    /// declares `redirectTo` and/or `modify`.
-    public var isRewrite: Bool { redirectTo != nil || modify != nil }
-}
-
-// MARK: - MockRuleInput
-
-/// Input for adding a new rule (without id/hitCount).
-public struct MockRuleInput: Sendable {
-    public let pattern: String
-    public let isRegex: Bool
-    public let method: String?
-    public let response: MockResponse
-    public let enabled: Bool
-    public let regexFlags: String?
-    public let redirectTo: String?
-    public let block: Bool
-    public let modify: MockRuleModify?
-
-    public init(
-        pattern: String,
-        isRegex: Bool = false,
-        method: String? = nil,
-        response: MockResponse,
-        enabled: Bool = true,
-        redirectTo: String? = nil,
-        block: Bool = false,
-        modify: MockRuleModify? = nil
-    ) {
-        self.init(
-            pattern: pattern,
-            isRegex: isRegex,
-            regexFlags: nil,
-            method: method,
-            response: response,
-            enabled: enabled,
-            redirectTo: redirectTo,
-            block: block,
-            modify: modify
-        )
-    }
-
-    public init(
-        pattern: String,
-        isRegex: Bool = false,
-        regexFlags: String?,
-        method: String? = nil,
-        response: MockResponse,
-        enabled: Bool = true,
-        redirectTo: String? = nil,
-        block: Bool = false,
-        modify: MockRuleModify? = nil
-    ) {
-        self.pattern = pattern
-        self.isRegex = isRegex
-        self.regexFlags = regexFlags
-        self.method = method
-        self.response = response
-        self.enabled = enabled
-        self.redirectTo = redirectTo
-        self.block = block
-        self.modify = modify
-    }
-}
-
 // MARK: - MockEngine
 
 /// Thread-safe mock engine for intercepting network requests and returning
@@ -150,10 +21,18 @@ public final class MockEngine: @unchecked Sendable {
     /// Shared singleton used by `HakkaURLProtocol`.
     public static let shared = MockEngine()
 
-    private var rules: [MockRule] = []
-    private let lock = NSLock()
+    // `internal` (module-default), not `private`: the matching logic lives in
+    // `MockEngineMatching.swift` (kept separate to hold this file under 200
+    // lines) and needs to reach these — still invisible outside the module.
+    var rules: [MockRule] = []
+    let lock = NSLock()
     private var idCounter = 0
     private var globalDelay: TimeInterval = 0
+    /// `skipCount`/`stopAfter` bookkeeping, keyed by rule id — see
+    /// `matchCountsById` in `MockEngine.ts` for the full rationale. In-memory
+    /// only, reset on relaunch, and reset per-rule whenever that rule is
+    /// (re-)added — see `addRule(_:id:)`/`removeRule(id:)`/`clearRules()`.
+    var matchCountsById: [String: Int] = [:]
 
     // Change listeners (UI subscribers) keyed by a UUID token for safe removal —
     // same shape as `BreakpointEngine`/`ThrottleEngine` so `MocksView` follows
@@ -196,9 +75,15 @@ public final class MockEngine: @unchecked Sendable {
             regexFlags: input.regexFlags,
             redirectTo: input.redirectTo,
             block: input.block,
-            modify: input.modify
+            modify: input.modify,
+            failure: input.failure,
+            skipCount: input.skipCount,
+            stopAfter: input.stopAfter
         )
         rules.append(rule)
+        // A (re-)add always restarts the skip/stop budget — this is a
+        // new/edited rule as far as the engine is concerned.
+        matchCountsById.removeValue(forKey: id)
         notifyLocked()
         return id
     }
@@ -208,6 +93,7 @@ public final class MockEngine: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         rules.removeAll { $0.id == id }
+        matchCountsById.removeValue(forKey: id)
         notifyLocked()
     }
 
@@ -243,6 +129,7 @@ public final class MockEngine: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         rules.removeAll()
+        matchCountsById.removeAll()
         idCounter = 0
         globalDelay = 0
         notifyLocked()
@@ -291,52 +178,8 @@ public final class MockEngine: @unchecked Sendable {
     }
 
     // MARK: - Matching
-
-    /// Called by `HakkaURLProtocol.startLoading()` before making the real
-    /// network request. Returns the first matching enabled rule, or `nil`.
-    /// Increments `hitCount` on the matched rule.
-    public func match(url: String, method: String) -> MockRule? {
-        lock.lock()
-        defer { lock.unlock() }
-
-        for i in rules.indices {
-            let rule = rules[i]
-            guard rule.enabled else { continue }
-
-            if let ruleMethod = rule.method,
-               ruleMethod.uppercased() != method.uppercased() {
-                continue
-            }
-
-            if rule.isRegex {
-                guard let regex = try? NSRegularExpression(pattern: rule.pattern, options: regexOptions(rule.regexFlags)),
-                      regex.firstMatch(
-                          in: url,
-                          range: NSRange(url.startIndex..., in: url)
-                      ) != nil
-                else { continue }
-            } else {
-                guard url.contains(rule.pattern) else { continue }
-            }
-
-            rules[i].hitCount += 1
-            return rules[i]
-        }
-        return nil
-    }
-
-    private func regexOptions(_ flags: String?) -> NSRegularExpression.Options {
-        guard let flags else { return [] }
-        var options: NSRegularExpression.Options = []
-        if flags.contains("i") {
-            options.insert(.caseInsensitive)
-        }
-        if flags.contains("m") {
-            options.insert(.anchorsMatchLines)
-        }
-        if flags.contains("s") {
-            options.insert(.dotMatchesLineSeparators)
-        }
-        return options
-    }
+    //
+    // `match(url:method:)`, the `skipCount`/`stopAfter` gate
+    // (`admitMatchLocked`), and `regexOptions` live in
+    // `MockEngineMatching.swift` — split out to keep this file under 200 lines.
 }

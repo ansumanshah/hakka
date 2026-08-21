@@ -1,0 +1,11 @@
+{
+  "kind": "mock.add",
+  "rule": {
+    "id": "mck-retry",
+    "pattern": "/api/retry",
+    "enabled": true,
+    "skipCount": 2,
+    "stopAfter": 3,
+    "response": { "status": 503, "body": "{\"down\":true}" }
+  }
+}

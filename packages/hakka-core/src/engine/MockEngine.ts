@@ -43,6 +43,84 @@ export interface MockResponse {
  * with `redirectTo`. v1 scope is deliberately narrow: header/query
  * set-or-remove, a status override, and plain-string (no regex) body replace.
  */
+/**
+ * Platform-neutral transport-error codes for a `failure`-mode rule (see
+ * `MockRule.failure`). Each maps to a native "the request never got a real
+ * response" error on every runtime instead of `MockEngine`'s own generic
+ * `block` failure:
+ *
+ * | code                     | iOS `URLError.Code`         | Android exception            |
+ * |--------------------------|------------------------------|-------------------------------|
+ * | `timeout`                | `.timedOut`                  | `SocketTimeoutException`      |
+ * | `noConnection`           | `.notConnectedToInternet`    | `UnknownHostException`\*      |
+ * | `cannotFindHost`         | `.cannotFindHost`             | `UnknownHostException`        |
+ * | `cannotConnectToHost`    | `.cannotConnectToHost`       | `ConnectException`            |
+ * | `connectionLost`         | `.networkConnectionLost`     | `IOException`                 |
+ * | `secureConnectionFailed` | `.secureConnectionFailed`    | `SSLException`                |
+ * | `cancelled`               | `.cancelled`                  | `IOException` (cancel path)   |
+ * | `unknown`                | `.unknown`                    | `IOException`                 |
+ *
+ * \* Android has no direct "no connectivity" exception distinct from a DNS
+ * failure — `UnknownHostException` is the closest native shape and is reused
+ * for both `noConnection` and `cannotFindHost`, distinguished only by the
+ * mock's declared `code` (and thus by message text), not by exception type.
+ *
+ * On web (`fetch`/`XHR`, this file's own interceptors), no error taxonomy
+ * exists — the platform always throws a generic `TypeError('Failed to
+ * fetch')` / fires a generic `onerror`. The `code` still drives the
+ * `NetworkRequest.error` text so the inspector shows which failure was
+ * simulated, even though the thrown JS error itself cannot be distinguished
+ * by callers.
+ */
+export type MockFailureCode =
+  | 'timeout'
+  | 'noConnection'
+  | 'cannotFindHost'
+  | 'cannotConnectToHost'
+  | 'connectionLost'
+  | 'secureConnectionFailed'
+  | 'cancelled'
+  | 'unknown'
+
+export const MOCK_FAILURE_CODES: ReadonlySet<string> = new Set([
+  'timeout',
+  'noConnection',
+  'cannotFindHost',
+  'cannotConnectToHost',
+  'connectionLost',
+  'secureConnectionFailed',
+  'cancelled',
+  'unknown',
+])
+
+/** Human-readable message per `MockFailureCode`, shared by every JS call site that reports one. */
+export const MOCK_FAILURE_MESSAGES: Record<MockFailureCode, string> = {
+  timeout: 'Mocked failure: the request timed out',
+  noConnection: 'Mocked failure: not connected to the internet',
+  cannotFindHost: 'Mocked failure: cannot find host',
+  cannotConnectToHost: 'Mocked failure: cannot connect to host',
+  connectionLost: 'Mocked failure: the network connection was lost',
+  secureConnectionFailed: 'Mocked failure: secure connection failed',
+  cancelled: 'Mocked failure: cancelled',
+  unknown: 'Mocked failure: unknown network error',
+}
+
+/**
+ * Simulates a transport-level failure — the request never gets a real
+ * response, on any runtime — rather than serving `response`. Platform
+ * parity for Pulse Pro's "Mock URLError failures": the one thing an
+ * in-process proxy-less mock engine can do that a network proxy cannot,
+ * since a proxy can only shape what a response *contains*, never make the
+ * transport itself fail as if the device had no connectivity.
+ *
+ * Precedence (mirrors `block`, which this supersedes when both are set):
+ * `failure` is checked first, then `block`, then the rewrite path
+ * (`redirectTo`/`modify`), then a plain mock `response`.
+ */
+export interface MockFailure {
+  code: MockFailureCode
+}
+
 export interface MockRuleModify {
   /** Set/overwrite these headers on the outgoing request. */
   setRequestHeaders?: Record<string, string>
@@ -109,9 +187,37 @@ export interface MockRule {
   modify?: MockRuleModify
   /**
    * Block: abort the matched request with a network error before it is sent.
-   * Useful for testing error/offline states for one endpoint.
+   * Useful for testing error/offline states for one endpoint. `failure`
+   * takes priority when both are set — see `MockFailure`.
    */
   block?: boolean
+  /**
+   * Simulate a specific transport-level failure instead of serving
+   * `response` (see `MockFailure`). Takes priority over `block`.
+   */
+  failure?: MockFailure
+  /**
+   * Serve the real response for this many initial matches before the rule
+   * starts applying (mock/block/failure/rewrite). `0`/absent: applies on
+   * the first match. Mirrors Pulse Pro's "skip how many responses after
+   * app launch" — the counter lives in this engine instance's in-memory
+   * state (see `matchCountsById` below) and is NOT persisted, so it resets
+   * whenever the engine is re-created (a fresh process/app launch), not on
+   * every rule edit. Re-adding a rule with the same `id` (which always
+   * replaces it) DOES reset its own counter, though, since that's a new
+   * rule as far as the engine is concerned.
+   */
+  skipCount?: number
+  /**
+   * After the rule has applied this many times (post-`skipCount`), stop
+   * applying it — later matches fall through to real traffic, forever
+   * (until the rule is edited/re-added, which resets the counter).
+   * Absent/undefined: unlimited. `0` means "apply zero times" — every match
+   * (after `skipCount`) passes through as real traffic, which combined
+   * with `skipCount: 0` is a very roundabout way to say "disable this
+   * rule" but is honored as specified rather than special-cased.
+   */
+  stopAfter?: number
   response: MockResponse
   enabled: boolean
   hitCount: number
@@ -136,6 +242,9 @@ export type NativeMockRulePayload = {
   redirectTo?: string
   block?: boolean
   modify?: MockRuleModify
+  failure?: MockFailure
+  skipCount?: number
+  stopAfter?: number
 }
 
 export interface NativeMockBridge {
@@ -179,6 +288,9 @@ function toNativeRule(rule: MockRule): NativeMockRulePayload {
     redirectTo: rule.redirectTo,
     block: rule.block,
     modify: rule.modify,
+    failure: rule.failure,
+    skipCount: rule.skipCount,
+    stopAfter: rule.stopAfter,
   }
 }
 
@@ -263,6 +375,18 @@ class MockEngine {
   private stringMatchersById = new Map<string, (url: string) => boolean>()
   private nativeSyncedRuleIds = new Set<string>()
   private nativeBridge: NativeMockBridge | null = null
+  /**
+   * `skipCount`/`stopAfter` bookkeeping, keyed by rule id — how many times
+   * each rule has matched so far, counting matches consumed during the
+   * skip phase too. Deliberately NOT part of `MockRule`/persisted state:
+   * this is in-memory, per-engine-instance budget tracking, so it resets
+   * whenever the engine is re-created (a fresh process/app launch) — see
+   * `MockRule.skipCount`'s doc for why that's the chosen semantics, matching
+   * Pulse Pro's "skip after app launch" framing. `addRule` deletes the old
+   * entry when replacing a rule by id, so re-adding/editing a rule also
+   * restarts its budget.
+   */
+  private matchCountsById = new Map<string, number>()
 
   /** Register the native bridge for syncing rules to native. Call once at startup. */
   registerNativeBridge(bridge: NativeMockBridge | null): void {
@@ -287,6 +411,9 @@ class MockEngine {
     }
     this.rulesById.set(id, storedRule)
     this.stringMatchersById.delete(id)
+    // A (re-)add always restarts the skip/stop budget — this is a new/edited
+    // rule as far as the engine is concerned, matching/replacing the old one.
+    this.matchCountsById.delete(id)
     if (typeof storedRule.pattern === 'string') {
       // Captures the pattern value, not the mutable rule reference.
       const pattern = storedRule.pattern
@@ -299,6 +426,7 @@ class MockEngine {
   removeRule(id: string): void {
     if (!this.rulesById.delete(id)) return
     this.stringMatchersById.delete(id)
+    this.matchCountsById.delete(id)
     this.rules = this.rules.filter((r) => r.id !== id)
     this.syncNativeRemove(id)
   }
@@ -328,6 +456,7 @@ class MockEngine {
     this.rules = []
     this.rulesById.clear()
     this.stringMatchersById.clear()
+    this.matchCountsById.clear()
   }
 
   syncNativeRules(): void {
@@ -369,6 +498,35 @@ class MockEngine {
   /** Record that a matched rule was actually applied. */
   recordHit(rule: MockRule): void {
     rule.hitCount++
+  }
+
+  /**
+   * Consumes one unit of `rule`'s `skipCount`/`stopAfter` budget and decides
+   * whether this match should actually be applied (block/failure/mock/
+   * rewrite) or passed through as real, unmodified traffic. Must be called
+   * exactly once per candidate match, at the same "this request really hit
+   * the rule" commit point as `recordHit` — never from `peek()`, which stays
+   * side-effect free (both `decideRequest` and `decideResponse` call
+   * `peek()` independently for the same logical request; consuming the
+   * budget there would silently skip twice as many matches as configured).
+   *
+   * A caller that gets `false` back must treat the request as unmatched for
+   * this call — fall through to real traffic — and must NOT call
+   * `recordHit()` for it: `hitCount` counts only applied matches, matching
+   * its existing meaning in the block/mock/rewrite branches.
+   */
+  admitMatch(rule: MockRule): boolean {
+    const count = (this.matchCountsById.get(rule.id) ?? 0) + 1
+    this.matchCountsById.set(rule.id, count)
+
+    const skip = Math.max(0, rule.skipCount ?? 0)
+    if (count <= skip) return false
+
+    const appliedIndex = count - skip // 1-based: which applied-match this would be
+    const stopAfter = rule.stopAfter
+    if (stopAfter !== undefined && appliedIndex > Math.max(0, stopAfter)) return false
+
+    return true
   }
 
   /** Finds a matching rule and records a hit. Returns null if no match. */
@@ -496,12 +654,19 @@ class MockEngine {
           redirectTo: rule.redirectTo,
           block: rule.block,
           modify: rule.modify,
+          failure: rule.failure,
+          skipCount: rule.skipCount,
+          stopAfter: rule.stopAfter,
           // rewriteRequest / rewriteResponse / bodyProvider are functions
           // and cannot be serialized; they are intentionally omitted here.
         })
       }
       this.rules = hydratedRules
       this.rulesById = new Map(this.rules.map((rule) => [rule.id, rule]))
+      // Wholesale rule replacement — fresh skip/stop budgets for every rule,
+      // consistent with `addRule`'s per-rule reset and the "resets on
+      // relaunch" semantics documented on `matchCountsById`.
+      this.matchCountsById.clear()
       this.stringMatchersById = new Map(
         this.rules.flatMap((rule) =>
           typeof rule.pattern === 'string' ? [[rule.id, (url: string) => url.includes(rule.pattern as string)]] : [],
