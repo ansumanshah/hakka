@@ -24,6 +24,7 @@ import { registerGenerateTestTool } from './generateTest.js'
 import { registerGetRequestTool } from './getRequest.js'
 import { registerGetTraceTool } from './getTrace.js'
 import { registerListRequestsTool } from './listRequests.js'
+import { registerPromoteCaptureToMockTool } from './promoteCaptureToMock.js'
 import { registerReplayRequestTool } from './replayRequest.js'
 import { registerSearchRequestsTool } from './searchRequests.js'
 import { registerSetBreakpointTool } from './setBreakpoint.js'
@@ -46,6 +47,7 @@ export function registerTools(
   registerDiagnoseTool(server, store)
   registerClearTool(server, store)
   registerCreateMockTool(server, sender)
+  registerPromoteCaptureToMockTool(server, store, sender)
   registerDeleteMockTool(server, sender)
   registerClearMocksTool(server, sender)
   registerSetBreakpointTool(server, sender)

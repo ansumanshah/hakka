@@ -77,7 +77,7 @@ Wire it into an MCP client config (Claude Code `.claude/settings.json`, Claude D
 | `HAKKA_MCP_MAX_REQUESTS` | `500`                 | In-memory store capacity (ring buffer)                |
 | `HAKKA_MCP_SERVE=0`      | unset                 | Disable in-process hub hosting (same as `--no-serve`) |
 
-Read tools: `list_requests`, `get_request`, `search_requests` (see the query DSL below), `stats`, `diagnose`, `clear`, `generate_test`, `generate_repro`. Write tools (relayed to your app over the bridge, dev builds only): `create_mock`, `delete_mock`, `clear_mocks`, `set_breakpoint`, `delete_breakpoint`, `set_throttle`, `generate_mocks`. All logging goes to **stderr** — stdout is the JSON-RPC channel.
+Read tools: `list_requests`, `get_request`, `search_requests` (see the query DSL below), `stats`, `diagnose`, `clear`, `generate_test`, `generate_repro`. Write tools (relayed to your app over the bridge, dev builds only): `create_mock`, `promote_capture_to_mock`, `delete_mock`, `clear_mocks`, `set_breakpoint`, `delete_breakpoint`, `set_throttle`, `generate_mocks`. All logging goes to **stderr** — stdout is the JSON-RPC channel.
 
 `search_requests`'s `query` param: `url:`/`header:`/`body:` scopes, `/regex/`, `*glob*`, `-negation`, `dur>100`/`size>1kb` ranges, space-separated tokens ANDed.
 

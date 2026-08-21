@@ -82,9 +82,12 @@ replace-by-id added to `MockEngine`/`BreakpointEngine`).
 ```
 
 `hakka mcp`'s write tools (all fire-and-forget, no acknowledgment, DEV builds only):
-`create_mock`, `delete_mock`, `clear_mocks`, `set_breakpoint`, `delete_breakpoint`,
-`set_throttle`, `generate_mocks` (record-then-mock: derives rules from already-captured traffic
-via `generateMockRules`, optionally applying them as `mock.add` commands).
+`create_mock`, `promote_capture_to_mock` (freezes one already-captured request's real response
+into a mock rule — pattern drops the query string, a deterministic id makes re-promotion replace
+rather than duplicate, and it refuses an errored or still-pending capture), `delete_mock`,
+`clear_mocks`, `set_breakpoint`, `delete_breakpoint`, `set_throttle`, `generate_mocks`
+(record-then-mock: derives rules from already-captured traffic via `generateMockRules`, optionally
+applying them as `mock.add` commands).
 
 ## Test anchors
 

@@ -12,7 +12,7 @@ Local-first network inspector for React Native, the web, Next.js, Android, and i
 
 Production cost is measured, not assumed. `register()` dead-code-eliminates out of prod builds; a 600-request benchmark against `next start` put p50 latency at 1.91ms with Hakka installed versus 1.81ms fully disabled, a gap smaller than the noise between two runs of the same config (see [`examples/next-fullstack`](./examples/next-fullstack/README.md)). An opt-in cohort mode captures a header-gated slice of real production traffic for when local repro isn't enough.
 
-For agents: an MCP server with nineteen tools (search, diagnose, mock, breakpoint, throttle, a `.hakka-repro` bundle with a generated regression test), plus a **Copy as agent context** button on every request that pastes a size-budgeted evidence bundle straight into a chat.
+For agents: an MCP server with twenty tools (search, diagnose, mock, promote a capture straight to a mock, breakpoint, throttle, a `.hakka-repro` bundle with a generated regression test), plus a **Copy as agent context** button on every request that pastes a size-budgeted evidence bundle straight into a chat.
 
 One engine ([`hakka-core`](./packages/hakka-core)) powers every target, so the capture model, record contract, panels, and exports stay identical across React Native, iOS, Android, and the web, including inside WebViews. The web entry point costs 2,996 bytes gzipped until someone opens the panel, 124 KB gzipped once they do.
 
