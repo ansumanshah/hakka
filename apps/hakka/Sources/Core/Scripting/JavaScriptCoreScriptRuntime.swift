@@ -51,7 +51,8 @@ public final class JavaScriptCoreScriptRuntime: ScriptRuntime {
         }
 
         let logs = ScriptLogSink()
-        ScriptBridge.install(input: input, logs: logs, into: context)
+        let vars = ScriptVariableSink()
+        ScriptBridge.install(input: input, logs: logs, vars: vars, into: context)
 
         ScriptExecutionWatchdog.arm(context, timeout: input.timeout)
         context.evaluateScript(input.source)
@@ -67,7 +68,8 @@ public final class JavaScriptCoreScriptRuntime: ScriptRuntime {
         let output = ScriptOutput(
             request: input.request != nil ? ScriptBridge.readRequest(from: context) : nil,
             response: input.response != nil ? ScriptBridge.readResponse(from: context) : nil,
-            logs: logs.lines
+            logs: logs.lines,
+            variables: vars.values
         )
         return .success(output)
     }

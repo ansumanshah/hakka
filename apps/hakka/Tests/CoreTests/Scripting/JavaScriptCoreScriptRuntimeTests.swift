@@ -79,7 +79,7 @@ struct JavaScriptCoreScriptRuntimeTests {
     /// because a script can see something not in `jscBaselineGlobals ∪`
     /// this set, either the bridge grew unintentionally or JSC's own
     /// surface widened — both are things this test exists to catch.
-    private static let publishedGlobals: Set<String> = ["env", "log", "request", "response"]
+    private static let publishedGlobals: Set<String> = ["env", "log", "request", "response", "vars"]
 
     @Test("the global object surface is exactly the JSC baseline plus what we publish")
     func globalObjectSurfaceIsExact() async throws {

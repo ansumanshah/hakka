@@ -80,6 +80,19 @@ public struct VariableScope: Sendable, Equatable {
     public mutating func setRuntime(_ key: String, _ value: String) {
         runtime[key] = value
     }
+
+    /// Every key visible across all three layers, collapsed to the same
+    /// precedence `value(for:)` uses — collection defaults, then
+    /// environment, then runtime, each overriding a same-named key from
+    /// before it. Used to build the read-only `env` global a script sees
+    /// (`RequestScriptHooks`): a script has no notion of layers, only one
+    /// flat object.
+    public var flattened: [String: String] {
+        var result = collectionDefaults
+        result.merge(environment) { _, new in new }
+        result.merge(runtime) { _, new in new }
+        return result
+    }
 }
 
 /// The result of interpolating a template: the resolved text plus the names

@@ -12,9 +12,16 @@ import HakkaCommon
 /// keeps the behavior identical for every transport (including test stubs)
 /// and lets a future Cookies tab read the same jar the sends use.
 public actor RequestRunner {
-    private let transport: RequestTransport
-    private let cookies: CookieStoring
-    private let defaultTimeout: TimeInterval
+    // Not `private`: `RequestRunner+Send.swift` (same module, different
+    // file) needs these, and `private` is file-scoped in Swift.
+    let transport: RequestTransport
+    let cookies: CookieStoring
+    let defaultTimeout: TimeInterval
+    /// Runs pre-request/post-response scripts — see `RequestScriptHooks`
+    /// for the abort-vs-proceed and state-sharing rules. Injectable for
+    /// tests the same way `transport` is; defaults to the real
+    /// JavaScriptCore implementation.
+    let scriptRuntime: ScriptRuntime
 
     /// `transport` defaults to nil so the default send path and the default
     /// jar can share one cookie identity: the fallback `URLSessionTransport`
@@ -22,11 +29,13 @@ public actor RequestRunner {
     public init(
         transport: RequestTransport? = nil,
         defaultTimeout: TimeInterval = 30,
-        cookies: CookieStoring = CookieJar()
+        cookies: CookieStoring = CookieJar(),
+        scriptRuntime: ScriptRuntime = JavaScriptCoreScriptRuntime(),
     ) {
         self.cookies = cookies
         self.transport = transport ?? URLSessionTransport(cookies: cookies)
         self.defaultTimeout = defaultTimeout
+        self.scriptRuntime = scriptRuntime
     }
 
     /// Resolves `request` against `collection`/`folderChain`/`scope`, sends
@@ -43,7 +52,8 @@ public actor RequestRunner {
         collection: Collection,
         scope: VariableScope,
     ) async throws(RequestRunnerError) -> RunResult {
-        let resolved = try resolvePlan(request, folderChain: folderChain, collection: collection, scope: scope)
+        let effectiveRequest = try await applyPreRequestScript(request, scope: scope)
+        let resolved = try resolvePlan(effectiveRequest, folderChain: folderChain, collection: collection, scope: scope)
         let encodedBody = try encodeBody(resolved.body)
 
         var headers = resolved.headers
@@ -91,7 +101,31 @@ public actor RequestRunner {
         var updatedScope = scope
         ResponseCaptureExtractor.apply(request.captures, record: record, into: &updatedScope)
 
-        return RunResult(record: record, assertionResults: assertionResults, scope: updatedScope)
+        let (finalScope, scriptError) = await RequestScriptHooks.runPostResponse(
+            for: request,
+            record: record,
+            scope: updatedScope,
+            runtime: scriptRuntime,
+        )
+
+        return RunResult(record: record, assertionResults: assertionResults, scope: finalScope, scriptError: scriptError)
+    }
+
+    /// Runs `request`'s pre-request script (if any) before resolution ever
+    /// sees the request — see `RequestScriptHooks`. A throw here means the
+    /// script failed; the run stops with `RequestRunnerError.script`
+    /// instead of falling through to send `request` unmodified.
+    private func applyPreRequestScript(
+        _ request: RequestSpec,
+        scope: VariableScope,
+    ) async throws(RequestRunnerError) -> RequestSpec {
+        do {
+            return try await RequestScriptHooks.applyPreRequest(to: request, scope: scope, runtime: scriptRuntime)
+        } catch let error as ScriptError {
+            throw .script(error)
+        } catch {
+            throw .script(.runtimeError(String(describing: error)))
+        }
     }
 
     private func resolvePlan(
@@ -115,71 +149,4 @@ public actor RequestRunner {
         }
     }
 
-    private func sendAndBuildRecord(
-        _ urlRequest: URLRequest,
-        followRedirects: Bool,
-        requestHeaders: [String: String],
-        requestBody: Data?,
-        method: HttpMethod,
-        url: URL,
-        startedAt: Date,
-    ) async -> NetworkRequest {
-        let startTime = Int64(startedAt.timeIntervalSince1970 * 1000)
-        do {
-            let transportResponse = try await transport.execute(urlRequest, followRedirects: followRedirects)
-            // The response's Set-Cookie values land in the jar — scoped by
-            // CookieWire's parse to the response URL, which after redirects
-            // is the final hop — so subsequent sends to matching domains
-            // carry them; a disabled jar stores nothing.
-            if let responseURL = transportResponse.response.url {
-                cookies.setCookies(CookieWire.parseSetCookies(from: transportResponse.response), for: responseURL)
-            }
-            return NetworkRequest(
-                url: url.absoluteString,
-                method: method,
-                status: transportResponse.response.statusCode,
-                startTime: startTime,
-                duration: elapsedMs(since: startedAt),
-                requestHeaders: requestHeaders.mapValues { [$0] },
-                responseHeaders: Self.headerMap(from: transportResponse.response),
-                requestBodySize: Int64(requestBody?.count ?? 0),
-                responseBodySize: Int64(transportResponse.data.count),
-                requestBody: requestBody.flatMap { String(data: $0, encoding: .utf8) },
-                responseBody: String(data: transportResponse.data, encoding: .utf8),
-                source: .urlSession,
-                dnsMs: transportResponse.phases?.dnsMs,
-                tlsMs: transportResponse.phases?.tlsMs,
-                connectMs: transportResponse.phases?.connectMs,
-                ttfbMs: transportResponse.phases?.ttfbMs,
-                downloadMs: transportResponse.phases?.downloadMs,
-                redirectCount: transportResponse.redirectChain.count,
-                redirectUrls: transportResponse.redirectChain.map(\.absoluteString),
-            )
-        } catch {
-            return NetworkRequest(
-                url: url.absoluteString,
-                method: method,
-                startTime: startTime,
-                duration: elapsedMs(since: startedAt),
-                requestHeaders: requestHeaders.mapValues { [$0] },
-                requestBodySize: Int64(requestBody?.count ?? 0),
-                requestBody: requestBody.flatMap { String(data: $0, encoding: .utf8) },
-                error: String(describing: error),
-                source: .urlSession,
-            )
-        }
-    }
-
-    private func elapsedMs(since startedAt: Date) -> Int64 {
-        Int64(Date().timeIntervalSince(startedAt) * 1000)
-    }
-
-    private static func headerMap(from response: HTTPURLResponse) -> [String: [String]] {
-        var map: [String: [String]] = [:]
-        for (key, value) in response.allHeaderFields {
-            guard let name = key as? String else { continue }
-            map[name, default: []].append(String(describing: value))
-        }
-        return map
-    }
 }

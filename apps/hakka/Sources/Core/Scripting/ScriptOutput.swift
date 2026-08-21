@@ -1,17 +1,29 @@
 import Foundation
 
-/// What a script produced: its (possibly mutated) request/response, and
-/// anything it logged. Only present when the input carried the matching
-/// context — a script given no `response` cannot manufacture one.
+/// What a script produced: its (possibly mutated) request/response,
+/// anything it logged, and any runtime variables it set. Only present when
+/// the input carried the matching context — a script given no `response`
+/// cannot manufacture one.
 public struct ScriptOutput: Sendable, Equatable {
     public var request: ScriptRequestContext?
     public var response: ScriptResponseContext?
     public var logs: [String]
+    /// Values written through the `vars.set(name, value)` global — how a
+    /// post-response hook hands a value to the next request in a chain
+    /// without a wider, ambient-write surface. Empty when the script never
+    /// called `vars.set`.
+    public var variables: [String: String]
 
-    public init(request: ScriptRequestContext? = nil, response: ScriptResponseContext? = nil, logs: [String] = []) {
+    public init(
+        request: ScriptRequestContext? = nil,
+        response: ScriptResponseContext? = nil,
+        logs: [String] = [],
+        variables: [String: String] = [:],
+    ) {
         self.request = request
         self.response = response
         self.logs = logs
+        self.variables = variables
     }
 }
 

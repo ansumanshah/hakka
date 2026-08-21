@@ -64,8 +64,21 @@ final class RequestEditorModel {
             lastRunError = nil
             return result.scope
         } catch {
-            lastRunError = String(describing: error)
+            lastRunError = Self.describe(error)
             return nil
+        }
+    }
+
+    /// A human-readable abort reason. `.script` is the only case that can
+    /// reach here from a pre-request hook (a post-response hook's failure
+    /// never throws — see `RunResult.scriptError`), so this is what the
+    /// Scripts tab shows under the pre-request editor.
+    private static func describe(_ error: RequestRunnerError) -> String {
+        switch error {
+        case let .resolution(inner): "Couldn't resolve request: \(inner)"
+        case let .bodyEncoding(inner): "Couldn't encode body: \(inner)"
+        case .script(.timeout): "Pre-request script timed out"
+        case let .script(.runtimeError(message)): "Pre-request script error: \(message)"
         }
     }
 }

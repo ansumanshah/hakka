@@ -28,6 +28,11 @@ struct RequestEditorContainerView: View {
         case .body: RequestBodyTabView(spec: specBinding)
         case .auth: RequestAuthTabView(spec: specBinding)
         case .tests: RequestTestsTabView(spec: specBinding)
+        case .scripts: RequestScriptsTabView(
+                spec: specBinding,
+                lastRunError: model.editor.lastRunError,
+                postResponseScriptError: model.editor.lastResult?.scriptError,
+            )
         case .docs: RequestDocsTabView(spec: specBinding)
         }
     }
