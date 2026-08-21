@@ -16,6 +16,7 @@ final class AppModel {
     let editor = RequestEditorModel()
     let rules: RulesModel
     let folderRun = FolderRunModel()
+    let webSocket = WebSocketConnectionModel()
 
     init() {
         let traffic = TrafficModel()

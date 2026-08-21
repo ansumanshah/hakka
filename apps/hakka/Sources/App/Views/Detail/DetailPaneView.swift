@@ -1,3 +1,4 @@
+import HakkaCore
 import SwiftUI
 
 /// Right column: the active request's last response, or the selected
@@ -40,7 +41,16 @@ struct DetailPaneView: View {
 
     @ViewBuilder
     private var requestDetail: some View {
-        if let result = model.editor.lastResult {
+        // A `ws://`/`wss://` draft gets the frame console instead of the
+        // normal send/response view, checked before `lastResult` — a socket
+        // is a connect-then-many-frames session, not a send-then-one-response
+        // run, so it never waits for (or produces) a `RunResult`.
+        if let draft = model.editor.draft, WebSocketURL.isWebSocketURL(draft.url) {
+            ScrollView {
+                DetailFramesTabView(model: model.webSocket, url: draft.url)
+                    .padding(16)
+            }
+        } else if let result = model.editor.lastResult {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     NetworkRequestDetailView(record: result.record)
