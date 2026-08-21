@@ -21,6 +21,11 @@ import SwiftUI
 /// as one cue instead of stripe-plus-color. That is the real cost of
 /// choosing `Table` here, and it is judged worth it for what free resizing,
 /// reordering, and a picker return in exchange.
+/// Requires `TableColumnForEach` (macOS 14.4+); the package's platform
+/// floor stays 14.0, so every call site gates this behind
+/// `if #available(macOS 14.4, *)` and falls back to `LiveTrafficListView`'s
+/// list — see `LiveTrafficListView` and `LiveTrafficHeader`.
+@available(macOS 14.4, *)
 struct LiveTrafficTableView: View {
     @Environment(AppModel.self) private var model
 

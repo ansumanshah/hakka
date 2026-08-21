@@ -44,24 +44,31 @@ struct LiveTrafficHeader: View {
         }
     }
 
+    /// Table mode needs `TableColumnForEach` (macOS 14.4) — the package
+    /// floor stays 14.0, so the toggle that offers it is gated the same way
+    /// `LiveTrafficListView` gates rendering it. Never show an option that
+    /// would just silently fall back to list underneath the user.
+    @ViewBuilder
     private var displayModePicker: some View {
-        HStack(spacing: 2) {
-            modeButton(.list, systemImage: "list.bullet")
-            modeButton(.table, systemImage: "tablecells")
-            if model.traffic.displayMode == .table {
-                Button {
-                    columnPickerPresented = true
-                } label: {
-                    Image(systemName: "slider.horizontal.3")
-                }
-                .buttonStyle(.plain)
-                .help("Customize Columns")
-                .popover(isPresented: $columnPickerPresented) {
-                    TrafficColumnPickerView(store: model.traffic.columnConfig)
+        if #available(macOS 14.4, *) {
+            HStack(spacing: 2) {
+                modeButton(.list, systemImage: "list.bullet")
+                modeButton(.table, systemImage: "tablecells")
+                if model.traffic.displayMode == .table {
+                    Button {
+                        columnPickerPresented = true
+                    } label: {
+                        Image(systemName: "slider.horizontal.3")
+                    }
+                    .buttonStyle(.plain)
+                    .help("Customize Columns")
+                    .popover(isPresented: $columnPickerPresented) {
+                        TrafficColumnPickerView(store: model.traffic.columnConfig)
+                    }
                 }
             }
+            .font(.caption)
         }
-        .font(.caption)
     }
 
     private func modeButton(_ mode: TrafficDisplayMode, systemImage: String) -> some View {
