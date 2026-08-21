@@ -1,0 +1,11 @@
+{
+  "id": "span-child-1",
+  "traceId": "trace-1",
+  "parentId": "span-root-1",
+  "name": "db.query orders",
+  "startTime": 1732000000100,
+  "endTime": 1732000000180,
+  "attrs": { "db.system": "postgres" },
+  "verbosity": "verbose",
+  "runtime": "server"
+}

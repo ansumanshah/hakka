@@ -30,14 +30,14 @@ tuned toward catching more, not toward precision.
 Anything that hands a captured body to an agent or across a machine boundary defaults to
 scrubbed; the developer opts OUT explicitly.
 
-| Surface | Default | Why |
-| --- | --- | --- |
-| MCP `get_request` / `list_requests` / `search_requests` | Scrubbed | Read tools hand request data straight into agent context — the same case the strong local-first prior covers. `unredacted: true` opts out per call. |
-| MCP `export_evidence` | Scrubbed | Built specifically to hand a failure to an agent. `unredacted: true` opts out. |
-| MCP `generate_repro` | Scrubbed, including the generated test file | A repro bundle exists to leave the machine (handed to someone else, filed as a bug). The generated test file is built from the SAME scrubbed requests as the bundle — building it from the raw pool would silently undo the bundle's own scrub for the one artifact most likely to bake a literal secret value into an assertion string. `unredacted: true` opts out. |
-| Browser "Copy as agent context" (`copyAgentContextForRequest`) | Scrubbed | The clipboard payload is about to be pasted into an AI agent thread. Pass `{ scrub: false }` to opt out for one copy. |
-| `createReproBundleExporter` (the `Exporter`-contract `.hakka-repro` file save) | NOT scrubbed (forced off) | This wrapper is the ONE contractually byte-for-byte-lossless (`lossy: false`) exporter — `exporterConformance.ts` checks that claim. Scrubbing is itself a lossy transform, so this wrapper force-sets `scrub: false` regardless of what its options request. A caller wanting a scrubbed `.hakka-repro` file calls `buildReproBundle` + `serializeReproBundle` directly instead of going through this wrapper. |
-| HAR / OTel export (`exportHarString`, `recordsToOtelJson`) | NOT scrubbed | Out of this pass's scope — see **Limits & non-goals**. |
+| Surface                                                                        | Default                                     | Why                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ------------------------------------------------------------------------------ | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| MCP `get_request` / `list_requests` / `search_requests`                        | Scrubbed                                    | Read tools hand request data straight into agent context — the same case the strong local-first prior covers. `unredacted: true` opts out per call.                                                                                                                                                                                                                                                             |
+| MCP `export_evidence`                                                          | Scrubbed                                    | Built specifically to hand a failure to an agent. `unredacted: true` opts out.                                                                                                                                                                                                                                                                                                                                  |
+| MCP `generate_repro`                                                           | Scrubbed, including the generated test file | A repro bundle exists to leave the machine (handed to someone else, filed as a bug). The generated test file is built from the SAME scrubbed requests as the bundle — building it from the raw pool would silently undo the bundle's own scrub for the one artifact most likely to bake a literal secret value into an assertion string. `unredacted: true` opts out.                                           |
+| Browser "Copy as agent context" (`copyAgentContextForRequest`)                 | Scrubbed                                    | The clipboard payload is about to be pasted into an AI agent thread. Pass `{ scrub: false }` to opt out for one copy.                                                                                                                                                                                                                                                                                           |
+| `createReproBundleExporter` (the `Exporter`-contract `.hakka-repro` file save) | NOT scrubbed (forced off)                   | This wrapper is the ONE contractually byte-for-byte-lossless (`lossy: false`) exporter — `exporterConformance.ts` checks that claim. Scrubbing is itself a lossy transform, so this wrapper force-sets `scrub: false` regardless of what its options request. A caller wanting a scrubbed `.hakka-repro` file calls `buildReproBundle` + `serializeReproBundle` directly instead of going through this wrapper. |
+| HAR / OTel export (`exportHarString`, `recordsToOtelJson`)                     | NOT scrubbed                                | Out of this pass's scope — see **Limits & non-goals**.                                                                                                                                                                                                                                                                                                                                                          |
 
 ## Public API
 
@@ -71,11 +71,11 @@ describeShareScrub(summary) // human-readable one-liner, e.g. "Scrubbed before s
 Not part of `HakkaConfig` — share scrubbing is applied on demand by the surfaces listed above,
 each with its own default (see the table above), not a global toggle.
 
-| Function | Option | Default |
-| --- | --- | --- |
-| `buildReproBundle` | `scrub` | `true` |
-| `buildEvidenceBundle` | `scrub` | `true` |
-| every `scrub*ForShare` function | `scrubEmails` | `true` |
+| Function                        | Option                                                  | Default                                                    |
+| ------------------------------- | ------------------------------------------------------- | ---------------------------------------------------------- |
+| `buildReproBundle`              | `scrub`                                                 | `true`                                                     |
+| `buildEvidenceBundle`           | `scrub`                                                 | `true`                                                     |
+| every `scrub*ForShare` function | `scrubEmails`                                           | `true`                                                     |
 | every `scrub*ForShare` function | `extraJsonFields` / `extraQueryParams` / `extraHeaders` | `[]` — additive to the defaults below, never a replacement |
 
 `DEFAULT_SHARE_SCRUB_JSON_FIELDS` covers common credential/PII field names (`password`, `token`,
@@ -91,9 +91,9 @@ Not a distinct row in SPEC §5 — JS-only today (Node/MCP + Web). No native (iO
 equivalent exists yet; each of those platforms' own share/export paths still needs the same
 share-time pass, tracked as follow-up work rather than claimed here.
 
-| Capability | RN | iOS | Android | Web |
-| --- | --- | --- | --- | --- |
-| Share scrubbing | ○ | ○ | ○ | ● |
+| Capability      | RN  | iOS | Android | Web |
+| --------------- | --- | --- | ------- | --- |
+| Share scrubbing | ○   | ○   | ○       | ●   |
 
 ## Wire format
 

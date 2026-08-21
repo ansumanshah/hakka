@@ -1,0 +1,11 @@
+{
+  "id": "span-skewed-1",
+  "traceId": "trace-1",
+  "parentId": null,
+  "name": "POST /checkout",
+  "startTime": 1731999999500,
+  "endTime": 1732000000300,
+  "verbosity": "primary",
+  "runtime": "server",
+  "requestKind": "route-handler"
+}

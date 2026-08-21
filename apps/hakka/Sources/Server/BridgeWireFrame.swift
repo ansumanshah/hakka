@@ -1,5 +1,6 @@
 import Foundation
 import HakkaCommon
+import HakkaCore
 
 /// Swift mirror of the `BridgeMessage` union in
 /// `packages/hakka-bridge/src/protocol.ts` — read that file first, it is the
@@ -28,6 +29,24 @@ public struct BridgeFrame: Sendable, Equatable {
     /// a parse failure) — this hub must never be stricter than the TS hub it
     /// mirrors, which relays a control frame it cannot itself interpret.
     public let control: ControlCommand?
+
+    /// Set only for `.span` frames whose `payload` decoded into
+    /// `FrameworkSpan`, on the same "still parseable either way" terms.
+    public let span: FrameworkSpan?
+
+    public init(
+        kind: BridgeFrameKind,
+        raw: String,
+        request: NetworkRequest? = nil,
+        control: ControlCommand? = nil,
+        span: FrameworkSpan? = nil
+    ) {
+        self.kind = kind
+        self.raw = raw
+        self.request = request
+        self.control = control
+        self.span = span
+    }
 }
 
 public enum BridgeWireLimits {
@@ -46,6 +65,12 @@ public enum BridgeWireLimits {
 /// risk quietly reformatting numbers.
 private struct BridgeRequestEnvelope: Decodable {
     let payload: NetworkRequest
+}
+
+/// Decodes just the `payload` of a `{"type":"span",...}` frame — same
+/// rationale as `BridgeRequestEnvelope`.
+private struct BridgeSpanEnvelope: Decodable {
+    let payload: FrameworkSpan
 }
 
 /// Parse one raw WebSocket text frame into a typed `BridgeFrame`. Returns
@@ -72,8 +97,11 @@ public func parseBridgeFrame(_ raw: String, maxBytes: Int = BridgeWireLimits.max
     }
 
     var decodedRequest: NetworkRequest?
+    var decodedSpan: FrameworkSpan?
     if kind == .request {
         decodedRequest = try? JSONDecoder().decode(BridgeRequestEnvelope.self, from: data).payload
+    } else if kind == .span {
+        decodedSpan = try? JSONDecoder().decode(BridgeSpanEnvelope.self, from: data).payload
     }
     var decodedControl: ControlCommand?
     if kind == .control {
@@ -85,5 +113,5 @@ public func parseBridgeFrame(_ raw: String, maxBytes: Int = BridgeWireLimits.max
         // parsed the frame).
         decodedControl = parseControlCommand(payload)
     }
-    return BridgeFrame(kind: kind, raw: raw, request: decodedRequest, control: decodedControl)
+    return BridgeFrame(kind: kind, raw: raw, request: decodedRequest, control: decodedControl, span: decodedSpan)
 }

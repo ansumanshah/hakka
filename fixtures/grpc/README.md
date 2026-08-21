@@ -35,7 +35,7 @@ HakkaCommon's `decodeGrpcWeb`/`decodeProtobuf` for the actual wire walk.
   decode to a partial/empty result, never crash.
 - `grpc-web-status-not-found.bin` — one data frame, then a gRPC-Web trailer
   frame carrying `grpc-status: 5` (`NOT_FOUND`) and a percent-encoded
-  `grpc-message`. The point: this is what a *failed* gRPC call looks like
+  `grpc-message`. The point: this is what a _failed_ gRPC call looks like
   captured over HTTP — the HTTP status is 200, and the real outcome only
   exists in this trailer frame.
 - `grpc-web-status-ok.bin` — trailer-only frame, `grpc-status: 0` (`OK`), no

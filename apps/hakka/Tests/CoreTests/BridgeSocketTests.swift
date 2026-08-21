@@ -1,6 +1,7 @@
 import Foundation
 import HakkaCommon
 import Testing
+@testable import HakkaCore
 @testable import HakkaServer
 
 /// The one path `ServerTests` could not cover: a real socket. Those tests
@@ -71,6 +72,46 @@ struct BridgeSocketTests {
 
         let captured = try #require(received, "a frame sent over a live socket never reached the hub")
         #expect(captured.request.id == "sock-1")
+    }
+
+    private func waitForFirstSpan(_ server: BridgeServer, timeout: Duration = .seconds(5)) async -> FrameworkSpan? {
+        await withTaskGroup(of: FrameworkSpan?.self) { group in
+            group.addTask {
+                for await span in await server.hub.spans { return span }
+                return nil
+            }
+            group.addTask {
+                try? await Task.sleep(for: timeout)
+                return nil
+            }
+            let first = await group.next() ?? nil
+            group.cancelAll()
+            return first
+        }
+    }
+
+    /// The span counterpart to `aFrameSentOverTheSocketReachesTheRequestStream`
+    /// — proves span ingestion against a real loopback socket, not just the
+    /// in-process fake peers `ServerTests` uses. Same rationale as this
+    /// suite's header: a fake-peer-only test once stayed green while the app
+    /// received nothing at all.
+    @Test func aSpanSentOverTheSocketReachesTheSpansStream() async throws {
+        let server = BridgeServer(options: BridgeServerOptions(port: 0, advertise: false))
+        try await server.start()
+        let port = try #require(await boundPort(of: server))
+        defer { Task { await server.stop() } }
+
+        let task = URLSession.shared.webSocketTask(with: URL(string: "ws://127.0.0.1:\(port)")!)
+        task.resume()
+        let payload = #"{"id":"span-sock-1","traceId":"trace-sock","parentId":null,"name":"GET /","startTime":1,"endTime":2,"verbosity":"primary","runtime":"server"}"#
+        try await task.send(.string(#"{"type":"span","payload":\#(payload)}"#))
+
+        let received = await waitForFirstSpan(server)
+        task.cancel(with: .goingAway, reason: nil)
+
+        let span = try #require(received, "a span frame sent over a live socket never reached the hub")
+        #expect(span.id == "span-sock-1")
+        #expect(span.traceId == "trace-sock")
     }
 
     @Test func aConnectedClientIsRegisteredAsAPeer() async throws {

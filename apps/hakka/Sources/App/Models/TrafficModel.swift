@@ -36,6 +36,10 @@ final class TrafficModel {
     /// Internal, not `private`: `TrafficModel+Session.swift`'s extension
     /// needs it too, and an extension in another file can't see `private`.
     let store = TrafficStore()
+    /// Cross-target trace correlation (ADR 0001) — joins requests and
+    /// `hakka-node` framework spans by `correlationId`/`traceId`. Read by
+    /// `Views/Trace/TraceWaterfallView` via `TraceModel`.
+    let traceStore = TraceStore()
     /// The authored rules pushed to devices over the bridge.
     let rules = RuleStore()
     /// Breakpoint pauses reported *by* devices, waiting on this desktop.
@@ -64,13 +68,23 @@ final class TrafficModel {
         }
         let hub = await server.hub
         ruleSender = ControlSender(hub: hub)
-        // A concurrent child, not a sequential `await` after the requests
-        // loop: `hub.hostControls` is an infinite stream just like
-        // `hub.requests`, so consuming it after would mean never consuming
-        // it at all. `async let` runs it alongside for `start()`'s own
-        // lifetime (mirrors `HakkaApp.swift`'s `async let mirrorRules`
-        // pattern one level up).
-        async let controlLoop: Void = consumeHostControls(hub: hub)
+        // Three indefinitely-running consumers of the same hub: captured
+        // requests, device-to-host control frames, and framework spans. All
+        // three live under one group so they are cancelled together with
+        // this task, rather than any of them being an untracked detached
+        // `Task` that outlives the scene.
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { [traceStore] in
+                for await span in hub.spans {
+                    await traceStore.addSpan(span)
+                }
+            }
+            group.addTask { await self.consumeHostControls(hub: hub) }
+            group.addTask { await self.consumeRequests(hub: hub) }
+        }
+    }
+
+    private func consumeRequests(hub: BridgeHub) async {
         for await captured in hub.requests {
             let request = captured.request
             await store.append(request)
@@ -83,8 +97,8 @@ final class TrafficModel {
             }
             await countRuleHits(for: request)
             stats = await store.stats()
+            await traceStore.addRequest(request)
         }
-        await controlLoop
     }
 
     /// Feeds every device -> host control frame (today: `breakpoint.paused`

@@ -1,0 +1,11 @@
+{
+  "id": "span-root-1",
+  "traceId": "trace-1",
+  "parentId": null,
+  "name": "POST /checkout",
+  "startTime": 1732000000050,
+  "endTime": 1732000000400,
+  "verbosity": "primary",
+  "runtime": "server",
+  "requestKind": "route-handler"
+}

@@ -90,14 +90,14 @@ Twenty tools, grouped by what they do. The see and diagnose tools only observe t
 
 ### See
 
-| Tool              | What it does                                                                                                       |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `list_requests`   | Paginated, newest-first list (`limit` 1–500, `offset`). Scrubbed for share by default — `unredacted: true` opts out. |
-| `get_request`     | A single request by `id`, with full headers, body, and timing. Scrubbed for share by default — `unredacted: true` opts out. |
+| Tool              | What it does                                                                                                                                                                    |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `list_requests`   | Paginated, newest-first list (`limit` 1–500, `offset`). Scrubbed for share by default — `unredacted: true` opts out.                                                            |
+| `get_request`     | A single request by `id`, with full headers, body, and timing. Scrubbed for share by default — `unredacted: true` opts out.                                                     |
 | `search_requests` | Filter by `method`, `status` (minimum code), `urlContains`, `runtime`, `errorOnly`, plus the advanced `query` DSL. Scrubbed for share by default — `unredacted: true` opts out. |
-| `stats`           | Aggregate counts: totals, error rate, status-code and method breakdown, slowest.                                   |
-| `clear`           | Empty the in-memory store. Does not disconnect the bridge or stop capture.                                         |
-| `get_trace`       | Full request+span trace for one correlated operation (`requestId` or `correlationId`), assembled from both stores. |
+| `stats`           | Aggregate counts: totals, error rate, status-code and method breakdown, slowest.                                                                                                |
+| `clear`           | Empty the in-memory store. Does not disconnect the bridge or stop capture.                                                                                                      |
+| `get_trace`       | Full request+span trace for one correlated operation (`requestId` or `correlationId`), assembled from both stores.                                                              |
 
 ### Diagnose
 
@@ -121,12 +121,12 @@ Twenty tools, grouped by what they do. The see and diagnose tools only observe t
 
 ### Reproduce
 
-| Tool              | What it does                                                                                                                                             |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `generate_mocks`  | "Record, then mock": turn captured traffic into mock rules, deduped one per (method, path). `apply: true` also sends them to the app.                    |
-| `generate_test`   | Turn captured traffic into a runnable `hakka-core/test` regression file (vitest / bun / jest), grouped by host, one `it()` per request.                  |
+| Tool              | What it does                                                                                                                                                                                                                                    |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `generate_mocks`  | "Record, then mock": turn captured traffic into mock rules, deduped one per (method, path). `apply: true` also sends them to the app.                                                                                                           |
+| `generate_test`   | Turn captured traffic into a runnable `hakka-core/test` regression file (vitest / bun / jest), grouped by host, one `it()` per request.                                                                                                         |
 | `generate_repro`  | One self-contained bundle: the requests, the mock rules that replay them, and a generated regression test. Everything to hand a failure to someone else. Scrubbed for share by default (including the test file) — `unredacted: true` opts out. |
-| `export_evidence` | A size-budgeted evidence bundle (requests, mocks, trace, diagnosis) for handing a failure to CI, a teammate, or a bug report. Scrubbed for share by default — `unredacted: true` opts out.                            |
+| `export_evidence` | A size-budgeted evidence bundle (requests, mocks, trace, diagnosis) for handing a failure to CI, a teammate, or a bug report. Scrubbed for share by default — `unredacted: true` opts out.                                                      |
 
 <Aside type="note" title="Change tools need a connected dev app">
   The change tools drive Hakka's in-app mock / breakpoint / throttle engines through the bridge. They are
@@ -135,12 +135,12 @@ Twenty tools, grouped by what they do. The see and diagnose tools only observe t
 </Aside>
 
 <Aside type="caution" title="Share scrubbing">
-  `list_requests`, `get_request`, `search_requests`, `export_evidence`, and `generate_repro` all pattern-match
-  and strip likely secrets (bearer tokens, JWTs, API keys in query strings, cookies, Basic-auth URLs, common
-  credential field names, email addresses) before returning — every one of these tools hands bodies straight
-  into your agent's context. Every result carries a `redaction` field saying what ran and what it found; pass
-  `unredacted: true` to see a request exactly as captured. This is pattern matching, not a secret scanner — see
-  [Share Scrubbing](/spec/share-scrubbing/) for exactly what it does and does not catch.
+  `list_requests`, `get_request`, `search_requests`, `export_evidence`, and `generate_repro` all pattern-match and strip
+  likely secrets (bearer tokens, JWTs, API keys in query strings, cookies, Basic-auth URLs, common credential field
+  names, email addresses) before returning — every one of these tools hands bodies straight into your agent's context.
+  Every result carries a `redaction` field saying what ran and what it found; pass `unredacted: true` to see a request
+  exactly as captured. This is pattern matching, not a secret scanner — see [Share Scrubbing](/spec/share-scrubbing/)
+  for exactly what it does and does not catch.
 </Aside>
 
 ## The `query` DSL

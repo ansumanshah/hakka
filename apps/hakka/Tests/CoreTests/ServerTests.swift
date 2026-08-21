@@ -2,6 +2,7 @@ import Foundation
 import Network
 import Testing
 import HakkaCommon
+@testable import HakkaCore
 @testable import HakkaServer
 
 // MARK: - Fixtures
@@ -18,6 +19,18 @@ private func requestFrameJSON(id: String = "req-1") -> String {
 
 private func spanFrameJSON() -> String {
     #"{"type":"span","payload":{"traceId":"t1","spanId":"s1","name":"GET /"}}"#
+}
+
+/// A `.span` payload that actually satisfies `FrameworkSpan`, unlike
+/// `spanFrameJSON()` above (which deliberately uses the wrong field names to
+/// prove a still-parseable-but-undecoded frame). Field values match
+/// `fixtures/span/server-root-span.json`.
+private func validSpanFrameJSON(id: String = "span-root-1") -> String {
+    """
+    {"type":"span","payload":{"id":"\(id)","traceId":"trace-1","parentId":null,\
+    "name":"POST /checkout","startTime":1732000000050,"endTime":1732000000400,\
+    "verbosity":"primary","runtime":"server"}}
+    """
 }
 
 private func controlFrameJSON() -> String {
@@ -39,6 +52,27 @@ struct ParseBridgeFrameTests {
         let frame = parseBridgeFrame(spanFrameJSON())
         #expect(frame?.kind == .span)
         #expect(frame?.request == nil)
+    }
+
+    /// The other half of `validSpanParsesWithoutDecodingRequest`: a `.span`
+    /// frame whose payload DOES satisfy `FrameworkSpan` must decode it, the
+    /// same way a well-formed `.request` payload decodes into
+    /// `NetworkRequest`.
+    @Test func wellFormedSpanFrameDecodesIntoFrameworkSpan() {
+        let frame = parseBridgeFrame(validSpanFrameJSON())
+        #expect(frame?.kind == .span)
+        #expect(frame?.span?.id == "span-root-1")
+        #expect(frame?.span?.traceId == "trace-1")
+        #expect(frame?.span?.parentId == nil)
+        #expect(frame?.span?.runtime == .server)
+    }
+
+    /// Mirrors `requestPayloadMissingRequiredFieldStillParsesButDoesNotDecode`
+    /// for spans: the hub must never be stricter than the TS one it mirrors.
+    @Test func spanPayloadMissingRequiredFieldStillParsesButDoesNotDecode() {
+        let frame = parseBridgeFrame(spanFrameJSON()) // uses "spanId" not "id" — shape mismatch
+        #expect(frame?.kind == .span)
+        #expect(frame?.span == nil)
     }
 
     @Test func validControlParsesWithoutDecodingRequest() {
@@ -133,6 +167,26 @@ struct BridgeHubTests {
         #expect(result?.kind == .span)
         #expect(other.sent == [raw])
         #expect(sender.sent.isEmpty)
+    }
+
+    /// The span counterpart to `requestFrameRelaysAndSurfacesOnRequestsStream`
+    /// — this is the exact gap the task brief calls out: before this, a
+    /// `.span` frame was relayed but silently thrown away by the desktop's
+    /// own capture side, because nothing decoded it or yielded it anywhere.
+    @Test func spanFrameSurfacesOnSpansStream() async {
+        let hub = BridgeHub()
+        let sender = FakeBridgePeer()
+        await hub.addPeer(sender)
+
+        let raw = validSpanFrameJSON()
+        let result = await hub.ingest(raw, from: sender.id)
+
+        #expect(result?.span?.id == "span-root-1")
+
+        var iterator = hub.spans.makeAsyncIterator() // `spans` is `nonisolated` — no actor hop needed
+        let received = await iterator.next()
+        #expect(received?.id == "span-root-1")
+        #expect(received?.traceId == "trace-1")
     }
 
     @Test func requestFrameRelaysAndSurfacesOnRequestsStream() async {
