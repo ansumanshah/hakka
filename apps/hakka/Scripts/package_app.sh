@@ -6,9 +6,9 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT"
 
 APP_NAME=${APP_NAME:-Hakka}
-# The SPM executable product is HakkaDesktop; the shipped app is just "Hakka".
+# The SPM executable product and the shipped app share the name "Hakka".
 # Kept as its own knob so the bundle name and the build product can differ.
-EXEC_NAME=${EXEC_NAME:-HakkaDesktop}
+EXEC_NAME=${EXEC_NAME:-Hakka}
 BUNDLE_ID=${BUNDLE_ID:-com.noodleapps.hakka}
 MACOS_MIN_VERSION=${MACOS_MIN_VERSION:-14.0}
 MENU_BAR_APP=${MENU_BAR_APP:-0}
@@ -126,7 +126,7 @@ install_binary() {
 install_binary "$EXEC_NAME" "$APP/Contents/MacOS/$APP_NAME"
 
 # Bundle app resources (if any).
-APP_RESOURCES_DIR="$ROOT/Sources/HakkaDesktopApp/Resources"
+APP_RESOURCES_DIR="$ROOT/Sources/App/Resources"
 if [[ -d "$APP_RESOURCES_DIR" ]]; then
   cp -R "$APP_RESOURCES_DIR/." "$APP/Contents/Resources/"
 fi

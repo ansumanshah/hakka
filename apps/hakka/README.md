@@ -13,21 +13,21 @@ swift build     # macOS 14+, Swift 6 toolchain
 swift test
 
 # Bundle and run it as a real .app
-EXEC_NAME=HakkaDesktop APP_NAME=Hakka ./Scripts/package_app.sh debug
+./Scripts/package_app.sh debug
 open Hakka.app
 ```
 
 ## Layout
 
-| Path                      | Product              | What it holds                                                                                           |
-| ------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------- |
-| `Sources/DesktopCore`     | `HakkaDesktopCore`   | Collections, environments, request runner, importers, code generation, traffic store. No UI, no server. |
-| `Sources/DesktopServer`   | `HakkaDesktopServer` | The bridge hub as a Swift actor, speaking `hakka-bridge`'s wire protocol.                               |
-| `Sources/HakkaDesktopApp` | `HakkaDesktop`       | The SwiftUI app shell.                                                                                  |
-| `Tests/DesktopCoreTests`  | —                    | Swift Testing suites for the two library products.                                                      |
+| Path              | Product       | What it holds                                                                                           |
+| ----------------- | ------------- | ------------------------------------------------------------------------------------------------------- |
+| `Sources/Core`    | `HakkaCore`   | Collections, environments, request runner, importers, code generation, traffic store. No UI, no server. |
+| `Sources/Server`  | `HakkaServer` | The bridge hub as a Swift actor, speaking `hakka-bridge`'s wire protocol.                               |
+| `Sources/App`     | `Hakka`       | The SwiftUI app shell.                                                                                  |
+| `Tests/CoreTests` | —             | Swift Testing suites for the two library products.                                                      |
 
 The libraries are the deliverable; the app is a thin host. Another Swift app (Noodle,
-Ramen) can depend on `HakkaDesktopCore` and get collections and the runner without
+Ramen) can depend on `HakkaCore` and get collections and the runner without
 inheriting a window.
 
 ## Depends on `ios/` by path

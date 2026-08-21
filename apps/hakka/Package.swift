@@ -4,8 +4,8 @@ import PackageDescription
 /// Hakka for macOS — a native desktop inspector and API client.
 ///
 /// Plugin-first by design (see `docs/.../adr/0008-desktop-plugin-products.md`):
-/// the shippable units are SPM *products*, not an app. `HakkaDesktopCore` is
-/// pure model/state with no UI and no server; `HakkaDesktopServer` is the
+/// the shippable units are SPM *products*, not an app. `HakkaCore` is
+/// pure model/state with no UI and no server; `HakkaServer` is the
 /// bridge hub actor; the executable is a thin host. Other Swift apps (Noodle,
 /// Ramen) can depend on the products without inheriting the app shell.
 ///
@@ -15,40 +15,40 @@ import PackageDescription
 /// the source is the whole point — a fork would drift the moment a bug is
 /// fixed on one side only.
 let package = Package(
-    name: "HakkaDesktop",
+    name: "HakkaApp",
     platforms: [.macOS(.v14)],
     products: [
-        .library(name: "HakkaDesktopCore", targets: ["HakkaDesktopCore"]),
-        .library(name: "HakkaDesktopServer", targets: ["HakkaDesktopServer"]),
-        .executable(name: "HakkaDesktop", targets: ["HakkaDesktopApp"]),
+        .library(name: "HakkaCore", targets: ["HakkaCore"]),
+        .library(name: "HakkaServer", targets: ["HakkaServer"]),
+        .executable(name: "Hakka", targets: ["HakkaApp"]),
     ],
     dependencies: [
         .package(path: "../../ios"),
     ],
     targets: [
         .target(
-            name: "HakkaDesktopCore",
+            name: "HakkaCore",
             dependencies: [.product(name: "HakkaCommon", package: "ios")],
-            path: "Sources/DesktopCore",
+            path: "Sources/Core",
         ),
         .target(
-            name: "HakkaDesktopServer",
-            dependencies: ["HakkaDesktopCore", .product(name: "HakkaCommon", package: "ios")],
-            path: "Sources/DesktopServer",
+            name: "HakkaServer",
+            dependencies: ["HakkaCore", .product(name: "HakkaCommon", package: "ios")],
+            path: "Sources/Server",
         ),
         .executableTarget(
-            name: "HakkaDesktopApp",
+            name: "HakkaApp",
             dependencies: [
-                "HakkaDesktopCore",
-                "HakkaDesktopServer",
+                "HakkaCore",
+                "HakkaServer",
                 .product(name: "HakkaUI", package: "ios"),
             ],
-            path: "Sources/HakkaDesktopApp",
+            path: "Sources/App",
         ),
         .testTarget(
-            name: "HakkaDesktopCoreTests",
-            dependencies: ["HakkaDesktopCore", "HakkaDesktopServer"],
-            path: "Tests/DesktopCoreTests",
+            name: "HakkaCoreTests",
+            dependencies: ["HakkaCore", "HakkaServer"],
+            path: "Tests/CoreTests",
         ),
     ],
 )
