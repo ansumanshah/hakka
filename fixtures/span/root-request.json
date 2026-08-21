@@ -1,0 +1,17 @@
+{
+  "id": "req-root-1",
+  "url": "https://mobile.example.com/checkout",
+  "method": "POST",
+  "startTime": 1732000000000,
+  "duration": 420,
+  "status": 200,
+  "requestHeaders": {},
+  "responseHeaders": {},
+  "requestBodySize": 0,
+  "responseBodySize": 0,
+  "source": "native",
+  "redirectCount": 0,
+  "redirectUrls": [],
+  "correlationId": "trace-1",
+  "runtime": "client"
+}

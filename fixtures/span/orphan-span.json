@@ -1,0 +1,10 @@
+{
+  "id": "span-orphan-1",
+  "traceId": "trace-1",
+  "parentId": "span-does-not-exist",
+  "name": "cache.get session",
+  "startTime": 1732000000120,
+  "endTime": 1732000000140,
+  "verbosity": "primary",
+  "runtime": "server"
+}

@@ -1,5 +1,6 @@
 import Foundation
 import HakkaCommon
+import HakkaCore
 
 /// Identifies one connected bridge peer for relay bookkeeping (send target,
 /// sender exclusion). One per `BridgeConnection`/fake peer for the lifetime
@@ -24,6 +25,15 @@ public struct BridgeIngestResult: Sendable, Equatable {
     /// Set only for `.request` frames whose payload decoded into
     /// `NetworkRequest` — see `BridgeFrame.request`.
     public let request: NetworkRequest?
+    /// Set only for `.span` frames whose payload decoded into
+    /// `FrameworkSpan` — see `BridgeFrame.span`.
+    public let span: FrameworkSpan?
+
+    public init(kind: BridgeFrameKind, request: NetworkRequest? = nil, span: FrameworkSpan? = nil) {
+        self.kind = kind
+        self.request = request
+        self.span = span
+    }
 }
 
 /// Transport-agnostic core of the desktop bridge hub — the Swift mirror of
@@ -41,6 +51,7 @@ public struct BridgeIngestResult: Sendable, Equatable {
 public actor BridgeHub {
     private var peers: [BridgePeerID: any BridgeRelayPeer] = [:]
     private let requestContinuation: AsyncStream<NetworkRequest>.Continuation
+    private let spanContinuation: AsyncStream<FrameworkSpan>.Continuation
 
     /// Decoded `request` frames, in ingestion order. One logical consumer
     /// (the desktop app's capture store) — `AsyncStream` does not fan out to
@@ -49,10 +60,18 @@ public actor BridgeHub {
     /// buffering, so consuming it needs no actor hop.
     public nonisolated let requests: AsyncStream<NetworkRequest>
 
+    /// Decoded `span` frames, in ingestion order — the moat-feature
+    /// counterpart to `requests`. Same single-consumer contract.
+    public nonisolated let spans: AsyncStream<FrameworkSpan>
+
     public init() {
         var continuation: AsyncStream<NetworkRequest>.Continuation?
         requests = AsyncStream { continuation = $0 }
         requestContinuation = continuation!
+
+        var spanCont: AsyncStream<FrameworkSpan>.Continuation?
+        spans = AsyncStream { spanCont = $0 }
+        spanContinuation = spanCont!
     }
 
     public var peerCount: Int { peers.count }
@@ -79,7 +98,10 @@ public actor BridgeHub {
         if let request = frame.request {
             requestContinuation.yield(request)
         }
-        return BridgeIngestResult(kind: frame.kind, request: frame.request)
+        if let span = frame.span {
+            spanContinuation.yield(span)
+        }
+        return BridgeIngestResult(kind: frame.kind, request: frame.request, span: frame.span)
     }
 
     /// Deliver a host-originated frame to every connected peer — the send
@@ -100,5 +122,6 @@ public actor BridgeHub {
 
     deinit {
         requestContinuation.finish()
+        spanContinuation.finish()
     }
 }

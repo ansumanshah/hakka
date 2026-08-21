@@ -77,13 +77,19 @@ struct DetailPaneView: View {
             if let id = model.traffic.selectedRequestID, let request = model.traffic.request(id: id) {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
-                        DetailActionBar(
-                            request: request,
-                            onReplay: { model.replayCaptured(request) },
-                            onSave: { model.saveCaptured(request) },
-                            onMock: { model.promoteCapturedToMock(request) },
-                            mockNote: model.mockPromotionNote
-                        )
+                        HStack {
+                            DetailActionBar(
+                                request: request,
+                                onReplay: { model.replayCaptured(request) },
+                                onSave: { model.saveCaptured(request) },
+                                onMock: { model.promoteCapturedToMock(request) },
+                                mockNote: model.mockPromotionNote
+                            )
+                            // Cross-target trace waterfall (ADR 0001) — only
+                            // renders itself when this request's trace has
+                            // more than one participant target.
+                            TraceAffordanceButton(traffic: model.traffic, requestID: request.id)
+                        }
                         NetworkRequestDetailView(record: request)
                             .id(request.id)
                     }

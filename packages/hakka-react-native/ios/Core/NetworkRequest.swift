@@ -209,6 +209,15 @@ public struct NetworkRequest: Sendable, Identifiable, Codable, Equatable {
     /// (via `x-hakka-trace` header). Non-nil only when trace propagation is enabled
     /// and the request matches the configured origin allowlist.
     public let correlationId: String?
+    /// Which target captured this hop — `'client'` (mobile/web), `'server'`, or
+    /// `'edge'`. Mirrors `RequestRuntime` in
+    /// `packages/hakka-core/src/model/types.ts`. Always `nil` on records
+    /// produced by this SDK itself (iOS is client-only); non-nil only on
+    /// records relayed from a server-side capture (`hakka-node`) that sets it
+    /// explicitly. Consumers that need a runtime and find `nil` should treat
+    /// the hop as `.client` — every non-iOS capture path that omits it is
+    /// still client-side (web fetch/XHR, RN).
+    public let runtime: RequestRuntime?
 
     /// Only `id`, `url`, `method` and `startTime` are required on the wire.
     /// Every other field is optional in `packages/hakka-core/src/model/types.ts`,
@@ -256,6 +265,7 @@ public struct NetworkRequest: Sendable, Identifiable, Codable, Equatable {
         messages = try c.decodeIfPresent([WsMessage].self, forKey: .messages)
         wsProtocol = try c.decodeIfPresent(String.self, forKey: .wsProtocol)
         correlationId = try c.decodeIfPresent(String.self, forKey: .correlationId)
+        runtime = try c.decodeIfPresent(RequestRuntime.self, forKey: .runtime)
     }
 
     public init(
@@ -288,7 +298,8 @@ public struct NetworkRequest: Sendable, Identifiable, Codable, Equatable {
         wsCloseCode: Int? = nil,
         messages: [WsMessage]? = nil,
         wsProtocol: String? = nil,
-        correlationId: String? = nil
+        correlationId: String? = nil,
+        runtime: RequestRuntime? = nil
     ) {
         self.id = id
         self.url = url
@@ -320,7 +331,17 @@ public struct NetworkRequest: Sendable, Identifiable, Codable, Equatable {
         self.messages = messages
         self.wsProtocol = wsProtocol
         self.correlationId = correlationId
+        self.runtime = runtime
     }
+}
+
+/// Which target captured a hop. Mirrors `RequestRuntime` in
+/// `packages/hakka-core/src/model/types.ts` exactly — do not add cases here
+/// without a matching TS case.
+@frozen public enum RequestRuntime: String, Sendable, Codable {
+    case client
+    case server
+    case edge
 }
 
 // MARK: - Header lookup (case-insensitive)

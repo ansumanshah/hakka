@@ -35,4 +35,17 @@ enum Fmt {
         case .head, .options: ThemeTokens.Method.other
         }
     }
+
+    /// Which target a trace bar came from — reuses the `Timing` token trio
+    /// (no dedicated runtime tokens exist in `design-tokens.json`) since
+    /// those three colors are already the palette's "phase of the same
+    /// journey" set, which is exactly what client → server → edge means on
+    /// a trace waterfall.
+    static func runtimeColor(_ runtime: RequestRuntime) -> Color {
+        switch runtime {
+        case .client: ThemeTokens.Timing.dns
+        case .server: ThemeTokens.Timing.tls
+        case .edge: ThemeTokens.Timing.ttfb
+        }
+    }
 }

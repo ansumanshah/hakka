@@ -34,6 +34,10 @@ final class TrafficModel {
 
     let server = BridgeServer()
     private let store = TrafficStore()
+    /// Cross-target trace correlation (ADR 0001) — joins requests and
+    /// `hakka-node` framework spans by `correlationId`/`traceId`. Read by
+    /// `Views/Trace/TraceWaterfallView` via `TraceModel`.
+    let traceStore = TraceStore()
     /// The authored rules pushed to devices over the bridge.
     let rules = RuleStore()
     /// Sends typed control commands; nil until `start()` hands it the hub.
@@ -55,7 +59,21 @@ final class TrafficModel {
         }
         let hub = await server.hub
         ruleSender = ControlSender(hub: hub)
-        for await request in await server.hub.requests {
+        // Two independent, indefinitely-running consumers of the same hub —
+        // structured under one group so both are cancelled together with
+        // this task, rather than one being an untracked detached `Task`.
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { [traceStore] in
+                for await span in hub.spans {
+                    await traceStore.addSpan(span)
+                }
+            }
+            group.addTask { await self.consumeRequests(hub: hub) }
+        }
+    }
+
+    private func consumeRequests(hub: BridgeHub) async {
+        for await request in hub.requests {
             await store.append(request)
             requests.append(request)
             if requests.count > TrafficStore.defaultCapacity {
@@ -63,6 +81,7 @@ final class TrafficModel {
             }
             await countRuleHits(for: request)
             stats = await store.stats()
+            await traceStore.addRequest(request)
         }
     }
 
