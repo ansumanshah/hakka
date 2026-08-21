@@ -168,6 +168,28 @@ struct ReportTests {
         #expect(report.json == "[]")
     }
 
+    // `@MainActor`: `currentDeviceInfo()` reads `UIDevice.current` via
+    // `MainActor.assumeIsolated` on iOS/tvOS (the real call site,
+    // `ListHelpers.swift`, always runs on the main actor from SwiftUI). Off
+    // the main actor that precondition traps at runtime — Swift Testing does
+    // not run `@Test` methods on the main actor by default, so without this
+    // annotation this test crashes the whole process on iOS/tvOS instead of
+    // failing cleanly.
+    @Test("ReportBuilder auto-populates deviceInfo on every capture platform")
+    @MainActor
+    func reportAutoDeviceInfo() {
+        // No `deviceInfo` argument — exercises `currentDeviceInfo()`'s
+        // platform branch (UIDevice on iOS/tvOS, the generic fallback on
+        // macOS/watchOS) rather than a caller-supplied value. Regression
+        // coverage for the watchOS crash this file used to have: `UIDevice`
+        // compiles under `canImport(UIKit)` but is unavailable at runtime
+        // (and build time) on watchOS.
+        let report = ReportBuilder.build(requests: [])
+        #expect(!report.deviceInfo.osVersion.isEmpty)
+        #expect(report.deviceInfo.osVersion != "unknown")
+        #expect(!report.deviceInfo.deviceModel.isEmpty)
+    }
+
     // MARK: - TextExporter: redirect chain
 
     @Test("TextExporter exports request with redirect chain")

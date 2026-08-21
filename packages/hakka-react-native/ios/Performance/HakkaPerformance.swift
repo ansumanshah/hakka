@@ -9,7 +9,7 @@ import Darwin
 #if canImport(QuartzCore)
 import QuartzCore
 #endif
-#if canImport(UIKit)
+#if os(iOS) || os(tvOS)
 import UIKit
 #endif
 #if canImport(HakkaCommon)
@@ -880,13 +880,13 @@ internal final class DarwinRuntimeStateMetricSource: RuntimeStateMetricSource, @
     private let clock: PerformanceClock
     private var memoryWarningCount = 0
     private var lastMemoryWarningTimestamp: Int64?
-    #if canImport(UIKit)
+    #if os(iOS) || os(tvOS)
     private var observer: NSObjectProtocol?
     #endif
 
     init(clock: PerformanceClock = SystemPerformanceClock()) {
         self.clock = clock
-        #if canImport(UIKit)
+        #if os(iOS) || os(tvOS)
         self.observer = NotificationCenter.default.addObserver(
             forName: UIApplication.didReceiveMemoryWarningNotification,
             object: nil,
@@ -898,7 +898,7 @@ internal final class DarwinRuntimeStateMetricSource: RuntimeStateMetricSource, @
     }
 
     deinit {
-        #if canImport(UIKit)
+        #if os(iOS) || os(tvOS)
         if let observer {
             NotificationCenter.default.removeObserver(observer)
         }

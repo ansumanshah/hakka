@@ -1,6 +1,6 @@
 import Foundation
 
-#if canImport(UIKit)
+#if os(iOS) || os(tvOS)
 import UIKit
 #endif
 
@@ -94,7 +94,7 @@ public enum ReportBuilder {
         let version = bundle.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
         let bundleId = bundle.bundleIdentifier ?? "unknown"
 
-        #if canImport(UIKit)
+        #if os(iOS) || os(tvOS)
         return MainActor.assumeIsolated {
             let device = UIDevice.current
             return DeviceInfo(
@@ -105,16 +105,26 @@ public enum ReportBuilder {
             )
         }
         #else
-        return macOSDeviceInfo(appVersion: version, appBundleId: bundleId)
+        return genericDeviceInfo(appVersion: version, appBundleId: bundleId)
         #endif
     }
 
-    #if !canImport(UIKit)
-    private static func macOSDeviceInfo(appVersion: String, appBundleId: String) -> DeviceInfo {
+    /// Fallback device info for platforms without `UIDevice` (macOS, watchOS).
+    /// `UIDevice` is unavailable on watchOS even though `UIKit` itself imports
+    /// there, so this path is not exclusive to macOS despite the historical name.
+    #if !(os(iOS) || os(tvOS))
+    private static func genericDeviceInfo(appVersion: String, appBundleId: String) -> DeviceInfo {
         let osVersion = ProcessInfo.processInfo.operatingSystemVersionString
+        #if os(watchOS)
+        let platformName = "watchOS"
+        let deviceModel = "Apple Watch"
+        #else
+        let platformName = "macOS"
+        let deviceModel = "Mac"
+        #endif
         return DeviceInfo(
-            osVersion: "macOS \(osVersion)",
-            deviceModel: "Mac",
+            osVersion: "\(platformName) \(osVersion)",
+            deviceModel: deviceModel,
             appVersion: appVersion,
             appBundleId: appBundleId
         )

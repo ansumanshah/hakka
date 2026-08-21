@@ -7,6 +7,8 @@ let package = Package(
     platforms: [
         .iOS(.v16),
         .macOS(.v14),
+        .tvOS(.v16),
+        .watchOS(.v9),
     ],
     products: [
         .library(name: "HakkaCommon", targets: ["HakkaCommon"]),
