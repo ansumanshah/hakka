@@ -1,0 +1,13 @@
+{
+  "device": "ios-simulator-6",
+  "kind": "breakpoint.paused",
+  "pauseId": "pause_7",
+  "phase": "response",
+  "request": {
+    "headers": { "accept": "application/json" },
+    "method": "POST",
+    "url": "https://api.example.com/checkout"
+  },
+  "response": { "body": "{\"ok\":true}", "headers": { "content-type": "application/json" }, "status": 200 },
+  "ruleId": "bp-checkout"
+}

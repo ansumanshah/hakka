@@ -31,7 +31,15 @@ private val EXTERNAL_ID_RE = Regex("^[A-Za-z0-9_-]{1,64}$")
 
 private val THROTTLE_PROFILES = setOf("none", "fast-3g", "slow-3g", "offline", "edge", "custom")
 private val BREAKPOINT_PHASES = setOf("request", "response", "both")
+/** A live pause is always at one concrete phase — never "both" (that's a rule-matching concept, not a paused-entry one). */
+private val PAUSE_PHASES = setOf("request", "response")
 private val MOCK_MODES = setOf("mock", "rewrite")
+
+/** Pause ids are minted by the pausing device, not charset-restricted like external ids — just bounded so a hostile peer can't wedge a huge string into engine state. */
+private const val MAX_PAUSE_ID_LEN = 256
+private const val MAX_DEVICE_LEN = 256
+
+private fun isPauseId(v: String?): Boolean = v != null && v.isNotEmpty() && v.length <= MAX_PAUSE_ID_LEN
 
 /** Sealed control-command union — mirrors `ControlCommand` in control.ts. */
 sealed class ControlCommand {
@@ -40,12 +48,78 @@ sealed class ControlCommand {
     object MockClear : ControlCommand()
     data class BreakpointAdd(val breakpoint: ParsedBreakpoint) : ControlCommand()
     data class BreakpointRemove(val id: String) : ControlCommand()
+
+    /**
+     * Device -> host only. See [isDeviceToHostCommand]. A device must never
+     * be asked to apply one of its own — see [applyControlCommand].
+     */
+    data class BreakpointPaused(
+        val pauseId: String,
+        val ruleId: String?,
+        val phase: String,
+        val device: String,
+        val request: PausedRequestSnapshot,
+        val response: PausedResponseSnapshot?,
+    ) : ControlCommand()
+
+    /** Host -> device. Releases a pause, optionally with edits matching the pause's own phase. */
+    data class BreakpointResume(
+        val pauseId: String,
+        val requestEdits: RequestEditsWire?,
+        val responseEdits: ResponseEditsWire?,
+    ) : ControlCommand()
+
+    /** Host -> device. */
+    data class BreakpointAbort(val pauseId: String) : ControlCommand()
+
     data class ThrottleSet(
         val profile: String,
         val latencyMs: Long? = null,
         val downloadKbps: Long? = null,
     ) : ControlCommand()
 }
+
+/**
+ * `breakpoint.paused` is the one command kind that travels device -> host;
+ * every other kind travels host -> device. Single source of truth for that
+ * split — a host-side sender must refuse to transmit a command this returns
+ * `true` for.
+ */
+fun isDeviceToHostCommand(cmd: ControlCommand): Boolean = cmd is ControlCommand.BreakpointPaused
+
+/** The paused request's context — present on every `breakpoint.paused` frame regardless of phase. */
+data class PausedRequestSnapshot(
+    val url: String,
+    val method: String,
+    val headers: Map<String, String>,
+    val body: String?,
+)
+
+/**
+ * The paused response snapshot — present only when `phase` is `"response"`.
+ * `body` is required (not optional): mirrors [PausedResponse.body], which is
+ * always a string (already read from the real response before pausing).
+ */
+data class PausedResponseSnapshot(
+    val status: Int,
+    val headers: Map<String, String>,
+    val body: String,
+)
+
+/** Wire edits to apply to a request-phase pause on resume. All fields optional — absent means "keep original". */
+data class RequestEditsWire(
+    val url: String? = null,
+    val method: String? = null,
+    val headers: Map<String, String>? = null,
+    val body: String? = null,
+)
+
+/** Wire edits to apply to a response-phase pause on resume. All fields optional — absent means "keep original". */
+data class ResponseEditsWire(
+    val status: Int? = null,
+    val headers: Map<String, String>? = null,
+    val body: String? = null,
+)
 
 /** Validated `mock.add` rule payload — wire shape, prior to mapping onto [MockRuleInput]. */
 data class ParsedMockRule(
@@ -316,6 +390,112 @@ private fun parseBreakpointInput(v: JSONObject?): ParsedBreakpoint? {
     )
 }
 
+/** Validates `Map<String, String>` headers — every value must actually be a JSON string. */
+private fun parseHeaders(v: JSONObject?): Map<String, String>? {
+    if (v == null) return null
+    val map = LinkedHashMap<String, String>()
+    for (key in v.keys()) {
+        map[key] = v.opt(key) as? String ?: return null
+    }
+    return map
+}
+
+private fun parsePausedRequestSnapshot(v: JSONObject?): PausedRequestSnapshot? {
+    if (v == null) return null
+    val url = v.optStringOrNull("url")
+    if (url.isNullOrEmpty()) return null
+    val method = v.optStringOrNull("method")
+    if (method.isNullOrEmpty()) return null
+    val headers = parseHeaders(if (v.hasNonNull("headers")) v.opt("headers") as? JSONObject else null) ?: return null
+    val body = v.optStringOrNull("body")
+    if (v.hasNonNull("body") && body == null) return null
+    return PausedRequestSnapshot(url = url, method = method, headers = headers, body = body)
+}
+
+/** `response.body` is required (see [PausedResponseSnapshot]) — missing or non-string is malformed. */
+private fun parsePausedResponseSnapshot(v: JSONObject?): PausedResponseSnapshot? {
+    if (v == null) return null
+    if (!v.hasNonNull("status")) return null
+    val statusInt = when (val status = v.opt("status")) {
+        is Int -> status
+        is Long -> status.toInt()
+        is Double -> if (status.isFinite()) status.toInt() else return null
+        else -> return null
+    }
+    val headers = parseHeaders(if (v.hasNonNull("headers")) v.opt("headers") as? JSONObject else null) ?: return null
+    val body = v.optStringOrNull("body") ?: return null
+    return PausedResponseSnapshot(status = statusInt, headers = headers, body = body)
+}
+
+private fun parseRequestEditsWire(v: JSONObject?): RequestEditsWire? {
+    if (v == null) return null
+    val url = v.optStringOrNull("url")
+    if (v.hasNonNull("url") && url == null) return null
+    val method = v.optStringOrNull("method")
+    if (v.hasNonNull("method") && method == null) return null
+    var headers: Map<String, String>? = null
+    if (v.hasNonNull("headers")) {
+        headers = parseHeaders(v.opt("headers") as? JSONObject) ?: return null
+    }
+    val body = v.optStringOrNull("body")
+    if (v.hasNonNull("body") && body == null) return null
+    return RequestEditsWire(url = url, method = method, headers = headers, body = body)
+}
+
+private fun parseResponseEditsWire(v: JSONObject?): ResponseEditsWire? {
+    if (v == null) return null
+    var status: Int? = null
+    if (v.hasNonNull("status")) {
+        status = when (val raw = v.opt("status")) {
+            is Int -> raw
+            is Long -> raw.toInt()
+            is Double -> if (raw.isFinite()) raw.toInt() else return null
+            else -> return null
+        }
+    }
+    var headers: Map<String, String>? = null
+    if (v.hasNonNull("headers")) {
+        headers = parseHeaders(v.opt("headers") as? JSONObject) ?: return null
+    }
+    val body = v.optStringOrNull("body")
+    if (v.hasNonNull("body") && body == null) return null
+    return ResponseEditsWire(status = status, headers = headers, body = body)
+}
+
+private fun parseBreakpointPausedCommand(raw: JSONObject): ControlCommand? {
+    val pauseId = raw.optStringOrNull("pauseId")
+    if (!isPauseId(pauseId)) return null
+
+    var ruleId: String? = null
+    if (raw.hasNonNull("ruleId")) {
+        ruleId = raw.opt("ruleId") as? String
+        if (!isExternalId(ruleId)) return null
+    }
+
+    val phase = raw.optStringOrNull("phase")
+    if (phase == null || phase !in PAUSE_PHASES) return null
+
+    val device = raw.optStringOrNull("device")
+    if (device.isNullOrEmpty() || device.length > MAX_DEVICE_LEN) return null
+
+    val requestObj = if (raw.hasNonNull("request")) raw.opt("request") as? JSONObject else null
+    val request = parsePausedRequestSnapshot(requestObj) ?: return null
+
+    var response: PausedResponseSnapshot? = null
+    if (raw.hasNonNull("response")) {
+        response = parsePausedResponseSnapshot(raw.opt("response") as? JSONObject) ?: return null
+    }
+
+    return ControlCommand.BreakpointPaused(
+        pauseId = requireNotNull(pauseId),
+        ruleId = ruleId,
+        phase = phase,
+        device = device,
+        request = request,
+        response = response,
+    )
+}
+
 /**
  * Validate an untyped JSON payload into a [ControlCommand]. Strict shape checking —
  * returns `null` on anything malformed. Never throws.
@@ -346,6 +526,31 @@ fun parseControlCommand(raw: JSONObject?): ControlCommand? {
                 val id = raw.optStringOrNull("id")
                 if (!isExternalId(id)) return null
                 ControlCommand.BreakpointRemove(requireNotNull(id))
+            }
+            "breakpoint.paused" -> parseBreakpointPausedCommand(raw)
+            "breakpoint.resume" -> {
+                val pauseId = raw.optStringOrNull("pauseId")
+                if (!isPauseId(pauseId)) return null
+
+                var requestEdits: RequestEditsWire? = null
+                if (raw.hasNonNull("requestEdits")) {
+                    requestEdits = parseRequestEditsWire(raw.opt("requestEdits") as? JSONObject) ?: return null
+                }
+                var responseEdits: ResponseEditsWire? = null
+                if (raw.hasNonNull("responseEdits")) {
+                    responseEdits = parseResponseEditsWire(raw.opt("responseEdits") as? JSONObject) ?: return null
+                }
+
+                ControlCommand.BreakpointResume(
+                    pauseId = requireNotNull(pauseId),
+                    requestEdits = requestEdits,
+                    responseEdits = responseEdits,
+                )
+            }
+            "breakpoint.abort" -> {
+                val pauseId = raw.optStringOrNull("pauseId")
+                if (!isPauseId(pauseId)) return null
+                ControlCommand.BreakpointAbort(requireNotNull(pauseId))
             }
             "throttle.set" -> {
                 val profile = raw.optStringOrNull("profile")
@@ -393,6 +598,41 @@ fun parseControlCommand(raw: JSONObject?): ControlCommand? {
 sealed class ControlApplyResult {
     object Success : ControlApplyResult()
     data class Failure(val error: String) : ControlApplyResult()
+}
+
+/**
+ * Releases a pause. [RequestEditsWire]/[ResponseEditsWire] are partial (every
+ * field means "keep original if absent" — mirrors TS's `Partial<PausedRequest>`),
+ * but [BreakpointEngine.resumeRequest]/[BreakpointEngine.resumeResponse] take
+ * full replacement edit objects — so this looks up the pause's own original
+ * snapshot via [BreakpointEngine.getPaused] and merges each wire field over
+ * it before calling the engine, matching how `control.ts`'s
+ * `decideBreakpointRequest` merges `edits.url ?? request.url` etc. An unknown
+ * pauseId is a silent no-op, mirroring the TS engine's `resume()`.
+ */
+private fun applyBreakpointResume(cmd: ControlCommand.BreakpointResume) {
+    val entry = BreakpointEngine.shared.getPaused().find { it.id == cmd.pauseId } ?: return
+    when (entry.phase) {
+        PausedPhase.REQUEST -> {
+            val original = entry.request ?: return
+            val merged = PausedRequestEdits(
+                url = cmd.requestEdits?.url ?: original.url,
+                method = cmd.requestEdits?.method ?: original.method,
+                headers = cmd.requestEdits?.headers ?: original.headers,
+                body = cmd.requestEdits?.body ?: original.body,
+            )
+            BreakpointEngine.shared.resumeRequest(cmd.pauseId, merged)
+        }
+        PausedPhase.RESPONSE -> {
+            val original = entry.response ?: return
+            val merged = PausedResponseEdits(
+                status = cmd.responseEdits?.status ?: original.status,
+                headers = cmd.responseEdits?.headers ?: original.headers,
+                body = cmd.responseEdits?.body ?: original.body,
+            )
+            BreakpointEngine.shared.resumeResponse(cmd.pauseId, merged)
+        }
+    }
 }
 
 /**
@@ -454,6 +694,20 @@ fun applyControlCommand(cmd: ControlCommand): ControlApplyResult {
             }
             is ControlCommand.BreakpointRemove -> {
                 BreakpointEngine.shared.removeBreakpoint(cmd.id)
+                ControlApplyResult.Success
+            }
+            is ControlCommand.BreakpointPaused -> {
+                // Device-to-host only (see isDeviceToHostCommand) — a device
+                // applying its own pause notification is a protocol bug, not
+                // something to silently no-op. Still must never throw.
+                ControlApplyResult.Failure("breakpoint.paused travels device to host only; a device must never apply it")
+            }
+            is ControlCommand.BreakpointResume -> {
+                applyBreakpointResume(cmd)
+                ControlApplyResult.Success
+            }
+            is ControlCommand.BreakpointAbort -> {
+                BreakpointEngine.shared.abort(cmd.pauseId)
                 ControlApplyResult.Success
             }
             is ControlCommand.ThrottleSet -> {

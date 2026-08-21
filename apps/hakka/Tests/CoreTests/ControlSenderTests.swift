@@ -58,6 +58,13 @@ struct ControlSenderTests {
             breakpoint: BreakpointInput(pattern: "/checkout", method: "post", on: .both)
         ),
         ControlCommand.breakpointRemove(id: "bp-1"),
+        ControlCommand.breakpointResume(
+            pauseId: "pause_1",
+            requestEdits: BreakpointRequestEdits(method: "POST"),
+            responseEdits: nil
+        ),
+        ControlCommand.breakpointResume(pauseId: "pause_2", requestEdits: nil, responseEdits: nil),
+        ControlCommand.breakpointAbort(pauseId: "pause_3"),
         ControlCommand.throttleSet(profile: .custom, latencyMs: 200, downloadKbps: 500),
     ])
     func commandRoundTripsToDevice(_ command: ControlCommand) async throws {
@@ -73,6 +80,30 @@ struct ControlSenderTests {
         let envelope = try #require(try JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [String: Any])
         let payload = try #require(envelope["payload"] as? [String: Any])
         #expect(parseControlCommand(payload) == command)
+    }
+
+    /// `breakpoint.paused` is device -> host only — this host must refuse
+    /// to send one rather than write a frame no device would ever expect
+    /// from a host. `send()` throws before `hub.broadcast` is ever called.
+    @Test func breakpointPausedThrowsUnsupportedDirectionBeforeAnyWrite() async {
+        let hub = BridgeHub()
+        let device = FakeDevice()
+        await hub.addPeer(device)
+        let sender = ControlSender(hub: hub)
+
+        await #expect(throws: ControlWireError.unsupportedDirection("breakpoint.paused")) {
+            try await sender.send(
+                .breakpointPaused(
+                    pauseId: "pause_1",
+                    ruleId: nil,
+                    phase: .request,
+                    device: "ios-simulator",
+                    request: BreakpointPausedRequestSnapshot(url: "https://api.example.com/x", method: "GET", headers: [:]),
+                    response: nil
+                )
+            )
+        }
+        #expect(device.sent.isEmpty)
     }
 
     @Test func sendReturnsZeroWhenNoDevicesAreConnected() async throws {

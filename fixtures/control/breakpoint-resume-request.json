@@ -1,0 +1,9 @@
+{
+  "kind": "breakpoint.resume",
+  "pauseId": "pause_3",
+  "requestEdits": {
+    "headers": { "x-injected": "1" },
+    "method": "POST",
+    "url": "https://api.example.com/checkout?debug=1"
+  }
+}

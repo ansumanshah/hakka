@@ -107,17 +107,17 @@ Twenty tools, grouped by what they do. The see and diagnose tools only observe t
 
 ### Change (dev builds only)
 
-| Tool                | What it does                                                                                                                                    |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `create_mock`       | Add a mock (canned response), `block`, or `redirect` rule matching a URL pattern.                                                               |
+| Tool                      | What it does                                                                                                                                                                                                                                               |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `create_mock`             | Add a mock (canned response), `block`, or `redirect` rule matching a URL pattern.                                                                                                                                                                          |
 | `promote_capture_to_mock` | Freeze a captured request's real response into a mock rule and install it — match on scheme/host/port/path (query string dropped), re-promoting the same capture replaces the rule instead of duplicating it. Refuses an errored or still-pending capture. |
-| `delete_mock`       | Remove a mock rule by id.                                                                                                                       |
-| `clear_mocks`       | Remove all mock rules.                                                                                                                          |
-| `set_breakpoint`    | Pause matching requests or responses in the app for inspection or editing.                                                                      |
-| `delete_breakpoint` | Remove a breakpoint by id.                                                                                                                      |
-| `set_throttle`      | Simulate network conditions (`fast-3g` / `slow-3g` / `edge` / `offline` / `custom`).                                                            |
-| `replay_request`    | Re-issue a captured request as a real network call and wait for it to be recaptured. Refuses requests captured over WebSocket or a server edge. |
-| `verify_fix`        | Optional inline `create_mock`, then `replay_request`'s sequence, then check the outcome (`status` / `bodyContains` / `maxDurationMs`).          |
+| `delete_mock`             | Remove a mock rule by id.                                                                                                                                                                                                                                  |
+| `clear_mocks`             | Remove all mock rules.                                                                                                                                                                                                                                     |
+| `set_breakpoint`          | Pause matching requests or responses in the app for inspection or editing.                                                                                                                                                                                 |
+| `delete_breakpoint`       | Remove a breakpoint by id.                                                                                                                                                                                                                                 |
+| `set_throttle`            | Simulate network conditions (`fast-3g` / `slow-3g` / `edge` / `offline` / `custom`).                                                                                                                                                                       |
+| `replay_request`          | Re-issue a captured request as a real network call and wait for it to be recaptured. Refuses requests captured over WebSocket or a server edge.                                                                                                            |
+| `verify_fix`              | Optional inline `create_mock`, then `replay_request`'s sequence, then check the outcome (`status` / `bodyContains` / `maxDurationMs`).                                                                                                                     |
 
 ### Reproduce
 
