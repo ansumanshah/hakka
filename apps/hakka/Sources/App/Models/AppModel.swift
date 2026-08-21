@@ -99,9 +99,9 @@ final class AppModel {
     /// replay the app's real response with no proxy in the path. Re-promoting
     /// the same endpoint replaces (same wire id) instead of duplicating.
     func promoteCapturedToMock(_ request: NetworkRequest) {
-        let entry = CapturedMockConverter.entry(from: request)
         Task {
             do {
+                let entry = try CapturedMockConverter.entry(from: request)
                 try await traffic.rules.add(entry.payload, id: entry.id)
                 let delivered = try await traffic.send(installCommand(for: entry))
                 mockPromotionNote = delivered == 0
