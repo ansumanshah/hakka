@@ -30,7 +30,7 @@ enum AuthKind: String, CaseIterable, Identifiable {
         case .basic: .basic(username: "", password: "")
         case .bearer: .bearer(token: "")
         case .apiKey: .apiKey(name: "X-API-Key", value: "", placement: .header)
-        case .oauth2: .oauth2(accessToken: "")
+        case .oauth2: .oauth2(OAuth2Config(grant: .authorizationCode(AuthorizationCodeGrant())))
         }
     }
 }

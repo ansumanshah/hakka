@@ -22,7 +22,12 @@ import HakkaCommon
 /// the pre-versioning build read as version 1) and of a LOWER version, and
 /// refuses a HIGHER one — forward compatibility is a promise this format does
 /// not make.
-public let collectionFormatVersion = 1
+/// Bumped to 2 when `AuthSpec.oauth2`'s payload grew from a bare pasted
+/// token into a full `OAuth2Config` (grant type, endpoints, token
+/// variables) — a real shape change to what a `.hakka` file can contain,
+/// even though `OAuth2Config`'s own decode still reads a version-1 file's
+/// `{"accessToken": "..."}` shape without complaint.
+public let collectionFormatVersion = 2
 
 struct CollectionMetadataFile: Codable, Equatable, Sendable {
     var version: Int?

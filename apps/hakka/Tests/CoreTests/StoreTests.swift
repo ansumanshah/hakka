@@ -21,6 +21,15 @@ struct CollectionStoreTests {
             .apiKey(name: "X-Key", value: "v", placement: .header),
             .apiKey(name: "key", value: "v", placement: .query),
             .oauth2(accessToken: "at"),
+            .oauth2(OAuth2Config(
+                grant: .clientCredentials(ClientCredentialsGrant(tokenURL: "https://x/token", clientId: "cid", clientSecret: "secret", scope: "read")),
+                accessTokenVariable: "cc_token",
+            )),
+            .oauth2(OAuth2Config(
+                grant: .authorizationCode(AuthorizationCodeGrant(authorizationURL: "https://x/authorize", tokenURL: "https://x/token", clientId: "cid", clientSecret: "s", scope: "read write", redirectPort: 51234)),
+                refreshTokenVariable: "auth_refresh",
+                expiresAtVariable: nil,
+            )),
         ]
         let bodies: [BodySpec] = [
             .none,
@@ -31,15 +40,19 @@ struct CollectionStoreTests {
             .file(path: "/tmp/upload.bin", contentType: "application/octet-stream"),
         ]
 
-        let requests = zip(bodies, auths).enumerated().map { index, pair in
+        // `auths` and `bodies` intentionally have different counts (there are
+        // more `AuthSpec` cases worth exercising than `BodySpec` ones), so
+        // pairing cycles the shorter list by index rather than truncating to
+        // it — every auth case above gets exercised, not just the first six.
+        let requests = auths.indices.map { index in
             RequestSpec(
                 name: "Req \(index)",
                 method: HttpMethod.allCases[index % HttpMethod.allCases.count],
                 url: "https://api.example.com/\(index)",
                 headers: [HeaderPair(name: "Accept", value: "application/json")],
                 query: [HeaderPair(name: "q", value: "1")],
-                body: pair.0,
-                auth: pair.1,
+                body: bodies[index % bodies.count],
+                auth: auths[index],
                 assertions: [
                     Assertion(target: .status, op: .equals, expected: "200"),
                     Assertion(target: .jsonPath("data.id"), op: .exists, expected: ""),

@@ -21,7 +21,7 @@ struct RequestAuthTabView: View {
             case .apiKey:
                 apiKeyFields
             case .oauth2:
-                LabeledField("Access Token", text: oauthTokenBinding, secure: true)
+                OAuth2AuthSectionView(spec: $spec)
             }
             Spacer()
         }
