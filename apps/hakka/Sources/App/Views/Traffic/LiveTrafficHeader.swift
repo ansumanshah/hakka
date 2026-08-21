@@ -19,6 +19,11 @@ struct LiveTrafficHeader: View {
                 Text(countText)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                NoiseScopePill(
+                    scope: model.traffic.noiseScope,
+                    hiddenCount: model.traffic.hiddenByNoiseScopeCount,
+                    hiddenErrorCount: model.traffic.hiddenNoiseScopeErrorCount,
+                )
                 Button("Clear") { Task { await model.traffic.clear() } }
                     .font(.caption)
                     .buttonStyle(.plain)

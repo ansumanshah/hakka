@@ -1,4 +1,5 @@
 import HakkaCommon
+import HakkaCore
 import SwiftUI
 
 /// Captured requests from every connected Hakka SDK, newest first. Selecting
@@ -21,7 +22,7 @@ struct LiveTrafficListView: View {
                 EmptyStateView(
                     systemImage: "line.3.horizontal.decrease.circle",
                     title: "No matching requests",
-                    message: "\(model.traffic.requests.count) captured, none match this search.",
+                    message: emptyMessage,
                 )
             } else {
                 List(selection: selectionBinding) {
@@ -34,6 +35,8 @@ struct LiveTrafficListView: View {
                                     model.traffic.comparisonBaselineID = request.id
                                 }
                                 .disabled(!canCompare(with: request))
+                                Divider()
+                                Button(noiseMenuTitle(for: request)) { toggleMute(request) }
                             }
                     }
                 }
@@ -64,5 +67,36 @@ struct LiveTrafficListView: View {
     private func canCompare(with request: NetworkRequest) -> Bool {
         guard let selected = model.traffic.selectedRequestID else { return false }
         return selected != request.id
+    }
+
+    /// "Mute this host" from the row context menu — the point where a
+    /// developer actually notices the noise, per the competitive-UX finding
+    /// this scope model exists to answer. Toggles rather than always
+    /// muting, so the same menu item un-mutes a host once quieted.
+    private func toggleMute(_ request: NetworkRequest) {
+        let host = TrafficQueryCompiler.requestHost(request).lowercased()
+        if let existing = model.traffic.noiseScope.excludeRules.first(where: { $0.host == host }) {
+            model.traffic.noiseScope.unmute(existing)
+        } else {
+            model.traffic.noiseScope.mute(host: host)
+        }
+    }
+
+    private func noiseMenuTitle(for request: NetworkRequest) -> String {
+        let host = TrafficQueryCompiler.requestHost(request)
+        let isMuted = model.traffic.noiseScope.excludeRules.contains { $0.host == host.lowercased() }
+        return isMuted ? "Unmute \(host)" : "Mute \(host)"
+    }
+
+    /// Distinguishes "the search hides everything" from "the noise scope
+    /// hides everything" — the latter isn't a search problem, so telling the
+    /// developer to widen their search would be the wrong nudge.
+    private var emptyMessage: String {
+        let total = model.traffic.requests.count
+        let searchIsEmpty = model.traffic.searchText.trimmingCharacters(in: .whitespaces).isEmpty
+        if searchIsEmpty, model.traffic.noiseScope.isActive {
+            return "\(total) captured, all hidden by the current noise scope."
+        }
+        return "\(total) captured, none match this search."
     }
 }
