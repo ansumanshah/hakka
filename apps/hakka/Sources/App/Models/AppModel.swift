@@ -18,6 +18,11 @@ final class AppModel {
     let folderRun = FolderRunModel()
     let webSocket = WebSocketConnectionModel()
 
+    /// Ids currently marked for a batch delete — toggled from the sidebar's
+    /// context menu, cleared once `deleteMarkedNodes()` (in
+    /// `AppModel+CollectionActions`) runs.
+    var markedForDeletion: Set<String> = []
+
     init() {
         let traffic = TrafficModel()
         self.traffic = traffic
