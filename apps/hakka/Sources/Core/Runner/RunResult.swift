@@ -9,10 +9,21 @@ public struct RunResult: Sendable, Equatable {
     public let record: NetworkRequest
     public let assertionResults: [AssertionResult]
     public let scope: VariableScope
+    /// Set when this request had a post-response script and it threw or
+    /// timed out. `nil` for a request with no post-response script, or one
+    /// that ran cleanly — never conflated with `record.error`, which is a
+    /// transport failure, not a scripting one. See `RequestScriptHooks`.
+    public let scriptError: String?
 
-    public init(record: NetworkRequest, assertionResults: [AssertionResult], scope: VariableScope) {
+    public init(
+        record: NetworkRequest,
+        assertionResults: [AssertionResult],
+        scope: VariableScope,
+        scriptError: String? = nil,
+    ) {
         self.record = record
         self.assertionResults = assertionResults
         self.scope = scope
+        self.scriptError = scriptError
     }
 }

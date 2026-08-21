@@ -41,6 +41,29 @@ private func jsonResponse(_ body: String, status: Int = 200, headers: [String: S
     return TransportResponse(data: Data(body.utf8), response: response)
 }
 
+/// Thread-safe "was this called" flag for assertions inside a `@Sendable`
+/// transport closure — the same shape `ScriptExecutionCompletionGuard` uses
+/// for the same reason (a plain `var` captured by a `@Sendable` closure is
+/// a data race, not merely a style nit, under Swift 6 strict concurrency).
+private final class CallFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = false
+    func mark() { lock.lock(); value = true; lock.unlock() }
+    func get() -> Bool { lock.lock(); defer { lock.unlock() }; return value }
+}
+
+/// Wraps the real JavaScriptCore runtime but clamps every script's timeout
+/// down to 0.3s, so a hanging-script test proves the same wall-clock stop
+/// `ScriptRuntimeConformance` proves — without eating the 5s
+/// `ScriptInput` default in every run of the suite.
+private struct FastTimeoutScriptRuntime: ScriptRuntime {
+    func run(_ input: ScriptInput) async throws -> ScriptOutput {
+        var fast = input
+        fast.timeout = 0.3
+        return try await JavaScriptCoreScriptRuntime().run(fast)
+    }
+}
+
 // MARK: - JSON path
 
 @Suite("JSONPathEvaluator")
@@ -361,6 +384,106 @@ struct RequestRunnerTests {
             body: .multipart([MultipartPart(name: "field", value: "v")]),
         )
         _ = try await runner.run(request, collection: collection(), scope: VariableScope())
+    }
+
+    // MARK: - Scripting (ADR 0010 phase 4.2)
+
+    @Test func preRequestScriptMutatesHeaderReachingTheTransport() async throws {
+        let runner = RequestRunner(transport: StubTransport { urlRequest, _ in
+            #expect(urlRequest.value(forHTTPHeaderField: "X-Signed") == "yes")
+            return jsonResponse("{}")
+        })
+        let request = RequestSpec(
+            name: "R",
+            url: "https://api.example.com/x",
+            scripts: RequestScripts(preRequestLines: ["request.headers['X-Signed'] = 'yes';"]),
+        )
+        let result = try await runner.run(request, collection: collection(), scope: VariableScope())
+        #expect(result.record.requestHeaders["X-Signed"] == ["yes"])
+    }
+
+    @Test func postResponseScriptSetsVariableInterpolatedByLaterRequest() async throws {
+        let runner = RequestRunner(transport: StubTransport { _, _ in jsonResponse(#"{"token":"abc"}"#) })
+
+        let login = RequestSpec(
+            name: "Login",
+            url: "https://api.example.com/login",
+            scripts: RequestScripts(postResponseLines: ["vars.set('scriptToken', 'from-script');"]),
+        )
+        let loginResult = try await runner.run(login, collection: collection(), scope: VariableScope())
+        #expect(loginResult.scriptError == nil)
+        #expect(loginResult.scope.value(for: "scriptToken") == "from-script")
+
+        let whoAmI = RequestSpec(
+            name: "WhoAmI",
+            url: "https://api.example.com/me",
+            headers: [HeaderPair(name: "Authorization", value: "Bearer {{scriptToken}}")],
+        )
+        let secondResult = try await runner.run(whoAmI, collection: collection(), scope: loginResult.scope)
+        #expect(secondResult.record.requestHeaders["Authorization"] == ["Bearer from-script"])
+    }
+
+    /// Abort, not proceed: a pre-request script that throws must stop the
+    /// send entirely, not let an unsigned/unmutated request go out looking
+    /// like it succeeded — see `RequestScriptHooks`.
+    @Test func throwingPreRequestScriptAbortsTheSendVisibly() async throws {
+        let transportCalled = CallFlag()
+        let runner = RequestRunner(transport: StubTransport { _, _ in
+            transportCalled.mark()
+            return jsonResponse("{}")
+        })
+        let request = RequestSpec(
+            name: "R",
+            url: "https://api.example.com/x",
+            scripts: RequestScripts(preRequestLines: ["throw new Error('boom');"]),
+        )
+
+        do {
+            _ = try await runner.run(request, collection: collection(), scope: VariableScope())
+            Issue.record("expected the throwing pre-request script to abort the send")
+        } catch RequestRunnerError.script(.runtimeError(let message)) {
+            #expect(message.contains("boom"))
+        } catch {
+            Issue.record("unexpected error \(error)")
+        }
+        #expect(!transportCalled.get())
+    }
+
+    /// A post-response script's failure is recorded, not thrown — the
+    /// response it ran against already happened and is a real result.
+    @Test func throwingPostResponseScriptSurfacesWithoutDiscardingTheRecord() async throws {
+        let runner = RequestRunner(transport: StubTransport { _, _ in jsonResponse(#"{"ok":true}"#, status: 200) })
+        let request = RequestSpec(
+            name: "R",
+            url: "https://api.example.com/x",
+            scripts: RequestScripts(postResponseLines: ["throw new Error('post-boom');"]),
+        )
+        let result = try await runner.run(request, collection: collection(), scope: VariableScope())
+        #expect(result.record.status == 200)
+        #expect(result.scriptError?.contains("post-boom") == true)
+    }
+
+    /// A hanging script must be stopped by its own wall-clock timeout
+    /// rather than wedge the runner (the actor) for every request after
+    /// it — proven by a normal call still completing right after the
+    /// timed-out one, on the same runner instance.
+    @Test func hangingPreRequestScriptTimesOutWithoutWedgingTheRunner() async throws {
+        let runner = RequestRunner(
+            transport: StubTransport { _, _ in jsonResponse("{}") },
+            scriptRuntime: FastTimeoutScriptRuntime(),
+        )
+        let hanging = RequestSpec(
+            name: "Hangs",
+            url: "https://api.example.com/x",
+            scripts: RequestScripts(preRequestLines: ["while (true) {}"]),
+        )
+        await #expect(throws: RequestRunnerError.self) {
+            try await runner.run(hanging, collection: collection(), scope: VariableScope())
+        }
+
+        let ok = RequestSpec(name: "OK", url: "https://api.example.com/ok")
+        let result = try await runner.run(ok, collection: collection(), scope: VariableScope())
+        #expect(result.record.status == 200)
     }
 }
 

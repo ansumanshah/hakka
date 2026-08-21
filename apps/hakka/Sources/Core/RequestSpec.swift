@@ -131,6 +131,14 @@ public struct RequestSpec: Sendable, Codable, Equatable, Identifiable {
     /// Seconds; nil uses the app default.
     public var timeout: Double?
     public var followRedirects: Bool
+    /// Pre-request/post-response scripts (ADR 0010 phase 4.2). `nil`, not an
+    /// empty `RequestScripts`, for a request with no scripting at all — an
+    /// `Optional` stored property is what makes Swift's synthesized `Codable`
+    /// treat the key as absent-tolerant on decode (`decodeIfPresent`) and
+    /// absent-on-encode when nil (`encodeIfPresent`), which is what lets a
+    /// pre-existing version-3 `.hakka` file (no `scripts` key at all) keep
+    /// decoding without any custom `init(from:)` here.
+    public var scripts: RequestScripts?
 
     public init(
         id: String = UUID().uuidString,
@@ -146,6 +154,7 @@ public struct RequestSpec: Sendable, Codable, Equatable, Identifiable {
         notes: String? = nil,
         timeout: Double? = nil,
         followRedirects: Bool = true,
+        scripts: RequestScripts? = nil,
     ) {
         self.id = id
         self.name = name
@@ -160,5 +169,6 @@ public struct RequestSpec: Sendable, Codable, Equatable, Identifiable {
         self.notes = notes
         self.timeout = timeout
         self.followRedirects = followRedirects
+        self.scripts = scripts
     }
 }

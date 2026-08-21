@@ -20,14 +20,15 @@ import Foundation
 /// (`ScriptRuntimeConformanceTests` runs one).
 ///
 /// The API surface a script sees is deliberately small by design, not by
-/// omission: `env`, `log`, and request/response mutation. No `require`, no
-/// npm resolution, no filesystem, no network. This is the shape Proxyman's
-/// broad scripting API did not have, and the support burden that caused is
-/// the failure mode this contract exists to avoid.
+/// omission: `env`, `log`, `vars.set(name, value)`, and request/response
+/// mutation. No `require`, no npm resolution, no filesystem, no network.
+/// This is the shape Proxyman's broad scripting API did not have, and the
+/// support burden that caused is the failure mode this contract exists to
+/// avoid.
 ///
-/// This file defines the contract only. Wiring scripts into requests, the
-/// collection file format, or a script editor is out of scope here — see
-/// ADR 0010 phase 4.2 through 4.4.
+/// This file defines the contract itself. Wiring scripts into requests
+/// (`RequestScriptHooks`), the collection file format (`RequestScripts`),
+/// and a script editor are ADR 0010 phase 4.2 through 4.4.
 public protocol ScriptRuntime: Sendable {
     /// Executes `input.source` to completion in a context that has never
     /// seen any other script, and never will again — see `ScriptInput`.

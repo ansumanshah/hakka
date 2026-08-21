@@ -62,6 +62,16 @@ struct CollectionStoreTests {
                 notes: "note \(index)",
                 timeout: 30,
                 followRedirects: index.isMultiple(of: 2),
+                // Only the first request carries scripts, deliberately —
+                // exercises both `scripts == nil` (every other request) and
+                // a populated, multi-line `RequestScripts` in the same
+                // round trip.
+                scripts: index == 0
+                    ? RequestScripts(
+                        preRequestLines: ["request.headers['X-Signed'] = 'yes';", "log('signing');"],
+                        postResponseLines: ["vars.set('lastStatus', String(response.status));"],
+                    )
+                    : nil,
             )
         }
 
@@ -95,6 +105,48 @@ struct CollectionStoreTests {
         let loaded = try await store.load(directory: dir)
 
         #expect(loaded == original)
+    }
+
+    /// ADR 0010 phase 4.2 bumped `collectionFormatVersion` from 3 to 4 when
+    /// `RequestSpec` grew `scripts`. A version-3 file has no `scripts` key
+    /// at all — reproduced faithfully here, not hand-typed as raw JSON,
+    /// because `RequestFile(seq:spec:)` with `spec.scripts == nil` encodes
+    /// to exactly the bytes version-3 code would have written (the
+    /// `Optional` stored property is `encodeIfPresent`-backed — see
+    /// `RequestSpec.scripts`'s doc comment). Stamping `version: 3` on the
+    /// metadata file is what actually exercises the old-format path,
+    /// distinct from a fresh version-4 save that merely happens to have no
+    /// scripts.
+    @Test func versionThreeFileStillReadsAfterTheScriptsBump() async throws {
+        let dir = tempDirectory()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+
+        let metadata = CollectionMetadataFile(
+            version: 3,
+            id: UUID().uuidString,
+            name: "Legacy",
+            defaultHeaders: [],
+            auth: .none,
+            notes: nil,
+        )
+        try CollectionFileFormat.encode(metadata)
+            .write(to: dir.appendingPathComponent(CollectionFileFormat.collectionMetadataFilename))
+
+        let spec = RequestSpec(name: "Legacy Request", url: "https://api.example.com/legacy")
+        try CollectionFileFormat.encode(RequestFile(seq: 1, spec: spec))
+            .write(to: dir.appendingPathComponent("legacy-request.hakka"))
+
+        let store = CollectionStore()
+        let loaded = try await store.load(directory: dir)
+
+        #expect(loaded.name == "Legacy")
+        guard case let .request(loadedSpec) = loaded.nodes.first else {
+            Issue.record("expected a top-level request")
+            return
+        }
+        #expect(loadedSpec.name == "Legacy Request")
+        #expect(loadedSpec.scripts == nil)
     }
 
     @Test func serializationIsByteIdenticalAcrossRuns() async throws {

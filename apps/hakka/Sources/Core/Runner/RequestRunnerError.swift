@@ -6,4 +6,11 @@ import Foundation
 public enum RequestRunnerError: Error, Equatable, Sendable {
     case resolution(RequestResolutionError)
     case bodyEncoding(RequestBodyEncodingError)
+    /// A pre-request script threw or timed out. Thrown before resolution —
+    /// see `RequestScriptHooks`'s abort-not-proceed rationale — so nothing
+    /// the script was supposed to sign or transform ever reaches the wire
+    /// unmodified. A post-response script failure is never one of these
+    /// cases; it surfaces as `RunResult.scriptError` instead, because the
+    /// response it ran against already happened.
+    case script(ScriptError)
 }

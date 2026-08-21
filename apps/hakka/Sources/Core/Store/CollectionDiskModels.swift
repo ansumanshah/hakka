@@ -34,7 +34,17 @@ import HakkaCommon
 /// as nil without any custom decode logic — the version bump exists purely
 /// so a *future* Hakka build with a real breaking `BodySpec` change gets to
 /// refuse an old file cleanly, not because this particular change needed it.
-public let collectionFormatVersion = 3
+///
+/// Bumped to 4 when `RequestSpec` grew `scripts: RequestScripts?`
+/// (ADR 0010 phase 4.2). Unlike the version-3 bump, this one is load-bearing
+/// in the refuse-old-file direction: `scripts` decodes fine either way (a
+/// trailing `Optional`, absent-tolerant like `operationName` was), but a
+/// pre-4.2 Hakka build has no idea a pre-request script exists at all and
+/// would silently send an unsigned/unmutated request where the script
+/// author intended one to be signed or transformed first. Refusing to open
+/// a version-4 file in an older build is what stands in for "this file
+/// does something you don't know about" instead of a quiet correctness gap.
+public let collectionFormatVersion = 4
 
 struct CollectionMetadataFile: Codable, Equatable, Sendable {
     var version: Int?
