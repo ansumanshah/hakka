@@ -52,6 +52,7 @@ export class HakkaBridge {
   private unsubscribe: (() => void) | null = null
   private consoleUnsub: (() => void) | null = null
   private logUnsub: (() => void) | null = null
+  private nativeStorageUnsub: (() => void) | null = null
   private statusListeners = new Set<(status: ConnectionStatus) => void>()
   private _status: ConnectionStatus = { state: 'disconnected' }
 
@@ -127,8 +128,15 @@ export class HakkaBridge {
    * below) so this module never hard-depends on either package. Best-effort: any
    * failure (module absent, read error) is swallowed — this must never throw from
    * inside a socket event handler.
+   *
+   * Also asks the native side (native-render mode only) for a fresh SharedPreferences
+   * snapshot, relayed back via `NATIVE_STORAGE_EVENT` to the `Hakka.onNativeStorage`
+   * subscription set up in `_connect` — a no-op when native capture isn't active or the
+   * native module predates `publishStorageSnapshots`.
    */
   private _publishStorageSnapshotsOnConnect(): void {
+    Hakka.requestNativeStorageSnapshots()
+
     try {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const AS = require('@react-native-async-storage/async-storage')
@@ -191,6 +199,18 @@ export class HakkaBridge {
     if (!this.logUnsub) {
       this.logUnsub = logStore.subscribe((entry) => {
         this.sendConsole([entry])
+      })
+    }
+
+    // Native device-storage snapshots (SharedPreferences on Android) arrive only in
+    // response to `Hakka.requestNativeStorageSnapshots()` (see `_publishStorageSnapshotsOnConnect`
+    // below) — there is no live push. `entries` are already redacted natively (see
+    // `SharedPreferencesSnapshotter`/`HakkaConfig.sensitiveBodyFields` on the Android side), so
+    // this deliberately does NOT run them through `redactStorageEntries` again — unlike the
+    // AsyncStorage/MMKV branch below, which reads raw values `sendStorage` has never seen.
+    if (!this.nativeStorageUnsub) {
+      this.nativeStorageUnsub = Hakka.onNativeStorage((snapshot) => {
+        this.sendStorage(snapshot)
       })
     }
 
@@ -365,6 +385,9 @@ export class HakkaBridge {
 
     this.logUnsub?.()
     this.logUnsub = null
+
+    this.nativeStorageUnsub?.()
+    this.nativeStorageUnsub = null
 
     if (this.ws) {
       this.ws.onclose = null // prevent _scheduleReconnect on manual close

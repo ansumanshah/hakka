@@ -132,7 +132,7 @@ export type { PostmanCollection, PostmanItem, PostmanRequest, PostmanExportOptio
 
 export { Hakka } from './engine/HakkaFacade'
 export type { NativeCaptureAdapter, NativeHakkaModule, NativeEventEmitterLike } from './engine/HakkaFacade'
-export { NATIVE_MODULE_NAMES } from './engine/nativeProtocol'
+export { NATIVE_MODULE_NAMES, NATIVE_CONSOLE_EVENT, NATIVE_STORAGE_EVENT } from './engine/nativeProtocol'
 export type {
   HakkaPlugin,
   HakkaPanel,

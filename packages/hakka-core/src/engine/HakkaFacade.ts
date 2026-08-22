@@ -1,8 +1,9 @@
 import { enableFetchInterceptor } from '../capture/fetch'
 import { enableWebSocketInterceptor } from '../capture/websocket'
 import { enableXHRInterceptor } from '../capture/xhr'
+import { logStore } from '../log/LogStore'
 import { networkRequestToRecord, type RecordSink } from '../model/contract'
-import type { NetworkRequest, HakkaConfig, RequestListener } from '../model/types'
+import type { NetworkRequest, HakkaConfig, RequestListener, StorageSnapshot } from '../model/types'
 import { DEFAULT_CONFIG } from '../model/types'
 import { RetentionPolicy } from '../storage/RetentionPolicy'
 import { RingBuffer } from '../storage/RingBuffer'
@@ -13,10 +14,14 @@ import { mockEngine } from './MockEngine'
 import {
   isPromiseLike,
   logMissingNative,
+  NATIVE_CONSOLE_EVENT,
   NATIVE_MODULE_NAMES,
   NATIVE_REQUEST_EVENT,
+  NATIVE_STORAGE_EVENT,
   noopTraceHandle,
+  parseConsoleBatch,
   parseRequestBatch,
+  parseStorageSnapshot,
   wrapNativeTraceHandle,
   type NativeCaptureAdapter,
   type NativeEventEmitterLike,
@@ -56,6 +61,7 @@ class HakkaImpl {
   private logs = new RingBuffer(this.config.maxRequests, this.config.maxBufferBytes)
   private retention = new RetentionPolicy(maxAgeSecondsToMs(this.config.maxAge))
   private listeners: Set<RequestListener> = new Set()
+  private storageListeners: Set<(snapshot: StorageSnapshot) => void> = new Set()
   private teardowns: Teardown[] = []
   private native: NativeHakkaModule | null = null
   private nativeAdapter: NativeCaptureAdapter | null = null
@@ -477,6 +483,34 @@ class HakkaImpl {
     return () => this.listeners.delete(listener)
   }
 
+  /**
+   * Subscribes to native device-storage snapshots (`NATIVE_STORAGE_EVENT`) — used by
+   * `hakka-react-native`'s `HakkaBridge` to forward each one to `sendStorage`. Unlike
+   * `onRequest`, there is no live push from native for this record kind: a snapshot only
+   * arrives after calling `requestNativeStorageSnapshots()`.
+   */
+  onNativeStorage(listener: (snapshot: StorageSnapshot) => void): () => void {
+    this.storageListeners.add(listener)
+    return () => this.storageListeners.delete(listener)
+  }
+
+  /**
+   * Asks the native module for a fresh on-demand storage snapshot (Android:
+   * SharedPreferences, relayed via `NATIVE_STORAGE_EVENT` to any `onNativeStorage`
+   * listener). No-op when no native module is active or it doesn't support the method
+   * (older native binaries). Mirrors the JS bridge's own connect-time AsyncStorage/MMKV
+   * publish — call this at the same point.
+   */
+  requestNativeStorageSnapshots(): void {
+    this.native?.publishStorageSnapshots?.()
+  }
+
+  private dispatchNativeStorage(snapshot: StorageSnapshot): void {
+    for (const listener of this.storageListeners) {
+      listener(snapshot)
+    }
+  }
+
   getLogs(): NetworkRequest[] {
     return this.logs.getAll()
   }
@@ -564,11 +598,32 @@ class HakkaImpl {
           this.ingestRequest(request)
         }
       })
-      this.nativeSubscriptionCleanup = () => subscription.remove()
+      // Native structured-log entries feed the same shared `logStore` JS-side `log()` calls
+      // do, so both sources render in the Logs tab and reach the desktop bridge for free via
+      // `HakkaBridge`'s existing `logStore.subscribe(...)` — no separate console plumbing
+      // needed in the RN package itself.
+      const consoleSubscription = eventEmitter.addListener(NATIVE_CONSOLE_EVENT, (payload: unknown) => {
+        if (!this.isCurrentNativeCapture(module, generation)) return
+        for (const entry of parseConsoleBatch(payload)) {
+          logStore.add(entry)
+        }
+      })
+      const storageSubscription = eventEmitter.addListener(NATIVE_STORAGE_EVENT, (payload: unknown) => {
+        if (!this.isCurrentNativeCapture(module, generation)) return
+        const snapshot = parseStorageSnapshot(payload)
+        if (snapshot) this.dispatchNativeStorage(snapshot)
+      })
+      this.nativeSubscriptionCleanup = () => {
+        subscription.remove()
+        consoleSubscription.remove()
+        storageSubscription.remove()
+      }
     }
 
     module.addListener(NATIVE_REQUEST_EVENT)
-    this.nativeListenerCount += 1
+    module.addListener(NATIVE_CONSOLE_EVENT)
+    module.addListener(NATIVE_STORAGE_EVENT)
+    this.nativeListenerCount += 3
 
     try {
       await module.initialize()

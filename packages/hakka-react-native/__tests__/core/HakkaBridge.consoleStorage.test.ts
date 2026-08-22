@@ -8,8 +8,8 @@
  * refresh (see `StorageViewer.tsx`) and once per installed backend right
  * after the bridge connects.
  */
-import { configureBodyRedaction, logStore } from 'hakka-core'
-import type { LogEntry } from 'hakka-core'
+import { configureBodyRedaction, Hakka, logStore } from 'hakka-core'
+import type { LogEntry, StorageSnapshot } from 'hakka-core'
 import { MMKV } from 'react-native-mmkv'
 
 import { hakkaBridge } from '../../src/core/HakkaBridge'
@@ -80,6 +80,7 @@ describe('HakkaBridge — console/storage senders', () => {
     wsInstance = null
     logStore.clear()
     configureBodyRedaction([])
+    ;(Hakka as unknown as { native: unknown }).native = null
   })
 
   async function connect(): Promise<MockWebSocket> {
@@ -159,5 +160,97 @@ describe('HakkaBridge — console/storage senders', () => {
     // dependency of this workspace) — connecting must still succeed and
     // must not throw from inside the WebSocket onopen handler.
     await expect(connect()).resolves.toBeDefined()
+  })
+})
+
+describe('HakkaBridge — native storage relay (RN native-render mode)', () => {
+  let origWebSocket: typeof WebSocket
+  let wsInstance: MockWebSocket | null = null
+
+  beforeEach(() => {
+    origWebSocket = globalThis.WebSocket
+    const MockBridgeWebSocket = function MockBridgeWebSocket(url: string) {
+      const socket = new MockWebSocket(url)
+      wsInstance = socket
+      return socket
+    }
+    MockBridgeWebSocket.CONNECTING = MockWebSocket.CONNECTING
+    MockBridgeWebSocket.OPEN = MockWebSocket.OPEN
+    MockBridgeWebSocket.CLOSING = MockWebSocket.CLOSING
+    MockBridgeWebSocket.CLOSED = MockWebSocket.CLOSED
+    globalThis.WebSocket = MockBridgeWebSocket as unknown as typeof WebSocket
+
+    new MMKV().clearAll()
+  })
+
+  afterEach(() => {
+    hakkaBridge.disconnect()
+    globalThis.WebSocket = origWebSocket
+    wsInstance = null
+    logStore.clear()
+    configureBodyRedaction([])
+    ;(Hakka as unknown as { native: unknown }).native = null
+  })
+
+  async function connect(): Promise<MockWebSocket> {
+    hakkaBridge.connect('ws://localhost:3000')
+    await new Promise((resolve) => setTimeout(resolve, 5))
+    return wsInstance!
+  }
+
+  it('asks the native module for a fresh storage snapshot right after connecting', async () => {
+    const publishStorageSnapshots = jest.fn()
+    ;(Hakka as unknown as { native: unknown }).native = { publishStorageSnapshots }
+
+    await connect()
+
+    expect(publishStorageSnapshots).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not throw when the native module has no publishStorageSnapshots (older binary)', async () => {
+    ;(Hakka as unknown as { native: unknown }).native = {}
+    await expect(connect()).resolves.toBeDefined()
+  })
+
+  it('forwards a snapshot delivered via Hakka.onNativeStorage as a canonical storage frame', async () => {
+    const ws = await connect()
+
+    const snapshot: StorageSnapshot = {
+      store: 'sharedPreferences:auth_prefs',
+      timestamp: 1_700_000_000_000,
+      entries: { userId: 'user_42' },
+    }
+    // Simulates the native `onHakkaStorage` event having already been parsed and
+    // dispatched by `HakkaFacade` — see `packages/hakka-core/src/engine/__tests__/
+    // nativeConsoleStorage.test.ts` for the event-parsing/dispatch side.
+    for (const listener of (Hakka as unknown as { storageListeners: Set<(s: StorageSnapshot) => void> })
+      .storageListeners) {
+      listener(snapshot)
+    }
+
+    const frames = framesOf(ws, 'storage')
+    expect(frames).toContainEqual({ type: 'storage', payload: snapshot })
+  })
+
+  it('does NOT re-redact a native storage snapshot — it is already redacted on-device', async () => {
+    configureBodyRedaction(['authToken'])
+    const ws = await connect()
+
+    const snapshot: StorageSnapshot = {
+      store: 'sharedPreferences:auth_prefs',
+      timestamp: 1,
+      // A native-redacted marker ("██", from Android's `redactLogMetadata`) — distinct from
+      // the JS redactor's own `[REDACTED]` marker (see the MMKV test above), proving this
+      // value passed through untouched rather than being redacted again by `redactStorageEntries`.
+      entries: { authToken: '██' },
+    }
+    for (const listener of (Hakka as unknown as { storageListeners: Set<(s: StorageSnapshot) => void> })
+      .storageListeners) {
+      listener(snapshot)
+    }
+
+    const frames = framesOf(ws, 'storage')
+    const frame = frames.find((f) => (f.payload as StorageSnapshot).store === snapshot.store)
+    expect((frame!.payload as StorageSnapshot).entries.authToken).toBe('██')
   })
 })

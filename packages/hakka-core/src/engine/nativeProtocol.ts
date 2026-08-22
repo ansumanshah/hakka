@@ -1,4 +1,5 @@
-import type { NetworkRequest } from '../model/types'
+import type { LogEntry, LogLevel } from '../log/types'
+import type { NetworkRequest, StorageSnapshot } from '../model/types'
 
 declare const __DEV__: boolean
 
@@ -13,6 +14,19 @@ type NativeModuleName = 'HakkaMonitor'
 
 export const NATIVE_MODULE_NAMES: NativeModuleName[] = ['HakkaMonitor']
 export const NATIVE_REQUEST_EVENT = 'onHakkaRequests'
+/**
+ * Native structured-log entries (`Hakka.log`/`HakkaTimberTree` on Android) relayed one
+ * `LogEntry` at a time — mirrors `NATIVE_REQUEST_EVENT`'s per-record granularity. See
+ * `HakkaUI.subscribeStructuredLogs` (Android `hakka-ui`) for the emit side.
+ */
+export const NATIVE_CONSOLE_EVENT = 'onHakkaConsole'
+/**
+ * Native device-storage snapshots (SharedPreferences on Android), one `StorageSnapshot` per
+ * event. Only fired on-demand, in response to `NativeHakkaModule.publishStorageSnapshots()` —
+ * there is no live push (matches the JS bridge's own AsyncStorage/MMKV publish, which is also
+ * connect-time-only, not a live subscription).
+ */
+export const NATIVE_STORAGE_EVENT = 'onHakkaStorage'
 
 export type NativeHakkaModule = {
   hideUI?: () => void
@@ -40,6 +54,8 @@ export type NativeHakkaModule = {
   getLogs: () => Promise<unknown[] | string>
   addListener: (eventName: string) => void
   removeListeners: (count: number) => void
+  /** Requests a fresh `NATIVE_STORAGE_EVENT` snapshot of native device storage. Optional — absent on older native binaries. */
+  publishStorageSnapshots?: () => void
 }
 
 export interface NativeEventEmitterLike {
@@ -203,6 +219,81 @@ export function parseRequestBatch(raw: unknown): NetworkRequest[] {
   }
   const single = parseNativeRequest(payload)
   return single ? [single] : []
+}
+
+function parseJsonMaybe(raw: unknown): unknown {
+  if (typeof raw !== 'string') return raw
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
+
+function parseNativeLogEntry(raw: unknown): LogEntry | null {
+  if (!raw || typeof raw !== 'object') return null
+  const payload = raw as Record<string, unknown>
+
+  const id = typeof payload.id === 'string' ? payload.id : ''
+  const message = typeof payload.message === 'string' ? payload.message : ''
+  if (!id || !message) return null
+
+  const level: LogLevel =
+    payload.level === 'debug' || payload.level === 'warn' || payload.level === 'error' ? payload.level : 'info'
+
+  return {
+    id,
+    timestamp: typeof payload.timestamp === 'number' ? payload.timestamp : Date.now(),
+    level,
+    message,
+    category: typeof payload.category === 'string' ? payload.category : undefined,
+    metadata:
+      payload.metadata && typeof payload.metadata === 'object'
+        ? (payload.metadata as Record<string, unknown>)
+        : undefined,
+  }
+}
+
+/** Parses an `onHakkaConsole` payload — one `LogEntry` per native emit call, wrapped in an array. */
+export function parseConsoleBatch(raw: unknown): LogEntry[] {
+  if (!raw) return []
+  const payload = parseJsonMaybe(raw)
+
+  if (Array.isArray(payload)) {
+    const entries: LogEntry[] = []
+    for (const item of payload) {
+      const entry = parseNativeLogEntry(item)
+      if (entry) entries.push(entry)
+    }
+    return entries
+  }
+  const single = parseNativeLogEntry(payload)
+  return single ? [single] : []
+}
+
+/** Parses an `onHakkaStorage` payload — a single `StorageSnapshot` (native emits one snapshot per event, wrapped in an array of one). */
+export function parseStorageSnapshot(raw: unknown): StorageSnapshot | null {
+  if (!raw) return null
+  const payload = parseJsonMaybe(raw)
+  const source = Array.isArray(payload) ? payload[0] : payload
+  if (!source || typeof source !== 'object') return null
+
+  const record = source as Record<string, unknown>
+  const store = typeof record.store === 'string' ? record.store : ''
+  if (!store) return null
+
+  const entries: Record<string, string> = {}
+  if (record.entries && typeof record.entries === 'object') {
+    for (const [key, value] of Object.entries(record.entries as Record<string, unknown>)) {
+      entries[key] = typeof value === 'string' ? value : String(value)
+    }
+  }
+
+  return {
+    store,
+    timestamp: typeof record.timestamp === 'number' ? record.timestamp : Date.now(),
+    entries,
+  }
 }
 
 function asOptionalNumber(value: unknown): number | undefined {
