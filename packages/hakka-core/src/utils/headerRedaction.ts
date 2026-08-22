@@ -114,6 +114,31 @@ export const redactHeaders = (
 }
 
 /**
+ * Same redaction as `redactHeaders`, for the additive multi-value sibling
+ * (`NetworkRequest.responseHeaderValues` / `MockResponse.headerValues`) — a
+ * map of header name to its full ordered list of real values. Every value in
+ * a sensitive name's array is replaced, not just the first, so a caller that
+ * only redacts `headers` (the single folded value) can't leak the rest
+ * through this field. `undefined` in, `undefined` out — mirrors how callers
+ * already treat "no multi-value headers on this response" as absent, not `{}`.
+ */
+export const redactHeaderValues = (
+  headerValues?: Record<string, string[]>,
+  sensitiveHeaders: string[] = DEFAULT_SENSITIVE_HEADERS,
+): Record<string, string[]> | undefined => {
+  if (!headerValues) return undefined
+
+  return Object.fromEntries(
+    Object.entries(headerValues).map(([key, values]) => {
+      if (matchesSensitiveList(key, sensitiveHeaders)) {
+        return [key, values.map(() => REDACTION_PLACEHOLDER)]
+      }
+      return [key, values]
+    }),
+  )
+}
+
+/**
  * Strip (completely remove) sensitive headers.
  * Case-insensitive matching.
  *

@@ -76,6 +76,23 @@ export interface NetworkRequest {
   duration?: number | null
   requestHeaders?: Record<string, string>
   responseHeaders?: Record<string, string>
+  /**
+   * Additive, backward-compatible widening of `responseHeaders` for header
+   * names that arrived with more than one value on the wire — chiefly
+   * `Set-Cookie`, where RFC 6265 §3 forbids folding multiple values into one
+   * comma-joined field (a cookie's own `Expires` attribute can legally
+   * contain a comma, so a naive join is ambiguous/corrupt). `responseHeaders`
+   * still carries one representative (comma-joined) value per name, so old
+   * consumers keep working unchanged; when a name also appears here,
+   * `responseHeaderValues[name]` is the full ordered list of real values.
+   * Only header names with 2+ values need an entry here. Mirrors
+   * `MockResponse.headerValues`'s shape and rationale (`engine/MockEngine.ts`)
+   * on the capture side. Populated by capture sources that can see real
+   * multi-value headers — currently `hakka-node`'s `http`/`https` interceptor
+   * (Node's `IncomingMessage.headers` hands `set-cookie` back as a real
+   * `string[]`); other capture sources may leave it unset.
+   */
+  responseHeaderValues?: Record<string, string[]>
   requestBody?: string | null
   responseBody?: string | null
   requestBodySize?: number

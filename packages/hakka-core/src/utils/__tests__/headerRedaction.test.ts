@@ -1,6 +1,12 @@
 import { describe, expect, test } from 'bun:test'
 
-import { DEFAULT_SENSITIVE_HEADERS, isSensitiveHeader, redactHeaders, stripHeaders } from '../headerRedaction'
+import {
+  DEFAULT_SENSITIVE_HEADERS,
+  isSensitiveHeader,
+  redactHeaders,
+  redactHeaderValues,
+  stripHeaders,
+} from '../headerRedaction'
 
 describe('isSensitiveHeader', () => {
   test('matches default sensitive headers case-insensitively', () => {
@@ -54,6 +60,31 @@ describe('redactHeaders', () => {
     const out = redactHeaders({ 'x-trace': 't', authorization: 'a' }, ['x-trace'])
     expect(out['x-trace']).toBe('[REDACTED]')
     expect(out.authorization).toBe('a') // not in the custom list
+  })
+})
+
+describe('redactHeaderValues', () => {
+  test('replaces every value of a sensitive header name, keeps the key', () => {
+    const out = redactHeaderValues({ 'set-cookie': ['a=1', 'b=2'], 'content-type': ['application/json'] })
+    expect(out?.['set-cookie']).toEqual(['[REDACTED]', '[REDACTED]'])
+    expect(out?.['content-type']).toEqual(['application/json'])
+  })
+
+  test('does not mutate the input object', () => {
+    const input = { 'set-cookie': ['secret'] }
+    const out = redactHeaderValues(input)
+    expect(input['set-cookie']).toEqual(['secret'])
+    expect(out?.['set-cookie']).toEqual(['[REDACTED]'])
+  })
+
+  test('returns undefined for undefined input (not {}) — absent stays absent', () => {
+    expect(redactHeaderValues(undefined)).toBeUndefined()
+  })
+
+  test('honours a custom sensitive list', () => {
+    const out = redactHeaderValues({ 'x-trace': ['t1', 't2'], 'set-cookie': ['a'] }, ['x-trace'])
+    expect(out?.['x-trace']).toEqual(['[REDACTED]', '[REDACTED]'])
+    expect(out?.['set-cookie']).toEqual(['a']) // not in the custom list
   })
 })
 

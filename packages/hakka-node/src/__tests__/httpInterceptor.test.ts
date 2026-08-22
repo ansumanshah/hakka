@@ -92,6 +92,88 @@ describe('http interceptor', () => {
     expect(rec?.status).toBe(201)
   })
 
+  test('captures real multi-value Set-Cookie as an array on responseHeaderValues, folded value still on responseHeaders', async () => {
+    const server = http.createServer((_req, res) => {
+      // Node hands `set-cookie` back to the client as a real string[] when the
+      // server sets more than one — this is what RFC 6265 §3 requires and
+      // what a naive comma-join would corrupt.
+      res.setHeader('Set-Cookie', ['session=abc; Path=/', 'consent=yes; Path=/'])
+      res.setHeader('content-type', 'application/json')
+      res.writeHead(200)
+      res.end('{"ok":true}')
+    })
+    const port = await listen(server)
+    const records: NetworkRequest[] = []
+    enableHttpInterceptor((r) => records.push(r), 1_000_000, [])
+
+    await new Promise<void>((resolve, reject) => {
+      const req = http.request({ host: '127.0.0.1', port, path: '/login', method: 'GET' }, (resp) => {
+        resp.on('data', () => {})
+        resp.on('end', () => resolve())
+      })
+      req.on('error', reject)
+      req.end()
+    })
+    await settle()
+    server.close()
+
+    const rec = records.find((r) => r.url.includes('/login'))
+    expect(rec?.responseHeaders?.['set-cookie']).toBe('session=abc; Path=/, consent=yes; Path=/')
+    expect(rec?.responseHeaderValues?.['set-cookie']).toEqual(['session=abc; Path=/', 'consent=yes; Path=/'])
+  })
+
+  test('a single-value header never appears in responseHeaderValues', async () => {
+    const server = http.createServer((_req, res) => {
+      res.setHeader('content-type', 'application/json')
+      res.writeHead(200)
+      res.end('{"ok":true}')
+    })
+    const port = await listen(server)
+    const records: NetworkRequest[] = []
+    enableHttpInterceptor((r) => records.push(r), 1_000_000, [])
+
+    await new Promise<void>((resolve, reject) => {
+      const req = http.request({ host: '127.0.0.1', port, path: '/single', method: 'GET' }, (resp) => {
+        resp.on('data', () => {})
+        resp.on('end', () => resolve())
+      })
+      req.on('error', reject)
+      req.end()
+    })
+    await settle()
+    server.close()
+
+    const rec = records.find((r) => r.url.includes('/single'))
+    expect(rec?.responseHeaders?.['content-type']).toBe('application/json')
+    expect(rec?.responseHeaderValues).toBeUndefined()
+  })
+
+  test('redacts every value of a sensitive multi-value response header, in both responseHeaders and responseHeaderValues', async () => {
+    const server = http.createServer((_req, res) => {
+      res.setHeader('Set-Cookie', ['session=abc; Path=/', 'consent=yes; Path=/'])
+      res.writeHead(200)
+      res.end('ok')
+    })
+    const port = await listen(server)
+    const records: NetworkRequest[] = []
+    enableHttpInterceptor((r) => records.push(r), 1_000_000, ['set-cookie'])
+
+    await new Promise<void>((resolve, reject) => {
+      const req = http.request({ host: '127.0.0.1', port, path: '/redact', method: 'GET' }, (resp) => {
+        resp.on('data', () => {})
+        resp.on('end', () => resolve())
+      })
+      req.on('error', reject)
+      req.end()
+    })
+    await settle()
+    server.close()
+
+    const rec = records.find((r) => r.url.includes('/redact'))
+    expect(rec?.responseHeaders?.['set-cookie']).toBe('[REDACTED]')
+    expect(rec?.responseHeaderValues?.['set-cookie']).toEqual(['[REDACTED]', '[REDACTED]'])
+  })
+
   test('http.get is intercepted too', async () => {
     const server = http.createServer((_req, res) => res.end('hi'))
     const port = await listen(server)

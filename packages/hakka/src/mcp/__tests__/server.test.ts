@@ -30,9 +30,12 @@
  */
 
 import { describe, it, expect, beforeEach } from 'bun:test'
+import http from 'node:http'
+import type { Server } from 'node:http'
 
 import { REPLAY_MARKER_HEADER } from 'hakka-core'
 import type { ControlCommand, FrameworkSpan, NetworkRequest } from 'hakka-core'
+import { disableHttpInterceptor, enableHttpInterceptor } from 'hakka-node'
 
 import { parseBridgeFrame, parseBridgeSpanFrame } from '../bridgeListener.js'
 import { RequestStore } from '../RequestStore.js'
@@ -152,6 +155,29 @@ describe('RequestStore — header redaction', () => {
     const stored = store.get(req.id)!
     expect(stored.requestHeaders?.accept).toBe('application/json')
     expect(stored.requestHeaders?.['user-agent']).toBe('test')
+  })
+
+  it('redacts responseHeaderValues in lockstep with responseHeaders — no bypass through the multi-value field', () => {
+    const store = new RequestStore()
+    const req = makeRequest({
+      responseHeaders: { 'set-cookie': 'session=xyz; HttpOnly, consent=yes' },
+      responseHeaderValues: { 'set-cookie': ['session=xyz; HttpOnly', 'consent=yes'] },
+    })
+    store.add(req)
+    const stored = store.get(req.id)!
+    expect(stored.responseHeaders?.['set-cookie']).toBe('[REDACTED]')
+    expect(stored.responseHeaderValues?.['set-cookie']).toEqual(['[REDACTED]', '[REDACTED]'])
+  })
+
+  it('leaves a non-sensitive responseHeaderValues entry untouched', () => {
+    const store = new RequestStore()
+    const req = makeRequest({
+      responseHeaders: { 'x-shard': 'a, b' },
+      responseHeaderValues: { 'x-shard': ['a', 'b'] },
+    })
+    store.add(req)
+    const stored = store.get(req.id)!
+    expect(stored.responseHeaderValues?.['x-shard']).toEqual(['a', 'b'])
   })
 })
 
@@ -777,6 +803,101 @@ describe('write tools — MCP tools/call against a FakeSender', () => {
       // comma-joined multi-value header (already merged at capture time) survives untouched
       vary: 'Accept, Accept-Encoding',
     })
+    await closeAll()
+  })
+
+  it('promote_capture_to_mock preserves real multi-value Set-Cookie SHAPE into headerValues, redacted consistently with the folded header', async () => {
+    // Real end-to-end regression: capture via hakka-node's own http interceptor
+    // (not a hand-built NetworkRequest) so this proves the whole chain — Node
+    // hands `set-cookie` back as a real string[], httpInterceptor.ts's
+    // headersFromResponse carries it into responseHeaderValues,
+    // RequestStore.add() redacts it (Set-Cookie is on DEFAULT_SENSITIVE_HEADERS,
+    // so the store always redacts it regardless of what the interceptor was
+    // configured with — pre-existing behavior, unchanged here), and
+    // capturedMockConverter.ts turns the surviving shape into the mock rule's
+    // headerValues. The point proven either way: both real values (this
+    // fixture) AND their redacted placeholders keep the right MULTIPLICITY —
+    // two Set-Cookie values in, two out — rather than collapsing to one
+    // comma-joined field the way `headers` alone would.
+    const server: Server = http.createServer((_req, res) => {
+      res.setHeader('Set-Cookie', ['session=abc; Path=/', 'consent=yes; Path=/'])
+      res.setHeader('content-type', 'application/json')
+      res.writeHead(200)
+      res.end('{"ok":true}')
+    })
+    const port = await new Promise<number>((resolve) =>
+      server.listen(0, '127.0.0.1', () => resolve((server.address() as { port: number }).port)),
+    )
+
+    const captured: NetworkRequest[] = []
+    enableHttpInterceptor((r) => captured.push(r), 1_000_000, [])
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const req = http.request({ host: '127.0.0.1', port, path: '/login', method: 'GET' }, (resp) => {
+          resp.on('data', () => {})
+          resp.on('end', () => resolve())
+        })
+        req.on('error', reject)
+        req.end()
+      })
+      await new Promise((r) => setTimeout(r, 15))
+    } finally {
+      disableHttpInterceptor()
+      server.close()
+    }
+
+    const rec = captured.find((r) => r.url.includes('/login'))
+    expect(rec).toBeTruthy()
+    // Captured raw (interceptor was given no redactHeaders list) — proves the
+    // interceptor itself carries the real array, unredacted, into responseHeaderValues.
+    expect(rec?.responseHeaders?.['set-cookie']).toBe('session=abc; Path=/, consent=yes; Path=/')
+    expect(rec?.responseHeaderValues?.['set-cookie']).toEqual(['session=abc; Path=/', 'consent=yes; Path=/'])
+
+    store.add({ ...rec!, id: 'cap-cookies' })
+    // RequestStore's own (unconditional) redaction pass blanks set-cookie on ingest.
+    expect(store.get('cap-cookies')?.responseHeaders?.['set-cookie']).toBe('[REDACTED]')
+    expect(store.get('cap-cookies')?.responseHeaderValues?.['set-cookie']).toEqual(['[REDACTED]', '[REDACTED]'])
+
+    const result = await client.callTool({ name: 'promote_capture_to_mock', arguments: { id: 'cap-cookies' } })
+    expect(result.isError).toBeFalsy()
+
+    const sent = sender.sent[0] as {
+      rule: { response: { headers: Record<string, string>; headerValues?: Record<string, string[]> } }
+    }
+    // Redacted consistently in both shapes — no bypass through the new field,
+    // and the mock rule still carries two Set-Cookie entries, not one folded value.
+    expect(sent.rule.response.headers['set-cookie']).toBe('[REDACTED]')
+    expect(sent.rule.response.headerValues).toEqual({
+      'set-cookie': ['[REDACTED]', '[REDACTED]'],
+    })
+    await closeAll()
+  })
+
+  it("promote_capture_to_mock carries a non-sensitive multi-value header's real values through untouched", async () => {
+    // Set-Cookie is the only header Node itself ever hands back as a real
+    // string[] (and it's always redacted by RequestStore — see the test
+    // above), so this uses a hand-built capture to prove the converter path
+    // itself (responseHeaderValues -> MockResponse.headerValues) carries real,
+    // non-redacted values end to end when the header name isn't sensitive.
+    store.add(
+      makeRequest({
+        id: 'cap-multi-header',
+        url: 'https://api.example.com/shards',
+        status: 200,
+        responseHeaders: { 'content-type': 'application/json', 'x-shard': 'a, b' },
+        responseHeaderValues: { 'x-shard': ['a', 'b'] },
+        responseBody: '{"ok":true}',
+      }),
+    )
+
+    const result = await client.callTool({ name: 'promote_capture_to_mock', arguments: { id: 'cap-multi-header' } })
+    expect(result.isError).toBeFalsy()
+
+    const sent = sender.sent[0] as {
+      rule: { response: { headers: Record<string, string>; headerValues?: Record<string, string[]> } }
+    }
+    expect(sent.rule.response.headers['x-shard']).toBe('a, b')
+    expect(sent.rule.response.headerValues).toEqual({ 'x-shard': ['a', 'b'] })
     await closeAll()
   })
 

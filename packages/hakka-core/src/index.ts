@@ -250,7 +250,13 @@ export type { ParsedContentType } from './utils/contentType'
 export { buildCurl } from './utils/share'
 export { formatBytes, formatDuration, formatTimestamp, truncateText } from './utils/formatting'
 export { extractGraphQLOperationName, extractGraphQLQuery, getRequestDisplayName } from './utils/graphql'
-export { DEFAULT_SENSITIVE_HEADERS, isSensitiveHeader, redactHeaders, stripHeaders } from './utils/headerRedaction'
+export {
+  DEFAULT_SENSITIVE_HEADERS,
+  isSensitiveHeader,
+  redactHeaders,
+  redactHeaderValues,
+  stripHeaders,
+} from './utils/headerRedaction'
 export { configureBodyRedaction, getBodyRedactionFields, redactJsonBody } from './utils/bodyRedaction'
 export {
   DEFAULT_SHARE_SCRUB_HEADERS,
@@ -259,6 +265,7 @@ export {
   describeShareScrub,
   scrubBodyForShare,
   scrubHeadersForShare,
+  scrubHeaderValuesForShare,
   scrubNetworkRequestForShare,
   scrubRequestsForShare,
   scrubUrlForShare,

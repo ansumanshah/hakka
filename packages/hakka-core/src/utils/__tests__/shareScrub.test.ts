@@ -5,6 +5,7 @@ import {
   describeShareScrub,
   scrubBodyForShare,
   scrubHeadersForShare,
+  scrubHeaderValuesForShare,
   scrubNetworkRequestForShare,
   scrubRequestsForShare,
   scrubUrlForShare,
@@ -70,6 +71,28 @@ describe('scrubHeadersForShare', () => {
   test('undefined headers pass through unchanged', () => {
     const { headers, removed } = scrubHeadersForShare(undefined)
     expect(headers).toBeUndefined()
+    expect(removed).toEqual([])
+  })
+})
+
+describe('scrubHeaderValuesForShare', () => {
+  test('blanks every value of a sensitive multi-value header name, not just the first', () => {
+    const { headerValues, removed } = scrubHeaderValuesForShare({
+      'set-cookie': [`session=${SECRET}`, `consent=${SECRET}`],
+    })
+    expect(headerValues?.['set-cookie']).toEqual(['[REDACTED]', '[REDACTED]'])
+    expect(removed).toEqual([{ category: 'header', count: 1 }])
+  })
+
+  test('leaves a non-sensitive multi-value header untouched', () => {
+    const { headerValues, removed } = scrubHeaderValuesForShare({ 'x-shard': ['a', 'b'] })
+    expect(headerValues?.['x-shard']).toEqual(['a', 'b'])
+    expect(removed).toEqual([])
+  })
+
+  test('undefined headerValues passes through unchanged', () => {
+    const { headerValues, removed } = scrubHeaderValuesForShare(undefined)
+    expect(headerValues).toBeUndefined()
     expect(removed).toEqual([])
   })
 })
@@ -162,6 +185,20 @@ describe('scrubNetworkRequestForShare — the point of the whole task', () => {
     const request = baseRequest({ requestBody: JSON.stringify({ id: 1 }) })
     const { removed } = scrubNetworkRequestForShare(request)
     expect(removed).toEqual([])
+  })
+
+  test('scrubs responseHeaderValues consistently with responseHeaders — no bypass through the multi-value field', () => {
+    const request = baseRequest({
+      responseHeaders: { 'set-cookie': `session=${SECRET}, consent=${SECRET}` },
+      responseHeaderValues: { 'set-cookie': [`session=${SECRET}`, `consent=${SECRET}`] },
+    })
+
+    const { request: scrubbed, removed } = scrubNetworkRequestForShare(request)
+
+    expect(scrubbed.responseHeaders?.['set-cookie']).toBe('[REDACTED]')
+    expect(scrubbed.responseHeaderValues?.['set-cookie']).toEqual(['[REDACTED]', '[REDACTED]'])
+    expect(JSON.stringify(scrubbed)).not.toContain(SECRET)
+    expect(removed.length).toBeGreaterThan(0)
   })
 })
 

@@ -4,7 +4,7 @@
  * filter/stats helpers used by MCP tools.
  */
 
-import { RingBuffer, redactHeaders } from 'hakka-core'
+import { RingBuffer, redactHeaderValues, redactHeaders } from 'hakka-core'
 import type { NetworkRequest } from 'hakka-core'
 
 export interface StoreFilter {
@@ -36,6 +36,11 @@ function redact(req: NetworkRequest): NetworkRequest {
     ...req,
     requestHeaders: req.requestHeaders !== undefined ? redactHeaders(req.requestHeaders) : req.requestHeaders,
     responseHeaders: req.responseHeaders !== undefined ? redactHeaders(req.responseHeaders) : req.responseHeaders,
+    // Additive sibling of responseHeaders (see NetworkRequest.responseHeaderValues) — must be
+    // redacted the same way, or a sensitive name's real multi-value list (e.g. Set-Cookie)
+    // would leak through here even though responseHeaders' single folded value is blanked.
+    responseHeaderValues:
+      req.responseHeaderValues !== undefined ? redactHeaderValues(req.responseHeaderValues) : req.responseHeaderValues,
   }
 }
 
