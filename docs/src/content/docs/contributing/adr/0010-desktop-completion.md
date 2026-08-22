@@ -3,7 +3,35 @@ title: 'ADR 0010 — Completing Hakka for macOS: table stakes first, rules over 
 description: The completion plan for the desktop app — what we copy from Proxyman/Bruno/Yaak, what we refuse to copy, and the contracts the remaining features land behind.
 ---
 
-Status: Proposed · Date: 2026-08-21 · Extends [ADR 0008](/contributing/adr/0008-desktop-plugin-products/) · Applies [ADR 0009](/contributing/adr/0009-contracts-first-internals/)
+Status: Implemented (unreleased) · Date: 2026-08-21 · Extends [ADR 0008](/contributing/adr/0008-desktop-plugin-products/) · Applies [ADR 0009](/contributing/adr/0009-contracts-first-internals/)
+
+## Status sweep 2026-08-22: implemented
+
+Every sub-decision below is built and tested on `main`:
+
+- **Table stakes** — body viewers, waterfall, cookies, editor depth,
+  collection UX, folder runs, OAuth flows.
+- **Rules over the bridge** — Rules tab (Mocks/Breakpoints/Throttle), typed
+  `ControlCommand` encoding, promote-capture-to-mock (desktop action and the
+  `promote_capture_to_mock` MCP twin), breakpoint pause-and-edit.
+- **`ScriptRuntime`** — JavaScriptCore sandbox with wall-clock watchdog,
+  conformance harness, editor tab, persisted collection field.
+- **WebSocket + SSE** — sibling transports behind `RequestTransport`, frame
+  console, streaming detail rendering (including LLM stream assemblers).
+- **gRPC inspection** — shipped per the amendment below; sending stays
+  deferred (`.claude`-tracked scope note: 3–5 weeks, needs a real HTTP/2
+  client because `URLSession` exposes no trailers API).
+
+Landed beyond the original scope: `console`/`storage` bridge frames with
+desktop Logs and Storage panels ([ADR 0011](/contributing/adr/0011-additive-wire-evolution/)),
+TLS/cipher/redirect-chain connection facts, a Devices sidebar, leak
+detection, the CI network-baseline gate, and metric-token adoption gated by
+`ui-token-check`.
+
+Still open, all release mechanics rather than architecture: Developer ID
+signing and notarization (owner-gated — the app runs but is not installable
+by others), and RN/Android console/storage senders (decode tolerance shipped,
+sending did not).
 
 ## Amendment 2026-08-22: gRPC is no longer deferred
 
