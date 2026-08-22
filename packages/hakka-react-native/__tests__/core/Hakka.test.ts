@@ -263,7 +263,9 @@ describe('Hakka singleton', () => {
     Hakka.enableNativeCapture()
     expect(Hakka.getConfig().mode).toBe('native')
     expect(nativeModule.initialize).toHaveBeenCalledTimes(1)
-    expect(nativeModule.addListener).toHaveBeenCalledTimes(1)
+    // One addListener call per native event this module subscribes to:
+    // onHakkaRequests, onHakkaConsole, onHakkaStorage.
+    expect(nativeModule.addListener).toHaveBeenCalledTimes(3)
     expect(Hakka.getLogCount()).toBe(0)
   })
 

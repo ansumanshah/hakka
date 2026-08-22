@@ -85,4 +85,13 @@ dependencies {
   compileOnly "com.noodleapps.hakka:hakka-performance:0.1.0"
 
   testImplementation "junit:junit:4.13.2"
+  // `compileOnly` (above) doesn't propagate to the test compile classpath, but
+  // NativeConsoleStorageRelayTest needs hakka-common's LogEntry/StorageSnapshot/LogLevel
+  // (reached transitively via hakka-network's `api project(":hakka-common")`) to assert
+  // the exact wire shape the relay mirrors.
+  testImplementation "com.noodleapps.hakka:hakka-network:0.1.0"
+  // `LogEntry.toJson()`/`StorageSnapshot.toJson()` use org.json — compileOnly has no real
+  // implementation off-device; JVM unit tests need the real jar, same as hakka-common's
+  // own test config.
+  testImplementation "org.json:json:20231013"
 }

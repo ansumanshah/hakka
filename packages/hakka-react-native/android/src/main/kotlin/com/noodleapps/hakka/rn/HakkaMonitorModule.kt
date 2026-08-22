@@ -412,6 +412,12 @@ class HakkaMonitorModule(private val reactContext: ReactApplicationContext) :
         promise.resolve(native?.isNativeCapturing() ?: false)
     }
 
+    // -- Native structured-log / storage relay --
+
+    override fun publishStorageSnapshots() {
+        native?.publishStorageSnapshots()
+    }
+
     override fun invalidate() {
         listenerCount.set(0)
         native?.shutdown()
