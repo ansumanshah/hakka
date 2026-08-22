@@ -1,0 +1,4 @@
+[
+  { "id": "log_3", "timestamp": 1732000001000, "level": "debug", "message": "cache warm" },
+  { "id": "log_4", "timestamp": 1732000001050, "level": "warn", "message": "cache stale", "category": "cache" }
+]

@@ -1,4 +1,4 @@
-import type { FrameworkSpan, NetworkRequest } from 'hakka-core'
+import type { FrameworkSpan, LogEntry, NetworkRequest, StorageSnapshot } from 'hakka-core'
 
 import { parseBridgeMessage } from './protocol'
 
@@ -17,6 +17,8 @@ export type RecordListener = (request: NetworkRequest) => void
 export type IngestResult =
   | { kind: 'request'; request: NetworkRequest }
   | { kind: 'span'; span: FrameworkSpan }
+  | { kind: 'console'; entries: LogEntry[] }
+  | { kind: 'storage'; snapshot: StorageSnapshot }
   | { kind: 'control' }
   | null
 
@@ -42,6 +44,16 @@ export class BridgeHub {
   private spanCount = 0
   private readonly maxSpans: number
   private readonly maxSpansPerTrace: number
+
+  /**
+   * Latest `storage` snapshot per store name — snapshot-replace semantics
+   * (see `StorageSnapshot`'s doc comment), so unlike spans there is nothing
+   * to accumulate: a new frame for a `store` simply overwrites the old one.
+   * Buffered (unlike `console`) so a freshly-connected viewer immediately
+   * sees current storage state instead of a blank panel until the device's
+   * next snapshot.
+   */
+  private readonly latestStorageByStore = new Map<string, StorageSnapshot>()
 
   constructor(options: BridgeHubOptions = {}) {
     this.max = Math.max(1, Math.floor(options.maxRecords ?? 1000))
@@ -75,6 +87,19 @@ export class BridgeHub {
     if (message.type === 'span') {
       this.bufferSpan(message.payload)
       return { kind: 'span', span: message.payload }
+    }
+
+    // `console` frames are relay-only, like `control` — a live log stream
+    // with nothing meaningful to replay to a late joiner (the entries that
+    // already scrolled by are gone regardless), so they never touch a
+    // buffer or count toward `size`/`maxRecords`.
+    if (message.type === 'console') {
+      return { kind: 'console', entries: message.payload }
+    }
+
+    if (message.type === 'storage') {
+      this.latestStorageByStore.set(message.payload.store, message.payload)
+      return { kind: 'storage', snapshot: message.payload }
     }
 
     const request = message.payload
@@ -166,6 +191,17 @@ export class BridgeHub {
     return out
   }
 
+  /**
+   * Snapshot of the latest `storage` frame per store name, in no particular
+   * order (a `Map`'s insertion order, which is not meaningful here the way
+   * it is for `getSpans`' trace ordering — replaying storage a moment
+   * "later" than requests/spans is fine since each store name is
+   * independent and self-contained).
+   */
+  getStorageSnapshots(): StorageSnapshot[] {
+    return [...this.latestStorageByStore.values()]
+  }
+
   get size(): number {
     return this.records.length
   }
@@ -180,6 +216,7 @@ export class BridgeHub {
     this.byId.clear()
     this.spansByTrace.clear()
     this.spanCount = 0
+    this.latestStorageByStore.clear()
   }
 
   /** Subscribe to ingested requests. Returns an unsubscribe function. */

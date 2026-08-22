@@ -1,0 +1,8 @@
+{
+  "id": "log_2",
+  "timestamp": 1732000000420,
+  "level": "error",
+  "message": "checkout failed",
+  "category": "payments",
+  "metadata": { "orderId": "ord_9", "code": "card_declined" }
+}

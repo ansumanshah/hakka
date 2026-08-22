@@ -1,0 +1,9 @@
+{
+  "store": "defaults",
+  "timestamp": 1732000000000,
+  "entries": {
+    "onboardingComplete": "true",
+    "selectedTheme": "dark",
+    "lastSyncedAt": "1732000000000"
+  }
+}

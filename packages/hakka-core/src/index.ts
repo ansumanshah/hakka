@@ -20,6 +20,7 @@ export type {
   ConnectionStatus,
   FrameworkSpan,
   RequestKind,
+  StorageSnapshot,
 } from './model/types'
 export { RequestStatus, getRequestStatus, DEFAULT_CONFIG } from './model/types'
 

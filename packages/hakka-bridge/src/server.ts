@@ -148,6 +148,13 @@ export function startBridgeServer(options: BridgeServerOptions = {}): Promise<Br
     for (const span of hub.getSpans()) {
       safeSendFrame(socket, 'span', span)
     }
+    // Replay latest storage snapshots last — snapshot-replace semantics
+    // (see `StorageSnapshot`), so order relative to requests/spans doesn't
+    // matter, only that a freshly-connected viewer ends up with current
+    // state rather than nothing until the device's next snapshot.
+    for (const snapshot of hub.getStorageSnapshots()) {
+      safeSendFrame(socket, 'storage', snapshot)
+    }
     socket.on('message', (data) => {
       const raw = typeof data === 'string' ? data : data.toString()
       // Checked here as well as via `ws`'s own `maxPayload`, because that

@@ -15,6 +15,14 @@ function spanFrame(payload: Record<string, unknown>): string {
   return JSON.stringify({ type: 'span', payload })
 }
 
+function consoleFrame(payload: unknown[]): string {
+  return JSON.stringify({ type: 'console', payload })
+}
+
+function storageFrame(payload: Record<string, unknown>): string {
+  return JSON.stringify({ type: 'storage', payload })
+}
+
 describe('parseBridgeMessage', () => {
   test('accepts a valid request frame', () => {
     const msg = parseBridgeMessage(frame({ id: '1', url: 'u', method: 'GET' }))
@@ -48,6 +56,34 @@ describe('parseBridgeMessage', () => {
     expect(parseBridgeMessage(JSON.stringify({ type: 'span' }))).toBeNull()
     expect(parseBridgeMessage(JSON.stringify({ type: 'span', payload: 'x' }))).toBeNull()
     expect(parseBridgeMessage(JSON.stringify({ type: 'span', payload: null }))).toBeNull()
+  })
+
+  test('accepts a valid console frame (array payload)', () => {
+    const msg = parseBridgeMessage(consoleFrame([{ id: 'log_1', timestamp: 1, level: 'info', message: 'hi' }]))
+    expect(msg?.type).toBe('console')
+    expect((msg as { payload: { id: string }[] }).payload[0]?.id).toBe('log_1')
+  })
+
+  test('accepts a valid storage frame (object payload)', () => {
+    const msg = parseBridgeMessage(storageFrame({ store: 'defaults', timestamp: 1, entries: { a: 'b' } }))
+    expect(msg?.type).toBe('storage')
+    expect((msg as { payload: { store: string } }).payload.store).toBe('defaults')
+  })
+
+  test('rejects a console frame whose payload is not an array', () => {
+    expect(parseBridgeMessage(JSON.stringify({ type: 'console', payload: { id: 'x' } }))).toBeNull()
+    expect(parseBridgeMessage(JSON.stringify({ type: 'console', payload: 'x' }))).toBeNull()
+    expect(parseBridgeMessage(JSON.stringify({ type: 'console' }))).toBeNull()
+  })
+
+  test('rejects a storage frame whose payload is an array or missing', () => {
+    expect(parseBridgeMessage(JSON.stringify({ type: 'storage', payload: [] }))).toBeNull()
+    expect(parseBridgeMessage(JSON.stringify({ type: 'storage', payload: 'x' }))).toBeNull()
+    expect(parseBridgeMessage(JSON.stringify({ type: 'storage' }))).toBeNull()
+  })
+
+  test('a future/unknown frame kind is dropped, not thrown — the forward-compat contract', () => {
+    expect(parseBridgeMessage(JSON.stringify({ type: 'some-future-kind', payload: { a: 1 } }))).toBeNull()
   })
 })
 
@@ -133,6 +169,60 @@ describe('BridgeHub', () => {
     // ...but they do land in the span backlog.
     expect(hub.spanSize).toBe(1)
     expect(hub.getSpans()).toEqual([{ id: 's1', traceId: 't1', parentId: null }])
+  })
+
+  test('valid console frame is recognised and relayed, never buffered or counted as a record', () => {
+    const hub = new BridgeHub()
+    const seen: string[] = []
+    hub.onRecord((r) => seen.push(r.id))
+    const entries = [{ id: 'log_1', timestamp: 1, level: 'info', message: 'hi' }]
+    const result = hub.ingest(consoleFrame(entries))
+    expect(result).toEqual({ kind: 'console', entries })
+    expect(hub.size).toBe(0)
+    expect(hub.getRecords()).toEqual([])
+    expect(seen).toEqual([])
+  })
+
+  test('valid storage frame is recognised, buffered by store name, never counted as a record', () => {
+    const hub = new BridgeHub()
+    const seen: string[] = []
+    hub.onRecord((r) => seen.push(r.id))
+    const snapshot = { store: 'defaults', timestamp: 1, entries: { a: 'b' } }
+    const result = hub.ingest(storageFrame(snapshot))
+    expect(result).toEqual({ kind: 'storage', snapshot })
+    expect(hub.size).toBe(0)
+    expect(hub.getRecords()).toEqual([])
+    expect(seen).toEqual([])
+    expect(hub.getStorageSnapshots()).toEqual([snapshot])
+  })
+})
+
+describe('BridgeHub — storage snapshot-replace', () => {
+  test('a second snapshot for the same store replaces the first wholesale, not a diff', () => {
+    const hub = new BridgeHub()
+    hub.ingest(storageFrame({ store: 'defaults', timestamp: 1, entries: { a: '1', b: '2' } }))
+    hub.ingest(storageFrame({ store: 'defaults', timestamp: 2, entries: { a: '1' } }))
+    // `b` is gone — the second snapshot fully replaced the first, `b` was
+    // never merged forward as a stale leftover.
+    expect(hub.getStorageSnapshots()).toEqual([{ store: 'defaults', timestamp: 2, entries: { a: '1' } }])
+  })
+
+  test('different store names accumulate independently', () => {
+    const hub = new BridgeHub()
+    hub.ingest(storageFrame({ store: 'defaults', timestamp: 1, entries: { a: '1' } }))
+    hub.ingest(storageFrame({ store: 'cookies', timestamp: 1, entries: { session: 'x' } }))
+    const stores = hub
+      .getStorageSnapshots()
+      .map((s) => s.store)
+      .sort()
+    expect(stores).toEqual(['cookies', 'defaults'])
+  })
+
+  test('clear wipes buffered storage snapshots', () => {
+    const hub = new BridgeHub()
+    hub.ingest(storageFrame({ store: 'defaults', timestamp: 1, entries: { a: '1' } }))
+    hub.clear()
+    expect(hub.getStorageSnapshots()).toEqual([])
   })
 })
 
