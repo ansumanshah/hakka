@@ -28,6 +28,10 @@ final class TrafficModel {
     /// Raw search-bar text. Parsed on read rather than stored as a compiled
     /// query so a keystroke never has to round-trip through the store actor.
     var searchText = ""
+    /// The toolbar's "Errors only" quick filter — layered on top of search
+    /// and the noise scope in `visibleRequests`, not a rewrite of the search
+    /// text, so toggling it off restores whatever the user actually typed.
+    var errorsOnly = false
     /// The older half of an open comparison. Set by "Compare with Selected",
     /// which pairs it with `selectedRequestID`; nil closes the sheet.
     var comparisonBaselineID: String?
