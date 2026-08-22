@@ -1,47 +1,102 @@
 import SwiftUI
 
-/// Connection status + count + Clear, over a search field — the traffic
-/// list's toolbar.
+/// The traffic list's whole toolbar, collapsed into one `ControlHeight.bar`
+/// (44pt) row rather than a status/count/actions row stacked over a second
+/// search row — the design's unified-bar call, mirrored from the shipped
+/// window toolbar's own "one 44pt bar, not two" rule (see `titlebar` in
+/// `.claude/design/gen.py`). `ViewThatFits` decides between the full search
+/// field and a collapsed search icon: at the app's normal window widths the
+/// full bar fits outright, and only a genuinely narrow window (a small
+/// split-screen tile) falls back to the icon, which expands back to the
+/// full field on tap.
 struct LiveTrafficHeader: View {
     @Environment(AppModel.self) private var model
     @State private var presetStore = FilterPresetStore()
     @State private var columnPickerPresented = false
+    @State private var searchExpanded = false
     @FocusState private var searchFieldFocused: Bool
 
     var body: some View {
-        VStack(spacing: Spacing.md) {
-            HStack {
-                Circle()
-                    .fill(model.traffic.isRunning ? Color.green : Color.red)
-                    .frame(width: 8, height: 8)  // ui-token-check-ignore: connection status dot
-                Text(statusText)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text(countText)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                NoiseScopePill(
-                    scope: model.traffic.noiseScope,
-                    hiddenCount: model.traffic.hiddenByNoiseScopeCount,
-                    hiddenErrorCount: model.traffic.hiddenNoiseScopeErrorCount,
-                )
-                displayModePicker
-                Button("Clear") { Task { await model.traffic.clear() } }
-                    .font(.caption)
-                    .buttonStyle(.plain)
-                    .disabled(model.traffic.requests.isEmpty)
-            }
-            searchField
+        ViewThatFits(in: .horizontal) {
+            bar(collapsedSearch: false)
+            bar(collapsedSearch: true)
         }
-        .padding(Spacing.ml)
+        .frame(height: ControlHeight.bar)
+        .padding(.horizontal, Layout.gutter)
         // `AppCommands`' Cmd-F bumps this token; picking it up here (rather
         // than the command mutating `searchFieldFocused` directly) is the
         // only way a menu action — which has no view of this view's local
         // `@FocusState` — can still drive focus into it.
         .onChange(of: model.traffic.focusSearchToken) { _, _ in
+            searchExpanded = true
             searchFieldFocused = true
         }
+    }
+
+    private func bar(collapsedSearch: Bool) -> some View {
+        HStack(spacing: Spacing.md) {
+            statusIndicator
+            Text(countText)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            if collapsedSearch, !searchExpanded {
+                collapsedSearchButton
+            } else {
+                searchField
+            }
+            NoiseScopePill(
+                scope: model.traffic.noiseScope,
+                hiddenCount: model.traffic.hiddenByNoiseScopeCount,
+                hiddenErrorCount: model.traffic.hiddenNoiseScopeErrorCount,
+            )
+            errorsOnlyToggle
+            displayModePicker
+            Button("Clear") { Task { await model.traffic.clear() } }
+                .font(.caption)
+                .buttonStyle(.plain)
+                .disabled(model.traffic.requests.isEmpty)
+        }
+    }
+
+    private var statusIndicator: some View {
+        HStack(spacing: Spacing.sm) {
+            Circle()
+                .fill(model.traffic.isRunning ? Color.green : Color.red)
+                .frame(width: 8, height: 8)  // ui-token-check-ignore: connection status dot
+            Text(statusText)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    /// A quick filter next to search rather than a search-syntax term
+    /// (`status:>=400` already works via `TrafficQueryCompiler`) — the point
+    /// is a one-click toggle for the most common scan, not another thing to
+    /// type. Model-level in `TrafficModel.errorsOnly`, wired the same way
+    /// `searchText` is, so it composes with search and the noise scope
+    /// instead of fighting them (see `TrafficModel+NoiseScope.visibleRequests`).
+    private var errorsOnlyToggle: some View {
+        Toggle("Errors only", isOn: errorsOnlyBinding)
+            .toggleStyle(.button)
+            .font(.caption)
+            .accessibilityHint("Shows only requests with a 4xx, 5xx, or transport error")
+    }
+
+    private var errorsOnlyBinding: Binding<Bool> {
+        Binding(get: { model.traffic.errorsOnly }, set: { model.traffic.errorsOnly = $0 })
+    }
+
+    private var collapsedSearchButton: some View {
+        Button {
+            searchExpanded = true
+            searchFieldFocused = true
+        } label: {
+            Image(systemName: "magnifyingglass")
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(model.traffic.searchText.isEmpty ? Color.secondary : Color.accentColor)
+        .help("Search")
+        .accessibilityLabel("Expand search field")
     }
 
     /// Table mode needs `TableColumnForEach` (macOS 14.4) — the package
@@ -109,16 +164,18 @@ struct LiveTrafficHeader: View {
             }
         }
         .padding(.horizontal, Spacing.md)
-        .padding(.vertical, Spacing.sm)
-        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 6))
+        .frame(height: ControlHeight.md)
+        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: Radius.md))
+        .frame(minWidth: 160, idealWidth: 320, maxWidth: .infinity)
     }
 
     private var searchBinding: Binding<String> {
         Binding(get: { model.traffic.searchText }, set: { model.traffic.searchText = $0 })
     }
 
-    /// Shows the filtered count alongside the total, so a search that hides
-    /// everything doesn't read as "nothing was captured".
+    /// Shows the filtered count alongside the total, so a search — or the
+    /// "Errors only" toggle — that hides everything doesn't read as
+    /// "nothing was captured".
     private var countText: String {
         let total = model.traffic.stats.count
         let visible = model.traffic.visibleRequests.count

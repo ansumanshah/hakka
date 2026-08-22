@@ -17,6 +17,7 @@ struct SidebarView: View {
                     .badge(model.traffic.requests.count)
                     .tag(SidebarSelection.traffic)
                 Label("Rules", systemImage: "slider.horizontal.3")
+                    .badge(model.rules.entries.filter(\.isEnabled).count)
                     .tag(SidebarSelection.rules)
                 Label("Logs", systemImage: "text.alignleft")
                     .badge(model.logs.entries.count)
