@@ -71,3 +71,4 @@ packages/hakka-browser/e2e/render-bench-results.json
 
 # Built macOS app bundles (apps/hakka/Scripts/package_app.sh output)
 *.app/
+.mimosa/
