@@ -42,7 +42,7 @@ fi
 echo "==> Building universal release + packaging"
 # package_app.sh builds per-arch, lipos, assembles the bundle, and signs every
 # nested binary/framework inside-out with the same identity.
-SIGNING_MODE=identity APP_IDENTITY="$APP_IDENTITY" ARCHES="arm64 x86_64" \
+SIGNING_MODE=identity APP_IDENTITY="$APP_IDENTITY" ARCHES="${ARCHES:-arm64}" \
   "$ROOT/Scripts/package_app.sh" release
 
 echo "==> Signing app bundle (hardened runtime)"
