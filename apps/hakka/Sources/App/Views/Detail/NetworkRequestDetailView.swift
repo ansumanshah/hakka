@@ -36,6 +36,7 @@ struct NetworkRequestDetailView: View {
     var body: some View {
         let tabs = DetailTab.visible(for: record)
         VStack(alignment: .leading, spacing: 0) {
+            DetailIdentityHeader(record: record)
             DetailTabStrip(activeTab: $activeTab, tabs: tabs)
             tabContent
                 .padding(Spacing.xl)
