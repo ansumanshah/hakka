@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 /**
  * Fails when an inspector style hardcodes a geometry number instead of reaching
- * for a design token. Covers both UI dialects:
+ * for a design token. Covers five UI surfaces:
  *
  *   React Native  packages/hakka-react-native/src/ui   `height: 36,`
  *   Web (CSS)     packages/hakka-browser/src/ui        `height: 36px;`
  *   SwiftUI       ios/Sources/UI                       `.padding(16)`
  *   Android       android/hakka-ui/src/main/kotlin     `setPadding(dp(16), …)`
+ *   macOS/SwiftUI apps/hakka/Sources/App               `.padding(16)`
  *
  * The inspector reached 0.1.0 with fifteen distinct control heights and six
  * different page gutters, because every screen restyled a bare `View` rather
@@ -34,6 +35,7 @@ const RN_ROOT = join(repoRoot, 'packages/hakka-react-native/src/ui')
 const WEB_ROOT = join(repoRoot, 'packages/hakka-browser/src/ui')
 const IOS_ROOT = join(repoRoot, 'ios/Sources/UI')
 const ANDROID_ROOT = join(repoRoot, 'android/hakka-ui/src/main/kotlin/com/noodleapps/hakka/ui')
+const MAC_ROOT = join(repoRoot, 'apps/hakka/Sources/App')
 
 // Directories whose numbers are drawing instructions, not layout.
 const SKIP_DIRS = new Set(['icons'])
@@ -46,6 +48,8 @@ const SKIP_FILES = new Set([
   'ThemeTokens.generated.swift',
   'GeneratedTokens.kt',
   'ViewHelpers.kt',
+  'Shared/ThemeTokens.generated.swift',
+  'Helpers/Metrics.swift',
 ])
 
 const PROPS = [
@@ -223,6 +227,19 @@ for await (const file of walk(IOS_ROOT, /\.swift$/)) {
   })
 }
 
+for await (const file of walk(MAC_ROOT, /\.swift$/)) {
+  if (SKIP_FILES.has(relative(MAC_ROOT, file))) continue
+  const macLines = readFileSync(file, 'utf8').split('\n')
+  macLines.forEach((line, i) => {
+    if (suppressed(macLines, i)) return
+    for (const match of line.matchAll(SWIFT_VIOLATION)) {
+      const value = match[1] ?? match[2] ?? match[3]
+      if (ALLOWED_VALUES.has(value)) continue
+      violations.push({ file: relative(repoRoot, file), line: i + 1, text: match[0].trim() })
+    }
+  })
+}
+
 for await (const file of walk(ANDROID_ROOT, /\.kt$/)) {
   if (SKIP_FILES.has(relative(ANDROID_ROOT, file))) continue
   const ktLines = readFileSync(file, 'utf8').split('\n')
@@ -241,7 +258,7 @@ for await (const file of walk(ANDROID_ROOT, /\.kt$/)) {
 }
 
 if (violations.length === 0) {
-  console.log('ui-token-check: no hardcoded geometry in the React Native, web, iOS, or Android inspector styles')
+  console.log('ui-token-check: no hardcoded geometry in the React Native, web, iOS, macOS, or Android inspector styles')
   process.exit(0)
 }
 
