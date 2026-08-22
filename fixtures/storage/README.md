@@ -28,7 +28,7 @@ a genuinely new shape or edge case.
   of), a few plain string values.
 - `keychain-redacted-snapshot.json` — `store: "keychain-redacted"`, showing
   the convention a sender uses for secret values it still wants to surface
-  as *present* without leaking their contents: a fixed redaction marker
+  as _present_ without leaking their contents: a fixed redaction marker
   string rather than omitting the key.
 - `empty-snapshot.json` — `store: "cookies"` with `entries: {}`, the "store
   exists but is currently empty" edge case (e.g. the user just cleared
