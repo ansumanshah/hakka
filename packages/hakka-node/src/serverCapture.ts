@@ -9,6 +9,14 @@
  *
  *   import { register } from 'hakka-node'
  *   register({ bridgeUrl: 'ws://localhost:8989' })
+ *
+ * Desktop mode — stream into an already-running Hakka for macOS instead of
+ * embedding a hub in this process:
+ *
+ *   register({ embedBridge: false })
+ *
+ * See `HakkaNodeOptions.embedBridge`'s doc comment for what this changes (and
+ * doesn't) about the browser overlay and reconnect behavior.
  */
 import { DEFAULT_CONFIG, enableFetchInterceptor, type NetworkRequest, type RequestRuntime } from 'hakka-core'
 
@@ -38,10 +46,35 @@ export interface HakkaNodeOptions {
    * process to run — this process hosts it. Default true. If the port is
    * already taken (another worker, or a standalone hub), this silently
    * connects to that one instead.
+   *
+   * **Desktop mode:** pass `embedBridge: false` to always connect as a
+   * plain client instead of racing to host a hub — the deliberate way to
+   * stream server captures into an already-running Hakka for macOS (or any
+   * other standalone hub) rather than relying on the port-already-taken
+   * fallback above. `bridgeUrl` defaults to the same `ws://localhost:8989`
+   * the desktop app's hub listens on, so `{ embedBridge: false }` alone is
+   * usually all you need. The bridge client auto-reconnects with backoff
+   * and queues while offline (see `bridgeClient.ts`), so this never blocks
+   * or crashes the dev server when the desktop app isn't running — captures
+   * just queue (bounded) until it is. The browser overlay needs no change
+   * either: with nothing embedding a hub in this process, `hakka-node/next/
+   * client`'s default `ws://localhost:8989` connects it straight to the
+   * same external hub as a second peer, so server + client traffic still
+   * show up together — no relay mesh, no double-streaming.
    */
   embedBridge?: boolean
   /** Bridge hub URL. Default `ws://localhost:8989`. */
   bridgeUrl?: string
+  /**
+   * Apply `{ type: 'control' }` frames received from the bridge hub —
+   * mock/breakpoint/throttle commands, e.g. a mock rule created in the
+   * Hakka desktop app — to this process's capture engines. Default `true`.
+   * This is what lets a desktop-authored mock intercept a server-side
+   * `fetch()` the same way it already intercepts the browser's own calls.
+   * Set `false` to keep this process capture-only (send but never be
+   * remote-controlled) — has no effect when `bridge: false`.
+   */
+  handleControl?: boolean
   /** Additional sink for every captured record (e.g. feed an SSE endpoint). */
   sink?: (req: NetworkRequest) => void
   /**
@@ -166,7 +199,9 @@ export function startCapture(options: HakkaNodeOptions = {}): HakkaNodeCapture {
     void startEmbeddedBridge(bridgeUrl)
   }
 
-  const bridge: BridgeClient | null = useBridge ? createBridgeClient({ url: bridgeUrl }) : null
+  const bridge: BridgeClient | null = useBridge
+    ? createBridgeClient({ url: bridgeUrl, handleControl: options.handleControl })
+    : null
 
   // Opt-in and zero-cost when off: no diagnostics_channel subscriptions are
   // created unless `undiciTiming: true` AND fetch capture is actually on (no

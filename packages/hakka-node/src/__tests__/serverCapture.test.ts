@@ -1,9 +1,10 @@
-import { afterEach, describe, expect, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import diagnosticsChannel from 'node:diagnostics_channel'
 import http from 'node:http'
 import type { Server } from 'node:http'
 
-import type { NetworkRequest } from 'hakka-core'
+import { mockEngine, type NetworkRequest } from 'hakka-core'
+import { WebSocketServer } from 'ws'
 
 import { register, startCapture, stopCapture } from '../serverCapture'
 
@@ -147,6 +148,114 @@ describe('embedded bridge (no separate process)', () => {
     const got = received.find((m) => m.type === 'request' && m.payload?.url?.includes('/srv-api'))
     expect(got).toBeTruthy()
     expect(got?.payload?.runtime).toBe('server')
+  })
+})
+
+/** Binds an OS-assigned port and resolves once listening — used to stand in for the desktop app's hub. */
+function startStubHub(): Promise<{ wss: WebSocketServer; port: number }> {
+  return new Promise((resolve) => {
+    const wss = new WebSocketServer({ port: 0 })
+    wss.on('listening', () => resolve({ wss, port: (wss.address() as { port: number }).port }))
+  })
+}
+
+async function waitFor(check: () => boolean, timeoutMs = 4000): Promise<void> {
+  const start = Date.now()
+  while (!check()) {
+    if (Date.now() - start > timeoutMs) throw new Error('waitFor: timed out')
+    // Deliberately sequential poll loop.
+    // oxlint-disable-next-line no-await-in-loop
+    await new Promise((r) => setTimeout(r, 10))
+  }
+}
+
+describe('desktop mode (embedBridge: false)', () => {
+  let stubHub: WebSocketServer | null = null
+
+  beforeEach(() => mockEngine.clearRules())
+  afterEach(async () => {
+    mockEngine.clearRules()
+    if (stubHub) {
+      const hub = stubHub
+      stubHub = null
+      await new Promise<void>((resolve) => {
+        let done = false
+        const finish = (): void => {
+          if (done) return
+          done = true
+          resolve()
+        }
+        hub.close(() => finish())
+        setTimeout(finish, 200)
+      })
+    }
+  })
+
+  test('never blocks or crashes the dev server when no desktop hub is listening', async () => {
+    // No hub on this port at all — startCapture must return immediately and
+    // real capture must keep working; the bridge client just queues quietly
+    // in the background and retries with backoff (see bridgeClient.ts).
+    const captured: NetworkRequest[] = []
+    expect(() =>
+      startCapture({ embedBridge: false, bridgeUrl: 'ws://127.0.0.1:18999', sink: (r) => captured.push(r) }),
+    ).not.toThrow()
+
+    const server = http.createServer((_req, res) => res.end('{}'))
+    const port = await listen(server)
+    await fetch(`http://127.0.0.1:${port}/no-desktop`)
+    await settle()
+    server.close()
+
+    expect(captured.find((r) => r.url.includes('/no-desktop'))).toBeTruthy()
+  })
+
+  test('a mock.add control frame sent by the desktop hub mocks a server-side fetch() — the whole loop', async () => {
+    // Stand in for the Hakka desktop app: a bare WebSocket hub that, on
+    // connection, relays a control frame exactly like the desktop's own
+    // mock-rule UI would (via BridgeHub's relay). This is the real
+    // `parseControlCommand`/`applyControlCommand`/`mockEngine` chain — the
+    // same one `hakka-browser`'s overlay and `hakka-react-native`'s bridge
+    // already use — driven over the wire, not called directly.
+    const { wss, port } = await startStubHub()
+    stubHub = wss
+    wss.on('connection', (socket) => {
+      socket.send(
+        JSON.stringify({
+          type: 'control',
+          payload: {
+            kind: 'mock.add',
+            rule: {
+              id: 'desktop-mock-1',
+              pattern: '/api/desktop-mocked',
+              method: 'GET',
+              enabled: true,
+              response: { status: 200, body: '{"source":"desktop-mock"}' },
+            },
+          },
+        }),
+      )
+    })
+
+    // embedBridge: false — this process hosts no hub, it's purely a client
+    // of the stub "desktop" above. This is exactly what a Next server would
+    // do in desktop mode (`register({ embedBridge: false })`).
+    startCapture({ embedBridge: false, bridgeUrl: `ws://127.0.0.1:${port}` })
+    await waitFor(() => mockEngine.getRules().some((r) => r.id === 'desktop-mock-1'))
+
+    // A real server exists at this URL and would answer for real if the
+    // mock didn't intercept — proves the mock actually short-circuited the
+    // network call rather than merely coexisting with it.
+    const real = http.createServer((_req, res) => {
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end('{"source":"real-network"}')
+    })
+    const realPort = await listen(real)
+
+    const res = await fetch(`http://127.0.0.1:${realPort}/api/desktop-mocked`)
+    const body = await res.json()
+    real.close()
+
+    expect(body).toEqual({ source: 'desktop-mock' })
   })
 })
 
