@@ -10,15 +10,21 @@ struct RequestMethodURLBar: View {
 
     var body: some View {
         HStack(spacing: Spacing.md) {
-            Picker("", selection: $spec.method) {
-                ForEach(HttpMethod.allCases, id: \.self) { method in
-                    Text(method.rawValue).tag(method)
+            // `RequestSpec.method` has no meaning for a gRPC call (ADR
+            // 0012 — target/service/method all ride the URL itself), so a
+            // GET/POST/… picker next to a `grpc://` URL would only confuse;
+            // hidden rather than shown-but-ignored.
+            if !GrpcURL.isGrpcURL(spec.url) {
+                Picker("", selection: $spec.method) {
+                    ForEach(HttpMethod.allCases, id: \.self) { method in
+                        Text(method.rawValue).tag(method)
+                    }
                 }
+                .labelsHidden()
+                .frame(width: 100)
             }
-            .labelsHidden()
-            .frame(width: 100)
 
-            TextField("https://example.com/{{path}}", text: $spec.url)
+            TextField("https://example.com/{{path}} or grpc://host:port/pkg.Service/Method", text: $spec.url)
                 .textFieldStyle(.roundedBorder)
 
             Button {

@@ -87,6 +87,10 @@ extension WsPayload: Codable {
     case mock
     /// Native URLSessionWebSocketTask capture (iOS 13+).
     case nativeWebSocket
+    /// A unary gRPC call originated by the Mac app's own request editor
+    /// (`GrpcRunner`, ADR 0012) — not a passive capture, the app is the
+    /// client. Desktop-only; no other platform emits this.
+    case grpcClient
 
     /// Human-readable display name for the source.
     public var displayName: String {
@@ -97,6 +101,7 @@ extension WsPayload: Codable {
         case .jsWebSocket: return "JS WebSocket"
         case .mock: return "Mock"
         case .nativeWebSocket: return "Native WebSocket"
+        case .grpcClient: return "gRPC"
         }
     }
 
@@ -108,6 +113,7 @@ extension WsPayload: Codable {
         case .jsXHR: return "xhr"
         case .jsWebSocket: return "websocket"
         case .nativeWebSocket: return "native_ws"
+        case .grpcClient: return "grpc_client"
         }
     }
 
@@ -127,6 +133,8 @@ extension WsPayload: Codable {
             self = .mock
         case "native_ws", "nativeWebSocket":
             self = .nativeWebSocket
+        case "grpc_client", "grpcClient":
+            self = .grpcClient
         default:
             throw DecodingError.dataCorruptedError(
                 in: container,

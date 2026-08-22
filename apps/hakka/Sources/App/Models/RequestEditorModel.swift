@@ -18,6 +18,7 @@ final class RequestEditorModel {
     var lastRunError: String?
 
     private let runner = RequestRunner()
+    private let grpcRunner = GrpcRunner()
     private let oauth2Runner = OAuth2FlowRunner()
 
     var isDirty: Bool {
@@ -51,11 +52,29 @@ final class RequestEditorModel {
     /// folded in) on success so the caller can feed it back into
     /// `EnvironmentModel.adoptRuntime`; `nil` on a pre-send failure
     /// (`RequestRunnerError` — missing variables, bad URL, unencodable body).
+    ///
+    /// A `grpc://`/`grpcs://` draft routes to `GrpcRunner` instead of
+    /// `RequestRunner` (ADR 0012, mirroring how a `ws://`/`wss://` draft
+    /// never reaches `RequestRunner` at all) — no OAuth2 refresh, since
+    /// phase 1 gRPC auth is whatever's in its metadata/headers directly.
     @discardableResult
     func send(collection: Collection, folderChain: [Folder], scope: VariableScope) async -> VariableScope? {
         guard let draft else { return nil }
         isSending = true
         defer { isSending = false }
+
+        if GrpcURL.isGrpcURL(draft.url) {
+            do {
+                let result = try await grpcRunner.run(draft, folderChain: folderChain, collection: collection, scope: scope)
+                lastResult = result
+                lastRunError = nil
+                return result.scope
+            } catch {
+                lastRunError = Self.describe(error)
+                return nil
+            }
+        }
+
         do {
             let auth = RequestResolver.effectiveAuth(request: draft.auth, folderChain: folderChain, collectionAuth: collection.auth)
             let refreshedScope = await OAuth2TokenRefresher.refreshIfNeeded(auth: auth, scope: scope, runner: oauth2Runner)

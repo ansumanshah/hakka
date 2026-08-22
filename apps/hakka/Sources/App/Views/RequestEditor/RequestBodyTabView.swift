@@ -8,6 +8,11 @@ enum BodyKind: String, CaseIterable, Identifiable {
     case multipart = "Multipart"
     case binary = "Binary"
     case graphql = "GraphQL"
+    /// ADR 0012, phase 1 — only ever offered for a `grpc://`/`grpcs://`
+    /// draft (see `RequestBodyTabView.availableKinds`); every other kind is
+    /// hidden there in turn, since none of them are meaningful for a gRPC
+    /// send.
+    case grpcMessage = "Message"
 
     var id: String { rawValue }
 
@@ -19,6 +24,7 @@ enum BodyKind: String, CaseIterable, Identifiable {
         case .multipart: self = .multipart
         case .file: self = .binary
         case .graphql: self = .graphql
+        case .grpcMessage: self = .grpcMessage
         }
     }
 
@@ -30,6 +36,7 @@ enum BodyKind: String, CaseIterable, Identifiable {
         case .multipart: .multipart([])
         case .binary: .file(path: "", contentType: "application/octet-stream")
         case .graphql: .graphql(query: "", variables: "{}", operationName: nil)
+        case .grpcMessage: .grpcMessage(hex: "")
         }
     }
 }
@@ -43,7 +50,7 @@ struct RequestBodyTabView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
             Picker("", selection: kindBinding) {
-                ForEach(BodyKind.allCases) { Text($0.rawValue).tag($0) }
+                ForEach(availableKinds) { Text($0.rawValue).tag($0) }
             }
             .pickerStyle(.segmented)
             .labelsHidden()
@@ -61,8 +68,18 @@ struct RequestBodyTabView: View {
                 RequestBinaryBodyEditor(spec: $spec)
             case .graphql:
                 RequestGraphQLBodyEditor(spec: $spec)
+            case .grpcMessage:
+                RequestGrpcMessageEditor(spec: $spec)
             }
         }
+    }
+
+    /// A gRPC draft only ever sends a `.grpcMessage` body (ADR 0012) — the
+    /// other kinds don't apply (no form/multipart/GraphQL/file concept in
+    /// unary gRPC) — and an HTTP draft never offers `.grpcMessage`, which
+    /// would be meaningless without a `GrpcTarget` parsed from the URL.
+    private var availableKinds: [BodyKind] {
+        GrpcURL.isGrpcURL(spec.url) ? [.grpcMessage] : BodyKind.allCases.filter { $0 != .grpcMessage }
     }
 
     private var kindBinding: Binding<BodyKind> {
