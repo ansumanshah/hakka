@@ -127,7 +127,7 @@ change** — `app/hakka-overlay.tsx`'s `startHakkaClient()` also defaults to `ws
 so with nothing embedding a hub server-side, it connects straight to the desktop app's hub too,
 as a second peer. Two peers, one hub, no relay mesh, no double-streaming.
 
-**Resilience:** run `HAKKA_DESKTOP=1 npm run dev` with the desktop app *closed* and the dev
+**Resilience:** run `HAKKA_DESKTOP=1 npm run dev` with the desktop app _closed_ and the dev
 server still starts clean — the bridge client (`hakka-node`'s `bridgeClient.ts`) auto-reconnects
 with exponential backoff and queues captures (bounded) while offline, the same behavior it
 already has for a late-starting embedded hub. Open the desktop app later and the queued traffic

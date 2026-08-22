@@ -280,7 +280,7 @@ What this changes, and what it deliberately doesn't:
   you don't want the in-page overlay at all in this mode, just don't wire up
   `instrumentation-client.ts`/the client-component pattern; that's the real opt-out, same as
   always.
-- **Mock rules created in the desktop app apply here too.** The bridge client also *receives*
+- **Mock rules created in the desktop app apply here too.** The bridge client also _receives_
   `{ type: 'control' }` frames from the hub — the same mock/breakpoint/throttle commands the
   browser overlay and mobile SDKs already apply — and drives them against this process's
   `mockEngine`/`breakpointEngine`/`ThrottleEngine`, which `enableFetchInterceptor` already
