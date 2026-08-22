@@ -38,11 +38,13 @@ enum HakkaTokens {
     static let lightTextSecondary: UInt32 = 0x57534A
     static let lightTextTertiary: UInt32 = 0x8B857A
     static let lightAccent: UInt32 = 0xE0761A
+    static let codeDarkKey: UInt32 = 0xA8A296
     static let codeDarkString: UInt32 = 0xDE8D68
     static let codeDarkNumber: UInt32 = 0x7FB3E8
     static let codeDarkBoolean: UInt32 = 0xC08FD9
     static let codeDarkNull: UInt32 = 0xC08FD9
     static let codeDarkHighlight: UInt32 = 0x4D3D10
+    static let codeLightKey: UInt32 = 0x57534A
     static let codeLightString: UInt32 = 0xB4552A
     static let codeLightNumber: UInt32 = 0x2B6CB0
     static let codeLightBoolean: UInt32 = 0x8548AB
