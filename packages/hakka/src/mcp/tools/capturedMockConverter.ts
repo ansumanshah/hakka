@@ -53,33 +53,49 @@ export function ruleIdFor(method: string, pattern: string): string {
 }
 
 /**
- * The captured response headers that can be replayed verbatim. Bodies are
- * stored decoded, so `Content-Encoding` would mislabel plaintext as
- * compressed and `Content-Length`/`Transfer-Encoding` describe bytes the
- * serving stack recomputes — those (plus `Connection`) are dropped;
- * everything else (Content-Type, Set-Cookie, …) survives.
+ * The captured response headers that can be replayed verbatim, split the
+ * same way `MockResponse` is: one representative (comma-joined) value per
+ * name in `headers`, plus the real ordered list in `headerValues` for any
+ * name that arrived with more than one value. Bodies are stored decoded, so
+ * `Content-Encoding` would mislabel plaintext as compressed and
+ * `Content-Length`/`Transfer-Encoding` describe bytes the serving stack
+ * recomputes — those (plus `Connection`) are dropped from both; everything
+ * else (Content-Type, Set-Cookie, …) survives.
  *
- * Known gap vs. the desktop converter: `NetworkRequest.responseHeaders` here
- * is `Record<string, string>`, and `hakka-node/src/httpInterceptor.ts`'s
- * `headersFromResponse` already comma-joins a multi-value header (including
- * `Set-Cookie`, which Node's `IncomingMessage.headers` hands over as a real
- * `string[]`) at CAPTURE time, before this function ever runs — so unlike
- * `apps/hakka/Sources/Core/Rules/CapturedMockConverter.swift` (whose
- * `NetworkRequest.responseHeaders` is `[String: [String]]`, multi-value all
- * the way from capture), there is no multi-value data left here to carry
- * into `MockResponse.headerValues`. Promoting a Node-captured response with
- * two real Set-Cookie values currently still produces one folded value —
- * fixing that needs `hakka-node`'s own capture model widened first, which is
- * a separate, larger change than this tool's wire-shape fix. Tracked, not
- * silently "fixed" here.
+ * Multi-value survival depends on the capture source populating
+ * `NetworkRequest.responseHeaderValues` (see `model/types.ts`).
+ * `hakka-node`'s `http`/`https` interceptor (`httpInterceptor.ts`) does this
+ * for any name Node handed back as a real `string[]` — chiefly `Set-Cookie`,
+ * where RFC 6265 §3 forbids folding multiple values into one comma-joined
+ * field. A capture with no `responseHeaderValues` (e.g. `fetch`, whose
+ * `Headers` API already collapses `Set-Cookie` per spec before user code
+ * ever sees it) still promotes fine — it just carries the single folded
+ * value in `headers`, same as before this widening existed. This now
+ * matches `apps/hakka/Sources/Core/Rules/CapturedMockConverter.swift`'s
+ * outcome for a Node-captured Set-Cookie response, even though the iOS
+ * capture model (`[String: [String]]` from the start) and this one
+ * (single-value `responseHeaders` plus an additive `responseHeaderValues`)
+ * arrive at it by different routes.
  */
-function responseHeadersFor(request: NetworkRequest): Record<string, string> {
+function responseHeadersFor(request: NetworkRequest): {
+  headers: Record<string, string>
+  headerValues?: Record<string, string[]>
+} {
   const headers: Record<string, string> = {}
   for (const [name, value] of Object.entries(request.responseHeaders ?? {})) {
     if (EXCLUDED_RESPONSE_HEADERS.has(name.toLowerCase())) continue
     headers[name] = value
   }
-  return headers
+
+  let headerValues: Record<string, string[]> | undefined
+  for (const [name, values] of Object.entries(request.responseHeaderValues ?? {})) {
+    if (EXCLUDED_RESPONSE_HEADERS.has(name.toLowerCase())) continue
+    if (values.length < 2) continue
+    headerValues ??= {}
+    headerValues[name] = [...values]
+  }
+
+  return { headers, headerValues }
 }
 
 export type PromotionRefusalReason = 'errored_capture' | 'incomplete_capture'
@@ -101,6 +117,7 @@ export function refusalReasonFor(request: NetworkRequest): PromotionRefusalReaso
 export function mockRuleEntryFor(request: NetworkRequest): MockRuleInput & { id: string } {
   const pattern = patternFor(request.url)
   const id = ruleIdFor(request.method, pattern)
+  const { headers, headerValues } = responseHeadersFor(request)
   return {
     id,
     pattern,
@@ -108,7 +125,8 @@ export function mockRuleEntryFor(request: NetworkRequest): MockRuleInput & { id:
     mode: 'mock',
     response: {
       status: request.status as number,
-      headers: responseHeadersFor(request),
+      headers,
+      ...(headerValues !== undefined ? { headerValues } : {}),
       body: request.responseBody ?? '',
       delay: 0,
     },

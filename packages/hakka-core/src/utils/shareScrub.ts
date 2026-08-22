@@ -215,6 +215,35 @@ export function scrubHeadersForShare(
   return { headers: out, removed }
 }
 
+/**
+ * Same scrub as `scrubHeadersForShare`, for the additive multi-value sibling
+ * (`NetworkRequest.responseHeaderValues`) — every value in a sensitive name's
+ * array is blanked, not just the first, so a caller that only scrubs
+ * `headers` (the single folded value) can't leak the rest of a real
+ * multi-value header (chiefly Set-Cookie) through this field into a shared
+ * artifact.
+ */
+export function scrubHeaderValuesForShare(
+  headerValues: Record<string, string[]> | undefined,
+  options: ShareScrubOptions = {},
+): { headerValues: Record<string, string[]> | undefined; removed: ShareScrubRemoval[] } {
+  if (!headerValues) return { headerValues, removed: [] }
+  const names = [...DEFAULT_SHARE_SCRUB_HEADERS, ...(options.extraHeaders ?? [])]
+  const removed: ShareScrubRemoval[] = []
+  let count = 0
+  const out: Record<string, string[]> = {}
+  for (const [k, values] of Object.entries(headerValues)) {
+    if (isSensitiveHeader(k, names)) {
+      out[k] = values.map(() => REDACTION_PLACEHOLDER)
+      count++
+    } else {
+      out[k] = values
+    }
+  }
+  mergeRemovals(removed, 'header', count)
+  return { headerValues: out, removed }
+}
+
 /** Pattern-scan a plain-text string for bearer tokens, JWTs, and (optionally) emails. Applied to non-JSON bodies, and as a secondary catch-all pass over string leaves inside JSON bodies so a secret under an unlisted field name is still caught. */
 function scrubPatternsInText(text: string, options: ShareScrubOptions): { text: string; removed: ShareScrubRemoval[] } {
   const removed: ShareScrubRemoval[] = []
@@ -335,6 +364,12 @@ export function scrubNetworkRequestForShare(
   const { headers: responseHeaders, removed: resHeaderRemoved } = scrubHeadersForShare(request.responseHeaders, options)
   for (const r of resHeaderRemoved) mergeRemovals(removed, r.category, r.count)
 
+  const { headerValues: responseHeaderValues, removed: resHeaderValuesRemoved } = scrubHeaderValuesForShare(
+    request.responseHeaderValues,
+    options,
+  )
+  for (const r of resHeaderValuesRemoved) mergeRemovals(removed, r.category, r.count)
+
   const { body: requestBody, removed: reqBodyRemoved } = scrubBodyForShare(request.requestBody, options)
   for (const r of reqBodyRemoved) mergeRemovals(removed, r.category, r.count)
 
@@ -346,6 +381,7 @@ export function scrubNetworkRequestForShare(
     url,
     ...(request.requestHeaders !== undefined ? { requestHeaders } : {}),
     ...(request.responseHeaders !== undefined ? { responseHeaders } : {}),
+    ...(request.responseHeaderValues !== undefined ? { responseHeaderValues } : {}),
     ...(request.requestBody !== undefined ? { requestBody } : {}),
     ...(request.responseBody !== undefined ? { responseBody } : {}),
   }

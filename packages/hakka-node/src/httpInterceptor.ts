@@ -135,14 +135,37 @@ function redact(headers: Record<string, string>, redactHeaders: string[]): Recor
   return out
 }
 
-function headersFromResponse(res: IncomingMessage, redactHeaders: string[]): Record<string, string> {
-  const out: Record<string, string> = {}
+/**
+ * Node's `IncomingMessage.headers` hands `set-cookie` back as a real
+ * `string[]` when the response carried more than one (any other duplicated
+ * header Node itself comma-joins before it reaches `.headers`). RFC 6265 §3
+ * forbids folding multiple `Set-Cookie` values into one comma-joined field,
+ * so both shapes are returned: `headers` keeps the old single-value,
+ * comma-joined representative (existing consumers — HAR export, share
+ * scrubbing, UI — keep working unchanged), and `headerValues` additionally
+ * carries the real ordered list for any name with 2+ values, matching
+ * `NetworkRequest.responseHeaderValues`'s contract.
+ */
+function headersFromResponse(
+  res: IncomingMessage,
+  redactHeaders: string[],
+): { headers: Record<string, string>; headerValues?: Record<string, string[]> } {
+  const headers: Record<string, string> = {}
+  let headerValues: Record<string, string[]> | undefined
   for (const [k, v] of Object.entries(res.headers)) {
     if (v == null) continue
-    const val = Array.isArray(v) ? v.join(', ') : String(v)
-    out[k] = isSensitiveHeader(k, redactHeaders) ? '[REDACTED]' : val
+    const redacted = isSensitiveHeader(k, redactHeaders)
+    if (Array.isArray(v)) {
+      headers[k] = redacted ? '[REDACTED]' : v.join(', ')
+      if (v.length > 1) {
+        headerValues ??= {}
+        headerValues[k] = redacted ? v.map(() => '[REDACTED]') : [...v]
+      }
+    } else {
+      headers[k] = redacted ? '[REDACTED]' : String(v)
+    }
   }
-  return out
+  return { headers, headerValues }
 }
 
 function instrument(
@@ -315,7 +338,7 @@ function instrument(
   req.on('response', (res: IncomingMessage) => {
     const responseTime = Date.now()
     ttfbMs = responseTime - startTime
-    const responseHeaders = headersFromResponse(res, redactHeaders)
+    const { headers: responseHeaders, headerValues: responseHeaderValues } = headersFromResponse(res, redactHeaders)
     const finish = (completed: boolean) => {
       // downloadMs only means something when the body actually finished
       // streaming — on 'close'/'aborted' the transfer was cut short, so it's
@@ -324,6 +347,7 @@ function instrument(
       emit({
         status: res.statusCode ?? null,
         responseHeaders,
+        responseHeaderValues,
         contentType: res.headers['content-type'],
       })
     }
