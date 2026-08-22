@@ -8,10 +8,12 @@
 import React, { useCallback, useEffect, useMemo, useReducer } from 'react'
 import { Alert } from 'react-native'
 
+import { hakkaBridge } from '../../core/HakkaBridge'
+import { redactStorageEntries } from '../../storage/redact'
 import { AsyncStorageModule, MMKVModule } from './StorageViewerBackends'
 import { StorageViewerDetail } from './StorageViewerDetail'
 import { StorageViewerList } from './StorageViewerList'
-import { createStorageViewerState, storageViewerReducer } from './StorageViewerState'
+import { createStorageViewerState, storageViewerReducer, storeNameForBackend } from './StorageViewerState'
 
 export interface StorageViewerProps {
   onClose?: () => void
@@ -33,17 +35,32 @@ export const StorageViewer: React.FC<StorageViewerProps> = ({ onClose, showHeade
   const loadEntries = useCallback(async () => {
     dispatch({ type: 'entriesLoading' })
     try {
+      let entries: { key: string; value: string }[]
       if (state.backend === 'AsyncStorage' && AsyncStorageModule) {
         const keys = await AsyncStorageModule.getAllKeys()
         const pairs = await AsyncStorageModule.multiGet(keys)
-        dispatch({ type: 'entriesLoaded', entries: pairs.map(([k, v]) => ({ key: k, value: v ?? '' })) })
+        entries = pairs.map(([k, v]) => ({ key: k, value: v ?? '' }))
       } else if (state.backend === 'MMKV' && MMKVModule) {
         const storage = new MMKVModule.MMKV()
         const keys = storage.getAllKeys()
-        dispatch({ type: 'entriesLoaded', entries: keys.map((k) => ({ key: k, value: storage.getString(k) ?? '' })) })
+        entries = keys.map((k) => ({ key: k, value: storage.getString(k) ?? '' }))
       } else {
-        dispatch({ type: 'entriesLoaded', entries: [] })
+        entries = []
       }
+      dispatch({ type: 'entriesLoaded', entries })
+
+      // Publish a snapshot on every refresh (not just on change) — snapshot-replace
+      // semantics on the bridge mean a stale desktop panel self-heals on the next
+      // refresh regardless, mirroring iOS's `StorageView.refreshPairs()`. Values are
+      // redacted the same way `monitors/storage.ts` redacts on write, since this read
+      // path (a direct `getAllKeys`/`multiGet` poll) has no redaction of its own.
+      const record: Record<string, string> = {}
+      for (const { key, value } of entries) record[key] = value
+      hakkaBridge.sendStorage({
+        store: storeNameForBackend(state.backend),
+        timestamp: Date.now(),
+        entries: redactStorageEntries(record),
+      })
     } catch {
       dispatch({ type: 'entriesLoaded', entries: [] })
     }

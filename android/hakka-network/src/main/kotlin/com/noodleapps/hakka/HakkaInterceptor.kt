@@ -282,10 +282,50 @@ class HakkaInterceptor private constructor(
                 bridgeUrl, traceEnabled, tracePropagateOrigins,
             )
             val allSinks = sinks.toMutableList()
-            bridgeUrl?.let { url -> allSinks.add(BridgeSink(url)) }
+            val bridgeSink = bridgeUrl?.let { url -> BridgeSink(url) }
+            bridgeSink?.let { allSinks.add(it) }
             val factory = if (enableTiming) HakkaEventListener.Factory() else null
-            return HakkaInterceptor(config, listeners.toList(), allSinks, factory)
+            val interceptor = HakkaInterceptor(config, listeners.toList(), allSinks, factory)
+            bridgeSink?.let { interceptor.registerBridgeSink(it) }
+            return interceptor
         }
+    }
+
+    /**
+     * Every [BridgeSink] currently attached to this interceptor — the one created from
+     * [Builder.bridgeUrl] (if any) plus any attached later via [connectBridge]. [sendConsoleFrame]
+     * and [sendStorageFrame] forward to all of them, since more than one can be active at once
+     * (a fixed [Builder.bridgeUrl] alongside a discovery-attached hub).
+     */
+    private val bridgeSinks = CopyOnWriteArrayList<BridgeSink>()
+
+    /** Registers a [BridgeSink] to receive [sendConsoleFrame]/[sendStorageFrame] calls. Internal — used by [Builder.build] and [connectBridge]. */
+    internal fun registerBridgeSink(sink: BridgeSink) {
+        bridgeSinks.add(sink)
+    }
+
+    /** Unregisters a [BridgeSink] previously added via [registerBridgeSink]. Internal — used by [connectBridge]'s teardown. */
+    internal fun unregisterBridgeSink(sink: BridgeSink) {
+        bridgeSinks.remove(sink)
+    }
+
+    /**
+     * Streams one or more structured log entries to every attached bridge hub as a
+     * `{"type":"console","payload":[...]}` frame. Mirrors iOS's `HakkaInterceptor.log(...)` →
+     * `HakkaBridgeClient.sendConsole`. No-op when no bridge is attached.
+     */
+    fun sendConsoleFrame(entries: List<LogEntry>) {
+        bridgeSinks.forEach { it.sendConsole(entries) }
+    }
+
+    /**
+     * Streams a named storage snapshot to every attached bridge hub as a
+     * `{"type":"storage","payload":{...}}` frame. Mirrors iOS's
+     * `HakkaInterceptor.publishStorageSnapshot(store:entries:)` →
+     * `HakkaBridgeClient.sendStorage`. No-op when no bridge is attached.
+     */
+    fun sendStorageFrame(snapshot: StorageSnapshot) {
+        bridgeSinks.forEach { it.sendStorage(snapshot) }
     }
 
     /** Adds a sink at runtime. Close the returned subscription to stop delivery. */

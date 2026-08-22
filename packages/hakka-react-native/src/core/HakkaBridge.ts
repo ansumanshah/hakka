@@ -8,8 +8,10 @@
  * Includes bidirectional command handling (storage:set, storage:delete,
  * mmkv:set, mmkv:delete) and console interceptor forwarding.
  */
-import { applyControlCommand, ConsoleInterceptor, Hakka, parseControlCommand } from 'hakka-core'
-import type { ConnectionStatus, NetworkRequest } from 'hakka-core'
+import { applyControlCommand, ConsoleInterceptor, Hakka, logStore, parseControlCommand } from 'hakka-core'
+import type { ConnectionStatus, LogEntry, NetworkRequest, StorageSnapshot } from 'hakka-core'
+
+import { redactStorageEntries } from '../storage/redact'
 
 // Storage write allowlist — prefix-based: desktop can only write keys starting with 'hakka:'
 const ALLOWED_KEY_PREFIX = 'hakka:'
@@ -49,6 +51,7 @@ export class HakkaBridge {
   private shouldReconnect = false
   private unsubscribe: (() => void) | null = null
   private consoleUnsub: (() => void) | null = null
+  private logUnsub: (() => void) | null = null
   private statusListeners = new Set<(status: ConnectionStatus) => void>()
   private _status: ConnectionStatus = { state: 'disconnected' }
 
@@ -93,6 +96,79 @@ export class HakkaBridge {
     this._send({ type, payload })
   }
 
+  /**
+   * Send one or more structured log entries as a canonical `{type:'console', payload}`
+   * frame — matches `BridgeConsoleMessage` in `packages/hakka-bridge/src/protocol.ts`.
+   * `payload` is always an array on the wire, even for a single entry. Fire-and-forget
+   * like `sendStorage` below — no offline queue, dropped silently while disconnected
+   * (same "live stream, no offline queue" contract as `hakka-node`'s `sendConsole`).
+   */
+  sendConsole(entries: LogEntry[]): void {
+    if (entries.length === 0) return
+    this._send({ type: 'console', payload: entries })
+  }
+
+  /**
+   * Send a named storage snapshot as a canonical `{type:'storage', payload}` frame —
+   * matches `BridgeStorageMessage`. Snapshot-replace semantics: a later frame for the
+   * same `store` fully replaces this one on the receiving end, never a diff — see
+   * `StorageSnapshot`'s doc comment in `hakka-core`. Fire-and-forget like `sendConsole`:
+   * a snapshot missed while disconnected is superseded by the next one anyway.
+   */
+  sendStorage(snapshot: StorageSnapshot): void {
+    this._send({ type: 'storage', payload: snapshot })
+  }
+
+  /**
+   * Publishes one storage snapshot per installed backend (AsyncStorage / MMKV) right
+   * after connecting, so a freshly-opened desktop peer isn't left with no Storage panel
+   * data until the app's Storage tab happens to be opened and refreshed. Optional deps
+   * are resolved inline (matching `_handleMessage`'s `storage:set`/`mmkv:set` handling
+   * below) so this module never hard-depends on either package. Best-effort: any
+   * failure (module absent, read error) is swallowed — this must never throw from
+   * inside a socket event handler.
+   */
+  private _publishStorageSnapshotsOnConnect(): void {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const AS = require('@react-native-async-storage/async-storage')
+      const storage = (AS.default ?? AS) as {
+        getAllKeys: () => Promise<readonly string[]>
+        multiGet: (keys: readonly string[]) => Promise<Array<readonly [string, string | null]>>
+      }
+      storage
+        .getAllKeys()
+        .then((keys) => storage.multiGet(keys))
+        .then((pairs) => {
+          const entries: Record<string, string> = {}
+          for (const [key, value] of pairs) entries[key] = value ?? ''
+          this.sendStorage({ store: 'asyncStorage', timestamp: Date.now(), entries: redactStorageEntries(entries) })
+        })
+        .catch(() => {
+          // Best-effort — never throw from a connect handler.
+        })
+    } catch {
+      // AsyncStorage not installed
+    }
+
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const mmkvMod = require('react-native-mmkv')
+      const mmkvLib = mmkvMod.default ?? mmkvMod
+      if (mmkvLib.MMKV) {
+        const storage = new mmkvLib.MMKV() as {
+          getAllKeys: () => string[]
+          getString: (key: string) => string | undefined
+        }
+        const entries: Record<string, string> = {}
+        for (const key of storage.getAllKeys()) entries[key] = storage.getString(key) ?? ''
+        this.sendStorage({ store: 'mmkv', timestamp: Date.now(), entries: redactStorageEntries(entries) })
+      }
+    } catch {
+      // MMKV not installed
+    }
+  }
+
   private _connect(): void {
     if (this.ws) {
       return
@@ -104,6 +180,17 @@ export class HakkaBridge {
       ConsoleInterceptor.enable()
       this.consoleUnsub = ConsoleInterceptor.onEntry((entry) => {
         this._send({ type: 'console:log', payload: entry })
+      })
+    }
+
+    // Structured log entries (the Logs tab's "Structured" segment — same `logStore`/
+    // `LogEntry` model iOS's `HakkaInterceptor.log()` streams from) forward as canonical
+    // `{type:'console', payload: LogEntry[]}` frames, one entry per call — matches iOS's
+    // per-`log()`-call `sendConsole([entry])`. Distinct from `consoleUnsub` above, which
+    // forwards raw `console.*` capture under the legacy `console:log` type.
+    if (!this.logUnsub) {
+      this.logUnsub = logStore.subscribe((entry) => {
+        this.sendConsole([entry])
       })
     }
 
@@ -125,6 +212,13 @@ export class HakkaBridge {
         this.unsubscribe = Hakka.onRequest((request: NetworkRequest) => {
           this._send({ type: 'request', payload: request })
         })
+
+        // A freshly-connected desktop peer has no storage snapshot yet — publish one
+        // immediately for every installed backend, in addition to the Storage tab's
+        // own publish-on-refresh (`StorageViewer.tsx`). Optional deps, resolved inline
+        // (matching `_handleMessage`'s existing `storage:set`/`mmkv:set` pattern) so
+        // this module never hard-depends on either package.
+        this._publishStorageSnapshotsOnConnect()
       }
 
       ws.onmessage = (event: HakkaMessageEvent) => {
@@ -268,6 +362,9 @@ export class HakkaBridge {
 
     this.consoleUnsub?.()
     this.consoleUnsub = null
+
+    this.logUnsub?.()
+    this.logUnsub = null
 
     if (this.ws) {
       this.ws.onclose = null // prevent _scheduleReconnect on manual close

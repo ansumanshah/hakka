@@ -5,6 +5,7 @@ import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
+import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.Executors
@@ -74,7 +75,37 @@ internal class BridgeSink(
         if (closed.get()) return
         if (record !is NetworkRecord) return
 
-        val frame = buildFrame(record)
+        sendOrEnqueue(buildFrame(record))
+    }
+
+    /**
+     * Streams one or more structured log entries as a `{"type":"console","payload":[...]}`
+     * frame — matches `BridgeConsoleMessage` in `packages/hakka-bridge/src/protocol.ts`.
+     * `payload` is always an array on the wire, even for a single entry. Queued like
+     * [onRecord] while disconnected, so a burst of logs before the hub connects isn't lost.
+     */
+    fun sendConsole(entries: List<LogEntry>) {
+        if (closed.get() || entries.isEmpty()) return
+        val payload = JSONArray().apply { entries.forEach { put(it.toJson()) } }
+        val frame = JSONObject().put("type", "console").put("payload", payload).toString()
+        sendOrEnqueue(frame)
+    }
+
+    /**
+     * Streams a named storage snapshot as a `{"type":"storage","payload":{...}}` frame —
+     * matches `BridgeStorageMessage`. Snapshot-replace semantics on the receiving end — see
+     * [StorageSnapshot]'s doc comment. Queued like [onRecord] while disconnected: unlike
+     * `hakka-node`'s fire-and-forget contract for this frame kind, this sink queues
+     * everything uniformly (same as iOS's `HakkaBridgeClient`), so a snapshot taken just
+     * before the hub connects still arrives once it does.
+     */
+    fun sendStorage(snapshot: StorageSnapshot) {
+        if (closed.get()) return
+        val frame = JSONObject().put("type", "storage").put("payload", snapshot.toJson()).toString()
+        sendOrEnqueue(frame)
+    }
+
+    private fun sendOrEnqueue(frame: String) {
         val ws = socket.get()
         if (ws != null) {
             val sent = ws.send(frame)

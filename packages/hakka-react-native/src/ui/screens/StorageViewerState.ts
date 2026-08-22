@@ -29,6 +29,16 @@ export type StorageViewerAction =
   | { type: 'saveComplete' }
   | { type: 'deleted'; key: string }
 
+/**
+ * Bridge `StorageSnapshot.store` name for a backend — the wire-level store
+ * identifier published alongside `defaults`/`keychain-redacted`/`cookies`
+ * (iOS) so a desktop peer can tell RN's two backends apart. Lowercase,
+ * matching the convention those iOS store names already use.
+ */
+export function storeNameForBackend(backend: StorageBackend): string {
+  return backend === 'AsyncStorage' ? 'asyncStorage' : 'mmkv'
+}
+
 export function createStorageViewerState(backend: StorageBackend): StorageViewerState {
   return {
     backend,

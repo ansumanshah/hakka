@@ -100,6 +100,12 @@ class HakkaInterceptor private constructor(
     /** No-op. The real interceptor emits the record to registered sinks. */
     fun injectRecord(record: ContractRecord) = Unit
 
+    /** No-op in noop variant. API parity with `hakka-network`. */
+    fun sendConsoleFrame(entries: List<LogEntry>) = Unit
+
+    /** No-op in noop variant. API parity with `hakka-network`. */
+    fun sendStorageFrame(snapshot: StorageSnapshot) = Unit
+
     override fun close() {
         plugins.removeAll()
     }

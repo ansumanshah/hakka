@@ -157,8 +157,12 @@ class HakkaBridgeDiscovery(
 fun HakkaInterceptor.connectBridge(url: String): AutoCloseable {
     val sink = BridgeSink(url)
     val subscription = addSink(sink)
+    // Also registers for `sendConsoleFrame`/`sendStorageFrame` — a discovery-attached hub
+    // should receive console/storage frames the same as one set via `Builder.bridgeUrl`.
+    registerBridgeSink(sink)
     return AutoCloseable {
         subscription.close()
+        unregisterBridgeSink(sink)
         sink.close()
     }
 }

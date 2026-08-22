@@ -13,6 +13,8 @@ import android.widget.LinearLayout
 import android.widget.ListView
 import android.widget.TextView
 import android.widget.Toast
+import com.noodleapps.hakka.StorageSnapshot
+import com.noodleapps.hakka.redactLogMetadata
 
 /**
  * Storage tab — SharedPreferences viewer.
@@ -78,6 +80,25 @@ internal class StorageTabController(private val activity: Activity) : TabControl
         allEntries = loadAllPrefs()
         if (::countLabel.isInitialized) countLabel.text = "${allEntries.size} entries"
         if (::listView.isInitialized) (listView.adapter as? PrefAdapter)?.notifyDataSetChanged()
+        publishSnapshots()
+    }
+
+    /**
+     * Publishes one [StorageSnapshot] per SharedPreferences file to any connected desktop
+     * bridge — mirrors iOS's `StorageView.refreshPairs()` → `publishStorageSnapshot`. Values
+     * are redacted with [redactLogMetadata], the same field-name matching
+     * [HakkaConfig.sensitiveBodyFields] uses everywhere else (log metadata included) —
+     * storage is where credentials are *persisted*, so this must never send a raw secret.
+     * No-op when [HakkaUI.attachInterceptor] was never called or no bridge is attached.
+     */
+    private fun publishSnapshots() {
+        val interceptor = HakkaUI.getInstance(activity).interceptor ?: return
+        val sensitiveFields = interceptor.config.sensitiveBodyFields
+        for ((file, entriesForFile) in allEntries.groupBy { it.file }) {
+            val raw = entriesForFile.associate { it.key to it.value }
+            val redacted = redactLogMetadata(raw, sensitiveFields) ?: raw
+            interceptor.sendStorageFrame(StorageSnapshot(store = "sharedPreferences:$file", entries = redacted))
+        }
     }
 
     private fun loadAllPrefs(): List<PrefEntry> {
