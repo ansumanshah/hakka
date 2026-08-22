@@ -24,7 +24,7 @@ struct PauseInboxSheet: View {
                     Text(note)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                        .padding(8)
+                        .padding(Spacing.md)
                         .frame(maxWidth: .infinity)
                 }
             }

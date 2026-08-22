@@ -5,7 +5,7 @@ struct RequestAuthTabView: View {
     @Binding var spec: RequestSpec
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Spacing.lg) {
             Picker("Type", selection: kindBinding) {
                 ForEach(AuthKind.allCases) { Text($0.rawValue).tag($0) }
             }
@@ -28,14 +28,14 @@ struct RequestAuthTabView: View {
     }
 
     var basicFields: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Spacing.md) {
             LabeledField("Username", text: basicUsernameBinding)
             LabeledField("Password", text: basicPasswordBinding, secure: true)
         }
     }
 
     var apiKeyFields: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Spacing.md) {
             LabeledField("Name", text: apiKeyNameBinding)
             LabeledField("Value", text: apiKeyValueBinding, secure: true)
             Picker("Add to", selection: apiKeyPlacementBinding) {

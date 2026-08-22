@@ -10,11 +10,11 @@ struct ConnectionFactsSection: View {
     let facts: ConnectionFacts
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
             Text("Connection")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
-            HStack(spacing: 16) {
+            HStack(spacing: Spacing.xl) {
                 if let networkProtocol = facts.networkProtocol {
                     fact("network", "Protocol", networkProtocol)
                 }
@@ -26,14 +26,14 @@ struct ConnectionFactsSection: View {
                 }
             }
         }
-        .padding(12)
+        .padding(Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.secondary.opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 
     private func fact(_ systemImage: String, _ label: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: Spacing.xxs) {
             Label(label, systemImage: systemImage)
                 .font(.caption2)
                 .foregroundStyle(.tertiary)

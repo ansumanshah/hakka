@@ -9,11 +9,11 @@ struct RuleRowView: View {
 
     var body: some View {
         let display = RuleEntryDisplay(entry)
-        HStack(spacing: 8) {
+        HStack(spacing: Spacing.md) {
             Toggle("", isOn: toggleBinding)
                 .labelsHidden()
                 .help(entry.isEnabled ? "Disable" : "Enable")
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: Spacing.xxs) {
                 Text(display.title)
                     .font(.callout.monospaced())
                     .lineLimit(1)
@@ -35,7 +35,7 @@ struct RuleRowView: View {
             .foregroundStyle(.secondary)
             .help("Remove from devices")
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, Spacing.xxs)
     }
 
     private var toggleBinding: Binding<Bool> {

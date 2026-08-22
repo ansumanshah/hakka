@@ -20,7 +20,7 @@ struct DetailSseTabView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Spacing.lg) {
             SseSummaryHeader(eventCount: events.count, assembled: assembled)
             if let assembled {
                 AssembledMessageSection(assembled: assembled)
@@ -50,7 +50,7 @@ private struct SseSummaryHeader: View {
     let assembled: AssembledStream?
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Spacing.md) {
             Text("\(eventCount) events")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
@@ -63,8 +63,8 @@ private struct SseSummaryHeader: View {
                 Text(finishReason)
                     .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(ThemeTokens.Status.info)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
+                    .padding(.horizontal, Spacing.sm)
+                    .padding(.vertical, Spacing.xxs)
                     .background(ThemeTokens.Status.info.opacity(0.12))
                     .clipShape(RoundedRectangle(cornerRadius: 4))
             }
@@ -79,7 +79,7 @@ private struct AssembledMessageSection: View {
     let assembled: AssembledStream
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Spacing.md) {
             Text("Assembled message")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
@@ -93,7 +93,7 @@ private struct AssembledMessageSection: View {
                 }
             }
         }
-        .padding(12)
+        .padding(Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.secondary.opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: 6))
@@ -121,7 +121,7 @@ private struct ToolCallBlock: View {
     let call: AssembledToolCall
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: Spacing.xxs) {
             Text(call.name ?? call.id ?? "(unnamed call)")
                 .font(.system(.caption, design: .monospaced).weight(.semibold))
             Text(JSONPrettyPrinter.prettyPrinted(call.arguments) ?? call.arguments)
@@ -129,7 +129,7 @@ private struct ToolCallBlock: View {
                 .foregroundStyle(.secondary)
                 .textSelection(.enabled)
         }
-        .padding(8)
+        .padding(Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.secondary.opacity(0.05))
         .clipShape(RoundedRectangle(cornerRadius: 4))
@@ -146,7 +146,7 @@ private struct RawEventList: View {
     @Binding var isExpanded: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Spacing.md) {
             Button {
                 isExpanded.toggle()
             } label: {
@@ -178,7 +178,7 @@ private struct RawEventRow: View {
     let event: SseEvent
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: Spacing.xxs) {
             Text(label)
                 .font(.system(.caption2, design: .monospaced))
                 .foregroundStyle(.tertiary)

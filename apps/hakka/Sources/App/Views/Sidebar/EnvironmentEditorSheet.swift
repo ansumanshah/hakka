@@ -10,7 +10,7 @@ struct EnvironmentEditorSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Spacing.lg) {
             header
             if let binding = selectedBinding {
                 TextField("Name", text: binding.name)
@@ -27,8 +27,8 @@ struct EnvironmentEditorSheet: View {
             Spacer(minLength: 0)
             footer
         }
-        .padding(20)
-        .frame(width: 480, height: 420)
+        .padding(Spacing.xxl)
+        .frame(width: 480, height: 420)  // ui-token-check-ignore: sheet size
     }
 
     private var header: some View {
@@ -50,7 +50,7 @@ struct EnvironmentEditorSheet: View {
         ScrollView {
             VStack(spacing: 0) {
                 ForEach(binding.variables) { $variable in
-                    HStack(spacing: 8) {
+                    HStack(spacing: Spacing.md) {
                         KeyValueEditorRow(
                             name: $variable.name,
                             value: $variable.value,
@@ -66,7 +66,7 @@ struct EnvironmentEditorSheet: View {
                         .buttonStyle(.plain)
                         .help("Secret")
                     }
-                    .padding(.vertical, 4)
+                    .padding(.vertical, Spacing.xs)
                     Divider()
                 }
                 Button {
@@ -75,7 +75,7 @@ struct EnvironmentEditorSheet: View {
                     Label("Add Variable", systemImage: "plus")
                 }
                 .buttonStyle(.plain)
-                .padding(.top, 8)
+                .padding(.top, Spacing.md)
             }
         }
     }

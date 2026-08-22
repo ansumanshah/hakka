@@ -15,7 +15,7 @@ struct DetailHeadersSection: View {
 
     var body: some View {
         if !headers.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: Spacing.md) {
                 Text(title).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                 headerList
             }
@@ -23,9 +23,9 @@ struct DetailHeadersSection: View {
     }
 
     private var headerList: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: Spacing.xxs) {
             ForEach(headers.keys.sorted(), id: \.self) { key in
-                HStack(alignment: .top, spacing: 6) {
+                HStack(alignment: .top, spacing: Spacing.sm) {
                     Text(key)
                         .font(.caption.weight(.medium))
                         .frame(width: 140, alignment: .leading)

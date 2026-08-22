@@ -15,8 +15,8 @@ struct PauseRowView: View {
         NavigationLink {
             PauseEditorView(pause: pause)
         } label: {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                HStack(spacing: Spacing.sm) {
                     Text(pause.phase == .response ? "RESPONSE" : "REQUEST")
                         .font(.caption2.weight(.bold))
                         .foregroundStyle(pause.phase == .response ? ThemeTokens.Timing.ttfb : ThemeTokens.Timing.dns)

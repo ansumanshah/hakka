@@ -20,7 +20,7 @@ struct RequestMultipartBodyEditor: View {
                 Label("Add Part", systemImage: "plus")
             }
             .buttonStyle(.plain)
-            .padding(.top, 8)
+            .padding(.top, Spacing.md)
         }
     }
 

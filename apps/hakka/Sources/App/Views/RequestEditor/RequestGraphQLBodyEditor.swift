@@ -5,11 +5,11 @@ struct RequestGraphQLBodyEditor: View {
     @Binding var spec: RequestSpec
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Spacing.md) {
             Text("Query").font(.caption).foregroundStyle(.secondary)
             TextEditor(text: queryBinding)
                 .font(.system(.body, design: .monospaced))
-                .frame(minHeight: 120)
+                .frame(minHeight: 120)  // ui-token-check-ignore: body editor min height
                 .overlay(RoundedRectangle(cornerRadius: 4).stroke(.separator))
             // Only shown once there's an actual choice to make — a document
             // with a single (possibly anonymous) operation has nothing to
@@ -23,7 +23,7 @@ struct RequestGraphQLBodyEditor: View {
             Text("Variables (JSON)").font(.caption).foregroundStyle(.secondary)
             TextEditor(text: variablesBinding)
                 .font(.system(.body, design: .monospaced))
-                .frame(minHeight: 80)
+                .frame(minHeight: 80)  // ui-token-check-ignore: body editor min height
                 .overlay(RoundedRectangle(cornerRadius: 4).stroke(.separator))
         }
     }

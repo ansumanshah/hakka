@@ -53,55 +53,62 @@ enum HakkaTokens {
 /// Canonical Hakka geometry, shared with RN + web + Android. Every interactive
 /// control's height comes from ControlHeight; every page edge from
 /// Layout.gutter. See DESIGN.md "One geometry".
-enum HakkaMetrics {
-    enum Spacing {
-        static let xxs: CGFloat = 2
-        static let xs: CGFloat = 4
-        static let sm: CGFloat = 6
-        static let md: CGFloat = 8
-        static let ml: CGFloat = 10
-        static let lg: CGFloat = 12
-        static let ll: CGFloat = 14
-        static let xl: CGFloat = 16
-        static let xxl: CGFloat = 20
-        static let xxxl: CGFloat = 24
+///
+/// public: the macOS app (a separate SPM module, HakkaApp) reaches for this
+/// type directly — unlike HakkaTokens/Theme's colors, these are bare CGFloat
+/// constants with no UIKit dependency, so there is no reason to fork a second
+/// copy the way emitSwiftDesktop() has to for colors. See
+/// apps/hakka/Sources/App/Helpers/Metrics.swift for the desktop's short
+/// aliases onto this.
+public enum HakkaMetrics {
+    public enum Spacing {
+        public static let xxs: CGFloat = 2
+        public static let xs: CGFloat = 4
+        public static let sm: CGFloat = 6
+        public static let md: CGFloat = 8
+        public static let ml: CGFloat = 10
+        public static let lg: CGFloat = 12
+        public static let ll: CGFloat = 14
+        public static let xl: CGFloat = 16
+        public static let xxl: CGFloat = 20
+        public static let xxxl: CGFloat = 24
     }
 
-    enum Radius {
-        static let xs: CGFloat = 2
-        static let sm: CGFloat = 4
-        static let md: CGFloat = 6
-        static let lg: CGFloat = 10
-        static let xl: CGFloat = 14
-        static let pill: CGFloat = 999
+    public enum Radius {
+        public static let xs: CGFloat = 2
+        public static let sm: CGFloat = 4
+        public static let md: CGFloat = 6
+        public static let lg: CGFloat = 10
+        public static let xl: CGFloat = 14
+        public static let pill: CGFloat = 999
     }
 
-    enum FontSize {
-        static let xxs: CGFloat = 9
-        static let xs: CGFloat = 10
-        static let sm: CGFloat = 12
-        static let md: CGFloat = 13
-        static let lg: CGFloat = 15
-        static let xl: CGFloat = 16
-        static let xxl: CGFloat = 18
-        static let display: CGFloat = 22
-        static let hero: CGFloat = 26
+    public enum FontSize {
+        public static let xxs: CGFloat = 9
+        public static let xs: CGFloat = 10
+        public static let sm: CGFloat = 12
+        public static let md: CGFloat = 13
+        public static let lg: CGFloat = 15
+        public static let xl: CGFloat = 16
+        public static let xxl: CGFloat = 18
+        public static let display: CGFloat = 22
+        public static let hero: CGFloat = 26
     }
 
-    enum ControlHeight {
-        static let badge: CGFloat = 18
-        static let chip: CGFloat = 24
-        static let icon: CGFloat = 28
-        static let md: CGFloat = 28
-        static let field: CGFloat = 36
-        static let nav: CGFloat = 40
-        static let bar: CGFloat = 44
+    public enum ControlHeight {
+        public static let badge: CGFloat = 18
+        public static let chip: CGFloat = 24
+        public static let icon: CGFloat = 28
+        public static let md: CGFloat = 28
+        public static let field: CGFloat = 36
+        public static let nav: CGFloat = 40
+        public static let bar: CGFloat = 44
     }
 
-    enum Layout {
-        static let gutter: CGFloat = 16
-        static let cardPadding: CGFloat = 12
-        static let sectionGap: CGFloat = 16
-        static let rowGap: CGFloat = 8
+    public enum Layout {
+        public static let gutter: CGFloat = 16
+        public static let cardPadding: CGFloat = 12
+        public static let sectionGap: CGFloat = 16
+        public static let rowGap: CGFloat = 8
     }
 }

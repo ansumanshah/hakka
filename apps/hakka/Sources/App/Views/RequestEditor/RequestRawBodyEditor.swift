@@ -5,12 +5,12 @@ struct RequestRawBodyEditor: View {
     @Binding var spec: RequestSpec
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Spacing.md) {
             TextField("Content-Type", text: contentTypeBinding)
                 .textFieldStyle(.roundedBorder)
             TextEditor(text: textBinding)
                 .font(.system(.body, design: .monospaced))
-                .frame(minHeight: 200)
+                .frame(minHeight: 200)  // ui-token-check-ignore: body editor min height
                 .overlay(RoundedRectangle(cornerRadius: 4).stroke(.separator))
         }
     }

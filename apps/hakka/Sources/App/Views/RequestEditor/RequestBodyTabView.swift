@@ -41,7 +41,7 @@ struct RequestBodyTabView: View {
     @Binding var spec: RequestSpec
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Spacing.lg) {
             Picker("", selection: kindBinding) {
                 ForEach(BodyKind.allCases) { Text($0.rawValue).tag($0) }
             }

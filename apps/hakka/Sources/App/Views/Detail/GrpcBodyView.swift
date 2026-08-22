@@ -12,7 +12,7 @@ struct GrpcBodyView: View {
     let decoded: GrpcDecodedBody
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: Spacing.ml) {
             statusBanner
             inferredNotice
             frameList
@@ -23,7 +23,7 @@ struct GrpcBodyView: View {
     private var statusBanner: some View {
         if let status = decoded.status {
             let isOK = status.known?.isOK == true
-            HStack(spacing: 6) {
+            HStack(spacing: Spacing.sm) {
                 Image(systemName: isOK ? "checkmark.circle.fill" : "xmark.octagon.fill")
                     .foregroundStyle(isOK ? ThemeTokens.Status.success : ThemeTokens.Status.error)
                 Text(status.known?.name ?? "CODE \(status.code)")
@@ -36,18 +36,18 @@ struct GrpcBodyView: View {
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
-            .padding(8)
+            .padding(Spacing.md)
             .background((isOK ? ThemeTokens.Status.success : ThemeTokens.Status.error).opacity(0.1))
             .clipShape(RoundedRectangle(cornerRadius: 4))
         } else {
-            HStack(alignment: .top, spacing: 6) {
+            HStack(alignment: .top, spacing: Spacing.sm) {
                 Image(systemName: "questionmark.circle")
                     .foregroundStyle(ThemeTokens.Status.pending)
                 Text(noStatusMessage)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            .padding(8)
+            .padding(Spacing.md)
             .background(ThemeTokens.Status.pending.opacity(0.1))
             .clipShape(RoundedRectangle(cornerRadius: 4))
         }
@@ -79,22 +79,22 @@ struct GrpcBodyView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(8)
+                .padding(Spacing.md)
                 .background(Color.secondary.opacity(0.08))
                 .clipShape(RoundedRectangle(cornerRadius: 4))
         } else {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text("\(decoded.frames.count) message frame\(decoded.frames.count == 1 ? "" : "s") — wire order; per-frame arrival time isn't captured (unlike WebSocket frames, gRPC frames carry no timestamp in `NetworkRequest`).")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 6) {
+                    LazyVStack(alignment: .leading, spacing: Spacing.sm) {
                         ForEach(decoded.frames) { frame in
                             GrpcFrameRowView(frame: frame)
                         }
                     }
                 }
-                .frame(maxHeight: 420)
+                .frame(maxHeight: 420)  // ui-token-check-ignore: pane cap
             }
         }
     }

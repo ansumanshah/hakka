@@ -11,7 +11,7 @@ struct BodyTextView: View {
     var body: some View {
         let capped = model.cappedDisplay
 
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Spacing.md) {
             BodySearchBar(
                 searchText: $model.searchText,
                 matchCount: model.matches.count,
@@ -24,8 +24,8 @@ struct BodyTextView: View {
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(maxHeight: 460)
-            .padding(8)
+            .frame(maxHeight: 460)  // ui-token-check-ignore: pane cap
+            .padding(Spacing.md)
             .background(Color.secondary.opacity(0.08))
             .clipShape(RoundedRectangle(cornerRadius: 4))
             if capped.isTruncated {
@@ -35,7 +35,7 @@ struct BodyTextView: View {
     }
 
     private func truncationFooter(_ capped: CappedBody) -> some View {
-        HStack(spacing: 12) {
+        HStack(spacing: Spacing.lg) {
             Text("… \(capped.hiddenCharacterCount.formatted()) more characters hidden")
                 .font(.caption)
                 .foregroundStyle(.secondary)

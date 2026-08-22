@@ -9,11 +9,11 @@ struct LiveTrafficHeader: View {
     @FocusState private var searchFieldFocused: Bool
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: Spacing.md) {
             HStack {
                 Circle()
                     .fill(model.traffic.isRunning ? Color.green : Color.red)
-                    .frame(width: 8, height: 8)
+                    .frame(width: 8, height: 8)  // ui-token-check-ignore: connection status dot
                 Text(statusText)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -34,7 +34,7 @@ struct LiveTrafficHeader: View {
             }
             searchField
         }
-        .padding(10)
+        .padding(Spacing.ml)
         // `AppCommands`' Cmd-F bumps this token; picking it up here (rather
         // than the command mutating `searchFieldFocused` directly) is the
         // only way a menu action — which has no view of this view's local
@@ -51,7 +51,7 @@ struct LiveTrafficHeader: View {
     @ViewBuilder
     private var displayModePicker: some View {
         if #available(macOS 14.4, *) {
-            HStack(spacing: 2) {
+            HStack(spacing: Spacing.xxs) {
                 modeButton(.list, systemImage: "list.bullet")
                 modeButton(.table, systemImage: "tablecells")
                 if model.traffic.displayMode == .table {
@@ -83,7 +83,7 @@ struct LiveTrafficHeader: View {
     }
 
     private var searchField: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: Spacing.sm) {
             Image(systemName: "magnifyingglass")
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -108,8 +108,8 @@ struct LiveTrafficHeader: View {
                 model.traffic.searchText = query
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, Spacing.sm)
         .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 6))
     }
 

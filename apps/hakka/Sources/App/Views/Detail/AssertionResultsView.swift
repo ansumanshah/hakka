@@ -5,10 +5,10 @@ struct AssertionResultsView: View {
     let results: [AssertionResult]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
             Text("Tests").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
             ForEach(results) { result in
-                HStack(spacing: 6) {
+                HStack(spacing: Spacing.sm) {
                     Image(systemName: result.passed ? "checkmark.circle.fill" : "xmark.circle.fill")
                         .foregroundStyle(result.passed ? .green : .red)
                     Text(describeTarget(result.target)).font(.caption)

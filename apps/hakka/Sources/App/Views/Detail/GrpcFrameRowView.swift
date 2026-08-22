@@ -9,8 +9,8 @@ struct GrpcFrameRowView: View {
     let frame: GrpcRenderFrame
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 6) {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            HStack(spacing: Spacing.sm) {
                 Text("frame \(frame.id)")
                     .font(.caption2.monospaced())
                     .foregroundStyle(.secondary)
@@ -25,7 +25,7 @@ struct GrpcFrameRowView: View {
             }
             payloadView
         }
-        .padding(8)
+        .padding(Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.secondary.opacity(0.05))
         .clipShape(RoundedRectangle(cornerRadius: 4))
@@ -48,7 +48,7 @@ struct GrpcFrameRowView: View {
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             } else {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: Spacing.xxs) {
                     ForEach(Array(fields.enumerated()), id: \.offset) { _, field in
                         GrpcFieldRowView(field: field, depth: 0)
                     }
@@ -66,8 +66,8 @@ struct GrpcFieldRowView: View {
     let depth: Int
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(alignment: .top, spacing: 4) {
+        VStack(alignment: .leading, spacing: Spacing.xxs) {
+            HStack(alignment: .top, spacing: Spacing.xs) {
                 Text(String(repeating: "  ", count: depth) + "#\(field.field)")
                     .font(.system(.caption2, design: .monospaced))
                     .foregroundStyle(.secondary)

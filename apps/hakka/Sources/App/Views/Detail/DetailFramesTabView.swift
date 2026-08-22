@@ -15,7 +15,7 @@ struct DetailFramesTabView: View {
     @State private var composerText = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Spacing.lg) {
             lifecycleBar
             if let connectError = model.connectError {
                 Text(connectError)
@@ -28,10 +28,10 @@ struct DetailFramesTabView: View {
     }
 
     private var lifecycleBar: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Spacing.md) {
             Circle()
                 .fill(stateColor)
-                .frame(width: 8, height: 8)
+                .frame(width: 8, height: 8)  // ui-token-check-ignore: lifecycle state dot
             Text(stateLabel)
                 .font(.caption.weight(.semibold))
             if model.snapshot.droppedFrameCount > 0 {
@@ -59,23 +59,23 @@ struct DetailFramesTabView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(8)
+                .padding(Spacing.md)
                 .background(Color.secondary.opacity(0.08))
                 .clipShape(RoundedRectangle(cornerRadius: 4))
         } else {
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 4) {
+                LazyVStack(alignment: .leading, spacing: Spacing.xs) {
                     ForEach(model.snapshot.frames) { frame in
                         WebSocketFrameRow(frame: frame)
                     }
                 }
             }
-            .frame(maxHeight: 320)
+            .frame(maxHeight: 320)  // ui-token-check-ignore: pane cap
         }
     }
 
     private var composer: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Spacing.md) {
             TextField("Send a text frame…", text: $composerText)
                 .textFieldStyle(.roundedBorder)
                 .onSubmit(send)
@@ -120,10 +120,10 @@ private struct WebSocketFrameRow: View {
     let frame: WebSocketFrame
 
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
+        HStack(alignment: .top, spacing: Spacing.md) {
             Image(systemName: frame.direction == .sent ? "arrow.up.circle" : "arrow.down.circle")
                 .foregroundStyle(frame.direction == .sent ? ThemeTokens.Status.info : ThemeTokens.Status.success)
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: Spacing.xxs) {
                 Text("\(frame.opcode.rawValue) · \(frame.size) bytes")
                     .font(.caption2.monospaced())
                     .foregroundStyle(.secondary)
@@ -133,7 +133,7 @@ private struct WebSocketFrameRow: View {
                     .lineLimit(4)
             }
         }
-        .padding(6)
+        .padding(Spacing.sm)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.secondary.opacity(0.05))
         .clipShape(RoundedRectangle(cornerRadius: 4))

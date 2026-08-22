@@ -14,7 +14,7 @@ struct LabeledField: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
             Text(title).font(.caption).foregroundStyle(.secondary)
             Group {
                 if secure {

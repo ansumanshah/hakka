@@ -18,7 +18,7 @@ struct ContentView: View {
             DetailPaneView()
                 .navigationSplitViewColumnWidth(min: 320, ideal: 420)
         }
-        .frame(minWidth: 900, minHeight: 560)
+        .frame(minWidth: 900, minHeight: 560)  // ui-token-check-ignore: window chrome
         // Mounted once here, above the split view, so it is visible from
         // every pane — see `PauseInboxBanner`'s own doc comment for why that
         // matters more than it would for an ordinary status strip.

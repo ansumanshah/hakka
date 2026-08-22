@@ -13,7 +13,7 @@ struct DeviceTagView: View {
         Text(Self.compact(label))
             .font(.caption2.weight(.semibold))
             .foregroundStyle(ThemeTokens.Status.info)
-            .padding(.horizontal, 5)
+            .padding(.horizontal, Spacing.xs)
             .padding(.vertical, 1)
             .background(ThemeTokens.Status.info.opacity(0.1))
             .clipShape(Capsule())

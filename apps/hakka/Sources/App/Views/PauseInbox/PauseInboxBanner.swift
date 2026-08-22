@@ -22,7 +22,7 @@ struct PauseInboxBanner: View {
             Button {
                 isPresented = true
             } label: {
-                HStack(spacing: 8) {
+                HStack(spacing: Spacing.md) {
                     Image(systemName: "pause.circle.fill")
                     Text(bannerText)
                         .font(.callout.weight(.semibold))
@@ -30,15 +30,15 @@ struct PauseInboxBanner: View {
                     Text("Review")
                         .font(.caption.weight(.semibold))
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
+                .padding(.horizontal, Spacing.ll)
+                .padding(.vertical, Spacing.md)
                 .foregroundStyle(ThemeTokens.Status.onWarm)
                 .background(ThemeTokens.Status.warning)
             }
             .buttonStyle(.plain)
             .sheet(isPresented: $isPresented) {
                 PauseInboxSheet()
-                    .frame(minWidth: 640, minHeight: 480)
+                    .frame(minWidth: 640, minHeight: 480)  // ui-token-check-ignore: sheet size
             }
         }
     }

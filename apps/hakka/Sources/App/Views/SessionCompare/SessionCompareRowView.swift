@@ -15,10 +15,10 @@ struct SessionCompareRowView: View {
         Button {
             if isMatchedWithDiffableChange { showingDetail = true }
         } label: {
-            HStack(alignment: .top, spacing: 8) {
+            HStack(alignment: .top, spacing: Spacing.md) {
                 Image(systemName: symbol).foregroundStyle(color).frame(width: 16)
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 6) {
+                VStack(alignment: .leading, spacing: Spacing.xxs) {
+                    HStack(spacing: Spacing.sm) {
                         Text(key.method.rawValue)
                             .font(.caption2.weight(.bold))
                             .foregroundStyle(Fmt.methodColor(key.method))
@@ -35,7 +35,7 @@ struct SessionCompareRowView: View {
             }
         }
         .buttonStyle(.plain)
-        .padding(10)
+        .padding(Spacing.ml)
         .background(RoundedRectangle(cornerRadius: 8).fill(.quaternary.opacity(0.3)))
         .sheet(isPresented: $showingDetail) {
             if case let .matched(pair) = entry {

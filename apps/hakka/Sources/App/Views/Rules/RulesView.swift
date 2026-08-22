@@ -21,7 +21,7 @@ struct RulesView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: Spacing.xl) {
                 RulesSection(title: "Mocks", isEmpty: mocks.isEmpty, empty: "No mocks — promote one from a captured request's Mock action.") {
                     ForEach(mocks) { entry in
                         RuleRowView(entry: entry, rules: model.rules)
@@ -39,7 +39,7 @@ struct RulesView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            .padding(16)
+            .padding(Spacing.xl)
         }
     }
 
@@ -79,7 +79,7 @@ private struct RulesSection<Content: View>: View {
     @ViewBuilder let content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Spacing.md) {
             Text(title.uppercased())
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
@@ -91,7 +91,7 @@ private struct RulesSection<Content: View>: View {
                 content
             }
         }
-        .padding(12)
+        .padding(Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.secondary.opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: 6))

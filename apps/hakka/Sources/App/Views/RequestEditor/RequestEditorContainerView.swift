@@ -16,7 +16,7 @@ struct RequestEditorContainerView: View {
             RequestTabsView(activeTab: $activeTab)
             Divider()
             tabContent
-                .padding(12)
+                .padding(Spacing.lg)
         }
     }
 

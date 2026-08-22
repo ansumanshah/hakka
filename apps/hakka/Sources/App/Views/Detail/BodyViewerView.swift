@@ -20,7 +20,7 @@ struct BodyViewerView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Spacing.md) {
             header
             viewer
             if let saveError {
@@ -30,7 +30,7 @@ struct BodyViewerView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Spacing.md) {
             if let contentType = model.body.contentType {
                 Text(contentType)
                     .font(.caption.monospaced())

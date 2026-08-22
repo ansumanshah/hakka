@@ -45,7 +45,7 @@ struct PauseEditorView: View {
             Section("Body") {
                 TextEditor(text: $bodyText)
                     .font(.system(.body, design: .monospaced))
-                    .frame(minHeight: 160)
+                    .frame(minHeight: 160)  // ui-token-check-ignore: body editor min height
             }
         }
         .formStyle(.grouped)

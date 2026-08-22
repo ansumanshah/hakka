@@ -12,7 +12,7 @@ struct DeviceRowView: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 6) {
+            HStack(spacing: Spacing.sm) {
                 connectionDot
                 Text(summary.device.displayName)
                     .lineLimit(1)
@@ -37,7 +37,7 @@ struct DeviceRowView: View {
     private var connectionDot: some View {
         Circle()
             .fill(summary.device.isConnected ? ThemeTokens.Status.success : ThemeTokens.Status.pending)
-            .frame(width: 6, height: 6)
+            .frame(width: 6, height: 6)  // ui-token-check-ignore: connection status dot
             .accessibilityHidden(true)
     }
 

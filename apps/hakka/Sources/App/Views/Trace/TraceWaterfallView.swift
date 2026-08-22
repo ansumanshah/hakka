@@ -17,7 +17,7 @@ struct TraceWaterfallView: View {
     private var span: Double { max(Double(tree.t1 - tree.t0), 1) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Spacing.md) {
             HStack {
                 legend
                 Spacer()
@@ -26,18 +26,18 @@ struct TraceWaterfallView: View {
                     .font(.caption)
             }
             ScrollView {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: Spacing.xs) {
                     ForEach(tree.bars) { bar in
                         row(for: bar)
                     }
                 }
             }
         }
-        .padding(12)
+        .padding(Spacing.lg)
     }
 
     private var legend: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Spacing.md) {
             ForEach(Array(trace.participantRuntimes).sorted(by: { $0.rawValue < $1.rawValue }), id: \.self) { runtime in
                 Label(runtime.rawValue, systemImage: "circle.fill")
                     .labelStyle(.titleAndIcon)
@@ -50,7 +50,7 @@ struct TraceWaterfallView: View {
     private func row(for bar: TraceBar) -> some View {
         let offset = (Double(bar.startTime) - Double(tree.t0)) / span
         let width = max((Double(bar.endTime) - Double(bar.startTime)) / span, 0.02)
-        return HStack(spacing: 6) {
+        return HStack(spacing: Spacing.sm) {
             Text(name(for: bar))
                 .font(.caption)
                 .lineLimit(1)
@@ -64,7 +64,7 @@ struct TraceWaterfallView: View {
                         .offset(x: geo.size.width * offset)
                 }
             }
-            .frame(height: 14)
+            .frame(height: 14)  // ui-token-check-ignore: waterfall bar height
             Text(duration(for: bar))
                 .font(.caption2)
                 .foregroundStyle(.secondary)

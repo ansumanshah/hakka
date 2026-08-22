@@ -9,9 +9,9 @@ struct FolderRunSummaryView: View {
     let summary: FolderRunSummary
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: Spacing.xl) {
             header
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: Spacing.ml) {
                 ForEach(summary.items) { item in
                     FolderRunItemRow(item: item)
                 }
@@ -20,9 +20,9 @@ struct FolderRunSummaryView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
             Text(summary.folderName).font(.title3.weight(.semibold))
-            HStack(spacing: 10) {
+            HStack(spacing: Spacing.ml) {
                 Label("\(summary.passedCount) passed", systemImage: "checkmark.circle.fill")
                     .foregroundStyle(ThemeTokens.Status.success)
                 if summary.failedCount > 0 {
@@ -41,8 +41,8 @@ private struct FolderRunItemRow: View {
     let item: FolderRunItem
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            HStack(spacing: Spacing.md) {
                 Image(systemName: statusSymbol)
                     .foregroundStyle(statusColor)
                 Text(item.method.rawValue)
@@ -60,11 +60,11 @@ private struct FolderRunItemRow: View {
                 Text(message)
                     .font(.caption)
                     .foregroundStyle(ThemeTokens.Status.error)
-                    .padding(.leading, 48)
+                    .padding(.leading, 48)  // ui-token-check-ignore: aligns under the method column above (width 40 + gap 8)
             }
             if !item.assertionResults.isEmpty {
                 AssertionResultsView(results: item.assertionResults)
-                    .padding(.leading, 48)
+                    .padding(.leading, 48)  // ui-token-check-ignore: aligns under the method column above (width 40 + gap 8)
             }
         }
     }

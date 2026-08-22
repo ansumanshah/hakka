@@ -8,9 +8,9 @@ struct EmptyStateView: View {
     var message: String?
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: Spacing.lg) {
             Image(systemName: systemImage)
-                .font(.system(size: 40))
+                .font(.system(size: 40))  // ui-token-check-ignore: empty-state illustration
                 .foregroundStyle(.tertiary)
             Text(title)
                 .font(.headline)
