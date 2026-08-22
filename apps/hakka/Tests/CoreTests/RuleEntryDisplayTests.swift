@@ -18,6 +18,8 @@ struct RuleEntryDisplayTests {
         #expect(display.kind == .mock)
         #expect(display.title == "GET https://api.example.com/v1/users")
         #expect(display.subtitle == "Serves 418")
+        #expect(display.pattern == "https://api.example.com/v1/users")
+        #expect(display.method == "GET")
     }
 
     @Test func mockWithoutMethodOmitsItFromTitle()
@@ -31,6 +33,7 @@ struct RuleEntryDisplayTests {
         )
         #expect(RuleEntryDisplay(entry).title == "https://api.example.com/anything")
         #expect(RuleEntryDisplay(entry).subtitle == "Serves 200")
+        #expect(RuleEntryDisplay(entry).method == nil, "no method filter — the row's chip shows \"ANY\", not a fabricated one")
     }
 
     @Test func blockAndRedirectSaySo()
@@ -126,5 +129,7 @@ struct RuleEntryDisplayTests {
         #expect(RuleEntryDisplay(breakpoint(.response)).subtitle == "Pauses response")
         #expect(RuleEntryDisplay(breakpoint(.both)).subtitle == "Pauses request + response")
         #expect(RuleEntryDisplay(breakpoint(.both)).title == "POST https://api.example.com/pay")
+        #expect(RuleEntryDisplay(breakpoint(.both)).pattern == "https://api.example.com/pay")
+        #expect(RuleEntryDisplay(breakpoint(.both)).method == "POST")
     }
 }

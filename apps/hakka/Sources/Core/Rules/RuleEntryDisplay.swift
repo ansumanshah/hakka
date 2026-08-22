@@ -14,11 +14,19 @@ public struct RuleEntryDisplay: Sendable, Equatable {
     public let title: String
     /// What the rule does when it matches.
     public let subtitle: String
+    /// `title`'s two halves, split out for a row that shows the method as
+    /// its own chip rather than folded into one string (`title`/`subtitle`
+    /// stay as they are — accessibility labels and any other reader that
+    /// wants the combined form still gets it).
+    public let pattern: String
+    public let method: String?
 
     public init(_ entry: RuleEntry) {
         switch entry.payload {
         case let .mock(rule):
             kind = .mock
+            pattern = rule.pattern
+            method = rule.method
             title = Self.title(pattern: rule.pattern, method: rule.method)
             var base: String
             if let failure = rule.failure {
@@ -36,6 +44,8 @@ public struct RuleEntryDisplay: Sendable, Equatable {
             subtitle = base
         case let .breakpoint(breakpoint):
             kind = .breakpoint
+            pattern = breakpoint.pattern
+            method = breakpoint.method
             title = Self.title(pattern: breakpoint.pattern, method: breakpoint.method)
             switch breakpoint.on {
             case .request: subtitle = "Pauses request"
