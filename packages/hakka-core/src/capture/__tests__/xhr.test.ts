@@ -480,8 +480,11 @@ describe('enableXHRInterceptor', () => {
     setTimeout(() => {
       const elapsed = Date.now() - t0
       expect(callerFired).toBe(true)
-      // No artificial delay — should complete well under 50ms
-      expect(elapsed).toBeLessThan(50)
+      // No artificial delay — the throttled sibling below computes ~80ms, so
+      // anything under 70 proves no throttle ran. 50 left only 20ms of headroom
+      // over this callback's own 30ms timer and flaked under `just verify`'s
+      // 14 parallel legs (observed 56ms of pure scheduler jitter).
+      expect(elapsed).toBeLessThan(70)
       done()
     }, 30)
   })
