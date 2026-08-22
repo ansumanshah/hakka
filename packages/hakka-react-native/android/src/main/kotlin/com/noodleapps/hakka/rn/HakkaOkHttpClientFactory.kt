@@ -119,8 +119,20 @@ object HakkaOkHttpClientFactory {
                 .receivedResponseAtMillis(System.currentTimeMillis())
                 .sentRequestAtMillis(System.currentTimeMillis())
 
+            // `headerValues` widens single-value `headers` for names with more than one
+            // value (chiefly Set-Cookie — see [HakkaMockRule.headerValues]'s doc). OkHttp's
+            // `Response.Builder.addHeader` natively supports repeated names, so this is a
+            // true multi-header apply, not a join: names covered by `headerValues` are
+            // skipped from `headers` (which only carries their representative first value)
+            // and every one of their real values is added instead.
             for ((headerName, headerValue) in matchedRule.headers) {
+                if (matchedRule.headerValues.containsKey(headerName)) continue
                 responseBuilder.addHeader(headerName, headerValue)
+            }
+            for ((headerName, values) in matchedRule.headerValues) {
+                for (value in values) {
+                    responseBuilder.addHeader(headerName, value)
+                }
             }
 
             return responseBuilder.build()

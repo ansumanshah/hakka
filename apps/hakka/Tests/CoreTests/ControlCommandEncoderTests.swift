@@ -145,6 +145,42 @@ struct ControlCommandEncoderTests {
         )
     }
 
+    @Test("mock.add encodes headerValues alongside headers — additive multi-value widening")
+    func mockAddWithHeaderValues() throws {
+        // Two Set-Cookie values: `headers` still carries the representative
+        // first value (old decoders keep working), `headerValues` carries
+        // the full list. See `MockResponse.headerValues`'s doc.
+        let command = ControlCommand.mockAdd(
+            id: "ext-cookies",
+            rule: MockRuleInput(
+                pattern: "/login",
+                response: MockResponse(
+                    status: 200,
+                    headers: ["Set-Cookie": "session=abc"],
+                    headerValues: ["Set-Cookie": ["session=abc", "consent=yes"]],
+                    body: ""
+                )
+            )
+        )
+        #expect(
+            try ControlCommandEncoder.encodePayload(command)
+                == Data(
+                    #"{"kind":"mock.add","rule":{"enabled":true,"id":"ext-cookies","pattern":"\/login","response":{"body":"","headers":{"Set-Cookie":"session=abc"},"headerValues":{"Set-Cookie":["session=abc","consent=yes"]},"status":200}}}"#
+                        .utf8
+                )
+        )
+    }
+
+    @Test("mock.add omits headerValues when every header has one value — field-absent shape")
+    func mockAddOmitsHeaderValuesWhenEmpty() throws {
+        let command = ControlCommand.mockAdd(
+            id: "ext-plain",
+            rule: MockRuleInput(pattern: "/x", response: MockResponse(status: 200, headers: ["x-a": "b"], body: ""))
+        )
+        let payloadString = String(decoding: try ControlCommandEncoder.encodePayload(command), as: UTF8.self)
+        #expect(!payloadString.contains("headerValues"))
+    }
+
     @Test("mock.add omits failure/skipCount/stopAfter when absent/zero — field-absent shape")
     func mockAddOmitsSkipStopFailureWhenAbsent() throws {
         let command = ControlCommand.mockAdd(

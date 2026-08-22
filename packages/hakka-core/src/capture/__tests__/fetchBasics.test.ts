@@ -124,6 +124,35 @@ describe('fetch interceptor — mock short-circuit via mockEngine', () => {
       dispose()
     }
   })
+
+  // Regression: promoting a capture with two Set-Cookie values into a mock rule (see
+  // `apps/hakka/Sources/Core/Rules/CapturedMockConverter.swift`'s `headerValues` widening)
+  // must survive capture -> mock -> applied response with both cookies distinct, never
+  // comma-folded into one (RFC 6265 §3 forbids folding Set-Cookie).
+  test('a mock rule with two headerValues Set-Cookie entries serves both distinctly, not comma-joined', async () => {
+    globalThis.fetch = (async () => new Response('real-network-body', { status: 200 })) as typeof globalThis.fetch
+
+    mockEngine.addRule({
+      pattern: '/mocked-cookies',
+      method: 'GET',
+      response: {
+        status: 200,
+        headers: { 'set-cookie': 'session=abc' },
+        headerValues: { 'set-cookie': ['session=abc; Path=/', 'consent=yes; Path=/'] },
+        body: '',
+      },
+      enabled: true,
+    })
+
+    const dispose = enableFetchInterceptor(() => {}, 1_000_000, [])
+    try {
+      const response = await globalThis.fetch('https://api.example.com/mocked-cookies')
+
+      expect(response.headers.getSetCookie()).toEqual(['session=abc; Path=/', 'consent=yes; Path=/'])
+    } finally {
+      dispose()
+    }
+  })
 })
 
 describe('fetch interceptor — teardown restores the original fetch', () => {

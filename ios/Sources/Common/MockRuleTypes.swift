@@ -10,8 +10,20 @@ import Foundation
 public struct MockResponse: Sendable {
     /// HTTP status code. Default: 200.
     public let status: Int
-    /// Response headers.
+    /// Response headers — one representative value per name. Kept for
+    /// backward compatibility; see `headerValues` for names that carry more
+    /// than one value.
     public let headers: [String: String]
+    /// Additive, backward-compatible widening of `headers` for header names
+    /// that carry more than one value on the wire — chiefly `Set-Cookie`,
+    /// where RFC 6265 §3 forbids folding multiple values into one
+    /// comma-joined field (a cookie's own `Expires` attribute can legally
+    /// contain a comma, so a naive join is ambiguous/corrupt). Mirrors
+    /// `MockResponse.headerValues` in `packages/hakka-core/src/engine/MockEngine.ts`
+    /// exactly — only header names with 2+ values need an entry here; every
+    /// name (including these) still has a representative value in `headers`
+    /// so an old consumer that only reads `headers` keeps working unchanged.
+    public let headerValues: [String: [String]]
     /// Response body as a string, or `nil` for an empty body.
     public let body: String?
     /// Artificial delay in seconds before responding. 0 = instant.
@@ -20,13 +32,40 @@ public struct MockResponse: Sendable {
     public init(
         status: Int = 200,
         headers: [String: String] = [:],
+        headerValues: [String: [String]] = [:],
         body: String? = nil,
         delay: TimeInterval = 0
     ) {
         self.status = status
         self.headers = headers
+        self.headerValues = headerValues
         self.body = body
         self.delay = delay
+    }
+
+    /// The header fields to hand `HTTPURLResponse(headerFields:)`, the
+    /// engine's one available apply mechanism: Foundation's public
+    /// initializer takes `[String: String]` — there is no supported way to
+    /// attach two distinct values under one header name (confirmed against
+    /// Apple's own `HTTPURLResponse`/`URLSession` stack — see
+    /// developer.apple.com/forums/thread/671450 — only the last value of a
+    /// same-name header survives `allHeaderFields`). For a name in
+    /// `headerValues`, this joins its values with `", "` rather than using
+    /// `headers`' single representative value: for `Set-Cookie` specifically
+    /// that join is NOT a naive/lossy fold — `HTTPCookie.cookies
+    /// (withResponseHeaderFields:for:)`, the API `URLSession` itself uses to
+    /// populate the cookie jar, correctly splits it back into distinct
+    /// cookies even when one has a comma inside its `Expires` attribute
+    /// (verified empirically: `HTTPCookie.cookies(withResponseHeaderFields:
+    /// ["Set-Cookie": "a=1; Expires=Wed, 09 Jun 2027 10:18:14 GMT; Path=/,
+    /// b=2; Path=/"], for:)` returns two cookies, not one mangled cookie).
+    public var httpHeaderFields: [String: String] {
+        guard !headerValues.isEmpty else { return headers }
+        var fields = headers
+        for (name, values) in headerValues where !values.isEmpty {
+            fields[name] = values.joined(separator: ", ")
+        }
+        return fields
     }
 }
 

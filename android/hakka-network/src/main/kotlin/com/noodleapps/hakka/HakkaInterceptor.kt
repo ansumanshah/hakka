@@ -487,7 +487,7 @@ class HakkaInterceptor private constructor(
             val mockBody = mockResp.body
             val mockBodySize = mockBody?.toByteArray(Charsets.UTF_8)?.size?.toLong() ?: 0L
             val mockDuration = System.currentTimeMillis() - startTime
-            val mockHeaders = mockResp.headers.mapValues { (_, v) -> listOf(v) }
+            val mockHeaders = mockResp.headers.mapValues { (k, v) -> mockResp.headerValues[k] ?: listOf(v) }
             captureProcessor.enqueue(
                 RawNetworkCapture(
                     id = id,
@@ -511,9 +511,17 @@ class HakkaInterceptor private constructor(
                 )
             )
 
-            val okhttpHeaders = Headers.headersOf(
-                *mockResp.headers.flatMap { listOf(it.key, it.value) }.toTypedArray()
-            )
+            // `headerValues` widens single-value `headers` for names with more than one
+            // value (chiefly Set-Cookie — see [MockResponse.headerValues]'s doc). OkHttp's
+            // `Headers` natively supports repeated names, so this is a true multi-header
+            // apply, not a join: names covered by `headerValues` are skipped from `headers`
+            // (which only carries their representative first value) and every one of their
+            // real values is included instead.
+            val okhttpHeaderPairs = mockResp.headers
+                .filterKeys { it !in mockResp.headerValues }
+                .flatMap { listOf(it.key, it.value) } +
+                mockResp.headerValues.flatMap { (name, values) -> values.flatMap { listOf(name, it) } }
+            val okhttpHeaders = Headers.headersOf(*okhttpHeaderPairs.toTypedArray())
             return Response.Builder()
                 .request(request)
                 .protocol(Protocol.HTTP_1_1)

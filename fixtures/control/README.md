@@ -48,3 +48,10 @@ definitions.
   traffic forever. See `MockRule.skipCount`/`.stopAfter` in `MockEngine.ts`
   for the full semantics (counter lives in device-side engine state, reset
   on relaunch).
+- `mock-add-header-values.json` — a `mock.add` rule whose response carries
+  two `Set-Cookie` values through the additive `headerValues` field (see
+  `MockResponse.headerValues` in `MockEngine.ts`): `headers` still has one
+  representative value (old decoders keep working), `headerValues` has the
+  full ordered list. RFC 6265 §3 forbids folding multiple Set-Cookie values
+  into one comma-joined field, which is why this needed a wire shape change
+  rather than reusing `headers` alone.

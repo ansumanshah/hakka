@@ -25,6 +25,10 @@ extension ControlCommandEncoder {
             "body": rule.response.body ?? "",
         ]
         if !rule.response.headers.isEmpty { response["headers"] = rule.response.headers }
+        // Additive multi-value widening — only header names with 2+ values
+        // need an entry (see `MockResponse.headerValues`'s doc). Every one of
+        // those names still has a representative value in `headers` above.
+        if !rule.response.headerValues.isEmpty { response["headerValues"] = rule.response.headerValues }
         if rule.response.delay > 0 { response["delay"] = Int((rule.response.delay * 1000).rounded()) }
 
         var object: [String: Any] = [

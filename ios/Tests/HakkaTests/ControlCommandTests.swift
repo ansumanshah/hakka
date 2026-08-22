@@ -72,6 +72,51 @@ struct ControlCommandTests {
         #expect(rule.response.delay == 0.25)
     }
 
+    // Regression: `headerValues` is the additive multi-value widening of
+    // `headers` (see `MockResponse.headerValues`'s doc) — two Set-Cookie
+    // values survive parsing distinctly, and `headers` still carries the
+    // representative first value for a decoder that only reads it.
+    @Test func parsesMockAddWithHeaderValues() {
+        let raw: [String: Any] = [
+            "kind": "mock.add",
+            "rule": [
+                "id": "rule-cookies",
+                "pattern": "/login",
+                "enabled": true,
+                "response": [
+                    "status": 200,
+                    "headers": ["Set-Cookie": "session=abc"],
+                    "headerValues": ["Set-Cookie": ["session=abc; Path=/", "consent=yes; Path=/"]],
+                    "body": "",
+                ],
+            ],
+        ]
+        let cmd = parseControlCommand(raw)
+        guard case let .mockAdd(_, rule) = cmd else {
+            Issue.record("expected .mockAdd, got \(String(describing: cmd))")
+            return
+        }
+        #expect(rule.response.headers["Set-Cookie"] == "session=abc")
+        #expect(rule.response.headerValues["Set-Cookie"] == ["session=abc; Path=/", "consent=yes; Path=/"])
+    }
+
+    @Test func mockAddWithMalformedHeaderValuesFailsToParse() {
+        let raw: [String: Any] = [
+            "kind": "mock.add",
+            "rule": [
+                "id": "rule-bad",
+                "pattern": "/x",
+                "enabled": true,
+                "response": [
+                    "status": 200,
+                    "headerValues": ["Set-Cookie": "not-an-array"],
+                    "body": "",
+                ],
+            ],
+        ]
+        #expect(parseControlCommand(raw) == nil)
+    }
+
     @Test func parsesMockAddWithObjectBody() {
         let raw: [String: Any] = [
             "kind": "mock.add",

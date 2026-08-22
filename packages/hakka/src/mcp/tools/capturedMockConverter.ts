@@ -57,11 +57,21 @@ export function ruleIdFor(method: string, pattern: string): string {
  * stored decoded, so `Content-Encoding` would mislabel plaintext as
  * compressed and `Content-Length`/`Transfer-Encoding` describe bytes the
  * serving stack recomputes — those (plus `Connection`) are dropped;
- * everything else (Content-Type, Set-Cookie, …) survives. Multi-value
- * headers are already comma-joined at capture time (see
- * `hakka-node/src/httpInterceptor.ts`'s `headersFromResponse`), so nothing
- * here needs to re-merge duplicates — it only needs to not drop any header
- * that isn't in the exclusion set.
+ * everything else (Content-Type, Set-Cookie, …) survives.
+ *
+ * Known gap vs. the desktop converter: `NetworkRequest.responseHeaders` here
+ * is `Record<string, string>`, and `hakka-node/src/httpInterceptor.ts`'s
+ * `headersFromResponse` already comma-joins a multi-value header (including
+ * `Set-Cookie`, which Node's `IncomingMessage.headers` hands over as a real
+ * `string[]`) at CAPTURE time, before this function ever runs — so unlike
+ * `apps/hakka/Sources/Core/Rules/CapturedMockConverter.swift` (whose
+ * `NetworkRequest.responseHeaders` is `[String: [String]]`, multi-value all
+ * the way from capture), there is no multi-value data left here to carry
+ * into `MockResponse.headerValues`. Promoting a Node-captured response with
+ * two real Set-Cookie values currently still produces one folded value —
+ * fixing that needs `hakka-node`'s own capture model widened first, which is
+ * a separate, larger change than this tool's wire-shape fix. Tracked, not
+ * silently "fixed" here.
  */
 function responseHeadersFor(request: NetworkRequest): Record<string, string> {
   const headers: Record<string, string> = {}

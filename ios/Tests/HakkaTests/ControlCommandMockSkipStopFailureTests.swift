@@ -45,6 +45,19 @@ struct ControlCommandMockSkipStopFailureTests {
         #expect(rule.failure == nil)
     }
 
+    @Test func parsesHeaderValuesFixture() throws {
+        let raw = try ControlFixtures.readJSON("mock-add-header-values.json")
+        let cmd = parseControlCommand(raw)
+        guard case let .mockAdd(id, rule) = cmd else {
+            Issue.record("expected .mockAdd, got \(String(describing: cmd))")
+            return
+        }
+        #expect(id == "mck-login")
+        #expect(rule.pattern == "/api/login")
+        #expect(rule.response.headers["Set-Cookie"] == "session=abc; Path=/")
+        #expect(rule.response.headerValues["Set-Cookie"] == ["session=abc; Path=/", "consent=yes; Path=/"])
+    }
+
     // MARK: - parse: valid shapes
 
     @Test func parsesFailureBlock() {

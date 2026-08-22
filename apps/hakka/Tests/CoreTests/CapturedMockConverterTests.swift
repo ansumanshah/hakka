@@ -1,3 +1,4 @@
+import Foundation
 import HakkaCommon
 import HakkaCore
 import Testing
@@ -151,13 +152,15 @@ struct CapturedMockConverterTests {
         #expect(rule.response.headers["Vary"] == "Accept, Origin")
     }
 
-    @Test func duplicateSetCookieHeadersKeepOnlyTheFirst()
+    @Test func duplicateSetCookieHeadersSurviveViaHeaderValues()
     async throws {
-        // The wire shape (`MockResponse.headers: [String: String]`) can only
-        // carry one value per name, and RFC 6265 forbids folding multiple
-        // Set-Cookie values into one comma-joined field (a comma can appear
-        // inside a cookie's own Expires attribute). Keeping the first cookie
-        // is the documented, tested choice over emitting a corrupt fold.
+        // RFC 6265 forbids folding multiple Set-Cookie values into one
+        // comma-joined field (a comma can legally appear inside a cookie's
+        // own Expires attribute), so `headers` alone can never carry both.
+        // The wire shape's additive `headerValues` widening (see
+        // `MockResponse.headerValues`'s doc) is where both survive: `headers`
+        // still gets a representative first value for old decoders,
+        // `headerValues` gets the full ordered list.
         let rule = CapturedMockConverter.mockRule(
             from: record(
                 url: "https://api.example.com/w",
@@ -165,5 +168,53 @@ struct CapturedMockConverterTests {
             )
         )
         #expect(rule.response.headers["Set-Cookie"] == "session=1; Path=/")
+        #expect(rule.response.headerValues["Set-Cookie"] == ["session=1; Path=/", "theme=dark; Path=/"])
+    }
+
+    @Test func aSingleSetCookieValueDoesNotGetAHeaderValuesEntry()
+    async throws {
+        // Only names with 2+ values need the widened field — keeps the
+        // common case (one cookie) identical to the pre-widening payload.
+        let rule = CapturedMockConverter.mockRule(
+            from: record(
+                url: "https://api.example.com/w",
+                headers: ["Set-Cookie": ["session=1; Path=/"]]
+            )
+        )
+        #expect(rule.response.headers["Set-Cookie"] == "session=1; Path=/")
+        #expect(rule.response.headerValues["Set-Cookie"] == nil)
+    }
+
+    @Test func twoSetCookieValuesSurviveCaptureToMockToAppliedResponse()
+    async throws {
+        // End-to-end regression: capture (two Set-Cookie values) -> mock rule
+        // -> wire encode -> device-side parse -> the header fields the
+        // engine actually hands `HTTPURLResponse(headerFields:)` when serving
+        // the mock. Verified via `HTTPCookie.cookies(withResponseHeaderFields:
+        // for:)` — the same API `URLSession` itself uses to populate the
+        // cookie jar — rather than a raw `allHeaderFields` string compare,
+        // since Foundation's public API only exposes one value per header
+        // name there (see `MockResponse.httpHeaderFields`'s doc).
+        let entry = try CapturedMockConverter.entry(
+            from: record(
+                url: "https://api.example.com/login",
+                headers: ["Set-Cookie": ["session=abc; Path=/", "consent=yes; Path=/"]]
+            )
+        )
+        let command = installCommand(for: entry)
+        let payload = try ControlCommandEncoder.payloadObject(for: command)
+        let roundTrip = parseControlCommand(payload)
+        guard case .mockAdd(_, let rule)? = roundTrip else {
+            Issue.record("expected a parsed mock.add command")
+            return
+        }
+        #expect(rule.response.headerValues["Set-Cookie"] == ["session=abc; Path=/", "consent=yes; Path=/"])
+
+        let fields = rule.response.httpHeaderFields
+        let url = URL(string: "https://api.example.com/login")!
+        let cookies = HTTPCookie.cookies(withResponseHeaderFields: fields, for: url)
+        #expect(Set(cookies.map(\.name)) == ["session", "consent"])
+        #expect(cookies.first(where: { $0.name == "session" })?.value == "abc")
+        #expect(cookies.first(where: { $0.name == "consent" })?.value == "yes")
     }
 }

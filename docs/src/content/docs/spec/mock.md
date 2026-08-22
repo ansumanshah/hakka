@@ -60,7 +60,7 @@ interface MockRule {
   failure?: MockFailure // transport-level failure instead of any response; takes priority over block
   skipCount?: number // serve the real response for this many initial matches before applying (default 0)
   stopAfter?: number // apply this many times (after skipCount), then stop forever (default: unlimited)
-  response: MockResponse // { status, headers?, body: string | object, delay?, bodyProvider? }
+  response: MockResponse // { status, headers?, headerValues?, body: string | object, delay?, bodyProvider? }
   enabled: boolean
   hitCount: number
 }
@@ -157,9 +157,29 @@ Driven remotely over the [bridge control channel](/spec/control-channel/) as a `
 `mock.remove` / `mock.clear` `ControlCommand` — identical `kind`/field shape on every platform
 (`control.ts` / iOS `ControlCommand.swift` / Android `ControlCommand.kt`), including `redirectTo`,
 `block`, `modify`, `failure: { code }`, and `skipCount`/`stopAfter` (non-negative integers,
-absent/`0`/`null` meaning "not set"). Pinned wire fixtures for the two new shapes live in
-`fixtures/control/mock-add-failure.json` and `fixtures/control/mock-add-skip-stop.json`, read by
-every runtime's tests. On the TS engine, a matched-and-applied rule marks the captured record
+absent/`0`/`null` meaning "not set"). Pinned wire fixtures for these shapes live in
+`fixtures/control/mock-add-failure.json`, `fixtures/control/mock-add-skip-stop.json`, and
+`fixtures/control/mock-add-header-values.json`, read by every runtime's tests.
+
+`response.headers` is `{ name: value }` — one representative value per header name. A header that
+legitimately carries more than one value on the wire — chiefly `Set-Cookie`, where RFC 6265 §3
+forbids folding multiple values into one comma-joined field (a cookie's own `Expires` attribute can
+legally contain a comma, so a naive join is ambiguous/corrupt) — is additionally carried in
+`response.headerValues: { name: string[] }`. This is purely additive: `headers` still has an entry
+for every header name including ones also present in `headerValues`, so a decoder that only reads
+`headers` behaves exactly as before. Every runtime applies `headerValues` using its own real
+multi-header mechanism where one exists (`Headers.append` on web, OkHttp's repeated-header support
+on Android) rather than a join; iOS's `HTTPURLResponse(headerFields:)` has no such API (Apple
+platforms cap the public initializer at one value per header name — see
+`MockResponse.httpHeaderFields`'s doc in `ios/Sources/Common/MockRuleTypes.swift`), so it joins with
+`", "` there — verified safe specifically for `Set-Cookie` because `HTTPCookie.cookies
+(withResponseHeaderFields:for:)`, the API `URLSession` itself uses to populate the cookie jar,
+correctly reconstructs distinct cookies from that join even when one has a comma inside its own
+`Expires` attribute. `apps/hakka`'s `CapturedMockConverter` (capture -> mock promotion) is the one
+place today that actually produces a multi-value `headerValues` entry, for captured responses with
+more than one `Set-Cookie` value.
+
+On the TS engine, a matched-and-applied rule marks the captured record
 `mocked: true` (mock mode) or `rewritten: true` (rewrite/redirect mode). iOS and Android capture
 records have no `rewritten` flag (a smaller field set than the TS `NetworkRequest`) — a
 redirectTo/modify match is recorded like a normal request (real URL/headers/status/body,

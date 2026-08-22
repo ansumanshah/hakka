@@ -1,0 +1,14 @@
+{
+  "kind": "mock.add",
+  "rule": {
+    "id": "mck-login",
+    "pattern": "/api/login",
+    "enabled": true,
+    "response": {
+      "status": 200,
+      "headers": { "Set-Cookie": "session=abc; Path=/" },
+      "headerValues": { "Set-Cookie": ["session=abc; Path=/", "consent=yes; Path=/"] },
+      "body": "{\"ok\":true}"
+    }
+  }
+}

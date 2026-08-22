@@ -289,6 +289,7 @@ class HakkaMonitorModule(private val reactContext: ReactApplicationContext) :
         val response = HakkaMockResponse(
             status = readInt(rule, "status") ?: 200,
             headers = readStringMap(rule.getMapOrNull("headers")),
+            headerValues = readStringArrayMap(rule.getMapOrNull("headerValues")),
             body = readString(rule, "body") ?: "",
             delayMs = readLong(rule, "delayMs") ?: 0L,
         )
@@ -480,6 +481,32 @@ class HakkaMonitorModule(private val reactContext: ReactApplicationContext) :
         while (iterator.hasNextKey()) {
             val key = iterator.nextKey()
             readString(raw, key)?.let { values[key] = it }
+        }
+        return values
+    }
+
+    /**
+     * Parses `headerValues` — the additive multi-value widening of `headers`
+     * (see [HakkaMockRule.headerValues]'s doc). Fail-open like
+     * [readStringMap]: a malformed entry (non-array value, non-string item)
+     * is dropped rather than rejecting the whole rule, since a bad
+     * `headerValues` entry should degrade to "no multi-value headers", not
+     * lose the rest of the rule.
+     */
+    private fun readStringArrayMap(raw: ReadableMap?): Map<String, List<String>> {
+        if (raw == null) return emptyMap()
+        val values = linkedMapOf<String, List<String>>()
+        val iterator = raw.keySetIterator()
+        while (iterator.hasNextKey()) {
+            val key = iterator.nextKey()
+            if (raw.getType(key) != ReadableType.Array) continue
+            val array = raw.getArray(key) ?: continue
+            val list = ArrayList<String>(array.size())
+            for (i in 0 until array.size()) {
+                if (array.getType(i) != ReadableType.String) continue
+                array.getString(i)?.let { list.add(it) }
+            }
+            if (list.isNotEmpty()) values[key] = list
         }
         return values
     }

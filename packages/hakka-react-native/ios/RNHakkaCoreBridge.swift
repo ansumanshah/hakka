@@ -176,6 +176,7 @@ public final class RNHakkaCoreBridge: NSObject, HakkaDelegate, @unchecked Sendab
         let response = MockResponse(
             status: Self.intValue(rule["status"]) ?? 200,
             headers: Self.stringMap(rule["headers"]),
+            headerValues: Self.stringArrayMap(rule["headerValues"]),
             body: Self.stringValue(rule["body"]) ?? "",
             delay: max(0, (Self.doubleValue(rule["delayMs"]) ?? 0) / 1_000)
         )
@@ -517,6 +518,24 @@ public final class RNHakkaCoreBridge: NSObject, HakkaDelegate, @unchecked Sendab
             if let string = stringValue(value) {
                 result[key] = string
             }
+        }
+        return result
+    }
+
+    /// Parses `headerValues` — the additive multi-value widening of
+    /// `headers` (see `MockResponse.headerValues`'s doc in
+    /// `ios/Sources/Common/MockRuleTypes.swift`). Mirrors `stringMap` above:
+    /// fail-open, drops anything malformed rather than throwing, since the
+    /// RN bridge (like `parseControlCommand`) must never crash the host app
+    /// on a bad payload.
+    private static func stringArrayMap(_ value: Any?) -> [String: [String]] {
+        guard let dictionary = value as? [String: Any] else { return [:] }
+        var result: [String: [String]] = [:]
+        for (key, rawValues) in dictionary {
+            guard let array = rawValues as? [Any] else { continue }
+            let values = array.compactMap { stringValue($0) }
+            guard !values.isEmpty else { continue }
+            result[key] = values
         }
         return result
     }

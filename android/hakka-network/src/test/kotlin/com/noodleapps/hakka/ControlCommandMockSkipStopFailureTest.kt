@@ -45,6 +45,15 @@ class ControlCommandMockSkipStopFailureTest {
         assertNull(cmd.rule.failure)
     }
 
+    @Test
+    fun `mock-add parses the pinned header-values fixture`() {
+        val cmd = parseControlCommand(ControlFixtures.readJSON("mock-add-header-values.json")) as ControlCommand.MockAdd
+        assertEquals("mck-login", cmd.rule.id)
+        assertEquals("/api/login", cmd.rule.pattern)
+        assertEquals("session=abc; Path=/", cmd.rule.headers["Set-Cookie"])
+        assertEquals(listOf("session=abc; Path=/", "consent=yes; Path=/"), cmd.rule.headerValues["Set-Cookie"])
+    }
+
     // ── parse: valid shapes ─────────────────────────────────────────────────
 
     @Test

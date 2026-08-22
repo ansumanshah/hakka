@@ -129,6 +129,7 @@ data class ParsedMockRule(
     val mode: String?,
     val status: Int,
     val headers: Map<String, String>,
+    val headerValues: Map<String, List<String>>,
     val body: String,
     val delayMs: Long,
     val enabled: Boolean,
@@ -166,6 +167,8 @@ private fun JSONObject.optStringOrNull(key: String): String? =
 private data class ParsedMockResponse(
     val status: Int,
     val headers: Map<String, String>,
+    /** See [MockResponse.headerValues] — same additive multi-value widening, parsed off the wire. */
+    val headerValues: Map<String, List<String>>,
     val body: String,
     val delayMs: Long,
 )
@@ -202,6 +205,27 @@ private fun parseMockResponse(v: JSONObject?): ParsedMockResponse? {
         emptyMap()
     }
 
+    // Additive multi-value widening — see [MockResponse.headerValues]. Absent is valid
+    // (no multi-value headers on this response); mirrors control.ts's isHeaderValues.
+    val headerValues: Map<String, List<String>> = if (v.hasNonNull("headerValues")) {
+        val h = v.opt("headerValues") as? JSONObject ?: return null
+        val map = LinkedHashMap<String, List<String>>()
+        for (key in h.keys()) {
+            val arr = h.opt(key) as? org.json.JSONArray ?: return null
+            if (arr.length() == 0) return null
+            val values = ArrayList<String>(arr.length())
+            for (i in 0 until arr.length()) {
+                val item = arr.opt(i)
+                if (item !is String) return null
+                values.add(item)
+            }
+            map[key] = values
+        }
+        map
+    } else {
+        emptyMap()
+    }
+
     // body is required by control.ts (string | object) — absent body is invalid.
     if (!v.hasNonNull("body")) return null
     val body: String = when (val bodyRaw = v.opt("body")) {
@@ -224,7 +248,7 @@ private fun parseMockResponse(v: JSONObject?): ParsedMockResponse? {
         delayMs = delayNum
     }
 
-    return ParsedMockResponse(statusInt, headers, body, delayMs)
+    return ParsedMockResponse(statusInt, headers, headerValues, body, delayMs)
 }
 
 /**
@@ -399,6 +423,7 @@ private fun parseMockRuleInput(v: JSONObject?): ParsedMockRule? {
         mode = mode,
         status = parsedResponse.status,
         headers = parsedResponse.headers,
+        headerValues = parsedResponse.headerValues,
         body = parsedResponse.body,
         delayMs = parsedResponse.delayMs,
         enabled = enabledVal,
@@ -704,6 +729,7 @@ fun applyControlCommand(cmd: ControlCommand): ControlApplyResult {
                         response = MockResponse(
                             status = rule.status,
                             headers = rule.headers,
+                            headerValues = rule.headerValues,
                             body = rule.body,
                             delayMs = rule.delayMs,
                         ),
