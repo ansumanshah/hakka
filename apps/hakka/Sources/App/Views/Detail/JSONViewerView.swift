@@ -10,7 +10,7 @@ struct JSONViewerView: View {
     private let modes: [BodyViewerModel.DisplayMode] = [.pretty, .tree, .raw]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Spacing.md) {
             Picker("Display Mode", selection: $model.mode) {
                 ForEach(modes) { mode in
                     Text(mode.rawValue).tag(mode)
@@ -33,17 +33,17 @@ struct JSONViewerView: View {
         if let root = model.jsonOutlineRoot {
             ScrollView {
                 JSONOutlineRowView(node: root, depth: 0)
-                    .padding(8)
+                    .padding(Spacing.md)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(maxHeight: 460)
+            .frame(maxHeight: 460)  // ui-token-check-ignore: pane cap
             .background(Color.secondary.opacity(0.08))
             .clipShape(RoundedRectangle(cornerRadius: 4))
         } else {
             Text("This body did not parse as JSON.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                .padding(8)
+                .padding(Spacing.md)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Color.secondary.opacity(0.08))
                 .clipShape(RoundedRectangle(cornerRadius: 4))

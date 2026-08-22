@@ -13,7 +13,7 @@ struct OAuth2AuthSectionView: View {
     private var authTab: RequestAuthTabView { RequestAuthTabView(spec: $spec) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Spacing.lg) {
             Picker("Grant", selection: authTab.oauth2GrantKindBinding) {
                 ForEach(OAuth2GrantKind.allCases) { Text($0.rawValue).tag($0) }
             }
@@ -69,7 +69,7 @@ private struct ClientCredentialsFields: View {
     let authTab: RequestAuthTabView
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Spacing.md) {
             LabeledField("Token URL", text: authTab.clientCredentialsBinding(\.tokenURL))
             LabeledField("Client ID", text: authTab.clientCredentialsBinding(\.clientId))
             LabeledField("Client Secret", text: authTab.clientCredentialsBinding(\.clientSecret), secure: true)
@@ -82,7 +82,7 @@ private struct RefreshTokenFields: View {
     let authTab: RequestAuthTabView
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Spacing.md) {
             LabeledField("Token URL", text: authTab.refreshTokenBinding(\.tokenURL))
             LabeledField("Client ID", text: authTab.refreshTokenBinding(\.clientId))
             LabeledField("Client Secret", text: authTab.refreshTokenBinding(\.clientSecret).nonOptional, secure: true)
@@ -95,7 +95,7 @@ private struct AuthorizationCodeFields: View {
     let authTab: RequestAuthTabView
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Spacing.md) {
             LabeledField("Authorization URL", text: authTab.authorizationCodeBinding(\.authorizationURL))
             LabeledField("Token URL", text: authTab.authorizationCodeBinding(\.tokenURL))
             LabeledField("Client ID", text: authTab.authorizationCodeBinding(\.clientId))

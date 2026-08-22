@@ -13,8 +13,8 @@ struct HexBodyView: View {
                 .textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxHeight: 460)
-        .padding(8)
+        .frame(maxHeight: 460)  // ui-token-check-ignore: pane cap
+        .padding(Spacing.md)
         .background(Color.secondary.opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: 4))
     }

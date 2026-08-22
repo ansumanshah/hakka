@@ -13,11 +13,11 @@ struct DetailOverviewSection: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Spacing.md) {
             if let diagnosis {
                 DiagnosisBanner(diagnosis: diagnosis)
             }
-            HStack(spacing: 8) {
+            HStack(spacing: Spacing.md) {
                 Text(record.method.rawValue)
                     .font(.headline)
                     .foregroundStyle(Fmt.methodColor(record.method))
@@ -38,7 +38,7 @@ struct DetailOverviewSection: View {
                     .font(.caption)
                     .foregroundStyle(.red)
             }
-            HStack(spacing: 16) {
+            HStack(spacing: Spacing.xl) {
                 metric("Request", Fmt.bytes(record.requestBodySize))
                 metric("Response", Fmt.bytes(record.responseBodySize))
                 if let deviceLabel {
@@ -49,7 +49,7 @@ struct DetailOverviewSection: View {
     }
 
     private func metric(_ label: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: Spacing.xxs) {
             Text(label).font(.caption2).foregroundStyle(.tertiary)
             Text(value).font(.caption)
         }

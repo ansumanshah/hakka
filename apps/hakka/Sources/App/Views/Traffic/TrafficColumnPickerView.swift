@@ -13,8 +13,8 @@ struct TrafficColumnPickerView: View {
             Text("Columns")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
-                .padding(.horizontal, 12)
-                .padding(.top, 10)
+                .padding(.horizontal, Spacing.lg)
+                .padding(.top, Spacing.ml)
             List {
                 ForEach(store.columns) { entry in
                     Toggle(entry.column.title, isOn: visibilityBinding(for: entry.column))
@@ -32,7 +32,7 @@ struct TrafficColumnPickerView: View {
                 .buttonStyle(.plain)
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                .padding(10)
+                .padding(Spacing.ml)
         }
         .frame(width: 200)
     }

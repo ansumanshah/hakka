@@ -18,26 +18,26 @@ struct JSONOutlineRowView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: Spacing.xxs) {
             rowLine
             if isExpanded, node.isExpandable {
                 ForEach(node.children()) { child in
                     JSONOutlineRowView(node: child, depth: depth + 1)
                 }
-                .padding(.leading, 14)
+                .padding(.leading, Spacing.ll)
                 closingLine
             }
         }
     }
 
     private var rowLine: some View {
-        HStack(alignment: .top, spacing: 4) {
+        HStack(alignment: .top, spacing: Spacing.xs) {
             if node.isExpandable {
                 Button {
                     isExpanded.toggle()
                 } label: {
                     Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                        .font(.system(size: 8, weight: .bold))
+                        .font(.system(size: 8, weight: .bold))  // ui-token-check-ignore: disclosure chevron glyph
                         .foregroundStyle(.secondary)
                         .frame(width: 12)
                 }
@@ -64,7 +64,7 @@ struct JSONOutlineRowView: View {
     }
 
     private var closingLine: some View {
-        HStack(alignment: .top, spacing: 4) {
+        HStack(alignment: .top, spacing: Spacing.xs) {
             Spacer().frame(width: 12)
             Text(closeBracket).foregroundStyle(.secondary)
         }

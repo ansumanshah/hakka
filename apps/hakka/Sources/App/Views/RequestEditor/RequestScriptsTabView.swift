@@ -16,7 +16,7 @@ struct RequestScriptsTabView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: Spacing.xl) {
                 section(
                     title: "Pre-request",
                     subtitle: "Runs before the request is resolved and sent. Can mutate method, url, headers, and a raw text body. A throwing or timed-out script aborts the send.",
@@ -35,12 +35,12 @@ struct RequestScriptsTabView: View {
 
     @ViewBuilder
     private func section(title: String, subtitle: String, source: Binding<String>, error: String?) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
             Text(title).font(.headline)
             Text(subtitle).font(.caption).foregroundStyle(.secondary)
             TextEditor(text: source)
                 .font(.system(.body, design: .monospaced))
-                .frame(minHeight: 140)
+                .frame(minHeight: 140)  // ui-token-check-ignore: body editor min height
                 .overlay(RoundedRectangle(cornerRadius: 4).stroke(.separator))
             if let error {
                 Label(error, systemImage: "exclamationmark.triangle.fill")

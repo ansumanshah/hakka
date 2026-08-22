@@ -9,17 +9,17 @@ struct RedirectChainSection: View {
     let chain: RedirectChain
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
             Text("Redirects")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
                 ForEach(chain.hops) { hop in
                     RedirectHopRow(hop: hop)
                 }
             }
         }
-        .padding(12)
+        .padding(Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.secondary.opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: 6))
@@ -30,7 +30,7 @@ private struct RedirectHopRow: View {
     let hop: RedirectChain.Hop
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Spacing.md) {
             Image(systemName: hop.isFinal ? "checkmark.circle" : "arrow.turn.down.right")
                 .font(.caption2)
                 .foregroundStyle(hop.isFinal ? ThemeTokens.Status.success : .secondary)

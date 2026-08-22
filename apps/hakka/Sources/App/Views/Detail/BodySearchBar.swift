@@ -11,7 +11,7 @@ struct BodySearchBar: View {
     let onNext: () -> Void
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Spacing.md) {
             Image(systemName: "magnifyingglass")
                 .font(.caption)
                 .foregroundStyle(.secondary)

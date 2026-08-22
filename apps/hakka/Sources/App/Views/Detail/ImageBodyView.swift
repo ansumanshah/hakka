@@ -10,8 +10,8 @@ struct ImageBodyView: View {
     let byteCount: Int64
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack(spacing: Spacing.sm) {
                 Image(systemName: "photo")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -26,7 +26,7 @@ struct ImageBodyView: View {
                 Image(nsImage: image)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
-                    .frame(maxWidth: 400, maxHeight: 400)
+                    .frame(maxWidth: 400, maxHeight: 400)  // ui-token-check-ignore: pane cap
                     .clipShape(RoundedRectangle(cornerRadius: 4))
             } else {
                 Text("The captured image bytes could not be decoded.")

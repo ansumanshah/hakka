@@ -23,15 +23,15 @@ struct SessionCompareView: View {
             header
             Divider()
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 8) {
+                LazyVStack(alignment: .leading, spacing: Spacing.md) {
                     ForEach(visibleEntries) { entry in
                         SessionCompareRowView(entry: entry)
                     }
                 }
-                .padding(16)
+                .padding(Spacing.xl)
             }
         }
-        .frame(minWidth: 620, minHeight: 460)
+        .frame(minWidth: 620, minHeight: 460)  // ui-token-check-ignore: sheet size
     }
 
     private var visibleEntries: [SessionDiff.Entry] {
@@ -46,13 +46,13 @@ struct SessionCompareView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: Spacing.ml) {
             HStack {
                 Text("Compare Sessions").font(.title3.weight(.semibold))
                 Spacer()
                 Button("Done", action: dismiss).keyboardShortcut(.cancelAction)
             }
-            HStack(spacing: 16) {
+            HStack(spacing: Spacing.xl) {
                 runTotals(name: beforeName, stats: diff.before)
                 Image(systemName: "arrow.right").foregroundStyle(.tertiary)
                 runTotals(name: afterName, stats: diff.after)
@@ -67,7 +67,7 @@ struct SessionCompareView: View {
                     .foregroundStyle(ThemeTokens.Status.success)
             }
         }
-        .padding(16)
+        .padding(Spacing.xl)
     }
 
     private var notableCount: Int {
@@ -75,7 +75,7 @@ struct SessionCompareView: View {
     }
 
     private func runTotals(name: String, stats: TrafficStats) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: Spacing.xxs) {
             Text(name).font(.caption.weight(.semibold)).lineLimit(1)
             Text("\(stats.count) requests · \(stats.errorCount) errors · \(Fmt.bytes(stats.totalBytes))")
                 .font(.caption2)

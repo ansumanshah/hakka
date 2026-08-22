@@ -64,7 +64,7 @@ struct SidebarView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .buttonStyle(.plain)
-        .padding(8)
+        .padding(Spacing.md)
         .background(.bar)
     }
 

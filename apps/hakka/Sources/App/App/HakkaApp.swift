@@ -9,7 +9,7 @@ struct HakkaApp: App {
         WindowGroup {
             ContentView()
                 .environment(model)
-                .frame(minWidth: 900, minHeight: 560)
+                .frame(minWidth: 900, minHeight: 560)  // ui-token-check-ignore: window chrome
                 .task {
                     // `AppDelegate` is constructed before `AppModel` exists
                     // (see its own doc comment), so the hand-off happens here.
@@ -25,7 +25,7 @@ struct HakkaApp: App {
                     await mirrorPauses
                 }
         }
-        .defaultSize(width: 1240, height: 780)
+        .defaultSize(width: 1240, height: 780)  // ui-token-check-ignore: window chrome
         .commands {
             AppCommands(model: model)
         }

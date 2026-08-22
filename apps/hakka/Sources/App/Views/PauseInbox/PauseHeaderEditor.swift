@@ -32,9 +32,9 @@ struct PauseHeaderEditor: View {
     @Binding var pairs: [PauseHeaderKV]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
             ForEach($pairs) { $pair in
-                HStack(spacing: 8) {
+                HStack(spacing: Spacing.md) {
                     TextField("Key", text: $pair.name).textFieldStyle(.roundedBorder)
                     TextField("Value", text: $pair.value).textFieldStyle(.roundedBorder)
                     Button {

@@ -8,7 +8,7 @@ struct AssertionRow: View {
     let onDelete: () -> Void
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Spacing.md) {
             Toggle(isOn: $assertion.enabled) { EmptyView() }
                 .labelsHidden()
                 .toggleStyle(.checkbox)

@@ -26,7 +26,7 @@ struct TraceAffordanceButton: View {
                         traffic.selectedRequestID = id
                         showSheet = false
                     }
-                    .frame(minWidth: 560, minHeight: 360)
+                    .frame(minWidth: 560, minHeight: 360)  // ui-token-check-ignore: sheet size
                 }
             }
         }

@@ -7,11 +7,11 @@ struct LlmUsageSectionView: View {
     let usage: LlmUsage
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Spacing.md) {
             Text("Usage")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: Spacing.xxs) {
                 if let model = usage.model {
                     row("Model", model)
                 }
@@ -25,7 +25,7 @@ struct LlmUsageSectionView: View {
                     row("Total tokens", totalTokens.formatted())
                 }
             }
-            .padding(12)
+            .padding(Spacing.lg)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.secondary.opacity(0.08))
             .clipShape(RoundedRectangle(cornerRadius: 6))
@@ -33,7 +33,7 @@ struct LlmUsageSectionView: View {
     }
 
     private func row(_ label: String, _ value: String) -> some View {
-        HStack(alignment: .top, spacing: 6) {
+        HStack(alignment: .top, spacing: Spacing.sm) {
             Text(label)
                 .font(.caption.weight(.medium))
                 .frame(width: 140, alignment: .leading)

@@ -19,7 +19,7 @@ struct DetailActionBar: View {
     @State private var copiedLabel: String?
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Spacing.md) {
             Button(action: onReplay) {
                 Label("Replay", systemImage: "arrow.clockwise")
             }

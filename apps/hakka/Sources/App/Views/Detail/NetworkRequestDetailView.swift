@@ -38,7 +38,7 @@ struct NetworkRequestDetailView: View {
         VStack(alignment: .leading, spacing: 0) {
             DetailTabStrip(activeTab: $activeTab, tabs: tabs)
             tabContent
-                .padding(16)
+                .padding(Spacing.xl)
         }
         .background(tabShortcuts(tabs))
     }
@@ -60,7 +60,7 @@ struct NetworkRequestDetailView: View {
     private var tabContent: some View {
         switch activeTab {
         case .overview:
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: Spacing.xl) {
                 DetailOverviewSection(record: record, deviceLabel: deviceLabel)
                 if let llmUsage {
                     LlmUsageSectionView(usage: llmUsage)
@@ -102,7 +102,7 @@ private struct DetailBodyTabSide: View {
     let responseHeaders: [String: [String]]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: Spacing.xl) {
             headersSection
             if let recordBody {
                 BodyViewerView(body: recordBody, url: url, responseHeaders: responseHeaders)
@@ -111,7 +111,7 @@ private struct DetailBodyTabSide: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(8)
+                    .padding(Spacing.md)
                     .background(Color.secondary.opacity(0.08))
                     .clipShape(RoundedRectangle(cornerRadius: 4))
             }

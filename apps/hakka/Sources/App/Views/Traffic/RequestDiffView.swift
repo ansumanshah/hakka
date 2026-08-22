@@ -27,17 +27,17 @@ struct RequestDiffView: View {
             header
             Divider()
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: Spacing.xl) {
                     statusSection
                     headerSection("Request Headers", diff.requestHeaders)
                     headerSection("Response Headers", diff.responseHeaders)
                     bodySection("Request Body", diff.requestBody)
                     bodySection("Response Body", diff.responseBody)
                 }
-                .padding(16)
+                .padding(Spacing.xl)
             }
         }
-        .frame(minWidth: 640, minHeight: 460)
+        .frame(minWidth: 640, minHeight: 460)  // ui-token-check-ignore: sheet size
         // Escape closes the diff, matching every other dismissible surface
         // in the app (`SessionCompareView`'s "Done" already uses
         // `.cancelAction`) — `onExitCommand` is the modifier macOS reserves
@@ -47,7 +47,7 @@ struct RequestDiffView: View {
 
     private var header: some View {
         HStack {
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: Spacing.xxs) {
                 Text("Compare").font(.headline)
                 Text(before.url)
                     .font(.caption)
@@ -59,14 +59,14 @@ struct RequestDiffView: View {
             Button("Done", action: dismiss)
                 .keyboardShortcut(.defaultAction)
         }
-        .padding(12)
+        .padding(Spacing.lg)
     }
 
     private var statusSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
             sectionTitle("Status")
             if diff.status.changed {
-                HStack(spacing: 8) {
+                HStack(spacing: Spacing.md) {
                     Text(statusLabel(diff.status.before)).foregroundStyle(Color.red)
                     Image(systemName: "arrow.right").font(.caption).foregroundStyle(.secondary)
                     Text(statusLabel(diff.status.after)).foregroundStyle(Color.green)
@@ -83,7 +83,7 @@ struct RequestDiffView: View {
     @ViewBuilder
     private func headerSection(_ title: String, _ headers: RequestDiff.HeaderDiff) -> some View {
         let hasChanges = !headers.added.isEmpty || !headers.removed.isEmpty || !headers.changed.isEmpty
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
             sectionTitle(title)
             if hasChanges {
                 ForEach(headers.removed, id: \.name) { change in
@@ -104,7 +104,7 @@ struct RequestDiffView: View {
 
     @ViewBuilder
     private func bodySection(_ title: String, _ body: RequestDiff.BodyDiff) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
             sectionTitle(title)
             switch body {
             case .notCaptured:
@@ -140,7 +140,7 @@ struct RequestDiffView: View {
     }
 
     private func changeRow(sign: String, text: String, tint: Color) -> some View {
-        HStack(alignment: .top, spacing: 6) {
+        HStack(alignment: .top, spacing: Spacing.sm) {
             Text(sign).font(.caption.monospaced()).foregroundStyle(tint)
             Text(text)
                 .font(.caption.monospaced())

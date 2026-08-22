@@ -9,7 +9,7 @@ struct RequestMethodURLBar: View {
     @Binding var spec: RequestSpec
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Spacing.md) {
             Picker("", selection: $spec.method) {
                 ForEach(HttpMethod.allCases, id: \.self) { method in
                     Text(method.rawValue).tag(method)
@@ -33,6 +33,6 @@ struct RequestMethodURLBar: View {
             .keyboardShortcut(.return, modifiers: .command)
             .disabled(model.editor.isSending || spec.url.isEmpty)
         }
-        .padding(12)
+        .padding(Spacing.lg)
     }
 }

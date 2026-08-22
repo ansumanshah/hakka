@@ -15,7 +15,7 @@ struct LiveTrafficRowView: View {
     let deviceLabel: String?
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Spacing.md) {
             Text(request.method.rawValue)
                 .font(.caption.weight(.bold))
                 .foregroundStyle(Fmt.methodColor(request.method))
@@ -36,7 +36,7 @@ struct LiveTrafficRowView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, Spacing.xxs)
         .overlay(alignment: .leading) {
             if let severity {
                 Rectangle()

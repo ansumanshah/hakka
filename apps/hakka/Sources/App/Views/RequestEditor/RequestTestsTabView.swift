@@ -9,7 +9,7 @@ struct RequestTestsTabView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: Spacing.md) {
                 ForEach($spec.assertions) { $assertion in
                     AssertionRow(assertion: $assertion) {
                         spec.assertions.removeAll { $0.id == assertion.id }
@@ -22,7 +22,7 @@ struct RequestTestsTabView: View {
                     Label("Add Assertion", systemImage: "plus")
                 }
                 .buttonStyle(.plain)
-                .padding(.top, 4)
+                .padding(.top, Spacing.xs)
             }
         }
     }

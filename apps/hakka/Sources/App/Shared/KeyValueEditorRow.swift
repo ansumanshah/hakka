@@ -14,7 +14,7 @@ struct KeyValueEditorRow: View {
     let onDelete: () -> Void
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Spacing.md) {
             Toggle(isOn: $enabled) { EmptyView() }
                 .labelsHidden()
                 .toggleStyle(.checkbox)

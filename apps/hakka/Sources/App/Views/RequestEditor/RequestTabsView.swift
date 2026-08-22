@@ -13,8 +13,8 @@ struct RequestTabsView: View {
                     Text(tab.rawValue)
                         .font(.subheadline.weight(activeTab == tab ? .semibold : .regular))
                         .foregroundStyle(activeTab == tab ? .primary : .secondary)
-                        .padding(.vertical, 8)
-                        .padding(.horizontal, 12)
+                        .padding(.vertical, Spacing.md)
+                        .padding(.horizontal, Spacing.lg)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)

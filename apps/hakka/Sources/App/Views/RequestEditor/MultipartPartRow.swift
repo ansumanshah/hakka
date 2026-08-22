@@ -12,8 +12,8 @@ struct MultipartPartRow: View {
     private var isFile: Bool { part.filePath != nil }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            HStack(spacing: Spacing.md) {
                 Toggle(isOn: $part.enabled) { EmptyView() }
                     .labelsHidden()
                     .toggleStyle(.checkbox)
@@ -45,11 +45,11 @@ struct MultipartPartRow: View {
                 .foregroundStyle(.secondary)
         }
         .opacity(part.enabled ? 1 : 0.5)
-        .padding(.vertical, 4)
+        .padding(.vertical, Spacing.xs)
     }
 
     private var fileValueRow: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Spacing.md) {
             Text(part.filePath.map { ($0 as NSString).lastPathComponent } ?? "No file chosen")
                 .font(.callout)
                 .foregroundStyle(part.filePath == nil ? .tertiary : .primary)

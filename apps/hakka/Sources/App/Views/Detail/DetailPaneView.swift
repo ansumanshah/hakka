@@ -29,7 +29,7 @@ struct DetailPaneView: View {
         } else if let summary = model.folderRun.summary {
             ScrollView {
                 FolderRunSummaryView(summary: summary)
-                    .padding(16)
+                    .padding(Spacing.xl)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         } else if model.folderRun.lastRunWasEmpty {
@@ -48,18 +48,18 @@ struct DetailPaneView: View {
         if let draft = model.editor.draft, WebSocketURL.isWebSocketURL(draft.url) {
             ScrollView {
                 DetailFramesTabView(model: model.webSocket, url: draft.url)
-                    .padding(16)
+                    .padding(Spacing.xl)
             }
         } else if let result = model.editor.lastResult {
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: Spacing.xl) {
                     NetworkRequestDetailView(record: result.record)
                         .id(result.record.id)
                     if !result.assertionResults.isEmpty {
                         AssertionResultsView(results: result.assertionResults)
                     }
                 }
-                .padding(16)
+                .padding(Spacing.xl)
             }
         } else if let error = model.editor.lastRunError {
             EmptyStateView(systemImage: "exclamationmark.triangle", title: "Send failed", message: error)
@@ -87,7 +87,7 @@ struct DetailPaneView: View {
                 }
             } else if let id = model.traffic.selectedRequestID, let request = model.traffic.request(id: id) {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: Spacing.xl) {
                         HStack {
                             DetailActionBar(
                                 request: request,
@@ -104,7 +104,7 @@ struct DetailPaneView: View {
                         NetworkRequestDetailView(record: request, deviceLabel: model.traffic.deviceLabel(for: request.id))
                             .id(request.id)
                     }
-                    .padding(16)
+                    .padding(Spacing.xl)
                 }
             } else {
             EmptyStateView(

@@ -11,7 +11,7 @@ struct CollectionNodeRow: View {
     var body: some View {
         switch node {
         case let .folder(folder):
-            HStack(spacing: 6) {
+            HStack(spacing: Spacing.sm) {
                 if model.markedForDeletion.contains(folder.id) {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundStyle(.tint)
@@ -35,7 +35,7 @@ struct CollectionNodeRow: View {
             .rowDragDrop(node: node)
             .contextMenu { menuItems }
         case let .request(spec):
-            HStack(spacing: 6) {
+            HStack(spacing: Spacing.sm) {
                 if model.markedForDeletion.contains(spec.id) {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundStyle(.tint)

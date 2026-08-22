@@ -20,7 +20,7 @@ struct HeaderPairListEditor: View {
                     valuePlaceholder: valuePlaceholder,
                     onDelete: { pairs.removeAll { $0.id == pair.id } },
                 )
-                .padding(.vertical, 4)
+                .padding(.vertical, Spacing.xs)
                 Divider()
             }
             Button {
@@ -29,7 +29,7 @@ struct HeaderPairListEditor: View {
                 Label(addTitle, systemImage: "plus")
             }
             .buttonStyle(.plain)
-            .padding(.top, 8)
+            .padding(.top, Spacing.md)
         }
     }
 }

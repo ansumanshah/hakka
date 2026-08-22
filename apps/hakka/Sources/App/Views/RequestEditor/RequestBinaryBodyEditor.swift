@@ -8,8 +8,8 @@ struct RequestBinaryBodyEditor: View {
     @Binding var spec: RequestSpec
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: Spacing.lg) {
+            HStack(spacing: Spacing.md) {
                 Image(systemName: "doc")
                     .foregroundStyle(.secondary)
                 Text(fileName)

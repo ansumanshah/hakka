@@ -8,9 +8,9 @@ import SwiftUI
 /// rebuilt natively for this app rather than reused.
 struct WelcomeView: View {
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: Spacing.xl) {
             AppIcon()
-                .frame(width: 72, height: 72)
+                .frame(width: 72, height: 72)  // ui-token-check-ignore: welcome mark
             Text("Hakka")
                 .font(.title2.weight(.semibold))
             Text("Select a request, or start capturing live traffic.")

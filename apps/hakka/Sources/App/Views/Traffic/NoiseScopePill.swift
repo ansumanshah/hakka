@@ -26,13 +26,13 @@ struct NoiseScopePill: View {
 
     var body: some View {
         if scope.isActive {
-            HStack(spacing: 4) {
+            HStack(spacing: Spacing.xs) {
                 Image(systemName: "eye.slash")
                 Text(summary)
                 if hiddenErrorCount > 0 {
                     Text("\(hiddenErrorCount)")
                         .font(.caption2.weight(.bold))
-                        .padding(.horizontal, 4)
+                        .padding(.horizontal, Spacing.xs)
                         .background(ThemeTokens.Status.error, in: Capsule())
                         .foregroundStyle(ThemeTokens.Status.on)
                         .accessibilityLabel("\(hiddenErrorCount) hidden erroring")
@@ -47,8 +47,8 @@ struct NoiseScopePill: View {
             }
             .font(.caption)
             .foregroundStyle(.secondary)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 3)
+            .padding(.horizontal, Spacing.sm)
+            .padding(.vertical, Spacing.xs)
             .background(.quaternary.opacity(0.5), in: Capsule())
         }
     }

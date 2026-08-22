@@ -12,17 +12,17 @@ struct DetailTabStrip: View {
                 Button {
                     activeTab = tab
                 } label: {
-                    VStack(spacing: 6) {
+                    VStack(spacing: Spacing.sm) {
                         Text(tab.rawValue.uppercased())
                             .font(.caption.monospaced().weight(isActive(tab) ? .semibold : .regular))
                             .tracking(0.8)
                             .foregroundStyle(isActive(tab) ? .primary : .secondary)
-                            .padding(.top, 8)
+                            .padding(.top, Spacing.md)
                         Rectangle()
                             .fill(isActive(tab) ? Color.orange : Color.clear)
-                            .frame(height: 2)
+                            .frame(height: 2)  // ui-token-check-ignore: tab active indicator
                     }
-                    .padding(.horizontal, 12)
+                    .padding(.horizontal, Spacing.lg)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)

@@ -9,8 +9,8 @@ struct DetailTimingSection: View {
     let record: NetworkRequest
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Spacing.xl) {
+            VStack(alignment: .leading, spacing: Spacing.md) {
                 ForEach(plan.rows) { row in
                     TimingBarRow(row: row, color: color(for: row.label))
                 }
@@ -20,7 +20,7 @@ struct DetailTimingSection: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            .padding(12)
+            .padding(Spacing.lg)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.secondary.opacity(0.08))
             .clipShape(RoundedRectangle(cornerRadius: 6))
@@ -78,7 +78,7 @@ private struct TimingBarRow: View {
     let color: Color
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Spacing.md) {
             Text(row.label)
                 .font(.caption)
                 .frame(width: 64, alignment: .leading)
@@ -90,7 +90,7 @@ private struct TimingBarRow: View {
                         .frame(width: geo.size.width * row.fraction)
                 }
             }
-            .frame(height: 6)
+            .frame(height: 6)  // ui-token-check-ignore: timing bar track
             Text(Fmt.duration(row.ms))
                 .font(.caption.monospaced().weight(.medium))
                 .frame(width: 72, alignment: .trailing)
