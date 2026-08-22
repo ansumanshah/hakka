@@ -2,7 +2,7 @@
 # One-command Mac app release: notarized build -> GitHub release -> brew cask.
 #
 # Prereqs (see sign-and-notarize.sh's header for the one-time credential setup):
-#   - Developer ID cert + `hakka-notary` notarytool profile in the keychain
+#   - Developer ID cert + `hakka` notarytool profile in the keychain
 #   - `gh` authenticated as ansumanshah
 #   - The tap checkout at ~/Code/homebrew-tap
 #

@@ -7,7 +7,7 @@
 #      "Developer ID Application". Verify with:
 #        security find-identity -v -p codesigning | grep "Developer ID"
 #   2. Notarization credentials (app-specific password from appleid.apple.com):
-#        xcrun notarytool store-credentials hakka-notary \
+#        xcrun notarytool store-credentials hakka \
 #          --apple-id <apple-id> --team-id BR3WT6376A --password <app-specific-password>
 #
 # Then: Scripts/sign-and-notarize.sh
@@ -17,7 +17,7 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 APP_NAME=${APP_NAME:-Hakka}
 APP_BUNDLE="$ROOT/${APP_NAME}.app"
-NOTARY_PROFILE=${NOTARY_PROFILE:-hakka-notary}
+NOTARY_PROFILE=${NOTARY_PROFILE:-hakka}
 source "$ROOT/version.env"
 ZIP_NAME="$ROOT/${APP_NAME}-${MARKETING_VERSION}.zip"
 
