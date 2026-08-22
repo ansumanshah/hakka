@@ -10,20 +10,23 @@ struct DetailTimingSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xl) {
-            VStack(alignment: .leading, spacing: Spacing.md) {
-                ForEach(plan.rows) { row in
-                    TimingBarRow(row: row, color: color(for: row.label))
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                sectionTitle
+                VStack(alignment: .leading, spacing: Spacing.md) {
+                    ForEach(Array(plan.rows.enumerated()), id: \.element.id) { index, row in
+                        TimingBarRow(row: row, color: color(for: row.label), index: index)
+                    }
+                    if let note = plan.note {
+                        Text(note)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
                 }
-                if let note = plan.note {
-                    Text(note)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
+                .padding(Spacing.lg)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.secondary.opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: 6))
             }
-            .padding(Spacing.lg)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.secondary.opacity(0.08))
-            .clipShape(RoundedRectangle(cornerRadius: 6))
 
             if let connectionFacts {
                 ConnectionFactsSection(facts: connectionFacts)
@@ -43,6 +46,22 @@ struct DetailTimingSection: View {
             downloadMs: record.downloadMs,
             durationMs: record.duration
         )
+    }
+
+    /// "Waterfall" plus a total-duration badge, mirroring the design's
+    /// `<div class="stitle">Waterfall <span class="badge">300 ms</span></div>`.
+    private var sectionTitle: some View {
+        HStack(spacing: Spacing.sm) {
+            Text("Waterfall")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+            Text(Fmt.duration(plan.totalMs))
+                .font(.caption2.monospaced())
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, Spacing.sm)
+                .padding(.vertical, Spacing.xxs)
+                .background(Color.secondary.opacity(0.15), in: Capsule())
+        }
     }
 
     private var connectionFacts: ConnectionFacts? {
@@ -71,11 +90,17 @@ struct DetailTimingSection: View {
     }
 }
 
-/// One waterfall line: label, a track with the phase's bar, and the value.
-/// Absent phases render an empty track and a dash.
+/// One waterfall line: label, a track with the phase's bar positioned at its
+/// real start offset on the shared timeline (not stacked at zero), and the
+/// value. Absent phases render an empty track and a dash. Bars animate in
+/// staggered by row index, `.easeOut(duration: 0.4).delay(index * 0.05)` —
+/// this repo's convention for staggered-growth timing bars.
 private struct TimingBarRow: View {
     let row: TimingWaterfallPlan.Row
     let color: Color
+    let index: Int
+
+    @State private var isVisible = false
 
     var body: some View {
         HStack(spacing: Spacing.md) {
@@ -87,7 +112,8 @@ private struct TimingBarRow: View {
                     Capsule().fill(Color.secondary.opacity(0.15))
                     Capsule()
                         .fill(color)
-                        .frame(width: geo.size.width * row.fraction)
+                        .frame(width: geo.size.width * (isVisible ? row.fraction : 0))
+                        .offset(x: geo.size.width * row.offsetFraction)
                 }
             }
             .frame(height: 6)  // ui-token-check-ignore: timing bar track
@@ -97,5 +123,10 @@ private struct TimingBarRow: View {
                 .foregroundStyle(row.ms == nil ? .secondary : .primary)
         }
         .padding(.vertical, 1)
+        .onAppear {
+            withAnimation(.easeOut(duration: 0.4).delay(Double(index) * 0.05)) {
+                isVisible = true
+            }
+        }
     }
 }
