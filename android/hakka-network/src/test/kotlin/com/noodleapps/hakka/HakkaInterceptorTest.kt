@@ -265,6 +265,33 @@ class HakkaInterceptorTest {
         assertEquals(req, captured.single())
     }
 
+    // Regression: promoting a capture with two Set-Cookie values into a mock rule (see
+    // `apps/hakka/Sources/Core/Rules/CapturedMockConverter.swift`'s `headerValues` widening)
+    // must survive capture -> mock -> applied response with both cookies distinct, never
+    // comma-folded into one (RFC 6265 §3 forbids folding Set-Cookie). OkHttp's `Headers`
+    // natively supports repeated names, so `response.headers("Set-Cookie")` must return both.
+    @Test
+    fun `mock rule with two headerValues Set-Cookie entries applies both distinctly`() {
+        MockEngine.shared.addRule(
+            MockRuleInput(
+                pattern = "/mocked-cookies",
+                response = com.noodleapps.hakka.MockResponse(
+                    status = 200,
+                    headers = mapOf("Set-Cookie" to "session=abc"),
+                    headerValues = mapOf("Set-Cookie" to listOf("session=abc; Path=/", "consent=yes; Path=/")),
+                    body = "",
+                ),
+            )
+        )
+        val interceptor = HakkaInterceptor()
+        val client = OkHttpClient.Builder().addInterceptor(interceptor).build()
+
+        val response = client.newCall(Request.Builder().url(server.url("/mocked-cookies")).build()).execute()
+
+        assertEquals(listOf("session=abc; Path=/", "consent=yes; Path=/"), response.headers("Set-Cookie"))
+        assertEquals(0, server.requestCount)
+    }
+
     // ── block / redirectTo / modify (parity with MockEngine.ts's fetch interceptor) ──
 
     @Test

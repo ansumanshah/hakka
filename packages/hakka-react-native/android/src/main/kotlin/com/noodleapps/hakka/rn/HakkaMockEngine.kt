@@ -137,6 +137,20 @@ data class HakkaMockRule(
     val method: String?,
     val status: Int,
     val headers: Map<String, String>,
+    /**
+     * Additive, backward-compatible widening of [headers] for header names
+     * that carry more than one value on the wire — chiefly `Set-Cookie`,
+     * where RFC 6265 §3 forbids folding multiple values into one
+     * comma-joined field. Mirrors `MockResponse.headerValues` in
+     * `packages/hakka-core/src/engine/MockEngine.ts` and
+     * `hakka-network`'s own `MockResponse.headerValues` exactly — vendored
+     * here for the same reason as [MockRuleModify]: this module runs its
+     * own mock engine ([HakkaMockEngine]) rather than hakka-network's.
+     * [HakkaOkHttpClientFactory] applies every value via OkHttp's
+     * [okhttp3.Headers.Builder.add], which natively supports more than one
+     * value per name.
+     */
+    val headerValues: Map<String, List<String>> = emptyMap(),
     val body: String,
     val delayMs: Long,
     val enabled: Boolean,
@@ -174,6 +188,8 @@ data class HakkaMockRule(
 data class HakkaMockResponse(
     val status: Int,
     val headers: Map<String, String>,
+    /** See [HakkaMockRule.headerValues] — same additive multi-value widening. */
+    val headerValues: Map<String, List<String>> = emptyMap(),
     val body: String,
     val delayMs: Long,
 )
@@ -234,6 +250,7 @@ object HakkaMockEngine {
             method = method?.uppercase(),
             status = response.status,
             headers = response.headers,
+            headerValues = response.headerValues,
             body = response.body,
             delayMs = max(0, response.delayMs),
             enabled = enabled,

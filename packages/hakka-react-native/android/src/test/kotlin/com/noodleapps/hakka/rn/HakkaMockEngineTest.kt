@@ -107,6 +107,35 @@ class HakkaMockEngineTest {
     assertEquals("invalid regex fallback", matched.body)
   }
 
+  // Regression: `headerValues` is the additive multi-value widening of `headers` (see
+  // HakkaMockRule.headerValues's doc) — two Set-Cookie values survive addRule -> matchRequest
+  // distinctly, and `headers` still carries the representative first value.
+  @Test
+  fun addRule_carriesHeaderValuesThroughToMatchedRule() {
+    HakkaMockEngine.addRule(
+      id = null,
+      pattern = "https://api.example.com/login",
+      isRegex = false,
+      regexFlags = null,
+      method = null,
+      response = HakkaMockResponse(
+        status = 200,
+        headers = mapOf("Set-Cookie" to "session=abc"),
+        headerValues = mapOf("Set-Cookie" to listOf("session=abc; Path=/", "consent=yes; Path=/")),
+        body = "",
+        delayMs = 0,
+      ),
+      enabled = true,
+    )
+
+    val matched = HakkaMockEngine.matchRequest("https://api.example.com/login", "GET")
+
+    assertNotNull(matched)
+    requireNotNull(matched)
+    assertEquals("session=abc", matched.headers["Set-Cookie"])
+    assertEquals(listOf("session=abc; Path=/", "consent=yes; Path=/"), matched.headerValues["Set-Cookie"])
+  }
+
   @Test
   fun globalDelayAndRuleLifecycle() {
     HakkaMockEngine.setGlobalDelay(250.0)

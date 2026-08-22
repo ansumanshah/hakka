@@ -61,6 +61,21 @@ data class MockFailure(val code: MockFailureCode)
 data class MockResponse(
     val status: Int = 200,
     val headers: Map<String, String> = emptyMap(),
+    /**
+     * Additive, backward-compatible widening of [headers] for header names
+     * that carry more than one value on the wire — chiefly `Set-Cookie`,
+     * where RFC 6265 §3 forbids folding multiple values into one
+     * comma-joined field (a cookie's own `Expires` attribute can legally
+     * contain a comma, so a naive join is ambiguous/corrupt). Mirrors
+     * `MockResponse.headerValues` in `packages/hakka-core/src/engine/MockEngine.ts`
+     * exactly — only header names with 2+ values need an entry here; every
+     * such name still has a representative value in [headers] so a decoder
+     * that only reads [headers] keeps working unchanged. [HakkaInterceptor]
+     * applies every value in the list via OkHttp's [okhttp3.Headers], which
+     * natively supports more than one value per name — a true multi-header
+     * apply, not a join.
+     */
+    val headerValues: Map<String, List<String>> = emptyMap(),
     val body: String? = null,
     val delayMs: Long = 0,
 )

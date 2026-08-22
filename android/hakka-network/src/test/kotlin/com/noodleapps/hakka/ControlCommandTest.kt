@@ -60,6 +60,63 @@ class ControlCommandTest {
         assertTrue(mockAdd.rule.enabled)
     }
 
+    // Regression: `headerValues` is the additive multi-value widening of `headers` (see
+    // [MockResponse.headerValues]'s doc) — two Set-Cookie values survive parsing distinctly,
+    // and `headers` still carries the representative first value for a decoder that only
+    // reads it.
+    @Test
+    fun `mock-add parses headerValues alongside headers`() {
+        val cmd = parseControlCommand(
+            json(
+                """
+                {
+                  "kind": "mock.add",
+                  "rule": {
+                    "id": "mcp-mock-cookies",
+                    "pattern": "/login",
+                    "response": {
+                      "status": 200,
+                      "headers": { "Set-Cookie": "session=abc" },
+                      "headerValues": { "Set-Cookie": ["session=abc; Path=/", "consent=yes; Path=/"] },
+                      "body": ""
+                    },
+                    "enabled": true
+                  }
+                }
+                """.trimIndent()
+            )
+        )
+        assertNotNull(cmd)
+        val mockAdd = cmd as ControlCommand.MockAdd
+        assertEquals("session=abc", mockAdd.rule.headers["Set-Cookie"])
+        assertEquals(listOf("session=abc; Path=/", "consent=yes; Path=/"), mockAdd.rule.headerValues["Set-Cookie"])
+    }
+
+    @Test
+    fun `mock-add without headerValues parses it as empty (old payload, unchanged)`() {
+        val cmd = parseControlCommand(
+            json(
+                """{"kind":"mock.add","rule":{"id":"mcp-mock-old","pattern":"/x",
+                    "response":{"status":200,"headers":{"x-a":"b"},"body":""},"enabled":true}}"""
+            )
+        )
+        assertNotNull(cmd)
+        val mockAdd = cmd as ControlCommand.MockAdd
+        assertTrue(mockAdd.rule.headerValues.isEmpty())
+    }
+
+    @Test
+    fun `mock-add rejects headerValues with a non-array value`() {
+        assertNull(
+            parseControlCommand(
+                json(
+                    """{"kind":"mock.add","rule":{"id":"m","pattern":"/x",
+                        "response":{"status":200,"headerValues":{"Set-Cookie":"not-an-array"},"body":""},"enabled":true}}"""
+                )
+            )
+        )
+    }
+
     @Test
     fun `mock-add accepts object body and serializes it`() {
         val cmd = parseControlCommand(
