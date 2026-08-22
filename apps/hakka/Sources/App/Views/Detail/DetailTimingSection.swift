@@ -9,20 +9,29 @@ struct DetailTimingSection: View {
     let record: NetworkRequest
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            ForEach(plan.rows) { row in
-                TimingBarRow(row: row, color: color(for: row.label))
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(plan.rows) { row in
+                    TimingBarRow(row: row, color: color(for: row.label))
+                }
+                if let note = plan.note {
+                    Text(note)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
             }
-            if let note = plan.note {
-                Text(note)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.secondary.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+
+            if let connectionFacts {
+                ConnectionFactsSection(facts: connectionFacts)
+            }
+            if let redirectChain {
+                RedirectChainSection(chain: redirectChain)
             }
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.secondary.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 
     private var plan: TimingWaterfallPlan {
@@ -34,6 +43,18 @@ struct DetailTimingSection: View {
             downloadMs: record.downloadMs,
             durationMs: record.duration
         )
+    }
+
+    private var connectionFacts: ConnectionFacts? {
+        ConnectionFacts(
+            networkProtocol: record.networkProtocol,
+            tlsVersion: record.tlsVersion,
+            cipherSuite: record.cipherSuite
+        )
+    }
+
+    private var redirectChain: RedirectChain? {
+        RedirectChain(redirectUrls: record.redirectUrls, finalUrl: record.url)
     }
 
     private func color(for label: String) -> Color {
