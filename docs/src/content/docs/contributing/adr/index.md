@@ -29,3 +29,4 @@ before treating anything in it as current behavior.
 | [0009](/contributing/adr/0009-contracts-first-internals/)      | Contracts-first internals, plugins on the open axes | Implemented — all three axes  |
 | [0010](/contributing/adr/0010-desktop-completion/)             | Completing Hakka for macOS                          | Implemented (unreleased)      |
 | [0011](/contributing/adr/0011-additive-wire-evolution/)        | Additive wire evolution                             | Implemented                   |
+| [0012](/contributing/adr/0012-grpc-sending/)                   | gRPC sending, phase 1                               | Implemented (phase 1)         |
