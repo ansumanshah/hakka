@@ -1,5 +1,7 @@
 package com.noodleapps.hakka
 
+import org.json.JSONObject
+
 /**
  * Structured application log level. Mirrors `LogLevel` from
  * `packages/hakka-core/src/log/types.ts` — same four values, same names.
@@ -26,4 +28,21 @@ data class LogEntry(
     val message: String,
     val category: String? = null,
     val metadata: Map<String, String>? = null,
-)
+) {
+    /**
+     * Wire shape matches `LogEntry` in `packages/hakka-core/src/log/types.ts` and the
+     * fixtures under `fixtures/console/` exactly: `level` is the lowercase string
+     * (`"debug"`/`"info"`/`"warn"`/`"error"`), `category`/`metadata` are omitted
+     * (not `null`) when absent. Element shape of a `{type:"console", payload}`
+     * bridge frame — see [BridgeSink.sendConsole].
+     */
+    fun toJson(): JSONObject = JSONObject()
+        .put("id", id)
+        .put("timestamp", timestamp)
+        .put("level", level.name.lowercase())
+        .put("message", message)
+        .apply {
+            if (category != null) put("category", category)
+            if (metadata != null) put("metadata", JSONObject().apply { metadata.forEach { (k, v) -> put(k, v) } })
+        }
+}

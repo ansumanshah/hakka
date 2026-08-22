@@ -145,6 +145,12 @@ object Hakka {
      *
      * Never throws — logging must never be able to crash the host app. All failures
      * (including a full metadata map going through a redaction error) are swallowed.
+     *
+     * Also streams the entry to any connected desktop bridge as a `{type:"console",...}`
+     * frame via [HakkaInterceptor.sendConsoleFrame] — mirrors iOS's
+     * `HakkaInterceptor.log(...)` → `HakkaBridgeClient.sendConsole`. No-op when
+     * [HakkaUI.attachInterceptor] was never called (no interceptor to send through) or
+     * no bridge is attached.
      */
     fun log(context: Context, level: LogLevel, message: String, category: String? = null, metadata: Map<String, String>? = null) {
         try {
@@ -159,6 +165,7 @@ object Hakka {
                 metadata = redacted,
             )
             ui.hakkaLogStore.add(entry)
+            ui.interceptor?.sendConsoleFrame(listOf(entry))
         } catch (_: Exception) {
             // Never throw from log() — fail silently, same contract as the JS logApi.
         }
