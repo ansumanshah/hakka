@@ -39,13 +39,15 @@ public enum CapturedMockConverter {
     /// path, with volatile query parameters dropped. Substring semantics —
     /// the engines match this against the full request URL.
     public static func mockRule(from request: NetworkRequest) -> MockRuleInput {
-        MockRuleInput(
+        let (headers, headerValues) = responseHeaders(from: request)
+        return MockRuleInput(
             pattern: pattern(for: request),
             isRegex: false,
             method: request.method.rawValue,
             response: MockResponse(
                 status: request.status ?? 200,
-                headers: responseHeaders(from: request),
+                headers: headers,
+                headerValues: headerValues,
                 body: request.responseBody ?? "",
                 delay: 0
             ),
@@ -83,25 +85,32 @@ public enum CapturedMockConverter {
     /// recomputes — both dropped; everything else (Content-Type, Set-Cookie,
     /// …) survives.
     ///
-    /// `MockResponse.headers` is `[String: String]` — one value per name —
-    /// so a header captured with multiple values has to be folded into one.
-    /// Per RFC 7230 §3.2.2 that fold is safe for ordinary headers (join with
-    /// `", "`, identical in meaning to the separate fields). `Set-Cookie` is
-    /// the documented exception: RFC 6265 §3 forbids combining multiple
-    /// Set-Cookie values into one field, because a comma can legally appear
-    /// inside a cookie's own `Expires` attribute, so a joined value would be
-    /// ambiguous or outright corrupt. There is no lossless way to carry two
-    /// Set-Cookie values through this wire shape, so we keep the first and
-    /// drop the rest — replaying one real cookie beats replaying a mangled
-    /// one that satisfies neither.
-    private static func responseHeaders(from request: NetworkRequest) -> [String: String] {
+    /// Returns both halves of the wire's additive multi-value shape (see
+    /// `MockResponse.headerValues`'s doc): `headers` carries one
+    /// representative value per name (old decoders/consumers keep working
+    /// unchanged), and `headerValues` carries the full ordered list for any
+    /// name that had more than one captured value. `Set-Cookie` is the
+    /// header this actually matters for — RFC 6265 §3 forbids combining
+    /// multiple Set-Cookie values into one field, because a comma can
+    /// legally appear inside a cookie's own `Expires` attribute, so folding
+    /// would be ambiguous or outright corrupt. Ordinary headers with 2+
+    /// values are still comma-joined into `headers` per RFC 7230 §3.2.2 (that
+    /// fold is safe for them) and are NOT duplicated into `headerValues` —
+    /// only genuinely multi-value replay (Set-Cookie today) needs the list.
+    private static func responseHeaders(from request: NetworkRequest) -> (headers: [String: String], headerValues: [String: [String]]) {
         let excluded: Set<String> = ["content-encoding", "content-length", "transfer-encoding", "connection"]
         var headers: [String: String] = [:]
+        var headerValues: [String: [String]] = [:]
         for (name, values) in request.responseHeaders {
             let lower = name.lowercased()
             guard !excluded.contains(lower), !values.isEmpty else { continue }
-            headers[name] = lower == "set-cookie" ? values[0] : values.joined(separator: ", ")
+            if lower == "set-cookie" {
+                headers[name] = values[0]
+                if values.count > 1 { headerValues[name] = values }
+            } else {
+                headers[name] = values.joined(separator: ", ")
+            }
         }
-        return headers
+        return (headers, headerValues)
     }
 }
