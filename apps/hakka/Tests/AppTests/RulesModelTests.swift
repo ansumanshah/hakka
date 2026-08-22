@@ -185,6 +185,25 @@ struct RulesModelPromotionTests {
         #expect(count == 1, "zero devices is not a failure; the rule ships to the next one that connects")
     }
 
+    @Test func promoteWithAnOverriddenMatchInstallsTheEditedPatternNotTheCapturedOne() async throws {
+        // The promote-to-mock sheet's Install button hands `promote` its
+        // (possibly edited) match; this pins that the override actually
+        // reaches the installed rule, not just the id it's keyed under.
+        let channel = FakeControlChannel()
+        let model = RulesModel(traffic: channel)
+
+        _ = try await model.promote(capture(), pattern: "https://api.example.com/v2/users", method: "PUT")
+
+        let stored = try #require(await channel.rules.rules().first)
+        guard case .mock(let rule) = stored.payload else {
+            Issue.record("expected a mock payload")
+            return
+        }
+        #expect(rule.pattern == "https://api.example.com/v2/users")
+        #expect(rule.method == "PUT")
+        #expect(stored.id == CapturedMockConverter.ruleID(method: "PUT", pattern: "https://api.example.com/v2/users"))
+    }
+
     @Test func anErroredCaptureIsRefusedBeforeAnythingIsSent() async throws {
         let channel = FakeControlChannel()
         let model = RulesModel(traffic: channel)

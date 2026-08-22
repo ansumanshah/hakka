@@ -1,3 +1,4 @@
+import HakkaCommon
 import HakkaCore
 import SwiftUI
 
@@ -6,8 +7,20 @@ import SwiftUI
 /// `NetworkRequestDetailView` since both are a `NetworkRequest`.
 struct DetailPaneView: View {
     @Environment(AppModel.self) private var model
+    /// The request the promote-to-mock sheet was opened for — set by
+    /// `DetailActionBar`'s Mock button instead of that button installing
+    /// directly (gap-audit-2026-08-22.md item 2).
+    @State private var promoteRequest: NetworkRequest?
 
     var body: some View {
+        selectionContent
+            .sheet(item: $promoteRequest) { request in
+                PromoteMockSheet(request: request)
+            }
+    }
+
+    @ViewBuilder
+    private var selectionContent: some View {
         switch model.selection {
         case .request:
             requestDetail
@@ -97,7 +110,7 @@ struct DetailPaneView: View {
                                 request: request,
                                 onReplay: { model.replayCaptured(request) },
                                 onSave: { model.saveCaptured(request) },
-                                onMock: { model.promoteCapturedToMock(request) },
+                                onMock: { promoteRequest = request },
                                 mockNote: model.mockPromotionNote
                             )
                             // Cross-target trace waterfall (ADR 0001) — only

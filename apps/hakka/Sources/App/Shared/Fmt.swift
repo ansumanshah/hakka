@@ -23,6 +23,21 @@ enum Fmt {
         return date.formatted(date: .omitted, time: .standard)
     }
 
+    /// "just now" / "12s ago" / "4m ago" / "2h ago" — the promote-to-mock
+    /// sheet's captured-row echo. A small hand-rolled scale rather than
+    /// `RelativeDateTimeFormatter`: that formatter's wording ("0 seconds
+    /// ago", locale-dependent rounding) is tuned for calendar-scale
+    /// distances, not a sheet someone opens within seconds of the capture.
+    static func relativeTime(from date: Date, now: Date = Date()) -> String {
+        let seconds = max(0, now.timeIntervalSince(date))
+        switch seconds {
+        case ..<2: return "just now"
+        case ..<60: return "\(Int(seconds))s ago"
+        case ..<3600: return "\(Int(seconds / 60))m ago"
+        default: return "\(Int(seconds / 3600))h ago"
+        }
+    }
+
     static func logLevelColor(_ level: LogLevel) -> Color {
         switch level {
         case .debug: ThemeTokens.Status.pending
