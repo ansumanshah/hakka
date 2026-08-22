@@ -146,6 +146,11 @@ public enum RequestResolver {
             )
         case let .file(path, contentType):
             .file(path: interpolate(path, scope: scope, missing: &missing), contentType: contentType)
+        case let .grpcMessage(hex):
+            // Rare in practice (hex/base64 rarely embeds a template token),
+            // but every other body kind interpolates its text, so this stays
+            // consistent rather than special-cased silent.
+            .grpcMessage(hex: interpolate(hex, scope: scope, missing: &missing))
         }
     }
 

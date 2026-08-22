@@ -666,4 +666,23 @@ struct RequestBodyEncoderTests {
             _ = try RequestBodyEncoder.chooseBoundary(avoiding: [Data("x".utf8)], candidates: { "x" }, maxAttempts: 3)
         }
     }
+
+    // MARK: - gRPC message (ADR 0012)
+
+    @Test func grpcMessageDecodesHexToRawUnframedBytes() throws {
+        let encoded = try RequestBodyEncoder.encode(.grpcMessage(hex: "0a0568656c6c6f"))
+        #expect(encoded.data == Data([0x0a, 0x05, 0x68, 0x65, 0x6c, 0x6c, 0x6f]))
+        #expect(encoded.contentType == "application/grpc")
+    }
+
+    @Test func grpcMessageEmptyHexEncodesToEmptyData() throws {
+        let encoded = try RequestBodyEncoder.encode(.grpcMessage(hex: ""))
+        #expect(encoded.data == Data())
+    }
+
+    @Test func grpcMessageInvalidEncodingThrows() {
+        #expect(throws: RequestBodyEncodingError.self) {
+            try RequestBodyEncoder.encode(.grpcMessage(hex: "not hex or valid base64!!"))
+        }
+    }
 }

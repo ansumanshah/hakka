@@ -30,6 +30,12 @@ public enum EffectiveBody: Sendable, Equatable {
             )
         case let .file(path, contentType):
             self = .file(path: path, contentType: contentType)
+        case let .grpcMessage(hex):
+            // No generator here speaks real gRPC (they emit HTTP client
+            // code) — ADR 0012 phase 1 has no gRPC-specific code generation
+            // at all, so this only keeps every generator exhaustive rather
+            // than producing a command/snippet a user could actually run.
+            self = .text(body: hex, contentType: "application/grpc")
         }
     }
 

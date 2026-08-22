@@ -186,6 +186,7 @@ SDK itself builds and ships for — do not conflate the two tables.
 | Deterministic failure diagnosis³³ | —       | —   | —       | —   | ●       |
 | Folder runs³⁴                     | —       | —   | —       | —   | ●       |
 | gRPC frame inspector³⁵            | —       | —   | —       | —   | ●       |
+| gRPC unary send³⁷                 | —       | —   | —       | —   | ◐       |
 | OAuth2 + PKCE (API client)³⁶      | —       | —   | —       | —   | ●       |
 
 ¹ cURL hardened (shell-safe quoting, `--compressed`, Basic-auth `-u`) in v1.1.
@@ -250,6 +251,8 @@ SDK itself builds and ships for — do not conflate the two tables.
 ³⁵ `GrpcBodyDecoder` renders each length-prefixed gRPC/gRPC-Web message as its own row — index, byte length, compressed flag, and a resolved `GrpcStatus` — via `GrpcFrameRowView` (`Sources/App/Views/Detail/GrpcFrameRowView.swift`), reusing the same wire-format walk the shared `BodyDecoder` registry uses for its gRPC-Web decode (footnote ¹⁰, already `●` on RN/iOS/Android/Web). This row names the distinct capability those platforms don't have: a dedicated per-frame, per-status inspector view, not just a decoded body blob. It does not mean the other four columns can't decode a gRPC-Web body at all — see the `BodyDecoder` row for that.
 
 ³⁶ Full RFC 6749 §4.1 + RFC 7636 authorization-code-with-PKCE flow for the API client's own outgoing requests: `PKCE.swift` (S256 challenge only, no `plain` fallback by design), a real loopback HTTP listener (`OAuth2LoopbackListenerLive.swift`) catching the redirect, `state` verification, and client-credentials/refresh-token grants alongside it (`OAuth2FlowRunner+*.swift`). This is an API-client auth feature; no other Hakka platform issues its own authenticated requests, so none needs an OAuth flow of its own.
+
+³⁷ ADR 0012 (phase 1) — a `grpc://`/`grpcs://` request in the collection/request editor sends a real unary gRPC call over HTTP/2 (`grpc-swift-2` + `grpc-swift-nio-transport`, TLS and plaintext/h2c both supported) via `GrpcRunner`/`GRPCSwiftUnaryTransport` (`Sources/Core/Grpc/`), decoding the response through the same `GrpcBodyDecoder`/`GrpcBodyView` the frame inspector row above already ships (footnote ³⁵) — no duplicated decode path. `◐`, not `●`, for two phase-1 cuts: the message is raw hex/base64 only (target/service/method are typed directly, via the request URL's `/package.Service/Method` path — no picker), and server reflection (both service/method discovery and JSON→proto message encoding) was cut entirely, not merely scoped down, because `grpc.reflection.v1`'s `ServerReflectionInfo` RPC is structurally bidirectional-streaming, which sits on the wrong side of phase 1's unary-only boundary. Streaming RPCs (server/client/bidi) and reflection are both phase 2.
 
 ## Capture targets
 
