@@ -5,9 +5,11 @@ import com.facebook.react.bridge.*
 import com.noodleapps.hakka.BreadcrumbRecord
 import com.noodleapps.hakka.HakkaInterceptor
 import com.noodleapps.hakka.HakkaListener
+import com.noodleapps.hakka.LogEntry
 import com.noodleapps.hakka.NetworkRequest
 import com.noodleapps.hakka.HttpMethod
 import com.noodleapps.hakka.RequestSource
+import com.noodleapps.hakka.StorageSnapshot
 import com.noodleapps.hakka.TraceRecord
 import com.noodleapps.hakka.export.CurlExporter
 import com.noodleapps.hakka.export.HarExporter
@@ -192,6 +194,9 @@ class NativeCoreDelegate(
     private val activeTraces = ConcurrentHashMap<String, TraceRecord>()
     private val maxBreadcrumbs = 100
 
+    // -- Native console relay (hakka-ui's structured-log store, reached via reflection) --
+    private var structuredLogUnsubscribe: (() -> Unit)? = null
+
     fun initialize(listenerCount: AtomicInteger) {
         val listener = createListener(listenerCount)
         rebuildInterceptor(listener)
@@ -201,6 +206,7 @@ class NativeCoreDelegate(
         } catch (_: Exception) {
             // OkHttpClientFactory may not be available — app must wire manually
         }
+        setupStructuredLogRelay(listenerCount)
     }
 
     fun addLog(request: ReadableMap) {
@@ -468,8 +474,39 @@ class NativeCoreDelegate(
      */
     fun isNativeCapturing(): Boolean = true
 
+    /**
+     * On-demand SharedPreferences snapshot, relayed as `onHakkaStorage` events — mirrors the
+     * JS bridge's connect-time AsyncStorage/MMKV publish (`HakkaBridge._publishStorageSnapshotsOnConnect`).
+     * Called from JS so a freshly-connected desktop peer sees native storage without needing
+     * hakka-ui's native Storage tab to be opened first (that tab's own bridge relay depends on
+     * an interceptor being attached to `HakkaUI`, which RN's native-render mode deliberately
+     * never does — see [HakkaUI.subscribeStructuredLogs]'s doc comment). Redacts using this
+     * module's own interceptor config, which is always live in RN mode. No-op (and never
+     * throws) when hakka-ui is not on the classpath.
+     */
+    fun publishStorageSnapshots() {
+        try {
+            val uiClass = Class.forName("com.noodleapps.hakka.ui.HakkaUI")
+            val getInstance = uiClass.getMethod("getInstance", Context::class.java)
+            val ui = getInstance.invoke(null, reactContext)
+            val capture = uiClass.getMethod("captureStorageSnapshots", Set::class.java)
+            val sensitiveFields = currentInterceptor().config.sensitiveBodyFields
+            @Suppress("UNCHECKED_CAST")
+            val snapshots = capture.invoke(ui, sensitiveFields) as? List<StorageSnapshot> ?: emptyList()
+            for (snapshot in snapshots) {
+                emitExecutor.execute { emitStorageSnapshot(snapshot) }
+            }
+        } catch (_: ClassNotFoundException) {
+            // hakka-ui not on the classpath — nothing to capture.
+        } catch (_: Exception) {
+            // The SDK must never crash the host app from a relay trigger.
+        }
+    }
+
     fun shutdown() {
         performanceReporter?.close()
+        structuredLogUnsubscribe?.invoke()
+        structuredLogUnsubscribe = null
         emitExecutor.shutdown()
         resetAndCloseAll()
         sessionUserId = null
@@ -523,6 +560,70 @@ class NativeCoreDelegate(
         val map = requestToWritableMap(request)
         val array = Arguments.createArray().apply { pushMap(map) }
         sendEvent("onHakkaRequests", array)
+    }
+
+    /**
+     * Subscribes (via reflection — hakka-ui is an optional dependency, not on this module's
+     * compile classpath) to structured log entries recorded natively via `Hakka.log` /
+     * `HakkaTimberTree`, relaying each as an `onHakkaConsole` event — one entry per call,
+     * mirroring `onHakkaRequests`'s per-record emit granularity. No-op (and never throws) when
+     * hakka-ui is not on the classpath.
+     */
+    private fun setupStructuredLogRelay(listenerCount: AtomicInteger) {
+        try {
+            val uiClass = Class.forName("com.noodleapps.hakka.ui.HakkaUI")
+            val getInstance = uiClass.getMethod("getInstance", Context::class.java)
+            val ui = getInstance.invoke(null, reactContext)
+            val subscribe = uiClass.getMethod("subscribeStructuredLogs", Function1::class.java)
+            val listener: (LogEntry) -> Unit = { entry ->
+                if (listenerCount.get() > 0) {
+                    emitExecutor.execute { emitConsoleEntry(entry) }
+                }
+            }
+            @Suppress("UNCHECKED_CAST")
+            structuredLogUnsubscribe = subscribe.invoke(ui, listener) as? () -> Unit
+        } catch (_: ClassNotFoundException) {
+            // hakka-ui not on the classpath — no native structured-log relay available.
+        } catch (_: Exception) {
+            // The SDK must never crash the host app from relay setup.
+        }
+    }
+
+    private fun emitConsoleEntry(entry: LogEntry) {
+        val array = Arguments.createArray().apply { pushMap(logEntryToWritableMap(entry)) }
+        sendEvent("onHakkaConsole", array)
+    }
+
+    /** Wire shape matches [LogEntry.toJson] / `fixtures/console/` — mirrors [requestToWritableMap]'s style. */
+    private fun logEntryToWritableMap(entry: LogEntry): WritableMap {
+        val map = Arguments.createMap()
+        map.putString("id", entry.id)
+        map.putDouble("timestamp", entry.timestamp.toDouble())
+        map.putString("level", entry.level.name.lowercase())
+        map.putString("message", entry.message)
+        entry.category?.let { map.putString("category", it) }
+        entry.metadata?.let { metadata ->
+            map.putMap("metadata", Arguments.createMap().apply {
+                metadata.forEach { (k, v) -> putString(k, v) }
+            })
+        }
+        return map
+    }
+
+    private fun emitStorageSnapshot(snapshot: StorageSnapshot) {
+        val array = Arguments.createArray().apply { pushMap(storageSnapshotToWritableMap(snapshot)) }
+        sendEvent("onHakkaStorage", array)
+    }
+
+    /** Wire shape matches [StorageSnapshot.toJson] / `fixtures/storage/` — mirrors [requestToWritableMap]'s style. */
+    private fun storageSnapshotToWritableMap(snapshot: StorageSnapshot): WritableMap {
+        val map = Arguments.createMap()
+        map.putString("store", snapshot.store)
+        map.putDouble("timestamp", snapshot.timestampMs.toDouble())
+        map.putMap("entries", Arguments.createMap().apply {
+            snapshot.entries.forEach { (k, v) -> putString(k, v) }
+        })
+        return map
     }
 
     /**

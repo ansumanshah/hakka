@@ -6,8 +6,10 @@ import com.noodleapps.hakka.HakkaInterceptor
 import com.noodleapps.hakka.HakkaLogStore
 import com.noodleapps.hakka.HakkaPerformance
 import com.noodleapps.hakka.HakkaPlugin
+import com.noodleapps.hakka.LogEntry
 import com.noodleapps.hakka.LogStore
 import com.noodleapps.hakka.NetworkRequest
+import com.noodleapps.hakka.StorageSnapshot
 import com.noodleapps.hakka.HakkaListener
 
 /**
@@ -151,6 +153,33 @@ class HakkaUI(private val context: Context) {
 
     fun getRequestCount(): Int = notificationManager.getRequestCount()
     fun getErrorCount(): Int = notificationManager.getErrorCount()
+
+    /**
+     * Subscribes to newly recorded structured log entries — the same stream [Hakka.log] /
+     * [HakkaTimberTree] feed into [hakkaLogStore]. Used by hakka-react-native's
+     * `NativeCoreDelegate` (via reflection — hakka-ui is an optional dependency, not on that
+     * module's compile classpath) to relay native console entries to the JS bridge as
+     * `onHakkaConsole` events. Deliberately independent of [interceptor]/[attachInterceptor]:
+     * unlike [Hakka.log]'s own `sendConsoleFrame` call (a no-op until [attachInterceptor] has
+     * been called, which RN's native-render mode never does — attaching would also flip on
+     * Settings' "connect to desktop bridge" toggle, opening a second socket), this subscribes
+     * directly to the entry stream so the relay works whether or not a bridge interceptor is
+     * attached. Returns an unsubscribe function.
+     */
+    fun subscribeStructuredLogs(listener: (LogEntry) -> Unit): () -> Unit =
+        hakkaLogStore.subscribe(listener)
+
+    /**
+     * Captures one [StorageSnapshot] per SharedPreferences file readable from [context],
+     * redacted using [sensitiveFields] (case-insensitive field-name match — same semantics as
+     * [com.noodleapps.hakka.HakkaConfig.sensitiveBodyFields]). Independent of [interceptor]:
+     * callers supply their own redaction fields, so this works even when no bridge interceptor
+     * is attached — e.g. hakka-react-native's on-demand `publishStorageSnapshots()` native
+     * module method, which passes its own interceptor's `sensitiveBodyFields`. Shares scanning
+     * logic with [StorageTabController] via [SharedPreferencesSnapshotter].
+     */
+    fun captureStorageSnapshots(sensitiveFields: Set<String>): List<StorageSnapshot> =
+        SharedPreferencesSnapshotter.capture(context, sensitiveFields)
 
     /**
      * Show the Hakka floating bubble on the given Activity.

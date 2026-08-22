@@ -120,6 +120,15 @@ export interface Spec extends TurboModule {
   /** Enable native WebSocket capture (iOS 13+; no-op on Android). */
   enableNativeWebSocket(): Promise<void>
   isNativeCapturing(): Promise<boolean>
+
+  /**
+   * Requests a fresh on-demand snapshot of native device storage (SharedPreferences on
+   * Android), relayed back as one `onHakkaStorage` event per store. Mirrors the JS bridge's
+   * connect-time AsyncStorage/MMKV publish — called once right after the bridge connects so a
+   * freshly-opened desktop peer isn't left without a Storage panel until the native Storage
+   * tab happens to be opened. No-op where the optional native UI package isn't linked.
+   */
+  publishStorageSnapshots(): void
 }
 
 /**
