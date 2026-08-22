@@ -130,6 +130,59 @@ struct CapturedMockConverterTests {
         #expect(other.id != first.id)
     }
 
+    // MARK: - Overridden match (promote-to-mock sheet edits)
+
+    @Test func mockRuleOverridesReplaceTheCapturedPatternAndMethod()
+    async throws {
+        // The promote-to-mock sheet edits the match before install; the
+        // override lands in the rule while the frozen response (status,
+        // body, headers) still comes from the capture untouched.
+        let rule = CapturedMockConverter.mockRule(
+            from: record(url: "https://api.example.com/v1/users?page=2", method: .get, status: 200),
+            pattern: "https://api.example.com/v1/*",
+            method: "PUT"
+        )
+        #expect(rule.pattern == "https://api.example.com/v1/*")
+        #expect(rule.method == "PUT")
+        #expect(rule.response.status == 200)
+    }
+
+    @Test func mockRuleWithNoOverridesMatchesTheUnoverriddenCall()
+    async throws {
+        let captured = record(url: "https://api.example.com/v1/users?page=2")
+        let overridden = CapturedMockConverter.mockRule(from: captured, pattern: nil, method: nil)
+        let plain = CapturedMockConverter.mockRule(from: captured)
+        #expect(overridden.pattern == plain.pattern)
+        #expect(overridden.method == plain.method)
+        #expect(overridden.response.status == plain.response.status)
+    }
+
+    @Test func entryOverridesResolveTheIdFromTheEditedMatchNotTheCapture()
+    async throws {
+        // Re-mocking has to replace by the match actually being installed —
+        // an id still keyed on the capture's own pattern would let an edited
+        // promotion collide with (or fail to replace) the wrong rule.
+        let captured = record(url: "https://api.example.com/v1/users")
+        let unedited = try CapturedMockConverter.entry(from: captured)
+        let edited = try CapturedMockConverter.entry(from: captured, pattern: "https://api.example.com/v2/users", method: nil)
+        #expect(edited.id != unedited.id)
+        #expect(edited.id == CapturedMockConverter.ruleID(method: "GET", pattern: "https://api.example.com/v2/users"))
+    }
+
+    @Test func reEditingToTheSamePatternReplacesTheSameEntry()
+    async throws {
+        let captured = record(url: "https://api.example.com/v1/users")
+        let first = try CapturedMockConverter.entry(from: captured, pattern: "https://api.example.com/v2/users", method: nil)
+        let second = try CapturedMockConverter.entry(from: captured, pattern: "https://api.example.com/v2/users", method: nil)
+        #expect(first.id == second.id, "promoting the same edited match twice must replace, not duplicate")
+    }
+
+    @Test func ruleIDMethodPatternMatchesRuleIDForRequest()
+    async throws {
+        let captured = record(url: "https://api.example.com/v1/users?page=2", method: .post)
+        #expect(CapturedMockConverter.ruleID(for: captured) == CapturedMockConverter.ruleID(method: "POST", pattern: "https://api.example.com/v1/users"))
+    }
+
     @Test func entryRoundTripsThroughTheWireEncoder()
     async throws {
         // The promotion is only real if the produced entry survives the same

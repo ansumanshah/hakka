@@ -28,22 +28,38 @@ public enum CapturedMockConverter {
     /// `PromotionError.incompleteCapture` for a request with no status
     /// (pending, or dropped before a response arrived) or a recorded
     /// transport error — there is no real response to freeze.
-    public static func entry(from request: NetworkRequest) throws -> RuleEntry {
+    ///
+    /// `pattern`/`method` let a caller override the match this entry is
+    /// keyed and installed on — the desktop's promote-to-mock sheet lets
+    /// someone edit the prefilled match before install. `nil` (the default)
+    /// reproduces the unedited capture exactly, so every existing call site
+    /// is unaffected. The id is always derived from the *resolved* match
+    /// (edited or not), so replace-by-id still targets the endpoint the
+    /// install actually happens against.
+    public static func entry(from request: NetworkRequest, pattern: String? = nil, method: String? = nil) throws -> RuleEntry {
         guard request.status != nil, request.error == nil else {
             throw PromotionError.incompleteCapture(url: request.url, underlying: request.error)
         }
-        return RuleEntry(id: ruleID(for: request), payload: .mock(mockRule(from: request)))
+        let resolvedPattern = pattern ?? self.pattern(for: request)
+        let resolvedMethod = method ?? request.method.rawValue
+        return RuleEntry(
+            id: ruleID(method: resolvedMethod, pattern: resolvedPattern),
+            payload: .mock(mockRule(from: request, pattern: resolvedPattern, method: resolvedMethod))
+        )
     }
 
     /// Matches the endpoint, not one query string: scheme + host + port +
     /// path, with volatile query parameters dropped. Substring semantics —
     /// the engines match this against the full request URL.
-    public static func mockRule(from request: NetworkRequest) -> MockRuleInput {
+    ///
+    /// `pattern`/`method` override the captured match the same way
+    /// `entry(from:pattern:method:)`'s do; `nil` keeps the captured values.
+    public static func mockRule(from request: NetworkRequest, pattern: String? = nil, method: String? = nil) -> MockRuleInput {
         let (headers, headerValues) = responseHeaders(from: request)
         return MockRuleInput(
-            pattern: pattern(for: request),
+            pattern: pattern ?? self.pattern(for: request),
             isRegex: false,
-            method: request.method.rawValue,
+            method: method ?? request.method.rawValue,
             response: MockResponse(
                 status: request.status ?? 200,
                 headers: headers,
@@ -58,7 +74,15 @@ public enum CapturedMockConverter {
     /// Deterministic id from the match key, so the second promotion of the
     /// same endpoint replaces the first. Wire-safe characters only.
     public static func ruleID(for request: NetworkRequest) -> String {
-        let key = "\(request.method.rawValue) \(pattern(for: request))"
+        ruleID(method: request.method.rawValue, pattern: pattern(for: request))
+    }
+
+    /// The same deterministic hash `ruleID(for:)` derives from a request,
+    /// but keyed directly off a method + pattern pair — the shape the
+    /// promote sheet has after a possible edit, with no `NetworkRequest` to
+    /// re-derive them from.
+    public static func ruleID(method: String, pattern: String) -> String {
+        let key = "\(method) \(pattern)"
         var hash: UInt64 = 0xcbf2_9ce4_8422_2325
         for byte in key.utf8 {
             hash = (hash &- UInt64(byte)) &* 0x100_0000_01b3
@@ -66,7 +90,12 @@ public enum CapturedMockConverter {
         return "mck-\(String(hash, radix: 36))"
     }
 
-    private static func pattern(for request: NetworkRequest) -> String {
+    /// Matches the endpoint, not one query string: scheme + host + port +
+    /// path, with volatile query parameters dropped — the same rule
+    /// `entry`/`mockRule` derive their default pattern from. Exposed so the
+    /// promote sheet can prefill its editable pattern field with exactly
+    /// what a plain (un-overridden) promotion would install.
+    public static func pattern(for request: NetworkRequest) -> String {
         guard let url = URL(string: request.url),
               let scheme = url.scheme?.isEmpty == false ? url.scheme : nil,
               let host = url.host else {

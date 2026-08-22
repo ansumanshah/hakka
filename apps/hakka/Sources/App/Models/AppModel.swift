@@ -119,10 +119,14 @@ final class AppModel {
     /// mock rule and installs it on every connected device in one action —
     /// replay the app's real response with no proxy in the path. Re-promoting
     /// the same endpoint replaces (same wire id) instead of duplicating.
-    func promoteCapturedToMock(_ request: NetworkRequest) {
+    ///
+    /// `pattern`/`method` carry the promote-to-mock sheet's (possibly
+    /// edited) match through to `RulesModel.promote`; `nil` installs the
+    /// capture's own match unchanged.
+    func promoteCapturedToMock(_ request: NetworkRequest, pattern: String? = nil, method: String? = nil) {
         Task {
             do {
-                let delivered = try await rules.promote(request)
+                let delivered = try await rules.promote(request, pattern: pattern, method: method)
                 mockPromotionNote = delivered == 0
                     ? "Mock saved — no devices connected"
                     : "Mock installed to \(delivered) device\(delivered == 1 ? "" : "s")"

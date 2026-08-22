@@ -115,9 +115,14 @@ final class RulesModel {
     /// Returns the number of devices written to. Zero is a real outcome, not
     /// a failure: the rule is kept so it ships to the next device that
     /// connects.
+    ///
+    /// `pattern`/`method` let a caller install a match edited from what was
+    /// actually captured — the promote-to-mock sheet's editable fields.
+    /// `nil` (the default) installs the capture's own match unchanged, same
+    /// as before this parameter existed.
     @discardableResult
-    func promote(_ request: NetworkRequest) async throws -> Int {
-        let entry = try CapturedMockConverter.entry(from: request)
+    func promote(_ request: NetworkRequest, pattern: String? = nil, method: String? = nil) async throws -> Int {
+        let entry = try CapturedMockConverter.entry(from: request, pattern: pattern, method: method)
         let delivered = try await traffic.send(installCommand(for: entry))
         try await traffic.rules.add(entry.payload, id: entry.id)
         return delivered
