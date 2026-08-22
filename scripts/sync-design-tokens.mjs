@@ -82,7 +82,14 @@ ${lets('codeLight', t.codeLight)}
 /// Canonical Hakka geometry, shared with RN + web + Android. Every interactive
 /// control's height comes from ControlHeight; every page edge from
 /// Layout.gutter. See DESIGN.md "One geometry".
-enum HakkaMetrics {
+///
+/// public: the macOS app (a separate SPM module, HakkaApp) reaches for this
+/// type directly — unlike HakkaTokens/Theme's colors, these are bare CGFloat
+/// constants with no UIKit dependency, so there is no reason to fork a second
+/// copy the way emitSwiftDesktop() has to for colors. See
+/// apps/hakka/Sources/App/Helpers/Metrics.swift for the desktop's short
+/// aliases onto this.
+public enum HakkaMetrics {
 ${swiftGroup('spacing', metrics.spacing)}
 
 ${swiftGroup('radius', metrics.radius)}
@@ -99,9 +106,9 @@ ${swiftGroup('layout', metrics.layout)}
 
 function swiftGroup(name, group) {
   const body = Object.entries(group)
-    .map(([k, v]) => `        static let ${k}: CGFloat = ${v}`)
+    .map(([k, v]) => `        public static let ${k}: CGFloat = ${v}`)
     .join('\n')
-  return `    enum ${name[0].toUpperCase()}${name.slice(1)} {\n${body}\n    }`
+  return `    public enum ${name[0].toUpperCase()}${name.slice(1)} {\n${body}\n    }`
 }
 
 function emitKotlin() {
