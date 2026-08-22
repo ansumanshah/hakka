@@ -36,13 +36,14 @@ run_leg() {
 }
 
 # ── Pre-build shared dist (sequential, BEFORE any leg starts) ───────────────
-# core+bridge dist is read by the typecheck leg and by every JS test leg.
-# Building it inside the parallel phase (test-web's build-core/build-bridge
-# dep recipes) wipes dist mid-typecheck, producing nondeterministic
+# core+bridge+node dist is read by the typecheck leg and by every JS test leg
+# (packages/hakka's ciBaseline tests import the "hakka-node/ci" subpath).
+# Building it inside the parallel phase (test-web's build-core/build-bridge/
+# build-node dep recipes) wipes dist mid-typecheck, producing nondeterministic
 # TS2307/TS7006 failures. Build once here; the web leg then runs the
 # no-build variant (test-web-prebuilt).
-if ! just build-core build-bridge >"$LOG_DIR/prebuild.log" 2>&1; then
-    echo "FAIL: pre-build of hakka-core/hakka-bridge dist" >&2
+if ! just build-core build-bridge build-node >"$LOG_DIR/prebuild.log" 2>&1; then
+    echo "FAIL: pre-build of hakka-core/hakka-bridge/hakka-node dist" >&2
     cat "$LOG_DIR/prebuild.log" >&2
     exit 1
 fi
