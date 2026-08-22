@@ -45,3 +45,19 @@ from here to make something compile.
 Swift 6 strict concurrency, files under 200 lines, one primary type per file, actors for
 shared mutable state, protocol-based injection so tests never touch the network, and
 Swift Testing (`@Test`/`#expect`) rather than XCTest.
+
+## Releasing
+
+Dev loop: `Scripts/compile_and_run.sh` (ad-hoc signed, local only).
+
+Distribution: `Scripts/sign-and-notarize.sh` — universal build, Developer ID
+signing with hardened runtime, notarization, staple, zip. One-time credential
+setup lives in the comment at the top of that script (a Developer ID
+Application certificate and a `notarytool` keychain profile). Bump
+`BUILD_NUMBER` in `version.env` before every re-release; Apple rejects
+duplicate uploads.
+
+The app is not sandboxed (it binds a local bridge server), ships no JIT
+entitlement (scripting runs on JavaScriptCore's interpreter, which is the
+sandbox posture we want), and the entitlements file `package_app.sh`
+generates is deliberately empty.
