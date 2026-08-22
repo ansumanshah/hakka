@@ -217,3 +217,82 @@ struct RulesModelPromotionTests {
         #expect(count == 0)
     }
 }
+
+/// `createRule` is the "+ Add rule" sheet's counterpart to `promote` — same
+/// send-before-store ordering, but authoring a payload from scratch instead
+/// of freezing a capture, so its own suite pins the two differences that
+/// matter: an id it invents itself (not derived from any request), and a
+/// bad payload (empty pattern) getting caught by the same wire validation
+/// `promote`/`RuleStore.add` already share, before anything sends.
+@Suite("RulesModel rule creation")
+@MainActor
+struct RulesModelCreationTests {
+    private func mockPayload(pattern: String = "/api/new", status: Int = 200) -> RuleEntry.Payload {
+        .mock(MockRuleInput(pattern: pattern, response: MockResponse(status: status, body: "{}")))
+    }
+
+    @Test func aSuccessfulCreateStoresTheRuleAndSetsTheNote() async throws {
+        let channel = FakeControlChannel()
+        channel.sendResult = .success(2)
+        let model = RulesModel(traffic: channel)
+
+        let delivered = try await model.createRule(mockPayload())
+
+        #expect(delivered == 2)
+        let stored = await channel.rules.rules()
+        #expect(stored.count == 1)
+        #expect(stored.first?.payload == mockPayload())
+        #expect(model.deliveryNote == "Delivered to 2 devices")
+    }
+
+    @Test func noDevicesConnectedStillStoresTheCreatedRule() async throws {
+        let channel = FakeControlChannel()
+        channel.sendResult = .success(0)
+        let model = RulesModel(traffic: channel)
+
+        let delivered = try await model.createRule(mockPayload())
+
+        #expect(delivered == 0)
+        let count = await channel.rules.count
+        #expect(count == 1, "zero devices is not a failure; the rule ships to the next one that connects")
+    }
+
+    @Test func aFailedSendStoresNothing() async throws {
+        let channel = FakeControlChannel()
+        channel.sendResult = .failure(ControlWireError.encodingFailed("boom"))
+        let model = RulesModel(traffic: channel)
+
+        await #expect(throws: (any Error).self) { try await model.createRule(mockPayload()) }
+
+        let count = await channel.rules.count
+        #expect(count == 0, "a rule no device received must not appear in the Rules list")
+    }
+
+    @Test func twoCreationsForTheSamePatternAreDistinctEntries() async throws {
+        let channel = FakeControlChannel()
+        let model = RulesModel(traffic: channel)
+
+        _ = try await model.createRule(mockPayload(pattern: "/api/dup"))
+        _ = try await model.createRule(mockPayload(pattern: "/api/dup"))
+
+        let count = await channel.rules.count
+        #expect(count == 2, "authored rules use a random id, unlike promote's deterministic one — two hand-authored rules for the same endpoint are distinct entries, not a replace-by-id collision")
+    }
+
+    /// `RuleStore.add`'s own encode-to-validate check catches this — same
+    /// wire taxonomy `RuleStoreTests.addThrowsForWireInvalidInput` pins.
+    /// Nothing lands in the store either way; unlike `promote`'s pre-flight
+    /// capture check, this one isn't guaranteed to run before the fake's
+    /// `send` (the real encoder only runs inside `RuleStore.add`, which the
+    /// fake doesn't stand in for), so this test doesn't assert on
+    /// `sentCommands`.
+    @Test func invalidPatternIsRefusedAndNothingIsStored() async throws {
+        let channel = FakeControlChannel()
+        let model = RulesModel(traffic: channel)
+
+        await #expect(throws: (any Error).self) { try await model.createRule(mockPayload(pattern: "")) }
+
+        let count = await channel.rules.count
+        #expect(count == 0)
+    }
+}

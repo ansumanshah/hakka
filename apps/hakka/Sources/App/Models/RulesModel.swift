@@ -1,3 +1,4 @@
+import Foundation
 import HakkaCommon
 import HakkaCore
 import Observation
@@ -125,6 +126,40 @@ final class RulesModel {
         let entry = try CapturedMockConverter.entry(from: request, pattern: pattern, method: method)
         let delivered = try await traffic.send(installCommand(for: entry))
         try await traffic.rules.add(entry.payload, id: entry.id)
+        return delivered
+    }
+
+    /// The "+ Add rule" flow's counterpart to `promote` above: a mock or
+    /// breakpoint authored from scratch in `AddRuleSheet`, not frozen from a
+    /// capture. Same send-before-store ordering as `promote`, for the same
+    /// reason — this rule has no existing row on screen to keep responsive,
+    /// so there is nothing to lose by waiting for the send before it enters
+    /// the list, and every reason not to store a rule no device received.
+    ///
+    /// Random id, unlike `promote`'s deterministic one: a capture's
+    /// promotion dedupes by endpoint on purpose (re-promoting the same
+    /// request replaces it), but two rules a person authors by hand for the
+    /// same endpoint — a happy-path mock next to a disabled failure-mode one,
+    /// say — are deliberately distinct entries, not a replace-by-id
+    /// collision. `RuleStore.add` still validates the payload by encoding it
+    /// (empty pattern, hostile id, etc.) — a bad id here can only come from
+    /// this `UUID`, which is always wire-safe, so in practice only the
+    /// payload itself can fail that check.
+    ///
+    /// Awaited directly by the sheet (unlike the list actions above, which
+    /// fire-and-forget a `Task`) so a validation failure — an empty pattern,
+    /// a non-numeric status — can be shown inline and the sheet kept open
+    /// and editable, rather than rolling back a row that was never added to
+    /// the list in the first place. Sets `deliveryNote` on success only,
+    /// same footer the list actions share; a failure has nothing to report
+    /// there since nothing changed.
+    @discardableResult
+    func createRule(_ payload: RuleEntry.Payload) async throws -> Int {
+        let id = "rule-\(UUID().uuidString.lowercased())"
+        let entry = RuleEntry(id: id, payload: payload)
+        let delivered = try await traffic.send(installCommand(for: entry))
+        try await traffic.rules.add(entry.payload, id: entry.id)
+        note(delivered)
         return delivered
     }
 

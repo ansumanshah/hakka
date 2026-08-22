@@ -46,20 +46,23 @@ private let presets: [ThrottleProfile: (latencyMs: Int, downloadKbps: Int)] = [
     .edge:    (250,  240),
 ]
 
+/// The latency/bandwidth pair `setProfile(_:)` would resolve `profile` to —
+/// exposed read-only so a caller that only wants to *display* a profile's
+/// numbers (the desktop Rules surface's throttle readout) never has to go
+/// through `setProfile`, which would mutate the shared engine's live config
+/// as a side effect of rendering a label. `.none` (zero-overhead default)
+/// and `.custom` (caller-supplied, no fixed pair) have no preset entry —
+/// `nil` for both, same as `presets[profile]` itself.
+public func throttlePresetValues(for profile: ThrottleProfile) -> (latencyMs: Int, downloadKbps: Int)? {
+    presets[profile]
+}
+
 // MARK: - ThrottleEngine
 
 /// Thread-safe throttle engine. Singleton used by `HakkaURLProtocol`.
 ///
 /// Off by default: `profile == .none` → zero overhead on the hot path.
-///
-/// ## Profiles
-/// | Profile  | Latency (ms) | Download (kbps) |
-/// |----------|-------------|----------------|
-/// | none     | —           | —              |
-/// | fast-3g  | 150         | 1 500          |
-/// | slow-3g  | 400         | 400            |
-/// | edge     | 250         | 240            |
-/// | offline  | —           | 0 (drop)       |
+/// Preset numbers: `throttlePresetValues(for:)` above.
 ///
 /// ## Integration
 /// `HakkaURLProtocol` calls:

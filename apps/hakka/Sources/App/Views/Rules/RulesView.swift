@@ -10,6 +10,7 @@ import SwiftUI
 /// stream is single-consumer.
 struct RulesView: View {
     @Environment(AppModel.self) private var model
+    @State private var showingAddRule = false
 
     private var mocks: [RuleEntry] {
         model.rules.entries.filter { RuleEntryDisplay($0).kind == .mock }
@@ -20,40 +21,73 @@ struct RulesView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: Spacing.xl) {
-                RulesSection(title: "Mocks", isEmpty: mocks.isEmpty, empty: "No mocks — promote one from a captured request's Mock action.") {
-                    ForEach(mocks) { entry in
-                        RuleRowView(entry: entry, rules: model.rules)
+        VStack(spacing: 0) {
+            header
+            ScrollView {
+                VStack(alignment: .leading, spacing: Spacing.xl) {
+                    RulesSection(title: "Mocks", isEmpty: mocks.isEmpty, empty: "No mocks — promote one from a captured request's Mock action, or Add rule above.") {
+                        ForEach(mocks) { entry in
+                            RuleRowView(entry: entry, rules: model.rules)
+                        }
+                    }
+                    RulesSection(title: "Breakpoints", isEmpty: breakpoints.isEmpty, empty: "No breakpoints — add one from a captured request, or Add rule above.") {
+                        ForEach(breakpoints) { entry in
+                            RuleRowView(entry: entry, rules: model.rules)
+                        }
+                    }
+                    throttleSection
+                    if let note = model.rules.deliveryNote {
+                        Text(note)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
                     }
                 }
-                RulesSection(title: "Breakpoints", isEmpty: breakpoints.isEmpty, empty: "No breakpoints — add one from a captured request.") {
-                    ForEach(breakpoints) { entry in
-                        RuleRowView(entry: entry, rules: model.rules)
-                    }
-                }
-                throttleSection
-                if let note = model.rules.deliveryNote {
-                    Text(note)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
+                .padding(Spacing.xl)
             }
-            .padding(Spacing.xl)
         }
+        .sheet(isPresented: $showingAddRule) {
+            AddRuleSheet()
+        }
+    }
+
+    /// Title, a live device count ("Pushed to N devices" — connected devices
+    /// only; a disconnected one is still in `model.traffic.devices` per
+    /// `ConnectedDevice`'s doc comment, and counting it would overstate who
+    /// actually has these rules), and the primary "+ Add rule" action.
+    private var header: some View {
+        HStack(spacing: Spacing.md) {
+            Text("Rules")
+                .font(.headline)
+            Spacer()
+            Text(pushedText)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Button {
+                showingAddRule = true
+            } label: {
+                Label("Add rule", systemImage: "plus")
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+        }
+        .padding(Spacing.lg)
+    }
+
+    private var pushedText: String {
+        let count = model.traffic.devices.filter(\.isConnected).count
+        return "Pushed to \(count) device\(count == 1 ? "" : "s")"
     }
 
     private var throttleSection: some View {
         RulesSection(title: "Network Conditions", isEmpty: false, empty: nil) {
-            Picker("Profile", selection: throttleBinding) {
-                Text("None").tag(ThrottleProfile.none)
-                Text("Fast 3G").tag(ThrottleProfile.fast3g)
-                Text("Slow 3G").tag(ThrottleProfile.slow3g)
-                Text("EDGE").tag(ThrottleProfile.edge)
-                Text("Offline").tag(ThrottleProfile.offline)
+            HStack(spacing: Spacing.ml) {
+                ThrottlePillRow(selection: throttleBinding)
+                Text(Fmt.throttleReadout(model.rules.throttleProfile))
+                    .font(.caption2.monospaced())
+                    .foregroundStyle(.secondary)
+                Spacer()
             }
-            .labelsHidden()
-            Text("Applies to every connected device until set back to None.")
+            Text("Applies to every connected device until set back to Off.")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
