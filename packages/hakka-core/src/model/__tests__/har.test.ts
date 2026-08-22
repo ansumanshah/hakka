@@ -175,3 +175,57 @@ describe('HAR postData mimeType — case-insensitive lookup', () => {
     expect(entry.request.postData).toBeUndefined()
   })
 })
+
+// `responseHeaderValues` (ADR 0011) is an additive, backward-compatible
+// widening of `responseHeaders` for header names that arrived with more than
+// one real value (chiefly Set-Cookie). HAR 1.2's `headers` array natively
+// supports repeated names, so a name covered by `responseHeaderValues` should
+// emit one HAR header entry per real value instead of the folded one.
+describe('HAR response headers — multi-value fidelity via responseHeaderValues', () => {
+  test('two Set-Cookie values produce two HAR header entries, not one folded entry', () => {
+    const entry = requestToHarEntry(
+      makeRequest({
+        responseHeaders: { 'Set-Cookie': 'a=1; Path=/, b=2; Path=/' },
+        responseHeaderValues: { 'Set-Cookie': ['a=1; Path=/', 'b=2; Path=/'] },
+      }),
+    )
+    const cookieHeaders = entry.response.headers.filter((h) => h.name === 'Set-Cookie')
+    expect(cookieHeaders).toHaveLength(2)
+    expect(cookieHeaders.map((h) => h.value)).toEqual(['a=1; Path=/', 'b=2; Path=/'])
+  })
+
+  test('a header name not covered by responseHeaderValues still emits its folded value', () => {
+    const entry = requestToHarEntry(
+      makeRequest({
+        responseHeaders: { 'Set-Cookie': 'a=1, b=2', 'Content-Type': 'application/json' },
+        responseHeaderValues: { 'Set-Cookie': ['a=1', 'b=2'] },
+      }),
+    )
+    const contentType = entry.response.headers.filter((h) => h.name === 'Content-Type')
+    expect(contentType).toEqual([{ name: 'Content-Type', value: 'application/json' }])
+  })
+
+  test('backward compat: no responseHeaderValues still exports the folded value unchanged', () => {
+    const entry = requestToHarEntry(
+      makeRequest({
+        responseHeaders: { 'Set-Cookie': 'a=1; Path=/, b=2; Path=/' },
+      }),
+    )
+    expect(entry.response.headers).toEqual([{ name: 'Set-Cookie', value: 'a=1; Path=/, b=2; Path=/' }])
+  })
+
+  test('an empty responseHeaderValues array for a name falls back to the folded value', () => {
+    const entry = requestToHarEntry(
+      makeRequest({
+        responseHeaders: { 'Set-Cookie': 'a=1' },
+        responseHeaderValues: { 'Set-Cookie': [] },
+      }),
+    )
+    expect(entry.response.headers).toEqual([{ name: 'Set-Cookie', value: 'a=1' }])
+  })
+
+  test('requestHeaders are unaffected — NetworkRequest has no requestHeaderValues field', () => {
+    const entry = requestToHarEntry(makeRequest({ requestHeaders: { Accept: '*/*' } }))
+    expect(entry.request.headers).toEqual([{ name: 'Accept', value: '*/*' }])
+  })
+})

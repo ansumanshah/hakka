@@ -79,9 +79,27 @@ export interface HarExport {
   log: HarLog
 }
 
-const headersToHar = (headers?: Record<string, string>): HarHeader[] => {
+/**
+ * Converts folded headers to HAR header entries, one per real value when
+ * `headerValues` covers a name (see `NetworkRequest.responseHeaderValues`,
+ * ADR 0011) — otherwise falls back to the single folded value so callers
+ * without `headerValues` (older captures, request headers) are unaffected.
+ * HAR 1.2's `headers` array natively supports repeated names.
+ */
+const headersToHar = (headers?: Record<string, string>, headerValues?: Record<string, string[]>): HarHeader[] => {
   if (!headers) return []
-  return Object.entries(headers).map(([name, value]) => ({ name, value }))
+  const result: HarHeader[] = []
+  for (const [name, value] of Object.entries(headers)) {
+    const values = headerValues?.[name]
+    if (values && values.length > 0) {
+      for (const v of values) {
+        result.push({ name, value: v })
+      }
+    } else {
+      result.push({ name, value })
+    }
+  }
+  return result
 }
 
 const parseQueryString = (url: string): HarHeader[] => {
@@ -196,7 +214,7 @@ export const requestToHarEntry = (request: NetworkRequest): HarEntry => {
       status: request.status ?? 0,
       statusText: getStatusText(request.status ?? undefined),
       httpVersion: 'HTTP/1.1',
-      headers: headersToHar(request.responseHeaders),
+      headers: headersToHar(request.responseHeaders, request.responseHeaderValues),
       cookies: [],
       content: {
         size: request.size ?? (responseBody ? responseBody.length : -1),

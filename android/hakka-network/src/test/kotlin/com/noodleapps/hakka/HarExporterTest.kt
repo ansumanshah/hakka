@@ -115,6 +115,26 @@ class HarExporterTest {
     }
 
     @Test
+    fun `multi-value Set-Cookie headers produce two response cookie entries`() {
+        val reqWithMultiCookie = NetworkRequest(
+            id = "1", url = "https://example.com/", method = HttpMethod.GET,
+            status = 200, startTimeMs = 0, durationMs = 10,
+            requestHeaders = emptyMap(),
+            responseHeaders = mapOf("Set-Cookie" to listOf("a=1; Path=/", "b=2; Path=/")),
+            requestBodySize = 0, responseBodySize = 0,
+            requestBody = null, responseBody = null,
+            error = null, source = RequestSource.OKHTTP,
+        )
+        val har = HarExporter.export(listOf(reqWithMultiCookie))
+        val cookies = JSONObject(har).getJSONObject("log")
+            .getJSONArray("entries").getJSONObject(0)
+            .getJSONObject("response").getJSONArray("cookies")
+        assertEquals(2, cookies.length())
+        val names = (0 until cookies.length()).map { cookies.getJSONObject(it).getString("name") }
+        assertEquals(listOf("a", "b"), names)
+    }
+
+    @Test
     fun `uses protocol for httpVersion when available`() {
         val har = HarExporter.export(listOf(req(protocol = "h2")))
         val request = JSONObject(har).getJSONObject("log")
