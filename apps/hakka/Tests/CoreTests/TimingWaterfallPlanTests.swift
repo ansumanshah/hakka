@@ -18,6 +18,9 @@ struct TimingWaterfallPlanTests {
         #expect(plan.note == nil)
         #expect(plan.rows.map(\.fraction) == [0.1, 0.1, 0.2, 0.4, 0.2])
         #expect(plan.rows.map(\.label) == ["DNS", "TCP", "TLS", "TTFB", "Download"])
+        // True offset waterfall: each bar starts where the running total of
+        // every earlier phase left off, as a share of the phase sum.
+        #expect(plan.rows.map(\.offsetFraction) == [0.0, 0.1, 0.2, 0.4, 0.8])
     }
 
     @Test func firstByteWithoutConnectionPhasesIsReuse()
@@ -36,6 +39,10 @@ struct TimingWaterfallPlanTests {
         #expect(plan.rows[0].fraction == 0)
         #expect(plan.rows[3].fraction == 0.4)
         #expect(plan.rows[4].fraction == 0.6)
+        // No DNS/TCP/TLS measured, so nothing precedes TTFB on the timeline —
+        // it starts at offset zero rather than leaving a false gap.
+        #expect(plan.rows[3].offsetFraction == 0.0)
+        #expect(plan.rows[4].offsetFraction == 0.4)
     }
 
     @Test func noPhasesDegradesToTotalBar()
@@ -52,6 +59,7 @@ struct TimingWaterfallPlanTests {
         #expect(plan.rows.count == 1)
         #expect(plan.rows[0].label == "Total")
         #expect(plan.rows[0].fraction == 1)
+        #expect(plan.rows[0].offsetFraction == 0)
         #expect(plan.rows[0].ms == 250)
         #expect(plan.totalMs == 250)
         #expect(plan.note != nil)
@@ -84,6 +92,7 @@ struct TimingWaterfallPlanTests {
         )
         #expect(plan.totalMs == 50)
         #expect(plan.rows[4].fraction == 1)
+        #expect(plan.rows[4].offsetFraction == 0)
     }
 
     @Test func missingDurationStillDegradesGracefully()

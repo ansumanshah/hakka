@@ -46,7 +46,7 @@ struct JSONOutlineRowView: View {
                 Spacer().frame(width: 12)
             }
             if let key = node.key {
-                Text("\"\(key)\"").foregroundStyle(.purple)
+                Text("\"\(key)\"").foregroundStyle(ThemeTokens.Code.key)
                 Text(":").foregroundStyle(.secondary)
             }
             if node.isExpandable {
@@ -76,9 +76,10 @@ struct JSONOutlineRowView: View {
 
     private var colorForLeaf: Color {
         switch node.kind {
-        case .string: .blue
-        case .number: .orange
-        case .bool, .null: .pink
+        case .string: ThemeTokens.Code.string
+        case .number: ThemeTokens.Code.number
+        case .bool: ThemeTokens.Code.boolean
+        case .null: ThemeTokens.Code.null
         case .object, .array: .secondary
         }
     }

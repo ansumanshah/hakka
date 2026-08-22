@@ -186,6 +186,10 @@ ${group('Status', t.status)}
 ${group('Method', t.method)}
 
 ${group('Timing', t.timing)}
+
+    // JSON syntax colors — codeDark only (this app has no adaptive
+    // light/dark mirror yet, same call as Status/Method/Timing above).
+${group('Code', t.codeDark)}
 }
 `
   )

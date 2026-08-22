@@ -31,4 +31,15 @@ enum ThemeTokens {
         static let ttfb = Color(red: 0.8510, green: 0.6471, blue: 0.0784)
         static let download = Color(red: 0.9333, green: 0.5137, blue: 0.1255)
     }
+
+    // JSON syntax colors — codeDark only (this app has no adaptive
+    // light/dark mirror yet, same call as Status/Method/Timing above).
+    enum Code {
+        static let key = Color(red: 0.6588, green: 0.6353, blue: 0.5882)
+        static let string = Color(red: 0.8706, green: 0.5529, blue: 0.4078)
+        static let number = Color(red: 0.4980, green: 0.7020, blue: 0.9098)
+        static let boolean = Color(red: 0.7529, green: 0.5608, blue: 0.8510)
+        static let null = Color(red: 0.7529, green: 0.5608, blue: 0.8510)
+        static let highlight = Color(red: 0.3020, green: 0.2392, blue: 0.0627)
+    }
 }

@@ -12,27 +12,14 @@ struct DetailOverviewSection: View {
         RequestDiagnoser.diagnose(record)
     }
 
+    // Method/status/duration/path used to live here too, but that's now
+    // `DetailIdentityHeader`, hoisted above the tab strip so it stays
+    // visible on every tab rather than only Overview — see NetworkRequestDetailView.
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             if let diagnosis {
                 DiagnosisBanner(diagnosis: diagnosis)
             }
-            HStack(spacing: Spacing.md) {
-                Text(record.method.rawValue)
-                    .font(.headline)
-                    .foregroundStyle(Fmt.methodColor(record.method))
-                Text(record.status.map(String.init) ?? "–")
-                    .font(.headline)
-                    .foregroundStyle(Fmt.statusColor(record.status))
-                Spacer()
-                Text(Fmt.duration(record.duration))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            Text(record.url)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .textSelection(.enabled)
             if let error = record.error {
                 Label(error, systemImage: "exclamationmark.triangle")
                     .font(.caption)

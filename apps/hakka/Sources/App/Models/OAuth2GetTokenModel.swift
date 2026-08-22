@@ -14,6 +14,11 @@ final class OAuth2GetTokenModel {
     private(set) var isRunning = false
     private(set) var lastError: String?
     private(set) var lastObtainedAt: Date?
+    /// The obtained token's expiry, for the Auth tab's countdown — `nil`
+    /// when the provider omitted `expires_in` (RFC 6749 makes it optional),
+    /// in which case the token is treated as never expiring, same as
+    /// `OAuth2Token.isExpired`.
+    private(set) var lastExpiresAt: Date?
 
     private let runner = OAuth2FlowRunner()
 
@@ -26,6 +31,7 @@ final class OAuth2GetTokenModel {
             let token = try await runner.run(config.grant)
             store(token, config: config, environment: environment)
             lastObtainedAt = Date()
+            lastExpiresAt = token.expiresAt
             if let collectionDirectory {
                 await environment.save(forCollectionAt: collectionDirectory)
             }

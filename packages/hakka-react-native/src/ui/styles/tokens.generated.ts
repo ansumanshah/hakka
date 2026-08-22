@@ -46,6 +46,7 @@ export const paletteLight = {
   accent: '#E0761A',
 } as const
 export const codeDark = {
+  key: '#A8A296',
   string: '#DE8D68',
   number: '#7FB3E8',
   boolean: '#C08FD9',
@@ -53,6 +54,7 @@ export const codeDark = {
   highlight: '#4D3D10',
 } as const
 export const codeLight = {
+  key: '#57534A',
   string: '#B4552A',
   number: '#2B6CB0',
   boolean: '#8548AB',

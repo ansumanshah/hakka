@@ -107,10 +107,13 @@ enum JSONSyntaxHighlighter {
         attributed[lower..<upper].foregroundColor = color
     }
 
+    /// Sourced from the generated design tokens (`design-tokens.json`
+    /// `codeDark`), not hardcoded system colors, so this reads as the same
+    /// product as the other four inspector platforms' JSON viewers.
     private enum Palette {
-        static let key = Color.purple
-        static let string = Color.blue
-        static let number = Color.orange
-        static let literal = Color.pink
+        static let key = ThemeTokens.Code.key
+        static let string = ThemeTokens.Code.string
+        static let number = ThemeTokens.Code.number
+        static let literal = ThemeTokens.Code.boolean
     }
 }

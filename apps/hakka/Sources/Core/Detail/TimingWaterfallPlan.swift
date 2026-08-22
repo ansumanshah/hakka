@@ -18,6 +18,17 @@ public struct TimingWaterfallPlan: Sendable, Equatable {
         /// Bar width as a share of the phase sum, 0...1. Zero for absent or
         /// when the sum itself is zero.
         public let fraction: Double
+        /// Where the bar starts on the shared timeline, as a share of the
+        /// phase sum, 0...1 — the cumulative duration of every phase before
+        /// this one. `URLSessionTaskMetrics` hands the SDK only durations
+        /// (see `TransportPhases`), not phase start timestamps, so this is
+        /// derived as a running total over the fixed DNS→TCP→TLS→TTFB→
+        /// Download order rather than read off real offsets. A phase absent
+        /// from the record contributes zero to the running total, so the
+        /// next phase's bar starts exactly where the last measured one
+        /// ended — the reused-connection state (no DNS/TCP/TLS) puts TTFB at
+        /// offset zero rather than leaving a false gap.
+        public let offsetFraction: Double
         public var id: String { label }
     }
 
@@ -48,7 +59,7 @@ public struct TimingWaterfallPlan: Sendable, Equatable {
         if noPhases {
             state = .totalOnly
             note = "No per-phase timing captured for this request."
-            rows = [Row(label: "Total", ms: durationMs, fraction: (durationMs ?? 0) > 0 ? 1 : 0)]
+            rows = [Row(label: "Total", ms: durationMs, fraction: (durationMs ?? 0) > 0 ? 1 : 0, offsetFraction: 0)]
             return
         }
 
@@ -60,12 +71,18 @@ public struct TimingWaterfallPlan: Sendable, Equatable {
             note = nil
         }
 
+        // Cumulative running total in the fixed DNS→TCP→TLS→TTFB→Download
+        // order — see `Row.offsetFraction`'s doc comment for why this is a
+        // derived offset, not a measured one.
+        var cumulativeMs: Int64 = 0
         func bar(_ label: String, _ ms: Int64?) -> Row {
+            let offsetFraction: Double = phaseSum > 0 ? Double(cumulativeMs) / Double(phaseSum) : 0
             let fraction: Double = {
                 guard let ms, phaseSum > 0 else { return 0 }
                 return min(1, Double(ms) / Double(phaseSum))
             }()
-            return Row(label: label, ms: ms, fraction: fraction)
+            if let ms { cumulativeMs += ms }
+            return Row(label: label, ms: ms, fraction: fraction, offsetFraction: offsetFraction)
         }
         rows = [
             bar("DNS", dnsMs),

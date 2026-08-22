@@ -30,6 +30,7 @@
   --hakka-text-secondary: #A8A296;
   --hakka-text-tertiary: #6E695F;
   --hakka-accent: #EE8320;
+  --hakka-code-key: #A8A296;
   --hakka-code-string: #DE8D68;
   --hakka-code-number: #7FB3E8;
   --hakka-code-boolean: #C08FD9;
@@ -84,6 +85,7 @@
   --hakka-text-secondary: #57534A;
   --hakka-text-tertiary: #8B857A;
   --hakka-accent: #E0761A;
+  --hakka-code-key: #57534A;
   --hakka-code-string: #B4552A;
   --hakka-code-number: #2B6CB0;
   --hakka-code-boolean: #8548AB;
