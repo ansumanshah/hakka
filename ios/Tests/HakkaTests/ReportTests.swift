@@ -168,13 +168,6 @@ struct ReportTests {
         #expect(report.json == "[]")
     }
 
-    // `@MainActor`: `currentDeviceInfo()` reads `UIDevice.current` via
-    // `MainActor.assumeIsolated` on iOS/tvOS (the real call site,
-    // `ListHelpers.swift`, always runs on the main actor from SwiftUI). Off
-    // the main actor that precondition traps at runtime — Swift Testing does
-    // not run `@Test` methods on the main actor by default, so without this
-    // annotation this test crashes the whole process on iOS/tvOS instead of
-    // failing cleanly.
     @Test("ReportBuilder auto-populates deviceInfo on every capture platform")
     @MainActor
     func reportAutoDeviceInfo() {
@@ -187,6 +180,19 @@ struct ReportTests {
         let report = ReportBuilder.build(requests: [])
         #expect(!report.deviceInfo.osVersion.isEmpty)
         #expect(report.deviceInfo.osVersion != "unknown")
+        #expect(!report.deviceInfo.deviceModel.isEmpty)
+    }
+
+    // Deliberately NOT `@MainActor`: `currentDeviceInfo()` used to reach
+    // `UIDevice.current` through a bare `MainActor.assumeIsolated`, which
+    // traps for any off-main caller — this test crashed the process on
+    // iOS/tvOS before the synchronous main hop was added. It pins the fix.
+    @Test("ReportBuilder auto-populates deviceInfo from off the main actor")
+    func reportAutoDeviceInfoOffMain() async {
+        let report = await Task.detached {
+            ReportBuilder.build(requests: [])
+        }.value
+        #expect(!report.deviceInfo.osVersion.isEmpty)
         #expect(!report.deviceInfo.deviceModel.isEmpty)
     }
 

@@ -98,7 +98,10 @@ public enum ReportBuilder {
         let bundleId = bundle.bundleIdentifier ?? "unknown"
 
         #if os(iOS) || os(tvOS)
-        return MainActor.assumeIsolated {
+        // `UIDevice` is main-actor. `assumeIsolated` alone would trap for any
+        // off-main caller, so hop to main synchronously when needed instead of
+        // assuming — `build(requests:)` is deliberately callable from anywhere.
+        let readDevice: @MainActor () -> DeviceInfo = {
             let device = UIDevice.current
             return DeviceInfo(
                 osVersion: "\(device.systemName) \(device.systemVersion)",
@@ -106,6 +109,12 @@ public enum ReportBuilder {
                 appVersion: version,
                 appBundleId: bundleId
             )
+        }
+        if Thread.isMainThread {
+            return MainActor.assumeIsolated { readDevice() }
+        }
+        return DispatchQueue.main.sync {
+            MainActor.assumeIsolated { readDevice() }
         }
         #else
         return genericDeviceInfo(appVersion: version, appBundleId: bundleId)
