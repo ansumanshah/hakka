@@ -29,6 +29,7 @@ struct EnvironmentEditorSheet: View {
         }
         .padding(Spacing.xxl)
         .frame(width: 480, height: 420)  // ui-token-check-ignore: sheet size
+        .chromeMaterial(.sheet)  // Artboard 8: floating sheets get the glass/material treatment too.
     }
 
     private var header: some View {

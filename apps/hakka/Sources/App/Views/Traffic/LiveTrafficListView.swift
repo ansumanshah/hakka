@@ -17,11 +17,18 @@ struct LiveTrafficListView: View {
             LiveTrafficHeader()
             Divider()
             if model.traffic.requests.isEmpty {
-                EmptyStateView(
-                    systemImage: "antenna.radiowaves.left.and.right",
-                    title: "Waiting for traffic",
-                    message: "Requests captured from a connected Hakka SDK appear here as they arrive.",
-                )
+                // First-run only (Artboard 6): once traffic has ever
+                // arrived, a later cleared list stays the generic state —
+                // see `TrafficModel.hasEverReceivedTraffic`'s doc comment.
+                if model.traffic.hasEverReceivedTraffic {
+                    EmptyStateView(
+                        systemImage: "antenna.radiowaves.left.and.right",
+                        title: "Waiting for traffic",
+                        message: "Requests captured from a connected Hakka SDK appear here as they arrive.",
+                    )
+                } else {
+                    FirstRunEmptyView()
+                }
             } else if model.traffic.visibleRequests.isEmpty {
                 EmptyStateView(
                     systemImage: "line.3.horizontal.decrease.circle",

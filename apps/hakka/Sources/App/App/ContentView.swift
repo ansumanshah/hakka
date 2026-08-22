@@ -19,6 +19,12 @@ struct ContentView: View {
                 .navigationSplitViewColumnWidth(min: 320, ideal: 420)
         }
         .frame(minWidth: 900, minHeight: 560)  // ui-token-check-ignore: window chrome
+        // Artboard 8: the window's native toolbar. Real Liquid Glass already
+        // renders itself there on macOS 26+ with no manual work, so
+        // `ChromeMaterial.toolbarStyle` stays `.clear` on that branch;
+        // macOS 15–25 gets the Fallback artboard's `.bar` material — see
+        // `ChromeMaterial.swift` for the one `#available` gate this reads.
+        .toolbarBackground(ChromeMaterial.toolbarStyle, for: .windowToolbar)
         // Mounted once here, above the split view, so it is visible from
         // every pane — see `PauseInboxBanner`'s own doc comment for why that
         // matters more than it would for an ordinary status strip.

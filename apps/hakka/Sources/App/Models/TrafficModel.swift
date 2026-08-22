@@ -15,6 +15,14 @@ final class TrafficModel {
     private(set) var stats = TrafficStats(count: 0, errorCount: 0, p50DurationMs: nil, p95DurationMs: nil, totalBytes: 0)
     private(set) var isRunning = false
     private(set) var boundPort: UInt16?
+    /// Set once, the first time a request ever lands in `requests`, and
+    /// never cleared by `clear()` — distinguishes "nothing has arrived yet"
+    /// (Artboard 6's first-run pitch, `FirstRunEmptyView`) from "the list
+    /// was cleared after traffic already arrived" (the generic "Waiting for
+    /// traffic" `EmptyStateView`). A session that's cleared its list has
+    /// already seen the SDK connect; re-showing the onboarding pitch there
+    /// would be a regression, not a fresh start.
+    private(set) var hasEverReceivedTraffic = false
     var selectedRequestID: String?
     /// A permanent failure to start the bridge. Set once and never cleared by
     /// anything else — the header reports it in place of a status, and a
@@ -141,6 +149,7 @@ final class TrafficModel {
             let request = captured.request
             await store.append(request)
             requests.append(request)
+            hasEverReceivedTraffic = true
             deviceIndex.record(requestID: request.id, label: captured.deviceLabel)
             attributeToDevice(peerID: captured.peerID, label: captured.deviceLabel)
             if requests.count > TrafficStore.defaultCapacity {
@@ -220,5 +229,6 @@ final class TrafficModel {
     func setBuffer(_ requests: [NetworkRequest], stats: TrafficStats) {
         self.requests = requests
         self.stats = stats
+        if !requests.isEmpty { hasEverReceivedTraffic = true }
     }
 }
