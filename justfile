@@ -98,11 +98,17 @@ build-core:
 build-bridge:
     bun run --cwd packages/hakka-bridge build
 
+# Build the Node CLI/CI library (emits dist that packages/hakka's ciBaseline
+# tests import via the "hakka-node/ci" subpath)
+build-node: build-core build-bridge
+    bun run --cwd packages/hakka-node build
+
 # Run all web/JS-side package tests (core + web + bridge + integrations). Builds the
-# dist deps first so cross-package imports (hakka-core, hakka-bridge) resolve.
-# The standalone custom elements and the React wrappers now build as part of
-# packages/hakka-browser (`./elements/*` and `./react` subpaths), so they need no step here.
-test-web: build-core build-bridge
+# dist deps first so cross-package imports (hakka-core, hakka-bridge, hakka-node)
+# resolve. The standalone custom elements and the React wrappers now build as part
+# of packages/hakka-browser (`./elements/*` and `./react` subpaths), so they need
+# no step here.
+test-web: build-core build-bridge build-node
     bun run --cwd packages/hakka-core test
     bun run --cwd packages/hakka-bridge test
     bun run --cwd packages/hakka-browser test

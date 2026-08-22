@@ -4,6 +4,16 @@ import { buildInjectSnippet, HAKKA_INJECT_ATTR, injectIntoHtml } from '../inject
 import hakkaVite from '../vite'
 import hakkaWebpack from '../webpack'
 
+// `hakka-node` is an optional peer this package never declares a dependency
+// on — but bun's workspace-aware module resolver can still find it by name
+// across the monorepo once packages/hakka-node/dist exists (another
+// workspace member depends on it), regardless of hakka-browser's own
+// package.json. That defeats a real "not installed" simulation, so mock the
+// specifier directly instead of relying on it staying unresolved.
+vi.mock('hakka-node', () => {
+  throw new Error("Cannot find package 'hakka-node'")
+})
+
 /** Minimal structural stand-in for the bit of Vite's `ViteDevServer` `configureServer` touches. */
 interface FakeViteDevServer {
   config: { logger: { warn(msg: string): void } }
@@ -67,8 +77,8 @@ describe('server option (vite only)', () => {
 
   it('server:true warns once, without throwing, when hakka-node is not installed', async () => {
     const warn = vi.fn()
-    // hakka-node is an optional peer this test package never installs, so this
-    // exercises exactly the "missing peer" path `registerServerCapture` guards.
+    // The top-of-file `vi.mock('hakka-node', ...)` throws on import, exercising
+    // exactly the "missing peer" path `registerServerCapture` guards.
     expect(() => configureServerOf({ server: true })?.(fakeViteDevServer(warn))).not.toThrow()
     await vi.waitFor(() => expect(warn).toHaveBeenCalledTimes(1))
     expect(warn.mock.calls[0]?.[0]).toContain('hakka-node')
