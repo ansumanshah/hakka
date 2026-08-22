@@ -45,10 +45,14 @@ Storage tab (`StorageTabController`, one of the five persistent bottom-nav tabs)
 
 Mac app (`apps/hakka`): `StoragePanelView` (reached from the sidebar's Traffic section) renders
 every named `StorageSnapshot` a connected device has published — one disclosure section per
-store (e.g. `"defaults"`), key/value entries beneath. Snapshot-replace only: a later snapshot for
-the same store name fully replaces the last one, there is no history or diff. Today only the iOS
-SDK actually sends `storage` frames; RN and Android accept the wire shape (unknown frame kinds
-are already ignored gracefully by both) but do not yet publish snapshots.
+store (e.g. `"defaults"`), key/value entries beneath. A store picker (`StorageFilterBar`, shown
+once more than one store has reported in) scopes the list to one store at a time, and a key/value
+search (`StorageModel.visibleStores`) narrows entries within it; each snapshot's disclosure header
+shows its age as a relative timestamp that flags itself stale past 30s with no new snapshot.
+Copying a key or value is a `.contextMenu` action on the row. Snapshot-replace only: a later
+snapshot for the same store name fully replaces the last one, there is no history or diff. Today
+only the iOS SDK actually sends `storage` frames; RN and Android accept the wire shape (unknown
+frame kinds are already ignored gracefully by both) but do not yet publish snapshots.
 
 ## Config keys + defaults
 
@@ -62,7 +66,7 @@ SPEC §5 row "Storage panel":
 
 | Capability    | RN  | iOS | Android | Web | Mac app |
 | ------------- | --- | --- | ------- | --- | ------- |
-| Storage panel | ●   | ●   | ●       | ●   | ◐       |
+| Storage panel | ●   | ●   | ●       | ●   | ●       |
 
 Per SPEC §2 (panel set): web covers localStorage/sessionStorage/cookies; RN covers
 AsyncStorage/MMKV (view + delete, **in-place edit** only on RN); iOS covers `UserDefaults`;

@@ -20,7 +20,16 @@ struct StoragePanelView: View {
                     message: "Call HakkaInterceptor.shared.publishStorageSnapshot(store:entries:) on a connected device to see its storage here."
                 )
             } else {
-                storeList
+                StorageFilterBar(storage: model.storage)
+                if model.storage.visibleStores.isEmpty {
+                    EmptyStateView(
+                        systemImage: "line.3.horizontal.decrease.circle",
+                        title: "No matching entries",
+                        message: emptyMessage
+                    )
+                } else {
+                    storeList
+                }
             }
         }
     }
@@ -29,7 +38,7 @@ struct StoragePanelView: View {
         HStack(spacing: Spacing.md) {
             Text("Storage")
                 .font(.headline)
-            Text("\(model.storage.stores.count)")
+            Text(countText)
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(.secondary)
             Spacer()
@@ -41,79 +50,31 @@ struct StoragePanelView: View {
         .padding(Spacing.lg)
     }
 
+    /// Matches `LiveTrafficHeader.countText`'s "N of total" shape, counting
+    /// stores (the row unit here) the same way that one counts requests.
+    private var countText: String {
+        let total = model.storage.stores.count
+        let visible = model.storage.visibleStores.count
+        return visible == total ? "\(total) stores" : "\(visible) of \(total)"
+    }
+
+    private var emptyMessage: String {
+        let total = model.storage.stores.count
+        if model.storage.selectedStore != nil, model.storage.searchText.isEmpty {
+            return "\(total) stores captured, none match the selected store."
+        }
+        return "\(total) stores captured, none match this search."
+    }
+
     private var storeList: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: Spacing.md) {
-                ForEach(model.storage.stores, id: \.store) { snapshot in
+                ForEach(model.storage.visibleStores, id: \.store) { snapshot in
                     StorageStoreSection(snapshot: snapshot)
                 }
             }
             .padding(.horizontal, Spacing.lg)
             .padding(.bottom, Spacing.lg)
-        }
-    }
-}
-
-/// One store's snapshot: name, entry count, last-updated time, and its
-/// key/value entries in a disclosure group — collapsed by default so a
-/// device with several stores (defaults, keychain, cookies) doesn't dump
-/// every value on screen at once.
-private struct StorageStoreSection: View {
-    let snapshot: StorageSnapshot
-    @State private var isExpanded = true
-
-    private var sortedEntries: [(key: String, value: String)] {
-        snapshot.entries.sorted { $0.key.localizedCaseInsensitiveCompare($1.key) == .orderedAscending }
-    }
-
-    var body: some View {
-        DisclosureGroup(isExpanded: $isExpanded) {
-            if sortedEntries.isEmpty {
-                Text("No entries")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-                    .padding(.top, Spacing.xs)
-            } else {
-                VStack(alignment: .leading, spacing: Spacing.xs) {
-                    ForEach(sortedEntries, id: \.key) { entry in
-                        StorageEntryRow(key: entry.key, value: entry.value)
-                    }
-                }
-                .padding(.top, Spacing.xs)
-            }
-        } label: {
-            HStack(spacing: Spacing.md) {
-                Text(snapshot.store)
-                    .font(.subheadline.weight(.semibold))
-                Text("\(snapshot.entries.count)")
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text(Fmt.time(snapshot.timestamp))
-                    .font(.caption2.monospacedDigit())
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .padding(Spacing.lg)
-        .background(Color.secondary.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: Radius.md))
-    }
-}
-
-private struct StorageEntryRow: View {
-    let key: String
-    let value: String
-
-    var body: some View {
-        HStack(alignment: .top, spacing: Spacing.md) {
-            Text(key)
-                .font(.caption.weight(.medium))
-                .foregroundStyle(.secondary)
-                .frame(minWidth: 120, alignment: .leading)
-            Text(value)
-                .font(.caption.monospaced())
-                .textSelection(.enabled)
-                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }
