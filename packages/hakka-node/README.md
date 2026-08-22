@@ -190,7 +190,7 @@ export const register = () =>
   base({
     runtime: 'server', // 'server' (default) | 'edge'
     captureHttp: true, // patch node http/https (axios, got…). No-op on edge.
-    embedBridge: true, // run the hub in-process (default). false → use `npx hakka-bridge`.
+    embedBridge: true, // run the hub in-process (default). false → `npx hakka-bridge`, OR desktop mode (see below).
     bridgeUrl: 'ws://localhost:8989',
   })
 ```
@@ -256,6 +256,47 @@ Incoming requests are read with `x-hakka-trace` preferred and `traceparent` as
 a fallback. Outgoing `fetch`/`http`/`https` calls made while handling a traced
 request emit **both** headers.
 
+## Desktop mode
+
+By default `register()`/`startCapture()` embed a bridge hub in this process — there's no
+separate `hakka-bridge` to run. Pass `embedBridge: false` to skip that and stream into an
+**already-running Hakka for macOS** instead, so a Next.js (or any Node backend's) server-side
+traffic shows up next to a mobile device's in the desktop app's one traffic timeline:
+
+```ts
+register({ embedBridge: false }) // bridgeUrl defaults to ws://localhost:8989 — same port the desktop app's hub listens on
+```
+
+What this changes, and what it deliberately doesn't:
+
+- **The dev server never blocks or crashes** if the desktop app isn't running.
+  `bridgeClient.ts`'s reconnect logic — exponential backoff, bounded offline queue — is unchanged;
+  `embedBridge: false` just means there's never a race to grab the port first. Open the desktop
+  app later and queued captures flush in.
+- **The browser overlay needs no code change.** `hakka-node/next/client`'s `startHakkaClient()`
+  (and `hakka-browser`'s own `connect()`) default to the same `ws://localhost:8989`. With nothing
+  embedding a hub in the dev server, that connects the overlay straight to the desktop app's hub
+  as a second peer — the same one hub, two peers, not a relay mesh and not double-streaming. If
+  you don't want the in-page overlay at all in this mode, just don't wire up
+  `instrumentation-client.ts`/the client-component pattern; that's the real opt-out, same as
+  always.
+- **Mock rules created in the desktop app apply here too.** The bridge client also *receives*
+  `{ type: 'control' }` frames from the hub — the same mock/breakpoint/throttle commands the
+  browser overlay and mobile SDKs already apply — and drives them against this process's
+  `mockEngine`/`breakpointEngine`/`ThrottleEngine`, which `enableFetchInterceptor` already
+  consults on every server-side `fetch()`. A mock created in the desktop app's Rules tab
+  intercepts a matching Server Component/Route Handler/Server Action fetch, not just the
+  browser's own calls. Set `handleControl: false` to keep this process capture-only.
+- **Device identity stays anonymous.** The bridge wire protocol carries no device name/app-id by
+  design (see `BridgeDeviceLabel.swift`'s doc comment and
+  [ADR 0011](https://github.com/ansumanshah/hakka/blob/main/docs/src/content/docs/contributing/adr/0011-additive-wire-evolution.md)) —
+  the desktop app's Devices sidebar shows this dev server as "Device N", same as any other peer.
+  Use the per-request `runtime: server`/`client` tag (and the runtime filter) to tell it apart
+  from a phone's traffic in the combined timeline; that's a wire-contract change, not something
+  this package can decide on its own.
+
+See `examples/next-fullstack`'s README for a runnable walkthrough (`HAKKA_DESKTOP=1 npm run dev`).
+
 ## Options
 
 ```ts
@@ -265,7 +306,8 @@ register({
   captureFetch: true,
   captureHttp: true,
   bridge: true, // stream to the bridge hub
-  embedBridge: true, // host the hub in this process
+  embedBridge: true, // host the hub in this process — false for desktop mode, see above
+  handleControl: true, // apply control frames (mock/breakpoint/throttle) received from the hub
   maxBodySize: 262_144,
   redactHeaders: ['authorization', 'cookie' /* … */],
   sink: (req) => {

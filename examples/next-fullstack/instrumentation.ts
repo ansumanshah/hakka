@@ -27,6 +27,21 @@
  * unchanged — see `packages/hakka-node/README.md#production-capture-for-a-debug-cohort-hakka-nodeprod`
  * and `examples/next-fullstack/README.md`.
  *
+ * `HAKKA_DESKTOP=1` switches from "embed a hub in this dev server" to
+ * "stream into an already-running Hakka for macOS" — `embedBridge: false`
+ * on `hakkaRegister()` (see `packages/hakka-node/README.md#desktop-mode`).
+ * `bridgeUrl` is left at its default (`ws://localhost:8989`), the same port
+ * the desktop app's own hub listens on, so no separate URL is needed. This
+ * is dev-only convenience wiring for this example, not a `hakka-node`
+ * feature of its own — `embedBridge`/`bridgeUrl` are the real config
+ * surface; a real app would just pass them directly instead of adding an
+ * env var like this one.
+ *
+ * The browser overlay (`app/hakka-overlay.tsx`) needs no change for this
+ * mode: `startHakkaClient()` also defaults to `ws://localhost:8989`, so
+ * with nothing embedding a hub server-side, it connects straight to the
+ * desktop app's hub as a second peer — same one line, same file, either mode.
+ *
  * `spanProcessors: [hakkaSpanProcessor()]` — NOT `[]`. `@opentelemetry/sdk-trace-base`
  * 2.x (what `@vercel/otel` 2.x uses) removed `TracerProvider.addSpanProcessor`,
  * so processors can only be attached at construction time now; hakka-node has
@@ -60,7 +75,12 @@ export async function register(): Promise<void> {
   const spanProcessors =
     process.env.NEXT_RUNTIME === 'nodejs' ? [(await import('hakka-node')).hakkaSpanProcessor()] : []
   registerOTel({ serviceName: 'hakka-next-fullstack-example', spanProcessors })
-  await hakkaRegister({ undiciTiming: true, traceSpans: true })
+  await hakkaRegister({
+    undiciTiming: true,
+    traceSpans: true,
+    // See the `HAKKA_DESKTOP` doc comment above.
+    embedBridge: process.env.HAKKA_DESKTOP !== '1',
+  })
 
   if (
     process.env.NEXT_RUNTIME === 'nodejs' &&

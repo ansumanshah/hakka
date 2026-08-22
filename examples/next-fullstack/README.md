@@ -108,6 +108,51 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 }
 ```
 
+## Desktop mode: stream into Hakka for macOS
+
+Everything above runs a bridge hub embedded in the Next dev server — the browser overlay is
+the only viewer. If you have [Hakka for macOS](../../apps/hakka) open, you can stream this same
+server + client traffic into its native traffic inspector instead, so Next server fetches sit
+next to a mobile device's traffic in one window.
+
+```bash
+HAKKA_DESKTOP=1 npm run dev
+```
+
+This is the whole difference: `instrumentation.ts` passes `embedBridge: false` to
+`hakkaRegister()` instead of the default `true`, so the dev server never hosts its own hub — it
+connects purely as a client to whatever hub already owns `ws://localhost:8989`, which is the
+desktop app's own hub, listening on that same default port. **The browser overlay needs no
+change** — `app/hakka-overlay.tsx`'s `startHakkaClient()` also defaults to `ws://localhost:8989`,
+so with nothing embedding a hub server-side, it connects straight to the desktop app's hub too,
+as a second peer. Two peers, one hub, no relay mesh, no double-streaming.
+
+**Resilience:** run `HAKKA_DESKTOP=1 npm run dev` with the desktop app *closed* and the dev
+server still starts clean — the bridge client (`hakka-node`'s `bridgeClient.ts`) auto-reconnects
+with exponential backoff and queues captures (bounded) while offline, the same behavior it
+already has for a late-starting embedded hub. Open the desktop app later and the queued traffic
+flushes in.
+
+**The mock loop works the other way too:** a mock rule created in the desktop app's Rules tab is
+relayed to every connected peer as a `control` frame — including this dev server, which applies
+it to the same `mockEngine` singleton the fetch interceptor already consults on every server-side
+`fetch()` call. Create a mock for `/api/products` in the desktop app, click **Fetch products** on
+this page again, and the server's own upstream call is served from the mock — not the real
+network. This is the same control-command plumbing the browser overlay and the mobile SDKs
+already use (`hakka-node`'s `bridgeClient.ts` is what's new: it used to be send-only).
+
+**Device identity is honest, not pretty:** the desktop app's Devices sidebar shows this dev
+server as an anonymous "Device N", same as any other peer — the wire protocol deliberately never
+carries a device name (see `BridgeDeviceLabel.swift`'s doc comment and
+[ADR 0011](../../docs/src/content/docs/contributing/adr/0011-additive-wire-evolution.md)), so
+there's no honest "next-server (myapp)" label to show without a wire-contract change, which is
+out of scope here. Per-request `runtime: server`/`client` tags (visible in the traffic list and
+the runtime filter) are how you actually tell this dev server's traffic apart from a phone's in
+the combined timeline today.
+
+See [`packages/hakka-node/README.md#desktop-mode`](../../packages/hakka-node/README.md#desktop-mode)
+for the underlying `embedBridge`/`bridgeUrl` options this env var wires up.
+
 ### `serverExternalPackages` + the `bufferutil` gotcha
 
 **Webpack builds only — Turbopack (the default since Next 16) is unaffected.** This app runs
