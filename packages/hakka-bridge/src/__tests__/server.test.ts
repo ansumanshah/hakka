@@ -35,6 +35,14 @@ function spanFrame(id: string, traceId: string, parentId: string | null = null):
   return JSON.stringify({ type: 'span', payload: { id, traceId, parentId } })
 }
 
+function consoleFrame(id: string, message: string): string {
+  return JSON.stringify({ type: 'console', payload: [{ id, timestamp: 1, level: 'info', message }] })
+}
+
+function storageFrame(store: string, entries: Record<string, string>): string {
+  return JSON.stringify({ type: 'storage', payload: { store, timestamp: 1, entries } })
+}
+
 /** Opens a WebSocket with a caller-supplied `Origin` header, like a real browser tab would send. */
 function openWithOrigin(url: string, origin: string | undefined): Promise<WebSocket> {
   return new Promise((resolve, reject) => {
@@ -193,6 +201,93 @@ describe('startBridgeServer (span backlog)', () => {
     expect(got.payload.id).toBe('s3')
     const second = JSON.parse(await nextMessage(viewer))
     expect(second.payload.id).toBe('s4')
+
+    viewer.close()
+  })
+})
+
+describe('startBridgeServer (console + storage)', () => {
+  test('relays a console frame live to other peers, never buffered', async () => {
+    server = await startBridgeServer({ port: 0 })
+    const url = `ws://localhost:${server.port}`
+
+    const sender = await open(url)
+    const viewer = await open(url)
+    const relayed = nextMessage(viewer)
+
+    sender.send(consoleFrame('log_1', 'hello'))
+
+    const got = JSON.parse(await relayed)
+    expect(got.type).toBe('console')
+    expect(got.payload[0].message).toBe('hello')
+    expect(server.hub.size).toBe(0)
+
+    sender.close()
+    viewer.close()
+  })
+
+  test('a late joiner gets no replayed console frames — logs are a live stream only', async () => {
+    server = await startBridgeServer({ port: 0 })
+    server.hub.ingest(requestFrame('buffered-request'))
+    server.hub.ingest(consoleFrame('log_1', 'already scrolled by'))
+
+    const viewer = await open(`ws://localhost:${server.port}`)
+    const only = JSON.parse(await nextMessage(viewer))
+    expect(only.type).toBe('request')
+
+    let extra = false
+    viewer.on('message', () => {
+      extra = true
+    })
+    await new Promise((r) => setTimeout(r, 50))
+    expect(extra).toBe(false)
+
+    viewer.close()
+  })
+
+  test('relays a storage frame live to other peers and replays the latest snapshot to a new peer', async () => {
+    server = await startBridgeServer({ port: 0 })
+    const url = `ws://localhost:${server.port}`
+
+    const sender = await open(url)
+    const viewer = await open(url)
+    const relayed = nextMessage(viewer)
+
+    sender.send(storageFrame('defaults', { theme: 'dark' }))
+
+    const got = JSON.parse(await relayed)
+    expect(got.type).toBe('storage')
+    expect(got.payload.store).toBe('defaults')
+    expect(got.payload.entries).toEqual({ theme: 'dark' })
+
+    // A newly-connected third peer gets the latest snapshot on connect.
+    const lateJoiner = await open(url)
+    const replayed = JSON.parse(await nextMessage(lateJoiner))
+    expect(replayed).toEqual({
+      type: 'storage',
+      payload: { store: 'defaults', timestamp: 1, entries: { theme: 'dark' } },
+    })
+
+    sender.close()
+    viewer.close()
+    lateJoiner.close()
+  })
+
+  test('replaying storage to a new peer sends only the latest snapshot per store, not history', async () => {
+    server = await startBridgeServer({ port: 0 })
+    server.hub.ingest(storageFrame('defaults', { a: '1', b: '2' }))
+    server.hub.ingest(storageFrame('defaults', { a: '1' })) // replaces the first — `b` is gone
+
+    const viewer = await open(`ws://localhost:${server.port}`)
+    const got = JSON.parse(await nextMessage(viewer))
+    expect(got.payload.entries).toEqual({ a: '1' })
+
+    let extra = false
+    viewer.on('message', () => {
+      extra = true
+    })
+    await new Promise((r) => setTimeout(r, 50))
+    expect(extra).toBe(false)
 
     viewer.close()
   })

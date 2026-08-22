@@ -1,4 +1,4 @@
-import type { FrameworkSpan, NetworkRequest } from 'hakka-core'
+import type { FrameworkSpan, LogEntry, NetworkRequest, StorageSnapshot } from 'hakka-core'
 
 /**
  * Wire protocol for the Hakka desktop bridge.
@@ -11,7 +11,13 @@ import type { FrameworkSpan, NetworkRequest } from 'hakka-core'
  * peer's job via `hakka-core`'s `parseControlCommand`. A peer may also send a
  * `{ type: 'span', payload: FrameworkSpan }` frame (Next.js/OTel request-tree
  * spans) — relayed like `control` (never buffered, never counted as a
- * record). This module is the shared, transport-agnostic contract.
+ * record). Two more kinds mirror `span`'s "additive record, never mixed into
+ * `NetworkRequest[]`" shape: `{ type: 'console', payload: LogEntry[] }` (one
+ * or a small batch of structured log entries, reusing each SDK's existing
+ * `LogEntry`/`LogStore` model) and `{ type: 'storage', payload:
+ * StorageSnapshot }` (a named device-storage snapshot — UserDefaults,
+ * redacted keychain, cookies — with snapshot-replace semantics, never a
+ * diff). This module is the shared, transport-agnostic contract.
  */
 
 /** A single captured request streamed from a client. */
@@ -26,13 +32,35 @@ export interface BridgeSpanMessage {
   payload: FrameworkSpan
 }
 
+/**
+ * One or a small batch of structured log entries streamed from a client.
+ * Always an array (even for a single entry) so a client can coalesce a
+ * burst of `console.*`/`HakkaInterceptor.log(...)` calls into one frame
+ * without a separate "batch" wire shape.
+ */
+export interface BridgeConsoleMessage {
+  type: 'console'
+  payload: LogEntry[]
+}
+
+/** A named device-storage snapshot streamed from a client. Snapshot-replace, never a diff — see `StorageSnapshot`. */
+export interface BridgeStorageMessage {
+  type: 'storage'
+  payload: StorageSnapshot
+}
+
 /** An opaque control frame relayed to other peers. Payload validated by the receiver, not the hub. */
 export interface BridgeControlMessage {
   type: 'control'
   payload: unknown
 }
 
-export type BridgeMessage = BridgeRequestMessage | BridgeSpanMessage | BridgeControlMessage
+export type BridgeMessage =
+  | BridgeRequestMessage
+  | BridgeSpanMessage
+  | BridgeConsoleMessage
+  | BridgeStorageMessage
+  | BridgeControlMessage
 
 /**
  * Parse a raw WebSocket text frame into a typed bridge message. Returns `null`
@@ -93,6 +121,17 @@ export function parseBridgeMessage(raw: string): BridgeMessage | null {
   }
   if (type === 'span' && typeof payload === 'object' && payload !== null) {
     return obj as BridgeSpanMessage
+  }
+  // `console`'s payload is always an array (see `BridgeConsoleMessage`'s doc
+  // comment) — checked shallowly here, same "object/array-shaped, not fully
+  // validated" terms as every other kind; per-entry shape is the receiver's
+  // job, matching how `request`/`span` payloads are never deep-validated
+  // either.
+  if (type === 'console' && Array.isArray(payload)) {
+    return obj as BridgeConsoleMessage
+  }
+  if (type === 'storage' && typeof payload === 'object' && payload !== null && !Array.isArray(payload)) {
+    return obj as BridgeStorageMessage
   }
   if (type === 'control' && typeof payload === 'object' && payload !== null) {
     return obj as BridgeControlMessage

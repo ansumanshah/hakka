@@ -15,6 +15,23 @@ enum Fmt {
         ByteCountFormatter.string(fromByteCount: count, countStyle: .memory)
     }
 
+    /// Epoch milliseconds → a local wall-clock time, e.g. "14:32:07" — the
+    /// Logs panel's row timestamp. Not a full date: entries scroll by live
+    /// within one session, so only the time-of-day is worth the row's space.
+    static func time(_ epochMs: Int64) -> String {
+        let date = Date(timeIntervalSince1970: Double(epochMs) / 1000)
+        return date.formatted(date: .omitted, time: .standard)
+    }
+
+    static func logLevelColor(_ level: LogLevel) -> Color {
+        switch level {
+        case .debug: ThemeTokens.Status.pending
+        case .info: ThemeTokens.Status.info
+        case .warn: ThemeTokens.Status.warning
+        case .error: ThemeTokens.Status.error
+        }
+    }
+
     static func statusColor(_ status: Int?) -> Color {
         guard let status else { return ThemeTokens.Status.pending }
         switch status {

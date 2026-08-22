@@ -132,6 +132,83 @@ struct BridgeSocketTests {
         #expect(span.traceId == "trace-sock")
     }
 
+    private func waitForFirstConsoleBatch(_ server: BridgeServer, timeout: Duration = .seconds(5)) async -> [LogEntry]? {
+        await withTaskGroup(of: [LogEntry]?.self) { group in
+            group.addTask {
+                for await batch in await server.hub.consoleEntries { return batch }
+                return nil
+            }
+            group.addTask {
+                try? await Task.sleep(for: timeout)
+                return nil
+            }
+            let first = await group.next() ?? nil
+            group.cancelAll()
+            return first
+        }
+    }
+
+    /// The `console` counterpart to `aSpanSentOverTheSocketReachesTheSpansStream`
+    /// — proves the new frame kind's decode + relay + `BridgeHub.consoleEntries`
+    /// yield all work against a real loopback socket, not just the in-process
+    /// fake peers `ServerTests` uses.
+    @Test func aConsoleFrameSentOverTheSocketReachesTheConsoleEntriesStream() async throws {
+        let server = BridgeServer(options: BridgeServerOptions(port: 0, advertise: false))
+        try await server.start()
+        let port = try #require(await boundPort(of: server))
+        defer { Task { await server.stop() } }
+
+        let task = URLSession.shared.webSocketTask(with: URL(string: "ws://127.0.0.1:\(port)")!)
+        task.resume()
+        let payload = #"[{"id":"log-sock-1","timestamp":1,"level":"warn","message":"cache stale"}]"#
+        try await task.send(.string(#"{"type":"console","payload":\#(payload)}"#))
+
+        let received = await waitForFirstConsoleBatch(server)
+        task.cancel(with: .goingAway, reason: nil)
+
+        let batch = try #require(received, "a console frame sent over a live socket never reached the hub")
+        #expect(batch.count == 1)
+        #expect(batch.first?.id == "log-sock-1")
+        #expect(batch.first?.level == .warn)
+        #expect(batch.first?.message == "cache stale")
+    }
+
+    private func waitForFirstStorageSnapshot(_ server: BridgeServer, timeout: Duration = .seconds(5)) async -> StorageSnapshot? {
+        await withTaskGroup(of: StorageSnapshot?.self) { group in
+            group.addTask {
+                for await snapshot in await server.hub.storageSnapshots { return snapshot }
+                return nil
+            }
+            group.addTask {
+                try? await Task.sleep(for: timeout)
+                return nil
+            }
+            let first = await group.next() ?? nil
+            group.cancelAll()
+            return first
+        }
+    }
+
+    /// The `storage` counterpart to `aSpanSentOverTheSocketReachesTheSpansStream`.
+    @Test func aStorageFrameSentOverTheSocketReachesTheStorageSnapshotsStream() async throws {
+        let server = BridgeServer(options: BridgeServerOptions(port: 0, advertise: false))
+        try await server.start()
+        let port = try #require(await boundPort(of: server))
+        defer { Task { await server.stop() } }
+
+        let task = URLSession.shared.webSocketTask(with: URL(string: "ws://127.0.0.1:\(port)")!)
+        task.resume()
+        let payload = #"{"store":"defaults","timestamp":1,"entries":{"theme":"dark"}}"#
+        try await task.send(.string(#"{"type":"storage","payload":\#(payload)}"#))
+
+        let received = await waitForFirstStorageSnapshot(server)
+        task.cancel(with: .goingAway, reason: nil)
+
+        let snapshot = try #require(received, "a storage frame sent over a live socket never reached the hub")
+        #expect(snapshot.store == "defaults")
+        #expect(snapshot.entries == ["theme": "dark"])
+    }
+
     @Test func aConnectedClientIsRegisteredAsAPeer() async throws {
         let server = BridgeServer(options: BridgeServerOptions(port: 0, advertise: false))
         try await server.start()
@@ -384,5 +461,88 @@ struct SDKBridgeClientTests {
             "the SDK's own bridge client connected but its frame never reached the hub"
         )
         #expect(received.id == "sdk-1")
+    }
+
+    private func firstConsoleBatch(_ server: BridgeServer, timeout: Duration = .seconds(8)) async -> [LogEntry]? {
+        await withTaskGroup(of: [LogEntry]?.self) { group in
+            group.addTask {
+                for await batch in await server.hub.consoleEntries { return batch }
+                return nil
+            }
+            group.addTask {
+                try? await Task.sleep(for: timeout)
+                return nil
+            }
+            let first = await group.next() ?? nil
+            group.cancelAll()
+            return first
+        }
+    }
+
+    /// Proves the iOS SDK's real send path end to end: `HakkaInterceptor.log(...)`
+    /// (via `HakkaBridgeClient.sendConsole`) is exercised at the `HakkaBridgeClient`
+    /// layer directly here, same as `aCaptureSentByTheSDKClientReachesTheDesktopHub`
+    /// exercises `send(_:)` rather than going through `HakkaInterceptor` — the
+    /// interceptor wiring itself is covered by `HakkaBridgeClientTests` in the
+    /// `ios` package, which cannot bind a real socket from that target.
+    @Test func aConsoleEntrySentByTheSDKClientReachesTheDesktopHub() async throws {
+        let server = BridgeServer(options: BridgeServerOptions(port: 0, advertise: false))
+        try await server.start()
+        let port = try #require(await boundPort(of: server))
+        defer { Task { await server.stop() } }
+
+        let client = HakkaBridgeClient(url: URL(string: "ws://127.0.0.1:\(port)")!)
+        client.start()
+        defer { client.stop() }
+
+        let entry = LogEntry(id: "sdk-log-1", timestamp: 1, level: .error, message: "checkout failed")
+        client.sendConsole([entry])
+
+        let received = try #require(
+            await firstConsoleBatch(server),
+            "the SDK's own bridge client connected but its console frame never reached the hub"
+        )
+        #expect(received.count == 1)
+        #expect(received.first?.id == "sdk-log-1")
+        #expect(received.first?.level == .error)
+    }
+
+    private func firstStorageSnapshot(_ server: BridgeServer, timeout: Duration = .seconds(8)) async -> StorageSnapshot? {
+        await withTaskGroup(of: StorageSnapshot?.self) { group in
+            group.addTask {
+                for await snapshot in await server.hub.storageSnapshots { return snapshot }
+                return nil
+            }
+            group.addTask {
+                try? await Task.sleep(for: timeout)
+                return nil
+            }
+            let first = await group.next() ?? nil
+            group.cancelAll()
+            return first
+        }
+    }
+
+    /// The storage counterpart to `aConsoleEntrySentByTheSDKClientReachesTheDesktopHub`
+    /// — proves `HakkaBridgeClient.sendStorage` end to end against a real
+    /// desktop hub socket.
+    @Test func aStorageSnapshotSentByTheSDKClientReachesTheDesktopHub() async throws {
+        let server = BridgeServer(options: BridgeServerOptions(port: 0, advertise: false))
+        try await server.start()
+        let port = try #require(await boundPort(of: server))
+        defer { Task { await server.stop() } }
+
+        let client = HakkaBridgeClient(url: URL(string: "ws://127.0.0.1:\(port)")!)
+        client.start()
+        defer { client.stop() }
+
+        client.sendStorage(StorageSnapshot(store: "defaults", timestamp: 1, entries: ["theme": "dark"]))
+
+        let received = try #require(
+            await firstStorageSnapshot(server),
+            "the SDK's own bridge client connected but its storage frame never reached the hub"
+        )
+        #expect(received.store == "defaults")
+        #expect(received.entries == ["theme": "dark"])
     }
 }

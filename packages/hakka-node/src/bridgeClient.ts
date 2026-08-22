@@ -9,7 +9,7 @@
  * late-starting hub still receives the early server traffic.
  */
 import './wsCompat'
-import type { FrameworkSpan, NetworkRequest } from 'hakka-core'
+import type { FrameworkSpan, LogEntry, NetworkRequest, StorageSnapshot } from 'hakka-core'
 import WebSocket from 'ws'
 
 export const DEFAULT_BRIDGE_URL = 'ws://localhost:8989'
@@ -37,6 +37,23 @@ export interface BridgeClient {
    * the source.
    */
   sendSpan(span: FrameworkSpan): void
+  /**
+   * Wire shape matches `BridgeConsoleMessage`: `{type:'console', payload}`.
+   * `payload` is always an array (even for one entry — see the protocol
+   * doc), matching `console`'s "live stream, no offline queue" contract:
+   * same rationale as `sendSpan` above, entries that couldn't be delivered
+   * while disconnected are simply gone, not worth the complexity of
+   * queuing.
+   */
+  sendConsole(entries: LogEntry[]): void
+  /**
+   * Wire shape matches `BridgeStorageMessage`: `{type:'storage', payload}`.
+   * Same fire-and-forget, no-offline-queue contract as `sendSpan`/
+   * `sendConsole` — a snapshot missed while disconnected is superseded by
+   * the sender's next one anyway (snapshot-replace semantics), so queuing
+   * a stale snapshot for later delivery would be actively wrong.
+   */
+  sendStorage(snapshot: StorageSnapshot): void
   close(): void
   readonly connected: boolean
 }
@@ -65,6 +82,29 @@ export function createBridgeClient(opts: BridgeClientOptions = {}): BridgeClient
   let timer: ReturnType<typeof setTimeout> | null = null
   const queue: QueuedFrame[] = []
   let queueBytes = 0
+
+  /**
+   * Fire-and-forget send for the live-stream-only frame kinds (`span`,
+   * `console`, `storage`): no offline queue, dropped silently if the socket
+   * isn't open or serialisation fails. Shared by `sendSpan`/`sendConsole`/
+   * `sendStorage` — they differ only in `type` and payload shape.
+   */
+  const sendLiveFrame = (type: 'span' | 'console' | 'storage', payload: unknown): void => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return
+    let frame: string
+    try {
+      frame = JSON.stringify({ type, payload })
+    } catch {
+      // Circular/unserialisable payload shouldn't happen, but capture must
+      // never throw back into the app's real request path — drop it.
+      return
+    }
+    try {
+      ws.send(frame)
+    } catch {
+      // Best-effort; a dead socket is handled by the reconnect logic above.
+    }
+  }
 
   const flush = (): void => {
     if (!ws || ws.readyState !== WebSocket.OPEN) return
@@ -150,20 +190,13 @@ export function createBridgeClient(opts: BridgeClientOptions = {}): BridgeClient
       }
     },
     sendSpan(span: FrameworkSpan) {
-      if (!ws || ws.readyState !== WebSocket.OPEN) return // live stream only — no offline queue, see the interface doc
-      let frame: string
-      try {
-        frame = JSON.stringify({ type: 'span', payload: span })
-      } catch {
-        // Circular/unserialisable payload shouldn't happen, but capture must
-        // never throw back into the app's real request path — drop it.
-        return
-      }
-      try {
-        ws.send(frame)
-      } catch {
-        // Best-effort; a dead socket is handled by the reconnect logic above.
-      }
+      sendLiveFrame('span', span)
+    },
+    sendConsole(entries: LogEntry[]) {
+      sendLiveFrame('console', entries)
+    },
+    sendStorage(snapshot: StorageSnapshot) {
+      sendLiveFrame('storage', snapshot)
     },
     close() {
       closed = true

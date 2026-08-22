@@ -15,6 +15,10 @@ struct DetailPaneView: View {
             trafficDetail
         case .rules:
             EmptyStateView(systemImage: "slider.horizontal.3", title: "Rules", message: "Select a rule section to manage device rules.")
+        case .logs:
+            EmptyStateView(systemImage: "text.alignleft", title: "Logs", message: "Structured log entries streamed from connected devices.")
+        case .storage:
+            EmptyStateView(systemImage: "externaldrive", title: "Storage", message: "Select a store in the list to inspect its entries.")
         case .folderRun:
             folderRunDetail
         case nil:

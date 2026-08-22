@@ -5,9 +5,20 @@ import HakkaCore
 /// Swift mirror of the `BridgeMessage` union in
 /// `packages/hakka-bridge/src/protocol.ts` — read that file first, it is the
 /// source of truth for the wire shape.
+///
+/// `BridgeFrameKind(rawValue:)` returns `nil` for any string outside this
+/// list — a frame whose `type` names a kind this build doesn't know about
+/// yet. `parseBridgeFrame` below treats that exactly like malformed JSON: it
+/// returns `nil` and the frame is dropped without relay or a crash. That is
+/// the whole forward-compat story for a new frame kind (this is how
+/// `console`/`storage` themselves were rolled out to a fleet with
+/// already-installed older builds) — a case is never removed once shipped,
+/// only added, so an old receiver simply ignores a kind it predates.
 public enum BridgeFrameKind: String, Sendable, Equatable, Codable {
     case request
     case span
+    case console
+    case storage
     case control
 }
 
@@ -34,18 +45,32 @@ public struct BridgeFrame: Sendable, Equatable {
     /// `FrameworkSpan`, on the same "still parseable either way" terms.
     public let span: FrameworkSpan?
 
+    /// Set only for `.console` frames whose `payload` decoded into
+    /// `[LogEntry]` — always an array on the wire, even for one entry (see
+    /// `protocol.ts`'s `BridgeConsoleMessage`). Same "still parseable either
+    /// way" terms as `request`/`control`/`span`.
+    public let console: [LogEntry]?
+
+    /// Set only for `.storage` frames whose `payload` decoded into
+    /// `StorageSnapshot`. Same "still parseable either way" terms as above.
+    public let storage: StorageSnapshot?
+
     public init(
         kind: BridgeFrameKind,
         raw: String,
         request: NetworkRequest? = nil,
         control: ControlCommand? = nil,
-        span: FrameworkSpan? = nil
+        span: FrameworkSpan? = nil,
+        console: [LogEntry]? = nil,
+        storage: StorageSnapshot? = nil
     ) {
         self.kind = kind
         self.raw = raw
         self.request = request
         self.control = control
         self.span = span
+        self.console = console
+        self.storage = storage
     }
 }
 
@@ -73,6 +98,19 @@ private struct BridgeSpanEnvelope: Decodable {
     let payload: FrameworkSpan
 }
 
+/// Decodes just the `payload` of a `{"type":"console",...}` frame — same
+/// rationale as `BridgeRequestEnvelope`. `payload` is always an array on the
+/// wire (see `BridgeConsoleMessage` in `protocol.ts`), even for one entry.
+private struct BridgeConsoleEnvelope: Decodable {
+    let payload: [LogEntry]
+}
+
+/// Decodes just the `payload` of a `{"type":"storage",...}` frame — same
+/// rationale as `BridgeRequestEnvelope`.
+private struct BridgeStorageEnvelope: Decodable {
+    let payload: StorageSnapshot
+}
+
 /// Parse one raw WebSocket text frame into a typed `BridgeFrame`. Returns
 /// `nil` for anything that does not satisfy the shallow wire contract —
 /// malformed JSON, a missing/unrecognized `type`, a missing/null `payload`,
@@ -98,10 +136,16 @@ public func parseBridgeFrame(_ raw: String, maxBytes: Int = BridgeWireLimits.max
 
     var decodedRequest: NetworkRequest?
     var decodedSpan: FrameworkSpan?
+    var decodedConsole: [LogEntry]?
+    var decodedStorage: StorageSnapshot?
     if kind == .request {
         decodedRequest = try? JSONDecoder().decode(BridgeRequestEnvelope.self, from: data).payload
     } else if kind == .span {
         decodedSpan = try? JSONDecoder().decode(BridgeSpanEnvelope.self, from: data).payload
+    } else if kind == .console {
+        decodedConsole = try? JSONDecoder().decode(BridgeConsoleEnvelope.self, from: data).payload
+    } else if kind == .storage {
+        decodedStorage = try? JSONDecoder().decode(BridgeStorageEnvelope.self, from: data).payload
     }
     var decodedControl: ControlCommand?
     if kind == .control {
@@ -113,5 +157,13 @@ public func parseBridgeFrame(_ raw: String, maxBytes: Int = BridgeWireLimits.max
         // parsed the frame).
         decodedControl = parseControlCommand(payload)
     }
-    return BridgeFrame(kind: kind, raw: raw, request: decodedRequest, control: decodedControl, span: decodedSpan)
+    return BridgeFrame(
+        kind: kind,
+        raw: raw,
+        request: decodedRequest,
+        control: decodedControl,
+        span: decodedSpan,
+        console: decodedConsole,
+        storage: decodedStorage
+    )
 }

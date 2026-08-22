@@ -503,6 +503,28 @@ public final class HakkaInterceptor: @unchecked Sendable {
         let redacted = metadata.map { config.redactMetadata($0) }
         let entry = LogEntry(level: level, message: message, category: category, metadata: redacted)
         logStore.add(entry)
+        bridgeLock.lock()
+        let client = bridgeClient
+        bridgeLock.unlock()
+        client?.sendConsole([entry])
+    }
+
+    // MARK: - Storage snapshots
+
+    /// Publish a named device-storage snapshot (e.g. `"defaults"`,
+    /// `"keychain-redacted"`, `"cookies"`) over the bridge for the desktop
+    /// app's Storage panel. Snapshot-replace semantics — see
+    /// `StorageSnapshot`'s doc comment: a later snapshot for the same
+    /// `store` fully replaces this one, it is not merged. `entries` should
+    /// already be redacted by the caller (mirrors `log(...)`'s
+    /// `redactMetadata` contract, but storage sources vary too much — e.g.
+    /// keychain vs. UserDefaults — for one shared redaction pass here).
+    /// No-op when no bridge is configured.
+    public func publishStorageSnapshot(store: String, entries: [String: String]) {
+        bridgeLock.lock()
+        let client = bridgeClient
+        bridgeLock.unlock()
+        client?.sendStorage(StorageSnapshot(store: store, entries: entries))
     }
 
     /// Convenience: append a debug-level entry.

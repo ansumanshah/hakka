@@ -185,6 +185,24 @@ export interface FrameworkSpan {
   requestKind?: RequestKind
 }
 
+/**
+ * A named device-storage snapshot (UserDefaults/localStorage, redacted
+ * keychain, cookies, ...) streamed over the bridge — additive record kind,
+ * never mixed into `NetworkRequest[]`. `store` is free-form so each runtime
+ * can name its own stores (e.g. `'defaults'`, `'keychain-redacted'`,
+ * `'cookies'`); the desktop UI groups by it. Snapshot-replace semantics: a
+ * new frame for the same `store` replaces its prior contents wholesale, it
+ * is never a diff. `entries` is always `Record<string, string>` — a SDK's
+ * own redaction (e.g. `HakkaConfig.redactMetadata`) has already run before
+ * this is built, matching `LogEntry.metadata`'s "already redacted" contract.
+ */
+export interface StorageSnapshot {
+  store: string
+  /** Epoch milliseconds this snapshot was captured. */
+  timestamp: number
+  entries: Record<string, string>
+}
+
 export interface HakkaConfig {
   /**
    * Kill switch. Set to `false` to disable Hakka entirely.

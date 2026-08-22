@@ -1,0 +1,9 @@
+{
+  "store": "keychain-redacted",
+  "timestamp": 1732000000500,
+  "entries": {
+    "authToken": "***REDACTED***",
+    "refreshToken": "***REDACTED***",
+    "userId": "user_42"
+  }
+}
