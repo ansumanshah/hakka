@@ -37,6 +37,16 @@ private func controlFrameJSON() -> String {
     #"{"type":"control","payload":{"kind":"mock.clear"}}"#
 }
 
+/// A well-formed `.console` payload — matches `fixtures/console/log-batch.json`'s shape.
+private func consoleFrameJSON(id: String = "log-1") -> String {
+    #"{"type":"console","payload":[{"id":"\#(id)","timestamp":1732000000000,"level":"warn","message":"cache stale"}]}"#
+}
+
+/// A well-formed `.storage` payload — matches `fixtures/storage/defaults-snapshot.json`'s shape.
+private func storageFrameJSON(store: String = "defaults") -> String {
+    #"{"type":"storage","payload":{"store":"\#(store)","timestamp":1732000000000,"entries":{"theme":"dark"}}}"#
+}
+
 // MARK: - parseBridgeFrame
 
 @Suite("parseBridgeFrame")
@@ -110,6 +120,48 @@ struct ParseBridgeFrameTests {
         let raw = requestFrameJSON()
         #expect(parseBridgeFrame(raw, maxBytes: raw.utf8.count - 1) == nil)
         #expect(parseBridgeFrame(raw, maxBytes: raw.utf8.count) != nil)
+    }
+
+    @Test func validConsoleFrameDecodesIntoLogEntryArray() {
+        let frame = parseBridgeFrame(consoleFrameJSON())
+        #expect(frame?.kind == .console)
+        #expect(frame?.console?.count == 1)
+        #expect(frame?.console?.first?.id == "log-1")
+        #expect(frame?.console?.first?.level == .warn)
+        #expect(frame?.console?.first?.message == "cache stale")
+    }
+
+    @Test func validStorageFrameDecodesIntoStorageSnapshot() {
+        let frame = parseBridgeFrame(storageFrameJSON())
+        #expect(frame?.kind == .storage)
+        #expect(frame?.storage?.store == "defaults")
+        #expect(frame?.storage?.entries == ["theme": "dark"])
+    }
+
+    /// Mirrors `spanPayloadMissingRequiredFieldStillParsesButDoesNotDecode`:
+    /// a `.console` payload that is an array (satisfying the shallow
+    /// envelope check) but whose elements don't satisfy `LogEntry` still
+    /// counts as a parseable frame — relayed, just not decoded.
+    @Test func consolePayloadWithMalformedEntryStillParsesButDoesNotDecode() {
+        let frame = parseBridgeFrame(#"{"type":"console","payload":[{"notAnEntry":true}]}"#)
+        #expect(frame?.kind == .console)
+        #expect(frame?.console == nil)
+    }
+
+    @Test func storagePayloadMissingRequiredFieldStillParsesButDoesNotDecode() {
+        let frame = parseBridgeFrame(#"{"type":"storage","payload":{"store":"defaults"}}"#)
+        #expect(frame?.kind == .storage)
+        #expect(frame?.storage == nil)
+    }
+
+    /// The forward-compat contract this whole change depends on: a frame
+    /// whose `type` names a kind this build predates — indistinguishable
+    /// from a real future kind, since `BridgeFrameKind(rawValue:)` treats
+    /// any unrecognized string identically — is dropped like malformed
+    /// JSON, never thrown. This is what let `console`/`storage` themselves
+    /// ship to a fleet with already-installed older desktop builds.
+    @Test func unknownFutureFrameKindIsDroppedNotThrown() {
+        #expect(parseBridgeFrame(#"{"type":"metrics","payload":{"cpu":0.5}}"#) == nil)
     }
 }
 
@@ -233,6 +285,65 @@ struct BridgeHubTests {
         #expect(fromA1?.deviceLabel == "Device 1")
         #expect(fromB1?.deviceLabel == "Device 2")
         #expect(fromA2?.deviceLabel == "Device 1", "the same peer's later frame keeps its original label")
+    }
+
+    @Test func consoleFrameRelaysToOtherPeersNotSender() async {
+        let hub = BridgeHub()
+        let sender = FakeBridgePeer()
+        let other = FakeBridgePeer()
+        await hub.addPeer(sender)
+        await hub.addPeer(other)
+
+        let raw = consoleFrameJSON()
+        let result = await hub.ingest(raw, from: sender.id)
+
+        #expect(result?.kind == .console)
+        #expect(other.sent == [raw])
+        #expect(sender.sent.isEmpty)
+    }
+
+    /// The console counterpart to `spanFrameSurfacesOnSpansStream`.
+    @Test func consoleFrameSurfacesOnConsoleEntriesStream() async {
+        let hub = BridgeHub()
+        let sender = FakeBridgePeer()
+        await hub.addPeer(sender)
+
+        let result = await hub.ingest(consoleFrameJSON(id: "log-42"), from: sender.id)
+        #expect(result?.console?.first?.id == "log-42")
+
+        var iterator = hub.consoleEntries.makeAsyncIterator() // nonisolated — no actor hop needed
+        let received = await iterator.next()
+        #expect(received?.first?.id == "log-42")
+    }
+
+    @Test func storageFrameRelaysToOtherPeersNotSender() async {
+        let hub = BridgeHub()
+        let sender = FakeBridgePeer()
+        let other = FakeBridgePeer()
+        await hub.addPeer(sender)
+        await hub.addPeer(other)
+
+        let raw = storageFrameJSON()
+        let result = await hub.ingest(raw, from: sender.id)
+
+        #expect(result?.kind == .storage)
+        #expect(other.sent == [raw])
+        #expect(sender.sent.isEmpty)
+    }
+
+    /// The storage counterpart to `spanFrameSurfacesOnSpansStream`.
+    @Test func storageFrameSurfacesOnStorageSnapshotsStream() async {
+        let hub = BridgeHub()
+        let sender = FakeBridgePeer()
+        await hub.addPeer(sender)
+
+        let result = await hub.ingest(storageFrameJSON(store: "keychain-redacted"), from: sender.id)
+        #expect(result?.storage?.store == "keychain-redacted")
+
+        var iterator = hub.storageSnapshots.makeAsyncIterator() // nonisolated — no actor hop needed
+        let received = await iterator.next()
+        #expect(received?.store == "keychain-redacted")
+        #expect(received?.entries == ["theme": "dark"])
     }
 
     @Test func malformedFrameIsDroppedNotRelayed() async {

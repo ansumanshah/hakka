@@ -19,6 +19,8 @@ final class AppModel {
     let webSocket = WebSocketConnectionModel()
     let pauseInbox: PauseInboxModel
     let sessionCompare = SessionCompareModel()
+    let logs = LogsModel()
+    let storage = StorageModel()
 
     /// Ids currently marked for a batch delete — toggled from the sidebar's
     /// context menu, cleared once `deleteMarkedNodes()` (in

@@ -8,6 +8,8 @@ enum SidebarSelection: Hashable {
     case request(id: String)
     case traffic
     case rules
+    case logs
+    case storage
     /// A folder whose "Run" affordance just fired — the detail pane shows
     /// that run's summary while this stays selected.
     case folderRun(id: String)

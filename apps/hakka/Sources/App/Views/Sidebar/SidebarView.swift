@@ -18,6 +18,12 @@ struct SidebarView: View {
                     .tag(SidebarSelection.traffic)
                 Label("Rules", systemImage: "slider.horizontal.3")
                     .tag(SidebarSelection.rules)
+                Label("Logs", systemImage: "text.alignleft")
+                    .badge(model.logs.entries.count)
+                    .tag(SidebarSelection.logs)
+                Label("Storage", systemImage: "externaldrive")
+                    .badge(model.storage.stores.count)
+                    .tag(SidebarSelection.storage)
             }
             Section("Devices") {
                 devicesSectionContent

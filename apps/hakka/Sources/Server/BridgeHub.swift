@@ -28,11 +28,25 @@ public struct BridgeIngestResult: Sendable, Equatable {
     /// Set only for `.span` frames whose payload decoded into
     /// `FrameworkSpan` — see `BridgeFrame.span`.
     public let span: FrameworkSpan?
+    /// Set only for `.console` frames whose payload decoded into
+    /// `[LogEntry]` — see `BridgeFrame.console`.
+    public let console: [LogEntry]?
+    /// Set only for `.storage` frames whose payload decoded into
+    /// `StorageSnapshot` — see `BridgeFrame.storage`.
+    public let storage: StorageSnapshot?
 
-    public init(kind: BridgeFrameKind, request: NetworkRequest? = nil, span: FrameworkSpan? = nil) {
+    public init(
+        kind: BridgeFrameKind,
+        request: NetworkRequest? = nil,
+        span: FrameworkSpan? = nil,
+        console: [LogEntry]? = nil,
+        storage: StorageSnapshot? = nil
+    ) {
         self.kind = kind
         self.request = request
         self.span = span
+        self.console = console
+        self.storage = storage
     }
 }
 
@@ -67,6 +81,8 @@ public actor BridgeHub {
     private let requestContinuation: AsyncStream<CapturedRequest>.Continuation
     private let hostControlContinuation: AsyncStream<ControlCommand>.Continuation
     private let spanContinuation: AsyncStream<FrameworkSpan>.Continuation
+    private let consoleContinuation: AsyncStream<[LogEntry]>.Continuation
+    private let storageContinuation: AsyncStream<StorageSnapshot>.Continuation
     private let deviceEventContinuation: AsyncStream<BridgeDeviceEvent>.Continuation
     /// Assigns "Device N" labels to peers as their frames are first seen —
     /// see `BridgeDeviceLabel.swift` for why this is the honest amount of
@@ -94,6 +110,22 @@ public actor BridgeHub {
     /// counterpart to `requests`. Same single-consumer contract.
     public nonisolated let spans: AsyncStream<FrameworkSpan>
 
+    /// Decoded `console` frames, one array per frame (a frame's payload is
+    /// always a batch, even for a single entry — see `BridgeFrame.console`).
+    /// Same single-consumer contract as `requests`/`spans`. No backlog/replay
+    /// (unlike TS's `BridgeHub`, which buffers spans for a browser viewer):
+    /// this hub has no late-joining dashboard to replay to, only the app's
+    /// own Logs panel, which is either already listening or has missed a
+    /// live moment permanently — matching `LogEntry`'s own nature.
+    public nonisolated let consoleEntries: AsyncStream<[LogEntry]>
+
+    /// Decoded `storage` frames, one snapshot per frame — snapshot-replace
+    /// semantics (see `StorageSnapshot`'s doc comment), so the Storage panel
+    /// only ever needs the latest value per store name, which it keeps for
+    /// itself; the hub does not buffer for replay (same reasoning as
+    /// `consoleEntries` above — no late-joining dashboard here).
+    public nonisolated let storageSnapshots: AsyncStream<StorageSnapshot>
+
     /// Connect/disconnect transitions, in the order `addPeer`/`removePeer`
     /// observe them — the device sidebar's connection signal. Same
     /// single-consumer, `nonisolated` reasoning as the streams above.
@@ -111,6 +143,14 @@ public actor BridgeHub {
         var spanCont: AsyncStream<FrameworkSpan>.Continuation?
         spans = AsyncStream { spanCont = $0 }
         spanContinuation = spanCont!
+
+        var consoleCont: AsyncStream<[LogEntry]>.Continuation?
+        consoleEntries = AsyncStream { consoleCont = $0 }
+        consoleContinuation = consoleCont!
+
+        var storageCont: AsyncStream<StorageSnapshot>.Continuation?
+        storageSnapshots = AsyncStream { storageCont = $0 }
+        storageContinuation = storageCont!
 
         var deviceEventCont: AsyncStream<BridgeDeviceEvent>.Continuation?
         deviceEvents = AsyncStream { deviceEventCont = $0 }
@@ -154,7 +194,19 @@ public actor BridgeHub {
         if let span = frame.span {
             spanContinuation.yield(span)
         }
-        return BridgeIngestResult(kind: frame.kind, request: frame.request, span: frame.span)
+        if let console = frame.console {
+            consoleContinuation.yield(console)
+        }
+        if let storage = frame.storage {
+            storageContinuation.yield(storage)
+        }
+        return BridgeIngestResult(
+            kind: frame.kind,
+            request: frame.request,
+            span: frame.span,
+            console: frame.console,
+            storage: frame.storage
+        )
     }
 
     /// Deliver a host-originated frame to every connected peer — the send
@@ -177,6 +229,8 @@ public actor BridgeHub {
         requestContinuation.finish()
         hostControlContinuation.finish()
         spanContinuation.finish()
+        consoleContinuation.finish()
+        storageContinuation.finish()
         deviceEventContinuation.finish()
     }
 }
