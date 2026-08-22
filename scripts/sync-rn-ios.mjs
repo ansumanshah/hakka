@@ -31,6 +31,7 @@ const RN_ROOT = join(repoRoot, 'packages/hakka-react-native/ios')
 const MANIFEST = [
   ['Common/BreakpointEngine.swift', 'Core/BreakpointEngine.swift'],
   ['Common/BridgeClient.swift', 'Core/BridgeClient.swift'],
+  ['Common/BridgeClient+Encoding.swift', 'Core/BridgeClient+Encoding.swift'],
   ['Common/BridgeDiscovery.swift', 'Core/BridgeDiscovery.swift'],
   ['Common/NWBridgeHostBrowser.swift', 'Core/NWBridgeHostBrowser.swift'],
   ['Common/BreakpointWireEdits.swift', 'Core/BreakpointWireEdits.swift'],
@@ -61,6 +62,7 @@ const MANIFEST = [
   ['Common/RecordSink.swift', 'Core/RecordSink.swift'],
   ['Common/RetentionPolicy.swift', 'Core/RetentionPolicy.swift'],
   ['Common/StorageAdapter.swift', 'Core/StorageAdapter.swift'],
+  ['Common/StorageSnapshot.swift', 'Core/StorageSnapshot.swift'],
   ['Common/ThrottleEngine.swift', 'Core/ThrottleEngine.swift'],
   ['Common/UrlCodec.swift', 'Core/UrlCodec.swift'],
   ['Network/CaptureProcessor.swift', 'Core/CaptureProcessor.swift'],

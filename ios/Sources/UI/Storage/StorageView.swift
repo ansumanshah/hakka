@@ -170,6 +170,12 @@ struct StorageView: View {
         if all.map(\.key) != pairs.map(\.key) || all.map(\.displayValue) != pairs.map(\.displayValue) {
             pairs = all
         }
+        // Publish on every refresh tick (not just on change) — snapshot-replace
+        // semantics mean a stale desktop panel self-heals on the next 1s poll
+        // regardless, and diffing here would just duplicate `pairs`' own diff
+        // above for no benefit (`sendStorage` is cheap, fire-and-queued).
+        let entries = Dictionary(uniqueKeysWithValues: all.map { ($0.key, $0.displayValue) })
+        HakkaInterceptor.shared.publishStorageSnapshot(store: "defaults", entries: entries)
     }
 
     private func clearAll() {

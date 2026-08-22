@@ -9,6 +9,9 @@ import Foundation
 /// { "type": "request", "payload": <NetworkRequest as JSON> }
 /// ```
 ///
+/// ``sendConsole(_:)`` and ``sendStorage(_:)`` stream the same shared
+/// envelope for the `console`/`storage` frame kinds.
+///
 /// The protocol matches `packages/hakka-bridge/src/protocol.ts` exactly.
 ///
 /// - Opt-in: only instantiated when `HakkaConfig.bridgeURL` is non-nil.
@@ -80,6 +83,26 @@ public final class HakkaBridgeClient: @unchecked Sendable {
     /// `maxQueueSize`; oldest entry is dropped when full).
     public func send(_ request: NetworkRequest) {
         guard let frame = encodeFrame(request) else { return }
+        queue.async { [weak self] in self?.deliver(frame) }
+    }
+
+    /// Encode one or more structured log entries as a `{"type":"console",...}`
+    /// frame and deliver it. `payload` is always an array on the wire (see
+    /// `BridgeConsoleMessage` in `protocol.ts`), even for a single entry.
+    /// Queued like `send(_:)` while disconnected.
+    public func sendConsole(_ entries: [LogEntry]) {
+        guard !entries.isEmpty, let frame = encodeFrame(entries, type: "console") else { return }
+        queue.async { [weak self] in self?.deliver(frame) }
+    }
+
+    /// Encode a named storage snapshot as a `{"type":"storage",...}` frame
+    /// and deliver it. Queued like `send(_:)` while disconnected — a
+    /// snapshot delivered late is still correct under snapshot-replace
+    /// semantics (see `StorageSnapshot`'s doc comment), unlike a span or log
+    /// line, which is why this uses the same queue rather than the
+    /// fire-and-forget path.
+    public func sendStorage(_ snapshot: StorageSnapshot) {
+        guard let frame = encodeFrame(snapshot, type: "storage") else { return }
         queue.async { [weak self] in self?.deliver(frame) }
     }
 
@@ -256,24 +279,4 @@ public final class HakkaBridgeClient: @unchecked Sendable {
         }
     }
 
-    // MARK: - Private — encoding
-
-    private func encodeFrame(_ request: NetworkRequest) -> String? {
-        let wrapper = BridgeRequestMessage(payload: request)
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = []
-        guard let data = try? encoder.encode(wrapper),
-              let string = String(data: data, encoding: .utf8) else {
-            return nil
-        }
-        return string
-    }
-}
-
-// MARK: - Wire types
-
-/// `{ "type": "request", "payload": <NetworkRequest> }` — matches protocol.ts.
-private struct BridgeRequestMessage: Encodable {
-    let type: String = "request"
-    let payload: NetworkRequest
 }
