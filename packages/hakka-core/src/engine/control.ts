@@ -121,6 +121,17 @@ function isHeaders(v: unknown): v is Record<string, string> {
   return Object.values(v).every((val) => typeof val === 'string')
 }
 
+/**
+ * Validates the `headerValues` shape (see `MockResponse.headerValues` in
+ * `MockEngine.ts`) — a map of header name to a non-empty array of string
+ * values. Additive/optional on the wire; absent is valid (no multi-value
+ * headers on this response).
+ */
+function isHeaderValues(v: unknown): v is Record<string, string[]> {
+  if (!isPlainObject(v)) return false
+  return Object.values(v).every((val) => isStringArray(val) && val.length > 0)
+}
+
 function isStringArray(v: unknown): v is string[] {
   return Array.isArray(v) && v.every((s) => typeof s === 'string')
 }
@@ -172,18 +183,24 @@ function parseMockRuleModify(v: unknown): MockRuleModify | null {
 }
 
 /** Validates the subset of `MockResponse` accepted over the wire (no functions — those cannot cross the bridge). */
-function parseMockResponse(
-  v: unknown,
-): { status: number; headers?: Record<string, string>; body: string | object; delay?: number } | null {
+function parseMockResponse(v: unknown): {
+  status: number
+  headers?: Record<string, string>
+  headerValues?: Record<string, string[]>
+  body: string | object
+  delay?: number
+} | null {
   if (!isPlainObject(v)) return null
-  const { status, headers, body, delay } = v
+  const { status, headers, headerValues, body, delay } = v
   if (typeof status !== 'number' || !Number.isFinite(status)) return null
   if (headers !== undefined && !isHeaders(headers)) return null
+  if (headerValues !== undefined && !isHeaderValues(headerValues)) return null
   if (typeof body !== 'string' && !isPlainObject(body) && !Array.isArray(body)) return null
   if (delay !== undefined && (typeof delay !== 'number' || !Number.isFinite(delay) || delay < 0)) return null
   return {
     status: status as number,
     headers: headers as Record<string, string> | undefined,
+    headerValues: headerValues as Record<string, string[]> | undefined,
     body: body as string | object,
     delay: delay as number | undefined,
   }

@@ -323,6 +323,20 @@ export function enableFetchInterceptor(
         'content-type': 'application/json',
         ...mockRule.response.headers,
       })
+      // `headerValues` widens single-value `headers` for names with more than
+      // one value (chiefly Set-Cookie — see `MockResponse.headerValues`'s doc
+      // in `MockEngine.ts`). `Headers.append` special-cases `set-cookie`: it
+      // keeps each appended value distinct rather than comma-folding, so this
+      // is a true multi-header apply, not a join. Re-set (not append) for the
+      // first value so it doesn't duplicate the entry the constructor above
+      // already added from `headers`.
+      for (const [name, values] of Object.entries(mockRule.response.headerValues ?? {})) {
+        if (values.length === 0) continue
+        mockHeaders.set(name, values[0])
+        for (const value of values.slice(1)) {
+          mockHeaders.append(name, value)
+        }
+      }
       const mockResponse = new Response(bodyStr, {
         status: mockRule.response.status,
         headers: mockHeaders,

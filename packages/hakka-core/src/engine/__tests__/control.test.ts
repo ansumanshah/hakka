@@ -64,6 +64,52 @@ describe('parseControlCommand — valid shapes', () => {
     }
   })
 
+  // Regression: `headerValues` is the additive multi-value widening of `headers` (see
+  // `MockResponse.headerValues`'s doc in `MockEngine.ts`) — carries e.g. two Set-Cookie
+  // values through parsing without being folded/dropped, while `headers` still parses
+  // unchanged for a decoder that doesn't know about the new field.
+  test('mock.add with headerValues carries multiple values per header name', () => {
+    const raw = {
+      kind: 'mock.add',
+      rule: {
+        id: 'ext-cookies',
+        pattern: '/login',
+        response: {
+          status: 200,
+          headers: { 'set-cookie': 'session=abc' },
+          headerValues: { 'set-cookie': ['session=abc; Path=/', 'consent=yes; Path=/'] },
+          body: '',
+        },
+        enabled: true,
+      },
+    }
+    const cmd = parseControlCommand(raw)
+    expect(cmd?.kind).toBe('mock.add')
+    if (cmd?.kind === 'mock.add') {
+      expect(cmd.rule.response.headers).toEqual({ 'set-cookie': 'session=abc' })
+      expect(cmd.rule.response.headerValues).toEqual({
+        'set-cookie': ['session=abc; Path=/', 'consent=yes; Path=/'],
+      })
+    }
+  })
+
+  test('mock.add without headerValues parses it undefined (old payload, unchanged)', () => {
+    const raw = {
+      kind: 'mock.add',
+      rule: {
+        id: 'ext-old',
+        pattern: '/x',
+        response: { status: 200, headers: { 'x-a': 'b' }, body: '' },
+        enabled: true,
+      },
+    }
+    const cmd = parseControlCommand(raw)
+    expect(cmd?.kind).toBe('mock.add')
+    if (cmd?.kind === 'mock.add') {
+      expect(cmd.rule.response.headerValues).toBeUndefined()
+    }
+  })
+
   test('mock.add with a declarative modify block', () => {
     const raw = {
       kind: 'mock.add',
@@ -212,6 +258,33 @@ describe('parseControlCommand — valid shapes', () => {
         block: undefined,
         modify: undefined,
         failure: { code: 'cannotConnectToHost' },
+        skipCount: undefined,
+        stopAfter: undefined,
+      },
+    })
+  })
+
+  test('mock.add headerValues — matches the pinned fixture (shared with Swift/Kotlin)', () => {
+    const cmd = parseControlCommand(readControlFixture('mock-add-header-values.json'))
+    expect(cmd).toEqual({
+      kind: 'mock.add',
+      rule: {
+        id: 'mck-login',
+        pattern: '/api/login',
+        method: undefined,
+        mode: undefined,
+        response: {
+          status: 200,
+          headers: { 'Set-Cookie': 'session=abc; Path=/' },
+          headerValues: { 'Set-Cookie': ['session=abc; Path=/', 'consent=yes; Path=/'] },
+          body: '{"ok":true}',
+          delay: undefined,
+        },
+        enabled: true,
+        redirectTo: undefined,
+        block: undefined,
+        modify: undefined,
+        failure: undefined,
         skipCount: undefined,
         stopAfter: undefined,
       },
@@ -461,6 +534,37 @@ describe('parseControlCommand — malformed shapes', () => {
     [
       'mock.add response bad body type',
       { kind: 'mock.add', rule: { id: 'a', pattern: 'x', response: { status: 200, body: 42 }, enabled: true } },
+    ],
+    [
+      'mock.add response headerValues not an object',
+      {
+        kind: 'mock.add',
+        rule: { id: 'a', pattern: 'x', response: { status: 200, body: '', headerValues: 'nope' }, enabled: true },
+      },
+    ],
+    [
+      'mock.add response headerValues with a non-array value',
+      {
+        kind: 'mock.add',
+        rule: {
+          id: 'a',
+          pattern: 'x',
+          response: { status: 200, body: '', headerValues: { 'set-cookie': 'not-an-array' } },
+          enabled: true,
+        },
+      },
+    ],
+    [
+      'mock.add response headerValues with a non-string entry',
+      {
+        kind: 'mock.add',
+        rule: {
+          id: 'a',
+          pattern: 'x',
+          response: { status: 200, body: '', headerValues: { 'set-cookie': ['ok', 42] } },
+          enabled: true,
+        },
+      },
     ],
     [
       'mock.add invalid mode',

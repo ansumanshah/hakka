@@ -26,6 +26,21 @@ export interface MockResponseContext {
 export interface MockResponse {
   status: number
   headers?: Record<string, string>
+  /**
+   * Additive, backward-compatible widening of `headers` for header names
+   * that carry more than one value on the wire — chiefly `Set-Cookie`,
+   * where RFC 6265 §3 forbids folding multiple values into one comma-joined
+   * field (a cookie's own `Expires` attribute can legally contain a comma,
+   * so a naive join is ambiguous/corrupt). `headers` still carries one
+   * representative value per name (old decoders/consumers keep working
+   * unchanged); when a name also appears here, `headerValues[name]` is the
+   * full ordered list and takes precedence when a runtime applies the
+   * response — see `capture/fetch.ts` / `capture/xhr.ts` for the two web
+   * apply sites, and the platform decoders (`ios/Sources/Common`,
+   * `android/hakka-network`, `packages/hakka-react-native/*`) for the
+   * native ones. Only header names with 2+ values need an entry here.
+   */
+  headerValues?: Record<string, string[]>
   body: string | object
   /** Artificial delay in ms before responding */
   delay?: number
@@ -236,6 +251,8 @@ export type NativeMockRulePayload = {
   method?: string
   status: number
   headers: Record<string, string>
+  /** See `MockResponse.headerValues` — same additive multi-value widening, carried across the native bridge. */
+  headerValues?: Record<string, string[]>
   body: string
   delayMs: number
   enabled: boolean
@@ -282,6 +299,7 @@ function toNativeRule(rule: MockRule): NativeMockRulePayload {
     method: rule.method,
     status: rule.response.status,
     headers: rule.response.headers ?? {},
+    headerValues: rule.response.headerValues,
     body: responseBodyToString(rule.response.body),
     delayMs,
     enabled: rule.enabled,
