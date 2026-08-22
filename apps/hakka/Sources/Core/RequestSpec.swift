@@ -39,6 +39,13 @@ public enum BodySpec: Sendable, Codable, Equatable {
     case graphql(query: String, variables: String, operationName: String?)
     /// Body read from a file at send time (large uploads never enter the collection file).
     case file(path: String, contentType: String)
+    /// A gRPC unary message (ADR 0012, phase 1 — raw mode only): `hex` is
+    /// hex- or base64-encoded protobuf message bytes exactly as sent on the
+    /// wire, decoded by `GrpcMessageBytesCodec`. Only meaningful for a
+    /// `grpc://`/`grpcs://` request (see `GrpcURL`) — the request editor's
+    /// Body tab offers this case only then, and every other case only
+    /// otherwise.
+    case grpcMessage(hex: String)
 
     public var contentTypeHeader: String? {
         switch self {
@@ -49,6 +56,11 @@ public enum BodySpec: Sendable, Codable, Equatable {
         case .multipart: "multipart/form-data"
         case .graphql: "application/json"
         case let .file(_, contentType): contentType
+        // `GrpcRunner` sends this over `GrpcTransport`, never as an HTTP
+        // header — this content type is only used for the synthetic
+        // `NetworkRequest` display record, matching what a real gRPC
+        // request's `Content-Type` looks like on the wire.
+        case .grpcMessage: "application/grpc"
         }
     }
 }

@@ -9,6 +9,9 @@ public enum RequestBodyEncodingError: Error, Equatable, Sendable {
     /// a pathological or adversarial candidate source fails loudly instead
     /// of silently shipping a corrupt multipart body.
     case boundaryGenerationFailed
+    /// A `.grpcMessage` editor value that is neither valid hex nor valid
+    /// base64 — see `GrpcMessageBytesCodec`.
+    case invalidGrpcMessageEncoding(String)
 }
 
 struct EncodedBody: Sendable, Equatable {
@@ -35,7 +38,24 @@ enum RequestBodyEncoder {
             try encodeGraphQL(query: query, variables: variables, operationName: operationName)
         case let .file(path, contentType):
             try encodeFile(path: path, contentType: contentType)
+        case let .grpcMessage(hex):
+            try encodeGrpcMessage(hex)
         }
+    }
+
+    // MARK: - gRPC message (ADR 0012)
+
+    /// Decodes the editor's hex-or-base64 text into the raw, unframed
+    /// message bytes `GrpcRunner` hands to `GrpcTransport` — gRPC's own
+    /// length-prefixed wire framing is added later, by `GrpcWireFraming`,
+    /// only for the synthetic display record, not here. An empty field
+    /// decodes to zero bytes (a legitimate empty message, e.g.
+    /// `google.protobuf.Empty`), not an error.
+    private static func encodeGrpcMessage(_ hex: String) throws(RequestBodyEncodingError) -> EncodedBody {
+        guard let data = GrpcMessageBytesCodec.decode(hex) else {
+            throw .invalidGrpcMessageEncoding(hex)
+        }
+        return EncodedBody(data: data, contentType: "application/grpc")
     }
 
     private static func encodeForm(_ pairs: [HeaderPair]) -> EncodedBody {

@@ -1,4 +1,4 @@
-// swift-tools-version: 6.0
+// swift-tools-version: 6.1
 import PackageDescription
 
 /// Hakka for macOS — a native desktop inspector and API client.
@@ -14,9 +14,16 @@ import PackageDescription
 /// agree with byte-for-byte, and HakkaUI carries the inspector views. Sharing
 /// the source is the whole point — a fork would drift the moment a bug is
 /// fixed on one side only.
+///
+/// `grpc-swift-2`/`grpc-swift-nio-transport` (ADR 0012 — gRPC sending, phase
+/// 1) are dependencies of `HakkaCore` **only**, never of `../../ios`: the
+/// capture SDK embeds inside a host app across five platforms and must stay
+/// dependency-free, while sending is a Mac-app-only capability. `GRPCCore`'s
+/// use of the `Synchronization` module is why the platform floor below is
+/// macOS 15, not 14.
 let package = Package(
     name: "HakkaApp",
-    platforms: [.macOS(.v14)],
+    platforms: [.macOS(.v15)],
     products: [
         .library(name: "HakkaCore", targets: ["HakkaCore"]),
         .library(name: "HakkaServer", targets: ["HakkaServer"]),
@@ -24,11 +31,17 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../../ios"),
+        .package(url: "https://github.com/grpc/grpc-swift-2.git", from: "2.4.2"),
+        .package(url: "https://github.com/grpc/grpc-swift-nio-transport.git", from: "2.9.2"),
     ],
     targets: [
         .target(
             name: "HakkaCore",
-            dependencies: [.product(name: "HakkaCommon", package: "ios")],
+            dependencies: [
+                .product(name: "HakkaCommon", package: "ios"),
+                .product(name: "GRPCCore", package: "grpc-swift-2"),
+                .product(name: "GRPCNIOTransportHTTP2Posix", package: "grpc-swift-nio-transport"),
+            ],
             path: "Sources/Core",
         ),
         .target(
@@ -47,7 +60,12 @@ let package = Package(
         ),
         .testTarget(
             name: "HakkaCoreTests",
-            dependencies: ["HakkaCore", "HakkaServer"],
+            dependencies: [
+                "HakkaCore",
+                "HakkaServer",
+                .product(name: "GRPCCore", package: "grpc-swift-2"),
+                .product(name: "GRPCNIOTransportHTTP2Posix", package: "grpc-swift-nio-transport"),
+            ],
             path: "Tests/CoreTests",
         ),
         .testTarget(
