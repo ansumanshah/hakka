@@ -268,7 +268,7 @@ public final class HakkaURLProtocol: URLProtocol, @unchecked Sendable {
             guard self.beginCompletion() else { return }
 
             let url = self.request.url ?? URL(string: "about:blank")!
-            let headerFields = rule.response.headers
+            let headerFields = rule.response.httpHeaderFields
             let httpResponse = HTTPURLResponse(
                 url: url,
                 statusCode: rule.response.status,

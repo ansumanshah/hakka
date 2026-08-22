@@ -25,6 +25,23 @@ func parseMockResponse(_ v: Any?) -> MockResponse? {
         }
     }
 
+    // Additive multi-value widening — see `MockResponse.headerValues`'s doc.
+    // Absent is valid (no multi-value headers on this response); mirrors
+    // `control.ts`'s `isHeaderValues`.
+    var headerValues: [String: [String]] = [:]
+    if let rawHeaderValues = obj["headerValues"], !(rawHeaderValues is NSNull) {
+        guard let headerValuesObj = asObject(rawHeaderValues) else { return nil }
+        for (k, v) in headerValuesObj {
+            guard let arr = v as? [Any], !arr.isEmpty else { return nil }
+            var values: [String] = []
+            for item in arr {
+                guard let s = item as? String else { return nil }
+                values.append(s)
+            }
+            headerValues[k] = values
+        }
+    }
+
     let body: String?
     switch obj["body"] {
     case let s as String:
@@ -52,7 +69,7 @@ func parseMockResponse(_ v: Any?) -> MockResponse? {
         delay = ms / 1000.0
     }
 
-    return MockResponse(status: status, headers: headers, body: body, delay: delay)
+    return MockResponse(status: status, headers: headers, headerValues: headerValues, body: body, delay: delay)
 }
 
 /// Validates the `MockRuleModify` shape (see `MockRuleModify.swift`) — plain
