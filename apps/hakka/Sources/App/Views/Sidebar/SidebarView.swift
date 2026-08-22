@@ -33,6 +33,13 @@ struct SidebarView: View {
             }
         }
         .listStyle(.sidebar)
+        // Artboard 8: sidebar background only — badges/rows above are
+        // untouched. `.scrollContentBackground(.hidden)` clears the default
+        // sidebar vibrancy so `chromeMaterial` (the single #available gate,
+        // see Shared/ChromeMaterial.swift) is what's actually showing
+        // through, on both sides of the macOS 26 line.
+        .scrollContentBackground(.hidden)
+        .background { Color.clear.chromeMaterial(.panel) }
         .navigationTitle(model.collection.collection.name)
         .toolbar {
             ToolbarItem {
@@ -71,7 +78,7 @@ struct SidebarView: View {
         }
         .buttonStyle(.plain)
         .padding(Spacing.md)
-        .background(.bar)
+        .chromeMaterial(.panel)
     }
 
     private var selectionBinding: Binding<SidebarSelection?> {
