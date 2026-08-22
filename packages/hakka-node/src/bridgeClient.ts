@@ -1,14 +1,31 @@
 /**
  * Node WebSocket client that streams captured records into the Hakka bridge hub
- * (`hakka-bridge`, ws://localhost:8989). Uses the same one-frame-per-request wire
- * shape as the browser `desktopBridge`: `{ type: 'request', payload }`. The hub
- * relays each frame to every other peer, so the browser overlay (also a peer)
- * receives the server captures and renders them alongside its own.
+ * (`hakka-bridge`, ws://localhost:8989 — the same port the Hakka desktop app's
+ * own embedded hub listens on, so this same client is what "desktop mode"
+ * uses: `startCapture({ embedBridge: false })` skips hosting a hub in this
+ * process and connects to whatever hub already owns that port). Uses the same
+ * one-frame-per-request wire shape as the browser `desktopBridge`:
+ * `{ type: 'request', payload }`. The hub relays each frame to every other
+ * peer, so the browser overlay (also a peer) receives the server captures and
+ * renders them alongside its own.
  *
  * Auto-reconnects with exponential backoff and queues records while offline so a
  * late-starting hub still receives the early server traffic.
+ *
+ * Also RECEIVES `{ type: 'control', payload }` frames from the hub — the same
+ * mock/breakpoint/throttle commands the browser overlay and RN's
+ * `HakkaBridge` already apply (see `hakka-browser`'s worker store and
+ * `hakka-react-native`'s `HakkaBridge._handleMessage`) — and applies them via
+ * `hakka-core`'s `parseControlCommand`/`applyControlCommand` against the
+ * process-wide `mockEngine`/`breakpointEngine`/`ThrottleEngine` singletons
+ * that `enableFetchInterceptor` already consults on every server-side
+ * `fetch()`. This is what lets a mock rule created in the Hakka desktop app
+ * mock a Next.js server-side `fetch` call, not just the browser's own calls.
+ * Parsing is strict and fails open (a malformed frame is ignored, never
+ * thrown) — matches every other control-command receiver in the codebase.
  */
 import './wsCompat'
+import { applyControlCommand, parseControlCommand } from 'hakka-core'
 import type { FrameworkSpan, LogEntry, NetworkRequest, StorageSnapshot } from 'hakka-core'
 import WebSocket from 'ws'
 
@@ -25,6 +42,15 @@ export interface BridgeClientOptions {
    * many records happen to be queued.
    */
   maxQueueBytes?: number
+  /**
+   * Apply `{ type: 'control' }` frames received from the hub (mock/
+   * breakpoint/throttle commands) to this process's engine singletons.
+   * Default `true` — matches the browser and React Native bridge clients,
+   * which always honor control frames from a connected hub/MCP. Set `false`
+   * to keep this client send-only (e.g. a test harness that wants to
+   * observe outbound frames without also being remote-controlled).
+   */
+  handleControl?: boolean
 }
 
 export interface BridgeClient {
@@ -73,6 +99,7 @@ interface QueuedFrame {
 export function createBridgeClient(opts: BridgeClientOptions = {}): BridgeClient {
   const url = opts.url ?? DEFAULT_BRIDGE_URL
   const maxQueueBytes = opts.maxQueueBytes ?? DEFAULT_MAX_QUEUE_BYTES
+  const handleControl = opts.handleControl !== false
   let ws: WebSocket | null = null
   let connected = false
   let closed = false
@@ -103,6 +130,29 @@ export function createBridgeClient(opts: BridgeClientOptions = {}): BridgeClient
       ws.send(frame)
     } catch {
       // Best-effort; a dead socket is handled by the reconnect logic above.
+    }
+  }
+
+  /**
+   * Parse and apply an inbound `{ type: 'control', payload }` frame from the
+   * hub. `parseControlCommand` is strict-and-null-safe (never throws), and
+   * `applyControlCommand` is fail-open against the engine singletons — so a
+   * malformed or unrecognised frame is silently ignored, same as every other
+   * control-command receiver (`hakka-browser`'s worker store,
+   * `hakka-react-native`'s `HakkaBridge`). Frames of any other `type` (a hub
+   * echoing our own `request`/`span`/… sends back, or a future kind this
+   * client doesn't know about) are ignored too — this client is not a
+   * generic message router.
+   */
+  const handleMessage = (data: WebSocket.RawData): void => {
+    try {
+      const raw = typeof data === 'string' ? data : data.toString('utf-8')
+      const msg = JSON.parse(raw) as { type?: unknown; payload?: unknown }
+      if (msg?.type !== 'control') return
+      const cmd = parseControlCommand(msg.payload)
+      if (cmd) applyControlCommand(cmd)
+    } catch {
+      // Malformed frame — never let a hostile/buggy hub crash capture.
     }
   }
 
@@ -154,6 +204,7 @@ export function createBridgeClient(opts: BridgeClientOptions = {}): BridgeClient
     })
     // 'error' is followed by 'close'; reconnect is handled there.
     socket.on('error', () => {})
+    if (handleControl) socket.on('message', handleMessage)
   }
 
   open()

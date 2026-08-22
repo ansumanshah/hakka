@@ -1,7 +1,7 @@
-import { afterEach, describe, expect, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import net from 'node:net'
 
-import type { NetworkRequest } from 'hakka-core'
+import { mockEngine, type NetworkRequest } from 'hakka-core'
 import { WebSocketServer, type WebSocket } from 'ws'
 
 import { createBridgeClient, type BridgeClient } from '../bridgeClient'
@@ -206,5 +206,95 @@ describe('createBridgeClient', () => {
     expect(ids.length).toBe(1000)
     expect(ids[0]).toBe('c5') // oldest 5 (c0..c4) evicted to hold the 1000 cap
     expect(ids[999]).toBe('c1004')
+  })
+})
+
+describe('createBridgeClient — inbound control frames', () => {
+  beforeEach(() => mockEngine.clearRules())
+  afterEach(() => mockEngine.clearRules())
+
+  test('a { type: control, payload: mock.add } frame from the hub lands the rule in mockEngine', async () => {
+    const port = await getFreePort()
+    const started = await startHub(port)
+    hub = started.wss
+
+    client = createBridgeClient({ url: `ws://localhost:${port}` })
+    await waitFor(() => client?.connected === true)
+
+    // The hub is the one side that sends control frames (it relays whatever
+    // the desktop app / MCP originated) — simulate that here by pushing one
+    // straight from the stub hub to every connected socket, same as
+    // `hakka-bridge`'s real relay does.
+    for (const socket of started.wss.clients) {
+      socket.send(
+        JSON.stringify({
+          type: 'control',
+          payload: {
+            kind: 'mock.add',
+            rule: {
+              id: 'bridge-control-test',
+              pattern: 'example.com/mocked',
+              enabled: true,
+              response: { status: 200, body: '{"mocked":true}' },
+            },
+          },
+        }),
+      )
+    }
+
+    await waitFor(() => mockEngine.getRules().some((r) => r.id === 'bridge-control-test'))
+    const rule = mockEngine.getRules().find((r) => r.id === 'bridge-control-test')
+    expect(rule?.pattern).toBe('example.com/mocked')
+    expect(rule?.response.status).toBe(200)
+  })
+
+  test('a malformed control frame is ignored, not thrown', async () => {
+    const port = await getFreePort()
+    const started = await startHub(port)
+    hub = started.wss
+
+    client = createBridgeClient({ url: `ws://localhost:${port}` })
+    await waitFor(() => client?.connected === true)
+
+    for (const socket of started.wss.clients) {
+      socket.send(JSON.stringify({ type: 'control', payload: { kind: 'mock.add', rule: { id: 'x' } } }))
+      socket.send('not json at all')
+    }
+
+    // Give both malformed frames a beat to be (mis)handled, then prove the
+    // client is still alive and usable — the real assertion is "no crash".
+    await new Promise((r) => setTimeout(r, 100))
+    client.send(makeRequest('still-alive'))
+    await waitFor(() => started.messages.some((m) => (m as { payload?: NetworkRequest }).payload?.id === 'still-alive'))
+    expect(mockEngine.getRules().some((r) => r.id === 'x')).toBe(false)
+  })
+
+  test('handleControl: false keeps the client send-only — a control frame from the hub is ignored', async () => {
+    const port = await getFreePort()
+    const started = await startHub(port)
+    hub = started.wss
+
+    client = createBridgeClient({ url: `ws://localhost:${port}`, handleControl: false })
+    await waitFor(() => client?.connected === true)
+
+    for (const socket of started.wss.clients) {
+      socket.send(
+        JSON.stringify({
+          type: 'control',
+          payload: {
+            kind: 'mock.add',
+            rule: {
+              id: 'should-not-apply',
+              pattern: 'example.com/x',
+              enabled: true,
+              response: { status: 200, body: '{}' },
+            },
+          },
+        }),
+      )
+    }
+
+    await new Promise((r) => setTimeout(r, 150))
+    expect(mockEngine.getRules().some((r) => r.id === 'should-not-apply')).toBe(false)
   })
 })
