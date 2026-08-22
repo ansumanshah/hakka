@@ -26,7 +26,7 @@ public struct WsMessage: Sendable, Codable, Equatable {
 }
 
 /// Direction of a WebSocket frame.
-@frozen public enum WsDirection: String, Sendable, Codable {
+public enum WsDirection: String, Sendable, Codable {
     case sent
     case received
 }
@@ -63,7 +63,7 @@ extension WsPayload: Codable {
 // MARK: - HttpMethod
 
 /// HTTP method for a network request.
-@frozen public enum HttpMethod: String, Sendable, Codable, CaseIterable {
+public enum HttpMethod: String, Sendable, Codable, CaseIterable {
     case get = "GET"
     case post = "POST"
     case put = "PUT"
@@ -79,7 +79,7 @@ extension WsPayload: Codable {
 }
 
 /// Source of the captured network request.
-@frozen public enum RequestSource: String, Sendable, Codable {
+public enum RequestSource: String, Sendable, Codable {
     case urlSession
     case jsFetch
     case jsXHR
@@ -343,7 +343,7 @@ public struct NetworkRequest: Sendable, Identifiable, Codable, Equatable {
 /// Which target captured a hop. Mirrors `RequestRuntime` in
 /// `packages/hakka-core/src/model/types.ts` exactly — do not add cases here
 /// without a matching TS case.
-@frozen public enum RequestRuntime: String, Sendable, Codable {
+public enum RequestRuntime: String, Sendable, Codable {
     case client
     case server
     case edge

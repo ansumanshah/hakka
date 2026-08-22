@@ -6,7 +6,7 @@ import Foundation
 public let recordSchemaVersion = 1
 public let recordSemconvVersion = "1.40.0"
 
-@frozen public enum RecordKind: String, Sendable, Codable {
+public enum RecordKind: String, Sendable, Codable {
     case networkRequest = "network.request"
     case frameMetric = "metric.frame"
     case memoryMetric = "metric.memory"

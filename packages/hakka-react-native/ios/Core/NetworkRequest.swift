@@ -29,7 +29,7 @@ public struct WsMessage: Sendable, Codable, Equatable {
 }
 
 /// Direction of a WebSocket frame.
-@frozen public enum WsDirection: String, Sendable, Codable {
+public enum WsDirection: String, Sendable, Codable {
     case sent
     case received
 }
@@ -66,7 +66,7 @@ extension WsPayload: Codable {
 // MARK: - HttpMethod
 
 /// HTTP method for a network request.
-@frozen public enum HttpMethod: String, Sendable, Codable, CaseIterable {
+public enum HttpMethod: String, Sendable, Codable, CaseIterable {
     case get = "GET"
     case post = "POST"
     case put = "PUT"
@@ -82,7 +82,7 @@ extension WsPayload: Codable {
 }
 
 /// Source of the captured network request.
-@frozen public enum RequestSource: String, Sendable, Codable {
+public enum RequestSource: String, Sendable, Codable {
     case urlSession
     case jsFetch
     case jsXHR
@@ -90,6 +90,10 @@ extension WsPayload: Codable {
     case mock
     /// Native URLSessionWebSocketTask capture (iOS 13+).
     case nativeWebSocket
+    /// A unary gRPC call originated by the Mac app's own request editor
+    /// (`GrpcRunner`, ADR 0012) — not a passive capture, the app is the
+    /// client. Desktop-only; no other platform emits this.
+    case grpcClient
 
     /// Human-readable display name for the source.
     public var displayName: String {
@@ -100,6 +104,7 @@ extension WsPayload: Codable {
         case .jsWebSocket: return "JS WebSocket"
         case .mock: return "Mock"
         case .nativeWebSocket: return "Native WebSocket"
+        case .grpcClient: return "gRPC"
         }
     }
 
@@ -111,6 +116,7 @@ extension WsPayload: Codable {
         case .jsXHR: return "xhr"
         case .jsWebSocket: return "websocket"
         case .nativeWebSocket: return "native_ws"
+        case .grpcClient: return "grpc_client"
         }
     }
 
@@ -130,6 +136,8 @@ extension WsPayload: Codable {
             self = .mock
         case "native_ws", "nativeWebSocket":
             self = .nativeWebSocket
+        case "grpc_client", "grpcClient":
+            self = .grpcClient
         default:
             throw DecodingError.dataCorruptedError(
                 in: container,
@@ -338,7 +346,7 @@ public struct NetworkRequest: Sendable, Identifiable, Codable, Equatable {
 /// Which target captured a hop. Mirrors `RequestRuntime` in
 /// `packages/hakka-core/src/model/types.ts` exactly — do not add cases here
 /// without a matching TS case.
-@frozen public enum RequestRuntime: String, Sendable, Codable {
+public enum RequestRuntime: String, Sendable, Codable {
     case client
     case server
     case edge
