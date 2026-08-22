@@ -132,7 +132,12 @@ the importer isn't given.
 
 - A second Swift package in the repo, built by `swift build` from
   `apps/hakka`, with its own test target (Swift Testing).
-- The macOS platform floor is 14.0, matching the existing package.
+- The macOS platform floor was 14.0 at landing, matching the existing package
+  (**Addendum 2026-08-22:** raised to macOS 15, see
+  [ADR 0012](/contributing/adr/0012-grpc-sending/). `GRPCCore`'s use of the
+  `Synchronization` module (`Mutex`) requires macOS 15+; the app was still
+  unreleased and unsigned, so there was no installed base on macOS 14 to
+  protect).
 - `HakkaUI` is iOS-first; views that are UIKit-gated are not reusable on
   macOS as-is. The app uses what is portable and builds native equivalents
   for the rest rather than weakening the iOS views with platform branches.

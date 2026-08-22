@@ -13,7 +13,7 @@ Hakka has four layers:
 1. Capture adapters collect raw facts from platform networking APIs.
 2. Capture processors redact, normalize, bound, and map facts into records.
 3. Stores and sinks retain records locally and expose snapshots to UI, export, desktop streaming, or user-provided transports.
-4. Optional UI surfaces inspect records in the app or in the Noodle desktop app.
+4. Optional UI surfaces inspect records in the app or in Hakka for macOS (`apps/hakka`).
 
 The base SDK is local-first. It does not upload data by default and does not depend on cloud observability SDKs.
 
@@ -40,21 +40,28 @@ hakka/
     Tests/HakkaTests/           Swift tests
 
   packages/
-    core/                    hakka-core — platform-neutral capture engine (one dep: fflate)
+    hakka-core/              hakka-core — platform-neutral capture engine (one dep: fflate)
                              + /test — capture-assertion helpers
-    react-native-hakka/      hakka-react-native — RN SDK + native bridge + JS fallback + UI + monitors
-    web/                     hakka-browser — browser overlay (Solid, Shadow DOM, Web Worker)
+    hakka-react-native/      hakka-react-native — RN SDK + native bridge + JS fallback + UI + monitors
+    hakka-browser/           hakka-browser — browser overlay (Solid, Shadow DOM, Web Worker)
                              + /elements/*, /react — standalone elements + React wrappers
-    hakka-node/              framework-agnostic Node server capture
+    hakka-node/              hakka-node — framework-agnostic Node server capture
                              + /next, /next/server, /next/client — full-stack Next.js capture
-    bridge/                  hakka-bridge — desktop WebSocket hub
+    hakka-bridge/            hakka-bridge — desktop WebSocket hub
     hakka-rozenite/          EXPERIMENTAL React Native DevTools panel via Rozenite
-    cli/                     hakka — `npx hakka init` setup
+    hakka/                   hakka — `npx hakka init` setup
                              + /mcp, `hakka mcp` — MCP server for AI agents
                              + /cdp, `hakka cdp` — Chrome DevTools Protocol capture
 
+  apps/
+    hakka/                   Hakka for macOS — native Swift/SwiftUI desktop app
+                             (SPM products HakkaDesktopCore, HakkaDesktopServer;
+                             see ADR 0008/0010, unreleased); consumes ios/Sources by path
+
   docs/                      public documentation website
 ```
+
+Package directory names match their published npm names (ADR 0005). `packages/hakka-bench` is an unpublished internal bench workspace, omitted above.
 
 `hakka-core` holds the canonical engine, record contract, and exporters. The RN,
 web, and Next.js packages consume it through injectable adapters so the engine
@@ -160,6 +167,15 @@ like the [MCP server](/mcp/overview/)) and keeps a replay buffer for late viewer
 Desktop streaming is **optional and off by default** in the mobile SDKs, but
 `hakka-node/next` embeds the hub in the dev server automatically (`embedBridge: true`)
 so server and client traffic land in one overlay with no separate process.
+
+**Addendum 2026-08-22:** Hakka for macOS (`apps/hakka`, see
+[ADR 0008](/contributing/adr/0008-desktop-plugin-products/)) ships a second
+hub implementation, `HakkaDesktopServer`, a Swift actor speaking the same
+wire protocol over `NWListener` with Bonjour discovery: a drop-in
+replacement for the Node hub for desktop users. The wire protocol also grew
+`console` and `storage` frame kinds alongside `request`/`span`/`control`
+([ADR 0011](/contributing/adr/0011-additive-wire-evolution/)); unknown frame
+kinds are dropped, not thrown, so older peers keep working unmodified.
 
 ## UI Policy
 

@@ -78,6 +78,14 @@ Use `bun run phase:verify:full` before claiming physical benchmark completion.
 - [ ] Expo development-build path is documented; Expo Go is explicitly not supported because Hakka ships native code.
 - [ ] Physical Android/iOS benchmark status is reported as verified or still open with exact blocker details.
 
+## Mac App (Hakka for macOS)
+
+- [ ] `version.env` bumped: `MARKETING_VERSION` matches the release, `BUILD_NUMBER` incremented (Apple rejects duplicate notarization uploads).
+- [ ] `apps/hakka/Scripts/sign-and-notarize.sh` completes: universal build, Developer ID signature with hardened runtime, notarization accepted, ticket stapled.
+- [ ] `spctl -a -t exec -vv Hakka.app` passes on the stapled bundle.
+- [ ] The zip opens on a machine that is not the build machine (quarantine flag intact) without right-click gymnastics.
+- [ ] macOS floor stated in release notes: 15+ (ADR 0012).
+
 ## Release Order
 
 Publish in dependency order so each package's pinned deps resolve:

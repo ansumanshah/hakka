@@ -1,9 +1,9 @@
 ---
 title: 'ADR 0003 — Embeddable components (P5 founding ADR)'
-description: Six framework-agnostic custom elements extracted from the Hakka Inspector shell, shipped as hakka-components (elements) and hakka-react (wrapper).
+description: Six framework-agnostic custom elements extracted from the Hakka Inspector shell, shipped from hakka-browser's /elements and /react subpaths.
 ---
 
-Status: Implemented · Date: 2026-07-11 · Amended by [ADR 0007](/contributing/adr/0007-solid-2-rc/)
+Status: Implemented · Date: 2026-07-11 · Amended by [ADR 0007](/contributing/adr/0007-solid-2-rc/) · Partially superseded by [ADR 0005](/contributing/adr/0005-package-consolidation/)
 
 > **Amendment (2026-08-16, ADR 0007):** the element machinery moved from
 > Solid 1.x's `solid-element` to Solid 2.0's `@solidjs/element`, and the
@@ -11,6 +11,15 @@ Status: Implemented · Date: 2026-07-11 · Amended by [ADR 0007](/contributing/a
 > `solid-element` below are the historical record of the original
 > implementation; the architecture, tags, props/events contract, and
 > registration guarantees they describe are unchanged.
+>
+> **Addendum 2026-08-22:** the standalone `hakka-components` and `hakka-react`
+> npm packages this ADR specs never published separately — ADR 0005 folded
+> them into `hakka-browser` before launch (`/elements/*` for the custom
+> elements, `/react` for the wrapper), same per-element builds, one fewer
+> package name. The six-element split, the headless view-model contract, and
+> the props/events contract below are unaffected; only the package boundary
+> changed. Deep-import paths referenced below as `hakka-components/*` are
+> `hakka-browser/elements/*` in the shipped code.
 
 ## Context
 

@@ -37,7 +37,7 @@ sessions), see the [Architecture Decision Records](/contributing/adr/).
 
 ## React Native Monitor UI Default
 
-- React Native UI is imported only from `react-native-hakka/ui`; the core `react-native-hakka` import stays UI-free.
+- React Native UI is imported only from `hakka-react-native/ui`; the core `hakka-react-native` import stays UI-free.
 - `hakka-ui` is 149 KB APK; the base SDK (`hakka-network + hakka-performance`) is 76 KB APK over the OkHttp baseline.
 - **Decision:** Recommend the React Native JS Monitor UI as the default RN surface. Keep Android native `hakka-ui` optional for native Android apps that explicitly want a platform inspector.
 - **Trigger to revisit:** Change only if longer runtime sessions show JS UI lag that the native UI avoids, or if the JS peer graph becomes materially heavier than the measured native UI artifact.
@@ -74,7 +74,7 @@ Expo SDK 56 introduced a more direct Apple native-module path built around Swift
 ## Expo Config Plugin
 
 - The React Native Android bridge compiles against Hakka Android artifacts as `compileOnly`, so Expo and bare React Native apps must provide app-level debug/release artifacts for native Android capture.
-- **Decision:** Ship `react-native-hakka/app.plugin.js` as an Expo config plugin that adds `hakka-network` for debug builds and `hakka-network-noop` for release builds during Expo prebuild.
+- **Decision:** Ship `hakka-react-native/app.plugin.js` as an Expo config plugin that adds `hakka-network` for debug builds and `hakka-network-noop` for release builds during Expo prebuild.
 - **Decision:** Keep Android performance collectors opt-in through the `androidPerformance` plugin option.
 - **Decision:** Keep `expo` as an optional peer dependency. Bare React Native users should not need to install Expo.
 - **Decision:** Keep `@react-native-clipboard/clipboard` as a required peer for this release because share/copy helpers are still exported from the core package surface.
@@ -83,7 +83,7 @@ Expo SDK 56 introduced a more direct Apple native-module path built around Swift
 
 ## Full-Stack (Server + Client) Request Inspection for Next.js
 
-- **Context:** `hakka-web` captures browser `fetch`/`XHR`/`WebSocket`. A Next.js app also makes outbound HTTP from the **server** (Server Components, Route Handlers, Server Actions, middleware). Developers want both sides in one inspector, the way a proxy (mitmproxy) would show everything — but without a proxy's cost.
+- **Context:** `hakka-browser` captures browser `fetch`/`XHR`/`WebSocket`. A Next.js app also makes outbound HTTP from the **server** (Server Components, Route Handlers, Server Actions, middleware). Developers want both sides in one inspector, the way a proxy (mitmproxy) would show everything — but without a proxy's cost.
 - **Decision: instrument in-process; do not build a proxy.** Patch `globalThis.fetch` and Node `http`/`https` inside the Next server runtime rather than routing traffic through an external MITM proxy.
   - **Rationale:** no CA cert / `NODE_EXTRA_CA_CERTS` / TLS re-decryption, no extra network hop, and the interceptor sees decrypted application-level data natively. It also captures _origin context_ (which route/component/action made the call) that a wire-level proxy cannot know. The capture engine (`hakka-core`) is already runtime-agnostic — `enableFetchInterceptor` patches `globalThis.fetch`, which exists in Node 18+ (undici) — so the browser interceptor runs server-side unchanged.
 - **Decision: integrate via Next's `instrumentation.ts` `register()` hook**, the same server-boot seam OpenTelemetry/Sentry use. A `hakka-next` package exposes `startServerCapture()` for that hook; the client overlay is unchanged.
@@ -101,3 +101,24 @@ Expo SDK 56 introduced a more direct Apple native-module path built around Swift
   - **v1.1:** SSE endpoint helper (no separate bridge process), `worker_thread` store on the server, edge-runtime capture.
   - **v2:** client↔server request correlation / trace waterfall via header propagation.
 - **Trigger to revisit:** revisit the proxy stance only if a use case needs traffic from processes Hakka cannot instrument (non-JS sidecars, third-party binaries) — there a local proxy lane could complement, not replace, in-process capture.
+
+## Dropping `@frozen` from Wire Enums
+
+- **Context:** `RecordKind` and the other wire-shape enums in `ios/Sources/Common/Contract.swift` / `NetworkRequest.swift` (mirrored in the generated `packages/hakka-react-native/ios/Core` copy) were marked `@frozen`. Swift's library evolution mode compiles a `@frozen` enum's exhaustive `switch` statements assuming no future case can ever be added — an assumption ADR 0011's additive-wire-evolution rule (new frame/record kinds ship as additive, unknown-tolerant) directly contradicts.
+- **Decision:** Remove `@frozen` from every wire enum in `Contract.swift` and `NetworkRequest.swift`. Consumers keep exhaustive switches with a `@unknown default` case rather than relying on the compiler to guarantee there is nothing left to handle.
+- **Rationale:** a case added under `@frozen` doesn't fail to compile — it silently traps at runtime for any client on a stale incremental build that still assumes the old case set, which is a worse failure mode than a compiler error. This was found the hard way while adding a wire case and is exactly the trap ADR 0011's "unknown kinds are dropped, not thrown" rule exists to avoid at the protocol level; the enum's own attribute was undermining that rule.
+- **Trigger to revisit:** re-add `@frozen` only if a wire enum is deliberately closed for good (no more cases, ever) and that guarantee is worth losing forward compatibility with older binaries.
+
+## Desktop macOS Floor: 14 → 15
+
+- **Context:** `apps/hakka` shipped on a macOS 14.0 floor (ADR 0008). Adding gRPC unary send (ADR 0012) pulled in `grpc-swift-2`, whose `GRPCCore` depends on the `Synchronization` module's `Mutex`, which requires macOS 15+.
+- **Decision:** Bump `apps/hakka/Package.swift`'s `platforms` from `.macOS(.v14)` to `.macOS(.v15)`.
+- **Rationale:** the app is unreleased and unsigned, so there is no installed base on macOS 14 to protect, and vendoring or avoiding `grpc-swift-2` just to hold a floor nobody depends on yet was not worth it. See [ADR 0012](/contributing/adr/0012-grpc-sending/) for the full gRPC-sending decision.
+- **Trigger to revisit:** only relevant again if a future macOS floor decision has to weigh a real installed base against a new hard dependency — this one didn't.
+
+## `test-web` / `verify` Pre-Build Hakka-Node and Hakka-Browser Dist
+
+- **Context:** `hakka-node`'s and `hakka-browser`'s test suites import each other's built `dist` output (and `hakka-core`'s, and `hakka-bridge`'s), not source. Running their tests without building first fails or silently tests stale dist.
+- **Decision:** `justfile`'s `test-web` recipe depends on `build-core build-bridge build-node build-browser` before running the four packages' test suites. `scripts/verify.sh` uses a separate `test-web-prebuilt` recipe (same test commands, no build deps) and pre-builds `hakka-core`/`hakka-bridge` once, sequentially, itself: rebuilding inside `verify`'s parallel phase was wiping `dist` mid-typecheck for a sibling leg.
+- **Rationale:** a shared build step run once beats every parallel leg racing to rebuild the same dependency's `dist` out from under each other.
+- **Trigger to revisit:** if the web/node packages move to testing against source directly (no dist import), the prebuild step and the `test-web`/`test-web-prebuilt` split both become unnecessary.
