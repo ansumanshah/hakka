@@ -74,7 +74,7 @@ so there is no installed base on macOS 14 to break.
 Trivially correct — the bytes on the wire are exactly the bytes typed, no
 inference. The power-user escape hatch every API client needs regardless of
 what else ships (Bruno/Postman's raw-body mode is the same idea). **Accepted
-for phase 1** — see below for why it is now the *only* mode, not one of two.
+for phase 1** — see below for why it is now the _only_ mode, not one of two.
 
 **B. Server reflection (`grpc.reflection.v1`/`v1alpha`) for JSON→proto
 message encoding**, per the original scope note's two-mode plan. **Cut
@@ -96,7 +96,7 @@ assumed:
    raw-mode-first) or pulling in `SwiftProtobuf` + generated descriptor types
    — either a real, non-trivial chunk of work, before any encoding.
 
-Doing both — minimal internal stream handling *and* hand-rolled descriptor
+Doing both — minimal internal stream handling _and_ hand-rolled descriptor
 parsing — to ship a feature that only populates two text fields (service,
 method) in an editor a user can type into directly, fails the "honest scoping
 beats a half-working encoder" bar this phase was scoped against. Phase 1
@@ -120,7 +120,7 @@ WebSocket's is — one request, one response, real metadata — so it reuses mor
   already puts on the HTTP/2 `:path` pseudo-header, so `GrpcTarget` just
   splits a real `URL`'s host/port/scheme/path; no new "service" or "method"
   field on `RequestSpec`.
-- **Metadata reuses `RequestSpec.headers`.** gRPC metadata *is* HTTP/2
+- **Metadata reuses `RequestSpec.headers`.** gRPC metadata _is_ HTTP/2
   headers at the wire level. The existing Headers tab, `HeaderPair`, and
   `RequestResolver`'s `{{variable}}` interpolation all apply with zero
   changes.
@@ -165,7 +165,7 @@ file) so a gRPC-originated record doesn't misreport itself as `.urlSession`.
 - `apps/hakka`'s deployment target moves to macOS 15 — see above.
 - Phase 1 ships **no** service/method discovery UI. A user who doesn't already
   know the service and method name must get them elsewhere (`grpcurl -plaintext
-  host:port list`, source, docs) and type `grpc://host:port/pkg.Service/Method`
+host:port list`, source, docs) and type `grpc://host:port/pkg.Service/Method`
   by hand. This is the honest cost of cutting reflection; phase 2 removes it.
 - Metadata tab is literally the Headers tab relabeled by context — a gRPC
   request's Auth/Tests/Scripts tabs stay visible but inert (no cookie jar,
@@ -209,7 +209,7 @@ timeout field.
   (status OK, status error, metadata echo) take real setup/teardown per test.
 
 No L-scale unknown remained once reflection was cut. Reflection (discovery
-*and* JSON encoding) is folded into phase 2's estimate rather than kept
+_and_ JSON encoding) is folded into phase 2's estimate rather than kept
 separate, per the reasoning above.
 
 ## Verification plan
@@ -234,4 +234,4 @@ separate, per the reasoning above.
   asserted.
 - `swift build && swift test --no-parallel` stays green; files under 200
   lines; `node scripts/ui-token-check.mjs` and `node
-  scripts/spec-drift-check.mjs` both pass.
+scripts/spec-drift-check.mjs` both pass.
