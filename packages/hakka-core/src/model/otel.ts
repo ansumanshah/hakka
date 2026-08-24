@@ -1,4 +1,5 @@
 import type { Exporter } from '../contract/exporter'
+import { deriveTraceId } from '../engine/traceparent'
 import {
   RECORD_SCHEMA_VERSION,
   RECORD_SEMCONV_VERSION,
@@ -151,7 +152,14 @@ function networkRecordToSpan(record: NetworkRecord): OtelSpan {
   })
 
   return {
-    spanId: record.id,
+    // `request.correlationId` is what an OTel-instrumented next hop was handed via the
+    // traceparent header (engine/traceparent.ts) — deriving the same trace-id here is what
+    // lets this span join that trace instead of arriving orphaned.
+    traceId: request.correlationId ? deriveTraceId(request.correlationId) : undefined,
+    // `record.id` (`network-<uuid>`) is not a valid OTel span id (16 lowercase hex chars) —
+    // derive one instead of reusing it verbatim, matching deriveTraceId's fallback for a
+    // non-hex/non-UUID input, halved to spanId's 8-byte width.
+    spanId: deriveTraceId(record.id).slice(0, 16),
     name: `${request.method} ${request.url}`,
     kind: 'client',
     startTimeUnixNano: millisToUnixNano(startTime),

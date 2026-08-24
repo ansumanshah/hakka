@@ -149,6 +149,21 @@ describe('scrubBodyForShare', () => {
   test('malformed JSON falls back to pattern scan without throwing', () => {
     expect(() => scrubBodyForShare(`{not json, Bearer ${SECRET}`)).not.toThrow()
   })
+
+  // Built as a raw string, not an object literal: `{ __proto__: v }` in JS source sets the
+  // prototype rather than creating an own property, which would mask the bug this test pins.
+  // JSON.parse (unlike an object literal) creates a genuine own "__proto__" property.
+  test('a "__proto__" key survives scrubbing as an own property, not a prototype reassignment', () => {
+    const body = '{"__proto__":{"polluted":true},"name":"alice"}'
+    const { body: scrubbedBody, removed } = scrubBodyForShare(body, { extraJsonFields: ['polluted'] })
+    const result = JSON.parse(scrubbedBody!) as Record<string, unknown>
+
+    expect(Object.prototype.hasOwnProperty.call(result, '__proto__')).toBe(true)
+    expect(result.name).toBe('alice')
+    expect(removed.some((r) => r.category === 'jsonField')).toBe(true)
+    // A sibling object's prototype must be unaffected by the rebuild.
+    expect(Object.getPrototypeOf({})).toBe(Object.prototype)
+  })
 })
 
 describe('scrubNetworkRequestForShare — the point of the whole task', () => {
@@ -184,6 +199,47 @@ describe('scrubNetworkRequestForShare — the point of the whole task', () => {
   test('returns an empty removal list for a request with nothing to scrub', () => {
     const request = baseRequest({ requestBody: JSON.stringify({ id: 1 }) })
     const { removed } = scrubNetworkRequestForShare(request)
+    expect(removed).toEqual([])
+  })
+
+  test('scrubs a matching field inside request.graphql.variables', () => {
+    const request = baseRequest({
+      graphql: {
+        operationName: 'Login',
+        operationType: 'mutation',
+        variables: { password: SECRET, username: 'ansuman' },
+      },
+    })
+
+    const { request: scrubbed, removed } = scrubNetworkRequestForShare(request)
+
+    expect(scrubbed.graphql?.variables?.password).toBe('[REDACTED]')
+    expect(scrubbed.graphql?.variables?.username).toBe('ansuman')
+    expect(JSON.stringify(scrubbed)).not.toContain(SECRET)
+    expect(removed.some((r) => r.category === 'jsonField')).toBe(true)
+  })
+
+  test('pattern-scans a string leaf in graphql.variables under an unlisted field name', () => {
+    const request = baseRequest({
+      graphql: {
+        operationType: 'mutation',
+        variables: { note: `token was Bearer ${SECRET}` },
+      },
+    })
+
+    const { request: scrubbed } = scrubNetworkRequestForShare(request)
+
+    expect(JSON.stringify(scrubbed)).not.toContain(SECRET)
+  })
+
+  test('leaves graphql untouched when there is nothing to scrub in variables', () => {
+    const request = baseRequest({
+      graphql: { operationType: 'query', variables: { id: 1 } },
+    })
+
+    const { request: scrubbed, removed } = scrubNetworkRequestForShare(request)
+
+    expect(scrubbed.graphql).toEqual(request.graphql)
     expect(removed).toEqual([])
   })
 

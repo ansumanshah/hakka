@@ -21,6 +21,17 @@ export function getBodyRedactionFields(): string[] {
   return configuredFields
 }
 
+/**
+ * Set `k` as an own property of `obj`, even when `k` is the literal string `"__proto__"` —
+ * plain assignment (`obj[k] = v`) routes that key through `Object.prototype`'s `__proto__`
+ * accessor ([[Set]]) instead of creating an own property, silently reassigning `obj`'s
+ * prototype and dropping the key from the rebuilt object entirely. `defineProperty` creates
+ * the own property directly, bypassing the inherited accessor.
+ */
+function setOwn(obj: Record<string, unknown>, k: string, v: unknown): void {
+  Object.defineProperty(obj, k, { value: v, writable: true, enumerable: true, configurable: true })
+}
+
 /** Replace values of keys matching `fields` (lowercased) with the redaction placeholder. `depth` bounds recursion against stack overflow on pathological input. */
 function redactValue(value: unknown, fields: string[], depth: number): unknown {
   if (depth > MAX_DEPTH) return value
@@ -33,9 +44,9 @@ function redactValue(value: unknown, fields: string[], depth: number): unknown {
     const result: Record<string, unknown> = {}
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
       if (fields.includes(k.toLowerCase())) {
-        result[k] = REDACTION_PLACEHOLDER
+        setOwn(result, k, REDACTION_PLACEHOLDER)
       } else {
-        result[k] = redactValue(v, fields, depth + 1)
+        setOwn(result, k, redactValue(v, fields, depth + 1))
       }
     }
     return result

@@ -81,7 +81,85 @@ export function enableXHRInterceptor(
     }
   }
 
+  /**
+   * completeMockedXHR (below) shadows readyState/status/responseText/response as own
+   * instance properties, which — once defined — sit in front of a real XHR's getter-only
+   * prototype accessors for the lifetime of the instance. open() is the WHATWG-mandated
+   * reset point for a request cycle, so any shadow left by a previous mocked completion on
+   * a REUSED xhr instance must be cleared here; otherwise a later real (or differently
+   * mocked) request on the same instance would keep reading the stale mocked values forever.
+   */
+  function clearMockedXHRShadow(xhr: XMLHttpRequest): void {
+    for (const prop of ['readyState', 'status', 'responseText', 'response'] as const) {
+      if (Object.prototype.hasOwnProperty.call(xhr, prop)) {
+        try {
+          delete (xhr as unknown as Record<string, unknown>)[prop]
+        } catch {
+          /* best-effort — non-configurable in some environments; matches completeMockedXHR's own guard */
+        }
+      }
+    }
+  }
+
+  /**
+   * Mock-serve never calls savedSend, so the live `xhr` never naturally advances past OPENED
+   * and no completion event ever fires — a caller awaiting its own onload/readystatechange
+   * (the primary use case for a mocked response) would hang forever. Shadows readyState/
+   * status/responseText/response as own instance properties (plain assignment throws against
+   * a real XHR's getter-only prototype accessors) and dispatches the completion events, so
+   * the caller resolves exactly as it would for a real response. Mirrors the block/failure
+   * branches' synthetic 'error' event below, but for a successful mock outcome.
+   *
+   * .response/.responseText are typed per responseType, mirroring the real-response capture
+   * path further down (the `xhr.addEventListener('loadend', ...)` handler): '' / 'text' get
+   * the raw string on both; 'json' gets a parsed value on .response only — .responseText is
+   * left unshadowed so a real XHR's prototype getter still throws InvalidStateError for it,
+   * per spec. 'blob' / 'arraybuffer' get a best-effort conversion of the mock body.
+   */
+  function completeMockedXHR(xhr: XMLHttpRequest, status: number, bodyStr: string): void {
+    try {
+      Object.defineProperty(xhr, 'readyState', { value: 4, configurable: true })
+      Object.defineProperty(xhr, 'status', { value: status, configurable: true })
+
+      const responseType = xhr.responseType
+      if (responseType === '' || responseType === 'text') {
+        Object.defineProperty(xhr, 'responseText', { value: bodyStr, configurable: true })
+        Object.defineProperty(xhr, 'response', { value: bodyStr, configurable: true })
+      } else if (responseType === 'json') {
+        let parsed: unknown = null
+        try {
+          parsed = JSON.parse(bodyStr)
+        } catch {
+          /* malformed mock body — .response stays null, same as a real JSON parse failure */
+        }
+        Object.defineProperty(xhr, 'response', { value: parsed, configurable: true })
+      } else if (responseType === 'blob' && typeof Blob !== 'undefined') {
+        Object.defineProperty(xhr, 'response', { value: new Blob([bodyStr]), configurable: true })
+      } else if (responseType === 'arraybuffer' && typeof TextEncoder !== 'undefined') {
+        Object.defineProperty(xhr, 'response', {
+          value: new TextEncoder().encode(bodyStr).buffer,
+          configurable: true,
+        })
+      } else {
+        // Unknown/unsupported responseType in this environment — best-effort raw string,
+        // matching the interceptor's prior (pre-fix) behavior for every type.
+        Object.defineProperty(xhr, 'response', { value: bodyStr, configurable: true })
+      }
+    } catch {
+      /* best-effort — some environments may reject shadowing these; the onRequest record still captured the mock */
+    }
+    ;(xhr as unknown as { _fire?: (e: string) => void })._fire?.('readystatechange')
+    ;(xhr as unknown as { _fire?: (e: string) => void })._fire?.('load')
+    ;(xhr as unknown as { _fire?: (e: string) => void })._fire?.('loadend')
+    xhr.dispatchEvent?.(new Event('readystatechange'))
+    if (typeof ProgressEvent !== 'undefined') {
+      xhr.dispatchEvent?.(new ProgressEvent('load'))
+      xhr.dispatchEvent?.(new ProgressEvent('loadend'))
+    }
+  }
+
   XMLHttpRequest.prototype.open = function (method: string, url: string | URL) {
+    clearMockedXHRShadow(this)
     const rawUrl = typeof url === 'string' ? url : url.toString()
     // Absolutize relative URLs against the page — same reasoning as fetch.ts's absolutizeUrl.
     let urlStr = rawUrl
@@ -337,6 +415,7 @@ export function enableXHRInterceptor(
         } catch {
           /* never break the real request */
         }
+        completeMockedXHR(xhr, mockRule.response.status, bodyStr)
       }
 
       const delay = Math.min(mockRule.response.delay ?? 0, 30_000)
@@ -567,17 +646,31 @@ export function enableXHRInterceptor(
           const e = action.edits as
             | Partial<{ url: string; method: string; headers: Record<string, string>; body: string | null }>
             | undefined
+          let reopened = false
           if (e?.url != null && e.url !== state.url) {
             state.url = e.url
             // Re-open with the new URL so the real request goes to the edited target
             savedOpen.call(xhr, state.method, state.url)
+            reopened = true
           }
           if (e?.method != null) {
             state.method = e.method.toUpperCase() as HttpMethod
             savedOpen.call(xhr, state.method, state.url)
+            reopened = true
           }
-          if (e?.headers != null) {
-            // Replay captured request headers on the re-opened connection
+          if (reopened) {
+            // savedOpen() resets the XHR's author request header list per the WHATWG spec —
+            // replay every header the caller originally set (state.rawRequestHeaders) so a
+            // URL/method-only edit doesn't silently drop Content-Type/Authorization/etc.,
+            // then apply any header edits from the breakpoint action on top.
+            const headersToReplay: Record<string, string> = { ...state.rawRequestHeaders, ...e?.headers }
+            for (const [k, v] of Object.entries(headersToReplay)) {
+              savedSetHeader.call(xhr, k, v)
+              state.rawRequestHeaders[k] = v
+              state.requestHeaders[k] = isSensitiveHeader(k, redactHeaders) ? '[REDACTED]' : v
+            }
+          } else if (e?.headers != null) {
+            // Not re-opened — the connection's existing headers are untouched; replay only the edits.
             for (const [k, v] of Object.entries(e.headers)) {
               savedSetHeader.call(xhr, k, v)
               state.requestHeaders[k] = isSensitiveHeader(k, redactHeaders) ? '[REDACTED]' : v

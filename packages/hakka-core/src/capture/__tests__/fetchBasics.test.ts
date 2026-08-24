@@ -65,6 +65,28 @@ describe('fetch interceptor — success two-phase emission', () => {
   })
 })
 
+describe('fetch interceptor — Request-input method', () => {
+  test('records the method from a Request object when no init override is given', async () => {
+    globalThis.fetch = (async (_input: unknown, _init?: RequestInit) =>
+      new Response('{"ok":true}', {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })) as typeof globalThis.fetch
+
+    const records: NetworkRequest[] = []
+    const dispose = enableFetchInterceptor((r) => records.push(r), 1_000_000, [])
+    try {
+      const req = new Request('https://api.example.com/data', { method: 'POST' })
+      await globalThis.fetch(req)
+
+      expect(records).toHaveLength(1)
+      expect(records[0]!.method).toBe('POST')
+    } finally {
+      dispose()
+    }
+  })
+})
+
 describe('fetch interceptor — error capture', () => {
   test('a genuine network-level rejection (not a Hakka prologue throw) is captured with status null', async () => {
     globalThis.fetch = (async () => {

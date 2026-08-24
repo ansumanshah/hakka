@@ -166,7 +166,9 @@ export function enableFetchInterceptor(
     // Best-effort Hakka work on user-controlled input/config (redaction regexes, mock matchers,
     // exotic Headers) — any throw here fails OPEN to the app's original, uncaptured request.
     let traceId: string | undefined
-    let method: HttpMethod = (init?.method ?? 'GET').toUpperCase() as HttpMethod
+    let method: HttpMethod = (
+      init?.method ?? (input instanceof Request ? input.method : 'GET')
+    ).toUpperCase() as HttpMethod
     let requestHeaders: Record<string, string> = {}
     const rawRequestHeaders: Record<string, string> = {}
     let requestBodySize = 0
@@ -651,7 +653,11 @@ export function enableFetchInterceptor(
         redirectUrls,
         networkProtocol,
       }
-      onRequest(request)
+      try {
+        onRequest(request)
+      } catch {
+        /* never break the real request */
+      }
 
       // Skip the body clone where cloning is harmful — application/wasm: clone() makes the
       // browser re-fetch the module and breaks WebAssembly.instantiateStreaming(). Plain
@@ -753,7 +759,11 @@ export function enableFetchInterceptor(
         initiator,
         graphql,
       }
-      onRequest(request)
+      try {
+        onRequest(request)
+      } catch {
+        /* never break the real request */
+      }
       throw err
     }
   }

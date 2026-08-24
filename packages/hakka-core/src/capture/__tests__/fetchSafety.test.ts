@@ -136,4 +136,40 @@ describe('fetch interceptor — fail-open', () => {
       dispose()
     }
   })
+
+  it('a throwing listener does not turn a successful response into a rejected fetch (headers-received emission)', async () => {
+    globalThis.fetch = makeStubFetch('real-body') as typeof globalThis.fetch
+    const dispose = enableFetchInterceptor(
+      () => {
+        throw new Error('listener boom')
+      },
+      1_000_000,
+      [],
+    )
+    try {
+      const res = await globalThis.fetch('https://example.com/headers-received')
+      expect(await res.text()).toBe('real-body')
+    } finally {
+      dispose()
+    }
+  })
+
+  it('a throwing listener does not replace the real network error (error-path emission)', async () => {
+    const networkError = new Error('network down')
+    globalThis.fetch = (async () => {
+      throw networkError
+    }) as typeof globalThis.fetch
+    const dispose = enableFetchInterceptor(
+      () => {
+        throw new Error('listener boom')
+      },
+      1_000_000,
+      [],
+    )
+    try {
+      await expect(globalThis.fetch('https://example.com/error-path')).rejects.toBe(networkError)
+    } finally {
+      dispose()
+    }
+  })
 })

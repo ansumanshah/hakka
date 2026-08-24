@@ -272,6 +272,18 @@ function scrubPatternsInText(text: string, options: ShareScrubOptions): { text: 
   return { text: out, removed }
 }
 
+/**
+ * Set `k` as an own property of `obj`, even when `k` is the literal string `"__proto__"` —
+ * plain assignment (`obj[k] = v`) routes that key through `Object.prototype`'s `__proto__`
+ * accessor ([[Set]]) instead of creating an own property, silently reassigning `obj`'s
+ * prototype and dropping the key from the rebuilt object entirely. `defineProperty` creates
+ * the own property directly, bypassing the inherited accessor. Mirrors `bodyRedaction.ts`'s
+ * identical helper.
+ */
+function setOwn(obj: Record<string, unknown>, k: string, v: unknown): void {
+  Object.defineProperty(obj, k, { value: v, writable: true, enumerable: true, configurable: true })
+}
+
 /** Walk parsed JSON, blanking values of scrub-listed field names and pattern-scanning every remaining string leaf. `depth` bounds recursion against pathological/hostile input, matching `bodyRedaction.ts`'s guard. */
 function scrubJsonValue(
   value: unknown,
@@ -290,10 +302,10 @@ function scrubJsonValue(
     const result: Record<string, unknown> = {}
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
       if (fieldNames.has(k.toLowerCase())) {
-        result[k] = REDACTION_PLACEHOLDER
+        setOwn(result, k, REDACTION_PLACEHOLDER)
         mergeRemovals(removed, 'jsonField', 1)
       } else {
-        result[k] = scrubJsonValue(v, fieldNames, options, removed, depth + 1)
+        setOwn(result, k, scrubJsonValue(v, fieldNames, options, removed, depth + 1))
       }
     }
     return result
@@ -376,6 +388,22 @@ export function scrubNetworkRequestForShare(
   const { body: responseBody, removed: resBodyRemoved } = scrubBodyForShare(request.responseBody, options)
   for (const r of resBodyRemoved) mergeRemovals(removed, r.category, r.count)
 
+  // GraphQL variables are already-parsed JSON (not a serialized body string), so they
+  // bypass scrubBodyForShare's JSON.parse path entirely — scrub them the same way a
+  // parsed JSON body would be, or a mutation's password/token argument survives verbatim.
+  let graphql = request.graphql
+  if (graphql?.variables !== undefined) {
+    const gqlFieldNames = new Set(
+      [...DEFAULT_SHARE_SCRUB_JSON_FIELDS, ...(options.extraJsonFields ?? [])].map((f) => f.toLowerCase()),
+    )
+    const gqlRemoved: ShareScrubRemoval[] = []
+    const scrubbedVariables = scrubJsonValue(graphql.variables, gqlFieldNames, options, gqlRemoved, 0)
+    for (const r of gqlRemoved) mergeRemovals(removed, r.category, r.count)
+    if (gqlRemoved.length > 0) {
+      graphql = { ...graphql, variables: scrubbedVariables as Record<string, unknown> }
+    }
+  }
+
   const scrubbed: NetworkRequest = {
     ...request,
     url,
@@ -384,6 +412,7 @@ export function scrubNetworkRequestForShare(
     ...(request.responseHeaderValues !== undefined ? { responseHeaderValues } : {}),
     ...(request.requestBody !== undefined ? { requestBody } : {}),
     ...(request.responseBody !== undefined ? { responseBody } : {}),
+    ...(graphql !== request.graphql ? { graphql } : {}),
   }
 
   return { request: scrubbed, removed }

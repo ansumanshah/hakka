@@ -55,7 +55,11 @@ class FakeXHR {
   __skipAutoFire = false
   __sendSpy: ReturnType<typeof mock> | null = null
 
-  open(_method: string, _url: string) {}
+  open(_method: string, _url: string) {
+    // Per the WHATWG spec, open() resets the author request header list — model that so a
+    // breakpoint resume's re-open() realistically drops headers that aren't replayed.
+    this._reqHeaders.clear()
+  }
 
   send(data?: unknown) {
     if (this.__sendSpy) this.__sendSpy(data)
@@ -273,6 +277,29 @@ describe('enableXHRInterceptor', () => {
     xhr.send('{}')
   })
 
+  it('mock-mode advances the live xhr to DONE and fires load/loadend so a caller awaiting completion resolves', (done) => {
+    mockEngine.addRule({
+      pattern: 'api.example.com/mocked-completion',
+      response: { status: 201, body: '{"mocked":true}' },
+      enabled: true,
+    })
+
+    dispose = enableXHRInterceptor(() => {}, 262_144, [])
+
+    const xhr = new XMLHttpRequest() as unknown as FakeXHR
+    xhr.__skipAutoFire = true
+    xhr.open('GET', 'https://api.example.com/mocked-completion')
+    xhr.addEventListener('load', () => {
+      // A caller reading these off the live xhr (the primary way app code resolves an
+      // in-flight XHR) must see the mocked completion, not the pre-send defaults.
+      expect(xhr.readyState).toBe(4)
+      expect(xhr.status).toBe(201)
+      expect(xhr.responseText).toBe('{"mocked":true}')
+      done()
+    })
+    xhr.send()
+  })
+
   // A block-only rule previously fell through to the mock-serve branch (isRewrite() is false
   // for it) and was SERVED instead of aborted, unlike fetch.ts's block handling.
   it('block-only rule aborts the request with a network error and never calls real send', (done) => {
@@ -369,6 +396,36 @@ describe('enableXHRInterceptor', () => {
     }, 10)
 
     xhr.send()
+  })
+
+  it('resume with a URL edit replays the caller-set headers on the re-opened connection', (done) => {
+    breakpointEngine.clearBreakpoints()
+    breakpointEngine.addBreakpoint({ pattern: '/bp-headers', on: 'request', enabled: true })
+
+    dispose = enableXHRInterceptor(() => {}, 262_144, [])
+
+    const xhr = new XMLHttpRequest() as unknown as FakeXHR
+    xhr.__skipAutoFire = true
+    xhr.open('POST', 'https://api.example.com/bp-headers')
+    xhr.setRequestHeader('Content-Type', 'application/json')
+    xhr.setRequestHeader('Authorization', 'Bearer original-token')
+
+    setTimeout(() => {
+      const paused = breakpointEngine.getPaused()
+      expect(paused.length).toBe(1)
+
+      xhr.__skipAutoFire = false
+      // URL-only edit — no header edit — must not lose the headers set before the pause.
+      breakpointEngine.resume(paused[0]!.id, { url: 'https://api.example.com/bp-headers-edited' })
+
+      setTimeout(() => {
+        expect(xhr.getRequestHeader('Content-Type')).toBe('application/json')
+        expect(xhr.getRequestHeader('Authorization')).toBe('Bearer original-token')
+        done()
+      }, 10)
+    }, 10)
+
+    xhr.send('{}')
   })
 
   it('emits error record and skips real send on breakpoint abort', (done) => {

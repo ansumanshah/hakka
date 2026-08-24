@@ -169,6 +169,30 @@ describe('redactJsonBody — depth guard', () => {
   })
 })
 
+describe('redactValue — literal "__proto__" key', () => {
+  // Built as a raw string, not an object literal: `{ __proto__: v }` in JS source sets the
+  // prototype rather than creating an own property, which would mask the bug this test
+  // pins. JSON.parse (unlike an object literal) creates a genuine own "__proto__" property.
+  test('a "__proto__" key survives redaction as an own property, not a prototype reassignment', () => {
+    const body = '{"__proto__":{"polluted":true},"name":"alice"}'
+    const result = JSON.parse(redactJsonBody(body, ['password']) as string) as Record<string, unknown>
+
+    expect(Object.prototype.hasOwnProperty.call(result, '__proto__')).toBe(true)
+    expect(result.__proto__).toEqual({ polluted: true })
+    expect(result.name).toBe('alice')
+    // A sibling object's prototype must be unaffected by the rebuild.
+    expect(Object.getPrototypeOf({})).toBe(Object.prototype)
+  })
+
+  test('a "__proto__" key that matches a redacted field name is blanked, not silently dropped', () => {
+    const body = '{"__proto__":"leak-me"}'
+    const result = JSON.parse(redactJsonBody(body, ['__proto__']) as string) as Record<string, unknown>
+
+    expect(Object.prototype.hasOwnProperty.call(result, '__proto__')).toBe(true)
+    expect(result.__proto__).toBe('[REDACTED]')
+  })
+})
+
 describe('redactJsonBody — uses module-level config', () => {
   test('uses configured fields when no fields arg supplied', () => {
     configureBodyRedaction(['password'])
