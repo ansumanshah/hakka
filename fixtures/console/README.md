@@ -3,10 +3,19 @@
 Pinned JSON payloads for the `console` bridge frame kind
 (`{ "type": "console", "payload": LogEntry[] }`) — mirrors the precedent set
 by `fixtures/span/` and `fixtures/control/`: one shared file per wire
-shape/edge case, read by every runtime's tests (TypeScript in
-`packages/hakka-bridge`, Swift in `ios/Tests/HakkaTests` and
-`apps/hakka/Tests/CoreTests`) so a shape change in one runtime's decoder
-fails the others' tests instead of drifting silently.
+shape/edge case, intended to be read by every runtime's tests so a shape
+change in one runtime's decoder fails the others' tests instead of drifting
+silently.
+
+**Status:** TypeScript is wired —
+`packages/hakka-bridge/src/__tests__/consoleStorageFixtures.test.ts` reads
+every file here and decodes it through `parseBridgeMessage`. Swift
+(`ios/Tests/HakkaTests`) and Kotlin
+(`android/hakka-common/src/test/kotlin/...`) are **not** — their existing
+console tests hand-type literal values that happen to match these files
+rather than reading them, so a shape change there won't yet fail loudly here.
+`fixtures/control/`'s `ControlFixtures.swift`/`.kt` are the pattern to follow
+when someone picks that up.
 
 Every field matches `LogEntry`/`LogLevel` in
 `packages/hakka-core/src/log/types.ts` exactly — this is the SDK's existing
