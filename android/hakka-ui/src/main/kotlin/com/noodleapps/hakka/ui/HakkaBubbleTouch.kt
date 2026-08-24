@@ -7,6 +7,7 @@ import android.view.View
 import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
 import android.animation.ValueAnimator
+import androidx.core.view.ViewCompat
 
 // ── Touch handling ───────────────────────────────────────────────────
 //
@@ -71,10 +72,11 @@ internal fun HakkaBubble.bubbleTouchListener(activity: Activity) = View.OnTouchL
             } else {
                 val elapsed = System.currentTimeMillis() - touchStartTime
                 if (elapsed < TAP_TIMEOUT_MS) {
-                    // Tap -> expand/collapse the inline HUD in place. Never opens
-                    // the inspector — that's long-press's job (LongPressListener).
-                    Haptics.light(activity)
-                    setExpanded(activity, uiState == BubbleUiState.COLLAPSED)
+                    // Tap -> expand/collapse the inline HUD in place. Routed through
+                    // performClick() (handled by the OnClickListener set in attach())
+                    // rather than calling setExpanded() directly, so a TalkBack/Voice
+                    // Access synthesized ACTION_CLICK reaches the same code path.
+                    view.performClick()
                 }
                 // else: held past the tap window but never moved and never long-
                 // pressed (still short of GestureDetector's own timer) — no-op.
@@ -88,6 +90,38 @@ internal fun HakkaBubble.bubbleTouchListener(activity: Activity) = View.OnTouchL
         }
 
         else -> false
+    }
+}
+
+// ── Accessibility ────────────────────────────────────────────────────
+//
+// The touch handling above is a raw OnTouchListener, so TalkBack/Voice Access
+// get nothing for free: a synthesized ACTION_CLICK only reaches
+// view.performClick() (called from the tap branch above) because we register
+// an OnClickListener here — same tap -> expand/collapse behavior as the touch
+// path. Long-press (open inspector) and drag-into-hide-zone (dismiss) have no
+// click equivalent, so they're exposed as custom accessibility actions via
+// ViewCompat.addAccessibilityAction — NOT a hand-rolled AccessibilityDelegate keyed
+// by View.generateViewId(). generateViewId() hands out small sequential integers
+// (1, 2, 3, ...) starting fresh each process, which collide with
+// AccessibilityNodeInfo's standard legacy action ints occupying that exact low
+// range (ACTION_FOCUS=1, ACTION_CLEAR_FOCUS=2, ACTION_CLICK=16, ...). ViewCompat
+// allocates custom-action IDs from a reserved high range (0x3f000000+) instead, so
+// they can never shadow a standard action.
+
+internal fun HakkaBubble.installBubbleAccessibility(activity: Activity, view: View) {
+    view.setOnClickListener {
+        Haptics.light(activity)
+        setExpanded(activity, uiState == BubbleUiState.COLLAPSED)
+    }
+    ViewCompat.addAccessibilityAction(view, "Open inspector") { _, _ ->
+        if (uiState == BubbleUiState.EXPANDED) setExpanded(activity, false)
+        HakkaBottomSheet(activity, logStore).show()
+        true
+    }
+    ViewCompat.addAccessibilityAction(view, "Dismiss") { _, _ ->
+        hide()
+        true
     }
 }
 

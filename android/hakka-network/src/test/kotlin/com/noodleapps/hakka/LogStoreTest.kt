@@ -278,6 +278,27 @@ class LogStoreTest {
     }
 
     @Test
+    fun `metricsSummary excludes requests evicted by retention policy`() {
+        val store = LogStore(HakkaConfig(maxRequests = 3))
+        store.add(reqWith("a", durationMs = 100L, responseBodySize = 10L))
+        store.add(reqWith("b", durationMs = 200L, responseBodySize = 20L))
+        store.add(reqWith("c", durationMs = 300L, responseBodySize = 30L))
+        store.add(reqWith("d", durationMs = 400L, responseBodySize = 40L))
+        store.add(reqWith("e", durationMs = 500L, responseBodySize = 50L))
+        assertEquals(3, store.size())
+
+        // "a" and "b" were evicted by the max-count retention policy. Before the fix,
+        // RetentionPolicy.enforce() only trims deque/index — the incremental counters
+        // (and mDurationsById, which never shrinks) keep counting evicted requests, so
+        // this would report totalRequests=5, averageResponseTimeMs=300.0 (over all 5
+        // durations), and totalDataTransferredBytes=150 instead of what's actually left.
+        val summary = store.metricsSummary()
+        assertEquals(3, summary.totalRequests)
+        assertEquals(400.0, summary.averageResponseTimeMs, 0.0001) // (300+400+500)/3
+        assertEquals(120L, summary.totalDataTransferredBytes) // 30+40+50
+    }
+
+    @Test
     fun `metricsSummary totalDataTransferredBytes sums responseBodySize`() {
         val store = LogStore(HakkaConfig())
         store.add(reqWith("a", responseBodySize = 1024L))

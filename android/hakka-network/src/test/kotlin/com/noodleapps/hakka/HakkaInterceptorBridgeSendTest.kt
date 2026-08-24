@@ -13,6 +13,8 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 /**
  * [HakkaInterceptor.sendConsoleFrame]/[sendStorageFrame] — proves the entry points a host
@@ -98,6 +100,35 @@ class HakkaInterceptorBridgeSendTest {
         interceptor.sendConsoleFrame(listOf(LogEntry(id = "log_1", timestamp = 1, level = LogLevel.INFO, message = "x")))
         interceptor.sendStorageFrame(StorageSnapshot(store = "x", entries = emptyMap()))
         interceptor.close()
+    }
+
+    @Test
+    fun `close() closes the BridgeSink created from Builder bridgeUrl`() {
+        val opened = CountDownLatch(1)
+        val closing = CountDownLatch(1)
+        server.enqueue(
+            MockResponse().withWebSocketUpgrade(
+                object : WebSocketListener() {
+                    override fun onOpen(webSocket: WebSocket, response: Response) {
+                        opened.countDown()
+                    }
+                    override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                        webSocket.close(code, reason)
+                        closing.countDown()
+                    }
+                }
+            )
+        )
+        val interceptor = HakkaInterceptor { bridgeUrl = wsUrl() }
+        assertTrue(opened.await(5, TimeUnit.SECONDS), "bridge socket never connected")
+
+        interceptor.close()
+
+        // Before the fix, close() only stops capture processing and RecordSinkHub's delivery
+        // executor — the BridgeSink created from Builder.bridgeUrl (and its live WebSocket +
+        // reconnect scheduler thread) is never told to close, so the hub never sees a closing
+        // handshake and this times out.
+        assertTrue(closing.await(5, TimeUnit.SECONDS), "BridgeSink's WebSocket was not closed by HakkaInterceptor.close()")
     }
 
     @Test

@@ -41,7 +41,7 @@ class LogStore(config: HakkaConfig) {
             deque.addLast(request)
             index[request.id] = request
             addMetrics(request)
-            retentionPolicy.enforce(deque, index)
+            retentionPolicy.enforce(deque, index).forEach { removeMetrics(it) }
         }
     }
 
@@ -63,7 +63,7 @@ class LogStore(config: HakkaConfig) {
             index[req.id] = req
             addMetrics(req)
         }
-        retentionPolicy.enforce(deque, index)
+        retentionPolicy.enforce(deque, index).forEach { removeMetrics(it) }
     }
 
     /** Returns a snapshot of all stored requests. */
@@ -159,6 +159,28 @@ class LogStore(config: HakkaConfig) {
             mDurationsById[req.id] = d
         }
         mTotalDataBytes += req.responseBodySize
+    }
+
+    /**
+     * Reverses [addMetrics] for a request evicted by [RetentionPolicy.enforce]. Without this,
+     * eviction only trims [deque]/[index] — the incremental counters (and [mDurationsById],
+     * which never shrinks) keep counting requests no longer in the visible buffer, so
+     * [metricsSummary] drifts from what [all] actually returns and [mDurationsById] grows
+     * unbounded for the life of the store.
+     */
+    private fun removeMetrics(req: NetworkRequest) {
+        mTotalRequests--
+        val status = req.status
+        val hasStatus = status != null && status > 0
+        val hasError = req.error != null
+        if (hasStatus || hasError) mCompletedRequests--
+        if (hasStatus && status != null && status in 200..399) mSuccessCount--
+        if (hasError || (hasStatus && status != null && status >= 400)) mErrorCount--
+        req.durationMs?.let { d ->
+            mDurationTotalMs -= d
+            mDurationsById.remove(req.id)
+        }
+        mTotalDataBytes -= req.responseBodySize
     }
 
     private fun resetMetrics() {

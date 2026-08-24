@@ -111,7 +111,13 @@ class HakkaBubble private constructor() {
 
     fun show(activity: Activity, logStore: LogStore?) {
         try {
-            if (bubbleView != null) return
+            if (bubbleView != null) {
+                if (this.activity === activity) return
+                // Host Activity was destroyed/recreated since the last show() — the
+                // stored window token is dead, so detach before reattaching instead
+                // of getting permanently wedged on the stale Activity reference.
+                removeBubble()
+            }
             this.activity = activity
             this.logStore = logStore
             attach(activity)
@@ -187,6 +193,7 @@ class HakkaBubble private constructor() {
         layoutParams = params
 
         bubble.setOnTouchListener(bubbleTouchListener(activity))
+        installBubbleAccessibility(activity, bubble)
 
         windowManager?.addView(bubble, params)
     }

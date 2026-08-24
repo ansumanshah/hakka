@@ -20,6 +20,7 @@ import java.io.IOException
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.TimeUnit
 
 /**
  * Maps a [MockFailureCode] to the [IOException] subtype OkHttp callers actually see —
@@ -221,6 +222,12 @@ class HakkaInterceptor private constructor(
         plugins.removeAll()
         shutdownCaptureProcessing()
         shutdownSinks()
+        // shutdownSinks() only stops RecordSinkHub's delivery executor — it never calls
+        // close() on the sinks it holds. Every BridgeSink owns a live OkHttp WebSocket plus
+        // its own reconnect scheduler thread, so it must be closed explicitly or both leak
+        // and the sink keeps retrying to reconnect indefinitely.
+        bridgeSinks.forEach { it.close() }
+        bridgeSinks.clear()
     }
 
     /** Builder DSL for configuring the interceptor. */
@@ -389,203 +396,81 @@ class HakkaInterceptor private constructor(
             error = null, source = RequestSource.OKHTTP,
         )
 
-        // Capture request body — measure size from Buffer (accurate for chunked too)
-        val reqContentType = request.body?.contentType()?.toString()
-        var reqBodySize = 0L
-        val reqBodyText: String?
-        val requestBodyBuffer = request.body?.let { body ->
-            if (body.isDuplex() || body.isOneShot()) null
-            else {
-                val buf = Buffer()
-                body.writeTo(buf)
-                reqBodySize = buf.size
-                buf
+        // Tracks whether a capture record was handed to captureProcessor for this id.
+        // CaptureProcessor's onProcessed callback is the only other place inFlight[id] is
+        // removed, so any exit below that never reaches an enqueue call (breakpoint abort,
+        // a non-IOException thrown out of chain.proceed) must clean up in the finally block
+        // or the entry leaks in inFlight forever.
+        var captureEnqueued = false
+        try {
+            // Capture request body — measure size from Buffer (accurate for chunked too)
+            val reqContentType = request.body?.contentType()?.toString()
+            var reqBodySize = 0L
+            val reqBodyText: String?
+            val requestBodyBuffer = request.body?.let { body ->
+                if (body.isDuplex() || body.isOneShot()) null
+                else {
+                    val buf = Buffer()
+                    body.writeTo(buf)
+                    reqBodySize = buf.size
+                    buf
+                }
             }
-        }
-        reqBodyText = if (isTextContentType(reqContentType)) captureBody(requestBodyBuffer) else null
+            reqBodyText = if (isTextContentType(reqContentType)) captureBody(requestBodyBuffer) else null
 
-        val bpEngine = BreakpointEngine.shared
-        if (bpEngine.matches(urlString, request.method, BreakpointPhase.REQUEST)) {
-            val reqSnapshot = PausedRequest(
-                url = urlString,
-                method = request.method,
-                headers = request.headers.toSingleValueMap(),
-                body = reqBodyText,
-            )
-            val action = try {
-                bpEngine.pauseRequest(id, reqSnapshot)
-            } catch (_: InterruptedException) {
-                Thread.currentThread().interrupt()
-                ResumeRequestAction.Abort
-            }
-            when (action) {
-                is ResumeRequestAction.Abort -> throw AbortedException()
-                is ResumeRequestAction.Resume -> {
-                    val edits = action.edits
-                    if (edits != null) {
-                        val builder = request.newBuilder()
-                        val editedUrl = edits.url
-                        val editedMethod = edits.method
-                        val editedHeaders = edits.headers
-                        if (editedUrl != null) builder.url(editedUrl)
-                        if (editedMethod != null) builder.method(editedMethod, request.body)
-                        if (editedHeaders != null) {
-                            val newHeaders = Headers.Builder()
-                            for ((k, v) in editedHeaders) newHeaders.add(k, v)
-                            builder.headers(newHeaders.build())
+            val bpEngine = BreakpointEngine.shared
+            if (bpEngine.matches(urlString, request.method, BreakpointPhase.REQUEST)) {
+                val reqSnapshot = PausedRequest(
+                    url = urlString,
+                    method = request.method,
+                    headers = request.headers.toSingleValueMap(),
+                    body = reqBodyText,
+                )
+                val action = try {
+                    bpEngine.pauseRequest(id, reqSnapshot)
+                } catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    ResumeRequestAction.Abort
+                }
+                when (action) {
+                    is ResumeRequestAction.Abort -> throw AbortedException()
+                    is ResumeRequestAction.Resume -> {
+                        val edits = action.edits
+                        if (edits != null) {
+                            val builder = request.newBuilder()
+                            val editedUrl = edits.url
+                            val editedMethod = edits.method
+                            val editedHeaders = edits.headers
+                            if (editedUrl != null) builder.url(editedUrl)
+                            if (editedMethod != null) builder.method(editedMethod, request.body)
+                            if (editedHeaders != null) {
+                                val newHeaders = Headers.Builder()
+                                for ((k, v) in editedHeaders) newHeaders.add(k, v)
+                                builder.headers(newHeaders.build())
+                            }
+                            request = builder.build()
                         }
-                        request = builder.build()
                     }
                 }
             }
-        }
 
-        val mockRule = MockEngine.shared.match(urlString, request.method)
+            val mockRule = MockEngine.shared.match(urlString, request.method)
 
-        // `failure` takes priority over `block`, which takes priority over
-        // `redirectTo`/`modify` (mirrors MockEngine.ts's fetch-interceptor
-        // ordering: failure, then block, then isRewrite). A more precise
-        // simulation than block's generic "Blocked by Hakka" — throws the
-        // specific IOException subtype the failure code declares.
-        if (mockRule != null && mockRule.failure != null) {
-            val failure = mockRule.failure
-            val failureDuration = System.currentTimeMillis() - startTime
-            captureProcessor.enqueue(
-                RawNetworkCapture(
-                    id = id,
-                    url = urlString,
-                    method = request.method,
-                    startTimeMs = startTime,
-                    durationMs = failureDuration,
-                    requestHeaders = request.headers.toMultimap(),
-                    responseHeaders = emptyMap(),
-                    requestBodySize = reqBodySize,
-                    responseBodySize = 0,
-                    requestContentType = reqContentType,
-                    responseContentType = null,
-                    requestBody = reqBodyText,
-                    responseBody = null,
-                    status = null,
-                    error = failure.code.message,
-                    source = RequestSource.OKHTTP,
-                    timing = null,
-                    correlationId = correlationId,
-                )
-            )
-            throw ioExceptionForFailure(failure.code)
-        }
-
-        // `block` takes priority over `redirectTo`/`modify` (mirrors MockEngine.ts's
-        // fetch-interceptor ordering: block is checked before isRewrite). Abort with an
-        // IOException before the real request is ever sent — recorded as a completed
-        // capture with an error, consistent with the offline-throttle error record below.
-        if (mockRule != null && mockRule.block) {
-            val blockDuration = System.currentTimeMillis() - startTime
-            captureProcessor.enqueue(
-                RawNetworkCapture(
-                    id = id,
-                    url = urlString,
-                    method = request.method,
-                    startTimeMs = startTime,
-                    durationMs = blockDuration,
-                    requestHeaders = request.headers.toMultimap(),
-                    responseHeaders = emptyMap(),
-                    requestBodySize = reqBodySize,
-                    responseBodySize = 0,
-                    requestContentType = reqContentType,
-                    responseContentType = null,
-                    requestBody = reqBodyText,
-                    responseBody = null,
-                    status = null,
-                    error = "Blocked by Hakka",
-                    source = RequestSource.OKHTTP,
-                    timing = null,
-                    correlationId = correlationId,
-                )
-            )
-            throw IOException("Blocked by Hakka")
-        }
-
-        if (mockRule != null && mockRule.isRewrite) {
-            return interceptRewrite(
-                chain = chain,
-                rule = mockRule,
-                request = request,
-                id = id,
-                startTime = startTime,
-                reqContentType = reqContentType,
-                reqBodySize = reqBodySize,
-                reqBodyText = reqBodyText,
-                correlationId = correlationId,
-            )
-        }
-
-        if (mockRule != null) {
-            val mockResp = mockRule.response
-            if (mockResp.delayMs > 0) Thread.sleep(mockResp.delayMs)
-
-            val mockBody = mockResp.body
-            val mockBodySize = mockBody?.toByteArray(Charsets.UTF_8)?.size?.toLong() ?: 0L
-            val mockDuration = System.currentTimeMillis() - startTime
-            val mockHeaders = mockResp.headers.mapValues { (k, v) -> mockResp.headerValues[k] ?: listOf(v) }
-            captureProcessor.enqueue(
-                RawNetworkCapture(
-                    id = id,
-                    url = urlString,
-                    method = request.method,
-                    startTimeMs = startTime,
-                    durationMs = mockDuration,
-                    requestHeaders = request.headers.toMultimap(),
-                    responseHeaders = mockHeaders,
-                    requestBodySize = reqBodySize,
-                    responseBodySize = mockBodySize,
-                    requestContentType = reqContentType,
-                    responseContentType = "application/json",
-                    requestBody = reqBodyText,
-                    responseBody = mockBody,
-                    status = mockResp.status,
-                    error = null,
-                    source = RequestSource.OKHTTP,
-                    timing = null,
-                    correlationId = correlationId,
-                )
-            )
-
-            // `headerValues` widens single-value `headers` for names with more than one
-            // value (chiefly Set-Cookie — see [MockResponse.headerValues]'s doc). OkHttp's
-            // `Headers` natively supports repeated names, so this is a true multi-header
-            // apply, not a join: names covered by `headerValues` are skipped from `headers`
-            // (which only carries their representative first value) and every one of their
-            // real values is included instead.
-            val okhttpHeaderPairs = mockResp.headers
-                .filterKeys { it !in mockResp.headerValues }
-                .flatMap { listOf(it.key, it.value) } +
-                mockResp.headerValues.flatMap { (name, values) -> values.flatMap { listOf(name, it) } }
-            val okhttpHeaders = Headers.headersOf(*okhttpHeaderPairs.toTypedArray())
-            return Response.Builder()
-                .request(request)
-                .protocol(Protocol.HTTP_1_1)
-                .code(mockResp.status)
-                .message(HTTP_STATUS_REASONS[mockResp.status] ?: "Mock")
-                .headers(okhttpHeaders)
-                .body(mockBody?.toResponseBody("application/json".toMediaType()))
-                .build()
-        }
-
-        var response: Response? = null
-        var error: String? = null
-
-        val throttle = ThrottleEngine.shared
-        if (throttle.isActive) {
-            if (throttle.isOffline) {
-                val offlineDuration = System.currentTimeMillis() - startTime
+            // `failure` takes priority over `block`, which takes priority over
+            // `redirectTo`/`modify` (mirrors MockEngine.ts's fetch-interceptor
+            // ordering: failure, then block, then isRewrite). A more precise
+            // simulation than block's generic "Blocked by Hakka" — throws the
+            // specific IOException subtype the failure code declares.
+            if (mockRule != null && mockRule.failure != null) {
+                val failure = mockRule.failure
+                val failureDuration = System.currentTimeMillis() - startTime
                 captureProcessor.enqueue(
                     RawNetworkCapture(
                         id = id,
                         url = urlString,
                         method = request.method,
                         startTimeMs = startTime,
-                        durationMs = offlineDuration,
+                        durationMs = failureDuration,
                         requestHeaders = request.headers.toMultimap(),
                         responseHeaders = emptyMap(),
                         requestBodySize = reqBodySize,
@@ -595,127 +480,280 @@ class HakkaInterceptor private constructor(
                         requestBody = reqBodyText,
                         responseBody = null,
                         status = null,
-                        error = "Network request failed — offline (Hakka ThrottleEngine)",
+                        error = failure.code.message,
                         source = RequestSource.OKHTTP,
                         timing = null,
                         correlationId = correlationId,
                     )
                 )
-                throw IOException("Network request failed — offline (Hakka ThrottleEngine)")
+                captureEnqueued = true
+                throw ioExceptionForFailure(failure.code)
             }
-            val latencyMs = throttle.config.latencyMs
-            if (latencyMs > 0L) Thread.sleep(latencyMs)
-        }
 
-        try {
-            response = chain.proceed(request)
-        } catch (e: AbortedException) {
-            throw e // propagate abort directly — do not record as a network error
-        } catch (e: IOException) {
-            error = e.message ?: "Network error"
-        }
+            // `block` takes priority over `redirectTo`/`modify` (mirrors MockEngine.ts's
+            // fetch-interceptor ordering: block is checked before isRewrite). Abort with an
+            // IOException before the real request is ever sent — recorded as a completed
+            // capture with an error, consistent with the offline-throttle error record below.
+            if (mockRule != null && mockRule.block) {
+                val blockDuration = System.currentTimeMillis() - startTime
+                captureProcessor.enqueue(
+                    RawNetworkCapture(
+                        id = id,
+                        url = urlString,
+                        method = request.method,
+                        startTimeMs = startTime,
+                        durationMs = blockDuration,
+                        requestHeaders = request.headers.toMultimap(),
+                        responseHeaders = emptyMap(),
+                        requestBodySize = reqBodySize,
+                        responseBodySize = 0,
+                        requestContentType = reqContentType,
+                        responseContentType = null,
+                        requestBody = reqBodyText,
+                        responseBody = null,
+                        status = null,
+                        error = "Blocked by Hakka",
+                        source = RequestSource.OKHTTP,
+                        timing = null,
+                        correlationId = correlationId,
+                    )
+                )
+                captureEnqueued = true
+                throw IOException("Blocked by Hakka")
+            }
 
-        if (response != null && throttle.isActive && throttle.config.downloadKbps > 0L) {
-            val body = response.body
-            if (body != null) {
-                val throttledSource = ThrottledSource(body.source(), throttle)
-                response = response.newBuilder()
-                    .body(throttledSource.buffer().asResponseBody(body.contentType(), body.contentLength()))
+            if (mockRule != null && mockRule.isRewrite) {
+                val rewriteResponse = interceptRewrite(
+                    chain = chain,
+                    rule = mockRule,
+                    request = request,
+                    id = id,
+                    startTime = startTime,
+                    reqContentType = reqContentType,
+                    reqBodySize = reqBodySize,
+                    reqBodyText = reqBodyText,
+                    correlationId = correlationId,
+                )
+                // interceptRewrite() only returns (rather than throws) after it has already
+                // enqueued its own capture record.
+                captureEnqueued = true
+                return rewriteResponse
+            }
+
+            if (mockRule != null) {
+                val mockResp = mockRule.response
+                if (mockResp.delayMs > 0) Thread.sleep(mockResp.delayMs)
+
+                val mockBody = mockResp.body
+                val mockBodySize = mockBody?.toByteArray(Charsets.UTF_8)?.size?.toLong() ?: 0L
+                val mockDuration = System.currentTimeMillis() - startTime
+                val mockHeaders = mockResp.headers.mapValues { (k, v) -> mockResp.headerValues[k] ?: listOf(v) }
+                captureProcessor.enqueue(
+                    RawNetworkCapture(
+                        id = id,
+                        url = urlString,
+                        method = request.method,
+                        startTimeMs = startTime,
+                        durationMs = mockDuration,
+                        requestHeaders = request.headers.toMultimap(),
+                        responseHeaders = mockHeaders,
+                        requestBodySize = reqBodySize,
+                        responseBodySize = mockBodySize,
+                        requestContentType = reqContentType,
+                        responseContentType = "application/json",
+                        requestBody = reqBodyText,
+                        responseBody = mockBody,
+                        status = mockResp.status,
+                        error = null,
+                        source = RequestSource.OKHTTP,
+                        timing = null,
+                        correlationId = correlationId,
+                    )
+                )
+                captureEnqueued = true
+
+                // `headerValues` widens single-value `headers` for names with more than one
+                // value (chiefly Set-Cookie — see [MockResponse.headerValues]'s doc). OkHttp's
+                // `Headers` natively supports repeated names, so this is a true multi-header
+                // apply, not a join: names covered by `headerValues` are skipped from `headers`
+                // (which only carries their representative first value) and every one of their
+                // real values is included instead.
+                val okhttpHeaderPairs = mockResp.headers
+                    .filterKeys { it !in mockResp.headerValues }
+                    .flatMap { listOf(it.key, it.value) } +
+                    mockResp.headerValues.flatMap { (name, values) -> values.flatMap { listOf(name, it) } }
+                val okhttpHeaders = Headers.headersOf(*okhttpHeaderPairs.toTypedArray())
+                return Response.Builder()
+                    .request(request)
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(mockResp.status)
+                    .message(HTTP_STATUS_REASONS[mockResp.status] ?: "Mock")
+                    .headers(okhttpHeaders)
+                    .body(mockBody?.toResponseBody("application/json".toMediaType()))
                     .build()
             }
-        }
 
-        val duration = System.currentTimeMillis() - startTime
+            var response: Response? = null
+            var error: String? = null
+            // Preserves the original exception's type/stacktrace (SocketTimeoutException,
+            // SSLException, UnknownHostException, …) so host code that switches on the
+            // subtype for retry/backoff logic keeps working once this interceptor is
+            // installed — only `error`'s message string is used for the capture record.
+            var networkException: IOException? = null
 
-        // Capture response body (size-limited, text types only, without consuming)
-        var respBodyText: String? = null
-        var respBodySize = 0L
-        var respContentType: String? = null
-        response?.let { resp ->
-            resp.body?.let { body ->
-                val source = body.source()
-                source.request(config.maxBodySize)
-                val buffer = source.buffer
-                respBodySize = buffer.size
-                respContentType = resp.body?.contentType()?.toString()
-                if (isTextContentType(respContentType)) {
-                    respBodyText = captureBody(buffer.clone())
+            val throttle = ThrottleEngine.shared
+            if (throttle.isActive) {
+                if (throttle.isOffline) {
+                    val offlineDuration = System.currentTimeMillis() - startTime
+                    captureProcessor.enqueue(
+                        RawNetworkCapture(
+                            id = id,
+                            url = urlString,
+                            method = request.method,
+                            startTimeMs = startTime,
+                            durationMs = offlineDuration,
+                            requestHeaders = request.headers.toMultimap(),
+                            responseHeaders = emptyMap(),
+                            requestBodySize = reqBodySize,
+                            responseBodySize = 0,
+                            requestContentType = reqContentType,
+                            responseContentType = null,
+                            requestBody = reqBodyText,
+                            responseBody = null,
+                            status = null,
+                            error = "Network request failed — offline (Hakka ThrottleEngine)",
+                            source = RequestSource.OKHTTP,
+                            timing = null,
+                            correlationId = correlationId,
+                        )
+                    )
+                    captureEnqueued = true
+                    throw IOException("Network request failed — offline (Hakka ThrottleEngine)")
+                }
+                val latencyMs = throttle.config.latencyMs
+                if (latencyMs > 0L) Thread.sleep(latencyMs)
+            }
+
+            try {
+                response = chain.proceed(request)
+            } catch (e: AbortedException) {
+                throw e // propagate abort directly — do not record as a network error
+            } catch (e: IOException) {
+                error = e.message ?: "Network error"
+                networkException = e
+            }
+
+            if (response != null && throttle.isActive && throttle.config.downloadKbps > 0L) {
+                val body = response.body
+                if (body != null) {
+                    val throttledSource = ThrottledSource(body.source(), throttle)
+                    response = response.newBuilder()
+                        .body(throttledSource.buffer().asResponseBody(body.contentType(), body.contentLength()))
+                        .build()
                 }
             }
-        }
 
-        if (response != null && bpEngine.matches(urlString, request.method, BreakpointPhase.RESPONSE)) {
-            val respSnapshot = PausedResponse(
-                status = response.code,
-                headers = response.headers.toSingleValueMap(),
-                body = respBodyText ?: "",
-            )
-            val action = try {
-                bpEngine.pauseResponse(id, respSnapshot)
-            } catch (_: InterruptedException) {
-                Thread.currentThread().interrupt()
-                ResumeResponseAction.Abort
-            }
-            when (action) {
-                is ResumeResponseAction.Abort -> {
-                    response.close()
-                    throw AbortedException()
-                }
-                is ResumeResponseAction.Resume -> {
-                    val edits = action.edits
-                    if (edits != null) {
-                        val newStatus = edits.status ?: response.code
-                        val newBody = edits.body ?: respBodyText ?: ""
-                        val newHeaders = if (edits.headers != null) {
-                            val hb = Headers.Builder()
-                            for ((k, v) in edits.headers) hb.add(k, v)
-                            hb.build()
-                        } else {
-                            response.headers
-                        }
-                        val ct = (edits.headers?.get("content-type")
-                            ?: edits.headers?.get("Content-Type")
-                            ?: respContentType
-                            ?: "application/octet-stream").toMediaType()
-                        response = response.newBuilder()
-                            .code(newStatus)
-                            .headers(newHeaders)
-                            .body(newBody.toResponseBody(ct))
-                            .build()
-                        respBodyText = newBody
-                        respBodySize = newBody.toByteArray(Charsets.UTF_8).size.toLong()
-                        respContentType = ct.toString()
+            val duration = System.currentTimeMillis() - startTime
+
+            // Capture response body (size-limited, text types only, without consuming)
+            var respBodyText: String? = null
+            var respBodySize = 0L
+            var respContentType: String? = null
+            response?.let { resp ->
+                resp.body?.let { body ->
+                    val source = body.source()
+                    peekResponseBody(source, config.maxBodySize)
+                    val buffer = source.buffer
+                    respBodySize = buffer.size
+                    respContentType = resp.body?.contentType()?.toString()
+                    if (isTextContentType(respContentType)) {
+                        respBodyText = captureBody(buffer.clone())
                     }
                 }
             }
-        }
 
-        val timing = eventListenerFactory?.consume(chain.call())
+            if (response != null && bpEngine.matches(urlString, request.method, BreakpointPhase.RESPONSE)) {
+                val respSnapshot = PausedResponse(
+                    status = response.code,
+                    headers = response.headers.toSingleValueMap(),
+                    body = respBodyText ?: "",
+                )
+                val action = try {
+                    bpEngine.pauseResponse(id, respSnapshot)
+                } catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    ResumeResponseAction.Abort
+                }
+                when (action) {
+                    is ResumeResponseAction.Abort -> {
+                        response.close()
+                        throw AbortedException()
+                    }
+                    is ResumeResponseAction.Resume -> {
+                        val edits = action.edits
+                        if (edits != null) {
+                            val newStatus = edits.status ?: response.code
+                            val newHeaders = if (edits.headers != null) {
+                                val hb = Headers.Builder()
+                                for ((k, v) in edits.headers) hb.add(k, v)
+                                hb.build()
+                            } else {
+                                response.headers
+                            }
+                            val builder = response.newBuilder()
+                                .code(newStatus)
+                                .headers(newHeaders)
+                            // `edits.body == null` means "keep the original value" (see
+                            // PausedResponseEdits's doc) — only rebuild the body when the
+                            // caller actually supplied a replacement, otherwise leave the
+                            // real (possibly binary or truncated-preview-only) body intact.
+                            val editedBody = edits.body
+                            if (editedBody != null) {
+                                val ct = (edits.headers?.get("content-type")
+                                    ?: edits.headers?.get("Content-Type")
+                                    ?: respContentType
+                                    ?: "application/octet-stream").toMediaType()
+                                builder.body(editedBody.toResponseBody(ct))
+                                respBodyText = editedBody
+                                respBodySize = editedBody.toByteArray(Charsets.UTF_8).size.toLong()
+                                respContentType = ct.toString()
+                            }
+                            response = builder.build()
+                        }
+                    }
+                }
+            }
 
-        captureProcessor.enqueue(
-            RawNetworkCapture(
-                id = id,
-                url = urlString,
-                method = request.method,
-                startTimeMs = startTime,
-                durationMs = duration,
-                requestHeaders = request.headers.toMultimap(),
-                responseHeaders = response?.headers?.toMultimap() ?: emptyMap(),
-                requestBodySize = reqBodySize,
-                responseBodySize = respBodySize,
-                requestContentType = reqContentType,
-                responseContentType = respContentType,
-                requestBody = reqBodyText,
-                responseBody = respBodyText,
-                status = response?.code,
-                error = error,
-                source = RequestSource.OKHTTP,
-                timing = timing,
-                correlationId = correlationId,
+            val timing = eventListenerFactory?.consume(chain.call())
+
+            captureProcessor.enqueue(
+                RawNetworkCapture(
+                    id = id,
+                    url = urlString,
+                    method = request.method,
+                    startTimeMs = startTime,
+                    durationMs = duration,
+                    requestHeaders = request.headers.toMultimap(),
+                    responseHeaders = response?.headers?.toMultimap() ?: emptyMap(),
+                    requestBodySize = reqBodySize,
+                    responseBodySize = respBodySize,
+                    requestContentType = reqContentType,
+                    responseContentType = respContentType,
+                    requestBody = reqBodyText,
+                    responseBody = respBodyText,
+                    status = response?.code,
+                    error = error,
+                    source = RequestSource.OKHTTP,
+                    timing = timing,
+                    correlationId = correlationId,
+                )
             )
-        )
+            captureEnqueued = true
 
-        return response ?: throw IOException(error ?: "Unknown error")
+            return response ?: throw (networkException ?: IOException(error ?: "Unknown error"))
+        } finally {
+            if (!captureEnqueued) inFlight.remove(id)
+        }
     }
 
     /**
@@ -768,10 +806,14 @@ class HakkaInterceptor private constructor(
 
         var response: Response? = null
         var error: String? = null
+        // See the identical field in intercept() — preserves the original exception's
+        // type/stacktrace for host code that switches on the subtype.
+        var networkException: IOException? = null
         try {
             response = chain.proceed(rewrittenRequest)
         } catch (e: IOException) {
             error = e.message ?: "Network error"
+            networkException = e
         }
 
         val duration = System.currentTimeMillis() - startTime
@@ -781,7 +823,7 @@ class HakkaInterceptor private constructor(
         var respContentType: String? = null
         response?.body?.let { body ->
             val source = body.source()
-            source.request(config.maxBodySize)
+            peekResponseBody(source, config.maxBodySize)
             val buffer = source.buffer
             respBodySize = buffer.size
             respContentType = body.contentType()?.toString()
@@ -846,7 +888,7 @@ class HakkaInterceptor private constructor(
             )
         )
 
-        return finalResponse ?: throw IOException(error ?: "Unknown error")
+        return finalResponse ?: throw (networkException ?: IOException(error ?: "Unknown error"))
     }
 
     private fun captureBody(buffer: Buffer?): String? {
@@ -865,6 +907,37 @@ class HakkaInterceptor private constructor(
         /** Creates a [HakkaInterceptor] with trailing lambda configuration. */
         operator fun invoke(block: Builder.() -> Unit = {}): HakkaInterceptor =
             Builder().apply(block).build()
+
+        /**
+         * Wall-clock bound on [peekResponseBody]'s wait for [HakkaConfig.maxBodySize] bytes
+         * or EOF. Keeps an unbounded stream (SSE, infinite chunked) from hanging capture —
+         * see [peekResponseBody]'s doc.
+         */
+        private const val BODY_PEEK_TIMEOUT_MS = 3_000L
+
+        /**
+         * Buffers up to [maxBodySize] bytes from [source] without consuming it, bounded by
+         * [BODY_PEEK_TIMEOUT_MS] of wall-clock time rather than only by byte count or EOF.
+         * Okio's `request()` blocks until either condition is met — for a long-lived,
+         * low-throughput stream (SSE heartbeats, infinite chunked transfer) that satisfies
+         * neither, that would otherwise hang the calling thread for the life of the connection.
+         * The deadline bounds the wait; on expiry (or any other read failure) whatever was
+         * already buffered is kept and capture proceeds with a partial peek. Internal (not
+         * private) so tests can drive it directly against a fake [okio.Source].
+         */
+        internal fun peekResponseBody(source: BufferedSource, maxBodySize: Long) {
+            val timeout = source.timeout()
+            val hadDeadline = timeout.hasDeadline()
+            val previousDeadlineNanoTime = if (hadDeadline) timeout.deadlineNanoTime() else 0L
+            timeout.deadline(BODY_PEEK_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+            try {
+                source.request(maxBodySize)
+            } catch (_: IOException) {
+                // Deadline exceeded (or another read failure) — keep whatever buffered so far.
+            } finally {
+                if (hadDeadline) timeout.deadlineNanoTime(previousDeadlineNanoTime) else timeout.clearDeadline()
+            }
+        }
 
         private val HTTP_STATUS_REASONS = mapOf(
             200 to "OK", 201 to "Created", 204 to "No Content",

@@ -71,8 +71,11 @@ internal class StatsTabController(private val activity: Activity) : TabControlle
     private var cpuCardValue: TextView? = null
     private var content: LinearLayout? = null
 
+    /** Index in [content] where the aggregate (non-performance) sections start —
+     *  everything from here on is rebuilt by [refreshAggregateSections]. */
+    private var aggregateSectionsStartIndex = 0
+
     override fun buildView(): View {
-        val requests = HakkaUI.getInstance(activity).logStore?.all() ?: emptyList()
         val root = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL; setBackgroundColor(Theme.bg(activity))
         }
@@ -82,18 +85,36 @@ internal class StatsTabController(private val activity: Activity) : TabControlle
         }
         content = body
         buildPerformanceSection(body)
-        buildOverview(body, requests)
-        buildDomainBreakdown(body, requests)
-        buildMethodBreakdown(body, requests)
-        buildSlowestRequests(body, requests)
-        buildDurationStats(body, requests)
-        buildSizeStats(body, requests)
+        aggregateSectionsStartIndex = body.childCount
+        buildAggregateSections(body, HakkaUI.getInstance(activity).logStore?.all() ?: emptyList())
         root.addView(ScrollView(activity).apply { addView(body) }, LinearLayout.LayoutParams(MP, 0, 1f))
         return root
     }
 
+    private fun buildAggregateSections(parent: LinearLayout, requests: List<NetworkRequest>) {
+        buildOverview(parent, requests)
+        buildDomainBreakdown(parent, requests)
+        buildMethodBreakdown(parent, requests)
+        buildSlowestRequests(parent, requests)
+        buildDurationStats(parent, requests)
+        buildSizeStats(parent, requests)
+    }
+
+    /** Rebuilds Overview/Domains/Methods/Slowest/Duration/Size from a fresh
+     *  logStore snapshot — buildView() only runs once (the host caches the built
+     *  View per tab), so without this the aggregate sections would stay frozen
+     *  at whatever the log store held the first time the tab was shown. */
+    private fun refreshAggregateSections() {
+        val body = content ?: return
+        while (body.childCount > aggregateSectionsStartIndex) {
+            body.removeViewAt(body.childCount - 1)
+        }
+        buildAggregateSections(body, HakkaUI.getInstance(activity).logStore?.all() ?: emptyList())
+    }
+
     override fun onShow() {
         startPerformanceMetrics()
+        refreshAggregateSections()
     }
 
     override fun onHide() {

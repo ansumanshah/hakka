@@ -69,7 +69,12 @@ object Hakka {
         ui.attachInterceptor(interceptor)
         ui.attachPluginProvider { interceptor.plugins.registeredPlugins() }
         if (openOnShake) {
-            ui.init { open(context) }
+            // Use the application Context here, not the install() caller's raw
+            // context — this closure is stored in ShakeDetector inside the
+            // process-wide HakkaUI singleton, so an Activity context would be
+            // leaked for the process lifetime.
+            val appContext = context.applicationContext
+            ui.init { open(appContext) }
             ui.start()
         }
         if (perfMonitoring) {
