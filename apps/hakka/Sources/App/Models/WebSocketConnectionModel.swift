@@ -32,6 +32,13 @@ final class WebSocketConnectionModel {
     func connect(urlString: String) {
         mirrorTask?.cancel()
         connectError = nil
+        // Close out the previous session before replacing it — on both the
+        // valid and invalid-URL paths — or its socket leaks open on the
+        // server while the UI has already moved on to a new one.
+        if let previousSession = session {
+            session = nil
+            Task { await previousSession.disconnect() }
+        }
         guard let url = URL(string: urlString) else {
             connectError = "Not a valid URL."
             snapshot = .empty

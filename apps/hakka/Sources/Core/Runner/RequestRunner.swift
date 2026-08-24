@@ -52,8 +52,10 @@ public actor RequestRunner {
         collection: Collection,
         scope: VariableScope,
     ) async throws(RequestRunnerError) -> RunResult {
-        let effectiveRequest = try await applyPreRequestScript(request, scope: scope)
-        let resolved = try resolvePlan(effectiveRequest, folderChain: folderChain, collection: collection, scope: scope)
+        let (effectiveRequest, scopeAfterPreRequest) = try await applyPreRequestScript(request, scope: scope)
+        let resolved = try resolvePlan(
+            effectiveRequest, folderChain: folderChain, collection: collection, scope: scopeAfterPreRequest,
+        )
         let encodedBody = try encodeBody(resolved.body)
 
         var headers = resolved.headers
@@ -98,7 +100,7 @@ public actor RequestRunner {
         )
 
         let assertionResults = request.assertions.map { AssertionEvaluator.evaluate($0, against: record) }
-        var updatedScope = scope
+        var updatedScope = scopeAfterPreRequest
         ResponseCaptureExtractor.apply(request.captures, record: record, into: &updatedScope)
 
         let (finalScope, scriptError) = await RequestScriptHooks.runPostResponse(
@@ -118,7 +120,7 @@ public actor RequestRunner {
     private func applyPreRequestScript(
         _ request: RequestSpec,
         scope: VariableScope,
-    ) async throws(RequestRunnerError) -> RequestSpec {
+    ) async throws(RequestRunnerError) -> (request: RequestSpec, scope: VariableScope) {
         do {
             return try await RequestScriptHooks.applyPreRequest(to: request, scope: scope, runtime: scriptRuntime)
         } catch let error as ScriptError {

@@ -402,6 +402,28 @@ struct RequestRunnerTests {
         #expect(result.record.requestHeaders["X-Signed"] == ["yes"])
     }
 
+    /// The pre-request counterpart to `postResponseScriptSetsVariableInterpolatedByLaterRequest`:
+    /// `vars.set(...)` called from a *pre-request* script must reach the
+    /// scope `resolvePlan` interpolates against for that same request (not
+    /// just a later one), and the returned `RunResult.scope` must carry it
+    /// forward too — `RequestScriptHooks.applyPreRequest` used to return
+    /// only the mutated `RequestSpec` and silently drop `output.variables`.
+    @Test func preRequestScriptVarsSetReachesTheSameRequestsResolution() async throws {
+        let runner = RequestRunner(transport: StubTransport { urlRequest, _ in
+            #expect(urlRequest.value(forHTTPHeaderField: "Authorization") == "Bearer from-pre-request")
+            return jsonResponse("{}")
+        })
+        let request = RequestSpec(
+            name: "R",
+            url: "https://api.example.com/x",
+            headers: [HeaderPair(name: "Authorization", value: "Bearer {{preToken}}")],
+            scripts: RequestScripts(preRequestLines: ["vars.set('preToken', 'from-pre-request');"]),
+        )
+        let result = try await runner.run(request, collection: collection(), scope: VariableScope())
+        #expect(result.record.requestHeaders["Authorization"] == ["Bearer from-pre-request"])
+        #expect(result.scope.value(for: "preToken") == "from-pre-request")
+    }
+
     @Test func postResponseScriptSetsVariableInterpolatedByLaterRequest() async throws {
         let runner = RequestRunner(transport: StubTransport { _, _ in jsonResponse(#"{"token":"abc"}"#) })
 

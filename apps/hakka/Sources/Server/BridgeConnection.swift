@@ -46,6 +46,18 @@ public final class BridgeConnection: BridgeRelayPeer, @unchecked Sendable {
     private let hub: BridgeHub
     private let maxFrameBytes: Int
     private var receiveBuffer = Data()
+    /// See `BridgeServerOptions.token`. `nil` means no gate — a peer is
+    /// registered with `hub` the instant the connection is `.ready`, exactly
+    /// the prior behavior. When set, the peer's very first text frame must
+    /// be `{"token":"<value>"}` matching this value or the connection is
+    /// cancelled before ever reaching `hub.addPeer` — see
+    /// `handleAssembledMessage`.
+    private let requiredToken: String?
+    /// Mutated only from callbacks Network.framework guarantees run
+    /// serialized on this connection's queue (`stateUpdateHandler`,
+    /// `receiveMessage`'s completion), the same invariant `receiveBuffer`
+    /// relies on. Starts `true` when there is nothing to prove.
+    private var isAuthenticated: Bool
     /// Feeds the single ordered-ingestion consumer `Task` spawned in `init`.
     /// `handleAssembledMessage` calls `yield` synchronously (no suspension
     /// point) from the connection's serial queue, so yield order always
@@ -53,10 +65,12 @@ public final class BridgeConnection: BridgeRelayPeer, @unchecked Sendable {
     /// stream, `hub.ingest` calls happen in that same order.
     private let ingestContinuation: AsyncStream<String>.Continuation
 
-    public init(connection: NWConnection, hub: BridgeHub, maxFrameBytes: Int) {
+    public init(connection: NWConnection, hub: BridgeHub, maxFrameBytes: Int, requiredToken: String? = nil) {
         self.connection = connection
         self.hub = hub
         self.maxFrameBytes = maxFrameBytes
+        self.requiredToken = requiredToken
+        self.isAuthenticated = requiredToken == nil
 
         var continuation: AsyncStream<String>.Continuation?
         let stream = AsyncStream<String> { continuation = $0 }
@@ -95,7 +109,10 @@ public final class BridgeConnection: BridgeRelayPeer, @unchecked Sendable {
         connection.stateUpdateHandler = { [self] state in
             switch state {
             case .ready:
-                Task { await hub.addPeer(self) }
+                // `isAuthenticated` starts `true` when `requiredToken == nil`
+                // (the default, unchanged path). Otherwise registration
+                // waits for `handleAssembledMessage` to confirm the token.
+                if isAuthenticated { Task { await hub.addPeer(self) } }
             case .failed, .cancelled:
                 Task { await hub.removePeer(id) }
                 ingestContinuation.finish()
@@ -169,8 +186,26 @@ public final class BridgeConnection: BridgeRelayPeer, @unchecked Sendable {
     /// `ServerTests.swift` can drive it directly (via `@testable import`)
     /// without ever calling `start(on:)`/binding a real socket, matching
     /// this file's existing no-real-ports testing philosophy.
+    ///
+    /// When `requiredToken` is set and this peer hasn't proven itself yet,
+    /// the frame is consumed as the auth attempt instead of being relayed:
+    /// a match registers the peer with `hub` and lets every later frame
+    /// through normally; a mismatch cancels the connection before `hub`
+    /// ever sees it — no buffer replay, no relay, matching `server.ts`'s
+    /// "reject before anything else touches the socket" token gate.
     func handleAssembledMessage(_ data: Data, opcode: NWProtocolWebSocket.Opcode?) {
         guard opcode == .text, !data.isEmpty, let text = String(data: data, encoding: .utf8) else { return }
+
+        if let requiredToken, !isAuthenticated {
+            guard Self.isValidAuthFrame(text, expecting: requiredToken) else {
+                connection.cancel()
+                return
+            }
+            isAuthenticated = true
+            Task { await hub.addPeer(self) }
+            return
+        }
+
         ingestContinuation.yield(text)
     }
 

@@ -34,21 +34,26 @@ enum RequestScriptHooks {
     /// request with its mutations applied, still unresolved —
     /// `RequestResolver` runs on the result exactly as it would on
     /// `request` itself, so any `{{variable}}` the user typed (untouched by
-    /// the script) still resolves normally afterward.
+    /// the script) still resolves normally afterward — plus `scope` with
+    /// any `vars.set(...)` values folded into `runtime`, exactly like
+    /// `runPostResponse` does, so a pre-request script can set a variable
+    /// its own request's `{{...}}` interpolation then resolves against.
     static func applyPreRequest(
         to request: RequestSpec,
         scope: VariableScope,
         runtime: ScriptRuntime,
-    ) async throws -> RequestSpec {
-        guard let scripts = request.scripts, !scripts.preRequestLines.isEmpty else { return request }
+    ) async throws -> (request: RequestSpec, scope: VariableScope) {
+        guard let scripts = request.scripts, !scripts.preRequestLines.isEmpty else { return (request, scope) }
 
         let output = try await runtime.run(ScriptInput(
             source: scripts.preRequestSource,
             env: scope.flattened,
             request: requestContext(for: request),
         ))
-        guard let mutated = output.request else { return request }
-        return applying(mutated, to: request)
+        var updatedScope = scope
+        for (key, value) in output.variables { updatedScope.setRuntime(key, value) }
+        guard let mutated = output.request else { return (request, updatedScope) }
+        return (applying(mutated, to: request), updatedScope)
     }
 
     /// Runs `request.scripts.postResponseLines` (if any) against `record`.

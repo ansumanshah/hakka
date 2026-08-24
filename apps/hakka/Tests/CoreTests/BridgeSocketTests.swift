@@ -226,6 +226,49 @@ struct BridgeSocketTests {
         #expect(peers == 1, "a live connection must be a relay peer, or control frames reach nobody")
     }
 
+    /// A peer that never proves the configured token must never become a
+    /// relay peer — `BridgeServerOptions.token`'s whole point. Before this
+    /// gate existed, `BridgeConnection` registered every connection with
+    /// `hub` the instant it reached `.ready`, with nothing checking who
+    /// connected.
+    @Test func aTokenGatedServerRejectsAConnectionThatNeverSendsTheToken() async throws {
+        let server = BridgeServer(options: BridgeServerOptions(port: 0, advertise: false, token: "shh"))
+        try await server.start()
+        let port = try #require(await boundPort(of: server))
+        defer { Task { await server.stop() } }
+
+        let task = openSocket(port: port)
+        try await task.send(.string(requestFrame(id: "no-token")))
+
+        let received = await nextCapturedRequest(server, timeout: .seconds(1))
+        let peers = await server.hub.peerCount
+        task.cancel(with: .goingAway, reason: nil)
+
+        #expect(received == nil, "a peer that never sent the token reached the hub anyway")
+        #expect(peers == 0, "a peer that never sent the token was registered as a relay peer anyway")
+    }
+
+    /// The accept-path counterpart: the correct token as the first frame
+    /// registers the peer, and every frame after that is ingested normally.
+    @Test func aTokenGatedServerAcceptsAConnectionThatSendsTheCorrectTokenFirst() async throws {
+        let server = BridgeServer(options: BridgeServerOptions(port: 0, advertise: false, token: "shh"))
+        try await server.start()
+        let port = try #require(await boundPort(of: server))
+        defer { Task { await server.stop() } }
+
+        let task = openSocket(port: port)
+        try await task.send(.string(#"{"token":"shh"}"#))
+        try await task.send(.string(requestFrame(id: "with-token")))
+
+        let received = await nextCapturedRequest(server)
+        let peers = await server.hub.peerCount
+        task.cancel(with: .goingAway, reason: nil)
+
+        let captured = try #require(received, "a peer that sent the correct token first never reached the hub")
+        #expect(captured.request.id == "with-token")
+        #expect(peers == 1)
+    }
+
     /// The whole point of carrying `senderID` through to `CapturedRequest`:
     /// two real sockets — the closest this suite gets to "an iOS simulator
     /// and an Android device hitting the same hub" — must not blur into one

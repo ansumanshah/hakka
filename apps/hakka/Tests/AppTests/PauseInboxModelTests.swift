@@ -129,6 +129,42 @@ struct PauseInboxModelResolveTests {
         #expect(model.deliveryNote == "No devices connected — the request may still be paused on the device")
     }
 
+    /// A failed send must not permanently strand the pause without its
+    /// auto-abort watchdog — `resolve()` cancels the existing watchdog
+    /// unconditionally before sending, so the catch branch must re-arm one
+    /// or a single transient failure leaves the device blocked on its
+    /// semaphore forever, with nothing left to ever wake it.
+    @Test func aFailedResolveReschedulesTheAutoAbortWatchdog() async throws {
+        let channel = FakePauseChannel()
+        channel.sendResult = .failure(ControlWireError.encodingFailed("boom"))
+        let model = PauseInboxModel(channel: channel, autoAbortTimeout: .milliseconds(30))
+        let observeTask = Task { await model.observe() }
+        await channel.pauses.ingest(requestPause())
+        try await Task.sleep(for: .milliseconds(10))
+
+        model.abort(requestPause())
+        try await Task.sleep(for: .milliseconds(20))
+        // Let the rescheduled watchdog's own auto-abort succeed so its
+        // effect (removal + "Timed out" note) is observable.
+        channel.sendResult = .success(1)
+        try await Task.sleep(for: .milliseconds(80))
+        observeTask.cancel()
+
+        let abortsSent = channel.sentCommands.filter { command in
+            if case .breakpointAbort(pauseId: "pause-1") = command { return true }
+            return false
+        }
+        #expect(
+            abortsSent.count >= 2,
+            "the failed manual abort plus a rescheduled watchdog's auto-abort must both fire; got \(abortsSent.count)"
+        )
+        #expect(
+            await channel.pauses.pause(id: "pause-1") == nil,
+            "the rescheduled watchdog's auto-abort must eventually resolve and remove the pause"
+        )
+        #expect(model.deliveryNote?.contains("Timed out") == true)
+    }
+
     @Test func abortAllForTerminationSendsAbortForEveryEntry() async throws {
         let channel = FakePauseChannel()
         await channel.pauses.ingest(requestPause(id: "a"))

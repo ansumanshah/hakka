@@ -103,6 +103,11 @@ final class PauseInboxModel {
                 await channel.pauses.remove(pauseId: pause.pauseId)
                 note(delivered, reason: reason)
             } catch {
+                // The pause stays in the inbox for retry (unchanged above),
+                // but its watchdog was just cancelled — re-arm it, or a
+                // single transient send failure permanently strands the
+                // device on a semaphore with no other way to wake it.
+                scheduleTimeoutIfNeeded(pause)
                 note(error, reason: reason)
             }
         }

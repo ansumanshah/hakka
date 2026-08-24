@@ -15,6 +15,7 @@ private final class FakeWebSocketConnection: WebSocketConnection, @unchecked Sen
     let events: AsyncStream<WebSocketConnectionEvent>
     private let continuation: AsyncStream<WebSocketConnectionEvent>.Continuation
     private(set) var sentTexts: [String] = []
+    private(set) var closeCalls: [Int] = []
 
     init() {
         var box: AsyncStream<WebSocketConnectionEvent>.Continuation?
@@ -30,7 +31,9 @@ private final class FakeWebSocketConnection: WebSocketConnection, @unchecked Sen
         sentTexts.append(text)
     }
 
-    func close(code _: Int) {}
+    func close(code: Int) {
+        closeCalls.append(code)
+    }
 }
 
 private struct FakeWebSocketTransport: WebSocketTransport {
@@ -89,6 +92,38 @@ struct WebSocketConnectionModelTests {
         await waitUntil { model.snapshot.frames.contains { $0.payload == .text("ping") } }
 
         #expect(fake.sentTexts == ["ping"])
+    }
+
+    /// Without disconnecting the previous session, its socket stays open on
+    /// the server even though the UI has already moved on to a new one.
+    @Test func connectingAgainDisconnectsThePreviousSession() async {
+        let fake = FakeWebSocketConnection()
+        let model = WebSocketConnectionModel(transport: FakeWebSocketTransport(connection: fake))
+        model.connect(urlString: "wss://example.com/first")
+        fake.push(.opened(wsProtocol: nil))
+        await waitUntil { model.state.isOpen }
+
+        model.connect(urlString: "wss://example.com/second")
+        await waitUntil { !fake.closeCalls.isEmpty }
+
+        #expect(fake.closeCalls == [1000], "reconnecting must close the previous still-open session, not leak it")
+    }
+
+    /// Same leak on the invalid-URL early-return path: the UI resets to
+    /// "not connected" while the previous socket was left untouched.
+    @Test func reconnectingWithAnInvalidURLStillDisconnectsThePreviousSession() async {
+        let fake = FakeWebSocketConnection()
+        let model = WebSocketConnectionModel(transport: FakeWebSocketTransport(connection: fake))
+        model.connect(urlString: "wss://example.com/first")
+        fake.push(.opened(wsProtocol: nil))
+        await waitUntil { model.state.isOpen }
+
+        model.connect(urlString: "")
+        await waitUntil { !fake.closeCalls.isEmpty }
+
+        #expect(fake.closeCalls == [1000], "an invalid new URL must still close the previous session, not leak it")
+        #expect(model.connectError != nil)
+        #expect(model.snapshot == .empty)
     }
 
     @Test func disconnectSurfacesClosed() async {

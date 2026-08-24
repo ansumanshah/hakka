@@ -31,19 +31,31 @@ public struct BridgeServerOptions: Sendable {
     /// Instance name shown to LAN browsers. Default: the machine's hostname.
     public var advertiseName: String?
     public var maxFrameBytes: Int
+    /// Shared secret a peer must send as its first text frame
+    /// (`{"token":"<value>"}`) before `BridgeConnection` registers it with
+    /// `hub` — see `BridgeConnection.handleAssembledMessage`. `nil` (the
+    /// default) means no token is required, matching `server.ts`'s
+    /// `token`-unset default; origin checking has no Swift counterpart
+    /// (Network.framework's `NWProtocolWebSocket` never exposes the
+    /// upgrade request's headers to server code), so this token is the one
+    /// gate available here. Defense in depth for when `allowLAN` is
+    /// enabled — see `allowLAN`'s doc comment. Compared in constant time.
+    public var token: String?
 
     public init(
         port: UInt16 = bridgeDefaultPort,
         allowLAN: Bool = false,
         advertise: Bool = true,
         advertiseName: String? = nil,
-        maxFrameBytes: Int = BridgeWireLimits.maxFrameBytes
+        maxFrameBytes: Int = BridgeWireLimits.maxFrameBytes,
+        token: String? = nil
     ) {
         self.port = port
         self.allowLAN = allowLAN
         self.advertise = advertise
         self.advertiseName = advertiseName
         self.maxFrameBytes = maxFrameBytes
+        self.token = token
     }
 }
 
@@ -106,9 +118,12 @@ public actor BridgeServer {
 
         let hub = self.hub
         let maxFrameBytes = options.maxFrameBytes
+        let requiredToken = options.token
         let connectionQueue = queue
         listener.newConnectionHandler = { connection in
-            let peer = BridgeConnection(connection: connection, hub: hub, maxFrameBytes: maxFrameBytes)
+            let peer = BridgeConnection(
+                connection: connection, hub: hub, maxFrameBytes: maxFrameBytes, requiredToken: requiredToken,
+            )
             peer.start(on: connectionQueue)
         }
 

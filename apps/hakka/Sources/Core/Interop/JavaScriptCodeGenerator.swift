@@ -28,8 +28,19 @@ enum JavaScriptCodeGenerator {
         case let .text(text, _):
             return "body: '\(escape(text))'"
         case let .form(fields):
-            let params = fields.map { "\(escape($0.name))=\(escape($0.value))" }.joined(separator: "&")
-            return "body: new URLSearchParams('\(params)')"
+            // Object literal, not `new URLSearchParams('name=value&...')` — the
+            // string constructor form parses its argument as an already-encoded
+            // query string, so a field name/value containing `&`, `=`, or `+`
+            // would silently inject or reinterpret fields. The object form
+            // takes each entry as a literal string instead.
+            guard !fields.isEmpty else { return "body: new URLSearchParams({})" }
+            var out = "body: new URLSearchParams({\n"
+            for (index, field) in fields.enumerated() {
+                let comma = index == fields.count - 1 ? "" : ","
+                out += "    '\(escape(field.name))': '\(escape(field.value))'\(comma)\n"
+            }
+            out += "  })"
+            return out
         case let .multipart(parts):
             var out = "body: (() => {\n    const form = new FormData();\n"
             for part in parts {

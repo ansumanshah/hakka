@@ -125,6 +125,12 @@ final class TrafficModel {
             startupError = "Bridge server failed to start: \(error.localizedDescription)"
             return
         }
+        // The task group below only returns once every consumer has been
+        // cancelled — e.g. SwiftUI cancelling the driving `.task` when the
+        // window closes. Resetting `isRunning` here (rather than leaving it
+        // `true` forever) is what lets a later `start()` — from a reopened
+        // window — pass the guard above and re-subscribe all four consumers.
+        defer { isRunning = false }
         let hub = await server.hub
         ruleSender = ControlSender(hub: hub)
         // Four indefinitely-running consumers of the same hub: captured

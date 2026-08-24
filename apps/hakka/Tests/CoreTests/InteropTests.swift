@@ -196,6 +196,28 @@ struct CodeGeneratorBodyVariantTests {
         #expect(code.contains(#""user": "ada","#))
         #expect(code.contains(#""pass": "s3cr3t","#))
     }
+
+    /// A form field value containing `&`/`=` must not corrupt the generated
+    /// JS. `new URLSearchParams('name=value&...')` (the string constructor)
+    /// re-parses its argument as a query string, so an unescaped `&` in a
+    /// value silently injects/reinterprets fields — the object-literal form
+    /// (`new URLSearchParams({ name: 'value' })`) takes each entry literally
+    /// instead and can't be reinterpreted that way.
+    @Test func javascriptFormEncodedBodyDoesNotMisparseAmpersandsInValues() {
+        let spec = RequestSpec(
+            name: "Login",
+            method: .post,
+            url: "https://api.example.com/login",
+            body: .form([
+                HeaderPair(name: "user", value: "ada"),
+                HeaderPair(name: "redirect", value: "https://evil.test?x=1&y=2"),
+            ]),
+        )
+        let code = CodeGenerator.generate(spec, language: .javascript, secrets: .raw)
+        #expect(code.contains("new URLSearchParams({"))
+        #expect(!code.contains("new URLSearchParams('"))
+        #expect(code.contains("'redirect': 'https://evil.test?x=1&y=2'"))
+    }
 }
 
 // MARK: - cURL importer
