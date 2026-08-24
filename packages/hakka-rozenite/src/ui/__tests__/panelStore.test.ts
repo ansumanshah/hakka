@@ -118,6 +118,22 @@ describe('createPanelStore', () => {
     expect(client.sent).toEqual([])
   })
 
+  it('a cleared ack notifies onClear listeners so a mirror outside subscribe() can resync', () => {
+    const client = createFakeClient()
+    const store = createPanelStore(client)
+    let calls = 0
+    const unsubscribe = store.onClear(() => {
+      calls += 1
+    })
+
+    client.fire('cleared', {})
+    expect(calls).toBe(1)
+
+    unsubscribe()
+    client.fire('cleared', {})
+    expect(calls).toBe(1) // unaffected — unsubscribed before the second ack
+  })
+
   it('ingest() (the "load sample traffic" path) only updates the local mirror', async () => {
     const client = createFakeClient()
     const store = createPanelStore(client)

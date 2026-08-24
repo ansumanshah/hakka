@@ -24,6 +24,16 @@ export interface PanelStore {
   subscribe(cb: (request: NetworkRequest) => void): () => void
   clear(): void
   ingest(request: NetworkRequest): void
+  /** Fires when the mirror was emptied by a `cleared` ack from the RN side
+   * (its own Clear button, or a remote `Hakka.clearLogs()` call never routed
+   * through this panel) — deliberately a separate channel from `subscribe`,
+   * whose callback is fed a real `NetworkRequest` for every call
+   * (`hakka-browser`'s `RequestListViewModel` upserts it into its own mirror
+   * unconditionally); nothing about "everything's gone" can travel over that
+   * channel without a fake payload corrupting that mirror. Not part of
+   * `hakka-browser/elements`' store contract — used only by this panel's own
+   * `ui/App.tsx` mirror. */
+  onClear(cb: () => void): () => void
   /** Not part of `hakka-browser/elements`' store contract — called from the
    * panel's own unmount effect. */
   destroy(): void
@@ -45,6 +55,7 @@ export interface PanelStore {
 export function createPanelStore(client: PanelStoreClientLike): PanelStore {
   let requests: NetworkRequest[] = []
   const subscribers = new Set<(request: NetworkRequest) => void>()
+  const clearListeners = new Set<() => void>()
 
   function upsert(request: NetworkRequest): void {
     const index = requests.findIndex((r) => r.id === request.id)
@@ -55,6 +66,7 @@ export function createPanelStore(client: PanelStoreClientLike): PanelStore {
   const requestSubscription = client.onMessage('request', upsert)
   const clearedSubscription = client.onMessage('cleared', () => {
     requests = []
+    for (const listener of clearListeners) listener()
   })
 
   // Resync on mount: ask the RN side to resend its backlog immediately.
@@ -65,6 +77,10 @@ export function createPanelStore(client: PanelStoreClientLike): PanelStore {
     subscribe(cb) {
       subscribers.add(cb)
       return () => subscribers.delete(cb)
+    },
+    onClear(cb) {
+      clearListeners.add(cb)
+      return () => clearListeners.delete(cb)
     },
     clear() {
       requests = []

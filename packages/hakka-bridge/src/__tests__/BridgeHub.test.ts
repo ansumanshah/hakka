@@ -224,6 +224,31 @@ describe('BridgeHub — storage snapshot-replace', () => {
     hub.clear()
     expect(hub.getStorageSnapshots()).toEqual([])
   })
+
+  test('bounds distinct store names to maxStorageStores, evicting the oldest', () => {
+    const hub = new BridgeHub({ maxStorageStores: 2 })
+    hub.ingest(storageFrame({ store: 's1', timestamp: 1, entries: {} }))
+    hub.ingest(storageFrame({ store: 's2', timestamp: 1, entries: {} }))
+    hub.ingest(storageFrame({ store: 's3', timestamp: 1, entries: {} }))
+    const stores = hub
+      .getStorageSnapshots()
+      .map((s) => s.store)
+      .sort()
+    expect(stores).toEqual(['s2', 's3'])
+  })
+
+  test('replacing an existing store name never evicts, even at the cap', () => {
+    const hub = new BridgeHub({ maxStorageStores: 2 })
+    hub.ingest(storageFrame({ store: 's1', timestamp: 1, entries: { a: '1' } }))
+    hub.ingest(storageFrame({ store: 's2', timestamp: 1, entries: {} }))
+    hub.ingest(storageFrame({ store: 's1', timestamp: 2, entries: { a: '2' } }))
+    const stores = hub
+      .getStorageSnapshots()
+      .map((s) => s.store)
+      .sort()
+    expect(stores).toEqual(['s1', 's2'])
+    expect(hub.getStorageSnapshots().find((s) => s.store === 's1')?.entries).toEqual({ a: '2' })
+  })
 })
 
 describe('BridgeHub — span backlog', () => {

@@ -63,11 +63,17 @@ export default function App() {
   const [requests, setRequests] = useState<NetworkRequest[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
+  // Reset the mirror when the store identity changes (including to null) —
+  // done during render per React's derived-state-reset pattern rather than
+  // as a setState inside the effect.
+  const [prevStore, setPrevStore] = useState<PanelStore | null>(store)
+  if (prevStore !== store) {
+    setPrevStore(store)
+    setRequests([])
+  }
+
   useEffect(() => {
-    if (!store) {
-      setRequests([])
-      return undefined
-    }
+    if (!store) return undefined
     let cancelled = false
     const refresh = () => {
       void store.getSnapshot().then((snapshot) => {
@@ -76,9 +82,11 @@ export default function App() {
     }
     refresh()
     const unsubscribe = store.subscribe(refresh)
+    const unsubscribeClear = store.onClear(refresh)
     return () => {
       cancelled = true
       unsubscribe()
+      unsubscribeClear()
     }
   }, [store])
 

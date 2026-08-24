@@ -9,6 +9,8 @@ export interface BridgeHubOptions {
   maxSpans?: number
   /** Max spans retained per trace; oldest span in that trace is dropped on overflow. Default 128. */
   maxSpansPerTrace?: number
+  /** Max distinct `store` names retained in the storage-snapshot buffer; oldest store name is evicted on overflow. Default 64. */
+  maxStorageStores?: number
 }
 
 export type RecordListener = (request: NetworkRequest) => void
@@ -51,14 +53,21 @@ export class BridgeHub {
    * to accumulate: a new frame for a `store` simply overwrites the old one.
    * Buffered (unlike `console`) so a freshly-connected viewer immediately
    * sees current storage state instead of a blank panel until the device's
-   * next snapshot.
+   * next snapshot. Bounded by `maxStorageStores`: legitimate storage domains
+   * (UserDefaults, keychain, cookies) are a small, effectively fixed set per
+   * app, so unboundedly many distinct `store` names means a buggy/hostile
+   * client — evict the oldest store name (Map iteration order, same
+   * "insertion order = eviction queue" trick as `spansByTrace`) rather than
+   * let the map grow without limit.
    */
   private readonly latestStorageByStore = new Map<string, StorageSnapshot>()
+  private readonly maxStorageStores: number
 
   constructor(options: BridgeHubOptions = {}) {
     this.max = Math.max(1, Math.floor(options.maxRecords ?? 1000))
     this.maxSpans = Math.max(1, Math.floor(options.maxSpans ?? 1024))
     this.maxSpansPerTrace = Math.max(1, Math.floor(options.maxSpansPerTrace ?? 128))
+    this.maxStorageStores = Math.max(1, Math.floor(options.maxStorageStores ?? 64))
   }
 
   /**
@@ -98,7 +107,7 @@ export class BridgeHub {
     }
 
     if (message.type === 'storage') {
-      this.latestStorageByStore.set(message.payload.store, message.payload)
+      this.bufferStorage(message.payload)
       return { kind: 'storage', snapshot: message.payload }
     }
 
@@ -167,6 +176,22 @@ export class BridgeHub {
       const oldestBucket = this.spansByTrace.get(oldestKey)
       this.spansByTrace.delete(oldestKey)
       this.spanCount -= oldestBucket?.length ?? 0
+    }
+  }
+
+  /**
+   * Store (or replace) one storage snapshot, evicting the oldest store name
+   * once the map grows past `maxStorageStores`. A replace (an already-known
+   * `store` key) never triggers eviction — only a genuinely new store name
+   * can push the map over the cap, mirroring `records`'/`spansByTrace`'s
+   * "the oldest surviving entry goes" rule.
+   */
+  private bufferStorage(snapshot: StorageSnapshot): void {
+    const isNewStore = !this.latestStorageByStore.has(snapshot.store)
+    this.latestStorageByStore.set(snapshot.store, snapshot)
+    if (isNewStore && this.latestStorageByStore.size > this.maxStorageStores) {
+      const oldestKey = this.latestStorageByStore.keys().next().value
+      if (oldestKey !== undefined) this.latestStorageByStore.delete(oldestKey)
     }
   }
 
