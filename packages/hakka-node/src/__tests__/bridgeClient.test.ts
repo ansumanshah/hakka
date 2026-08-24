@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import net from 'node:net'
 
 import { mockEngine, type NetworkRequest } from 'hakka-core'
-import { WebSocketServer, type WebSocket } from 'ws'
+import { WebSocket, WebSocketServer } from 'ws'
 
 import { createBridgeClient, type BridgeClient } from '../bridgeClient'
 
@@ -206,6 +206,49 @@ describe('createBridgeClient', () => {
     expect(ids.length).toBe(1000)
     expect(ids[0]).toBe('c5') // oldest 5 (c0..c4) evicted to hold the 1000 cap
     expect(ids[999]).toBe('c1004')
+  })
+
+  test('flush() respects ws backpressure: a high bufferedAmount stops draining mid-queue instead of calling send() unconditionally', async () => {
+    const port = await getFreePort()
+    const started = await startHub(port)
+    hub = started.wss
+
+    client = createBridgeClient({ url: `ws://localhost:${port}` })
+    await waitFor(() => client?.connected === true)
+
+    // `bufferedAmount` is a real getter on WebSocket.prototype (configurable,
+    // no setter — verified via Object.getOwnPropertyDescriptor), so it can be
+    // overridden directly instead of needing to actually saturate loopback's
+    // multi-MB OS socket buffers to reproduce a slow-reading peer. Forcing it
+    // above MAX_BUFFERED_AMOUNT (1 MiB) simulates exactly that without
+    // touching send()/the real socket at all.
+    const original = Object.getOwnPropertyDescriptor(WebSocket.prototype, 'bufferedAmount')
+    Object.defineProperty(WebSocket.prototype, 'bufferedAmount', {
+      configurable: true,
+      get: () => 2 * 1024 * 1024,
+    })
+
+    try {
+      client.send(makeRequest('backpressure-1'))
+      client.send(makeRequest('backpressure-2'))
+
+      // No positive event to wait for a non-delivery — give an (incorrect)
+      // send a beat to show up before asserting nothing crossed the wire.
+      await new Promise((r) => setTimeout(r, 150))
+      expect(started.messages.length).toBe(0)
+    } finally {
+      // Restore before the next send() — and before any other test in this
+      // process touches WebSocket.prototype again — regardless of assertion
+      // outcome above.
+      if (original) Object.defineProperty(WebSocket.prototype, 'bufferedAmount', original)
+    }
+
+    // Once bufferedAmount reports normally again, the next send()'s flush()
+    // drains everything still sitting in `queue`, oldest first — proving the
+    // records were retained during backpressure, not dropped.
+    client.send(makeRequest('backpressure-3'))
+    await waitFor(() => started.messages.length >= 3)
+    expect(payloadIds(started.messages)).toEqual(['backpressure-1', 'backpressure-2', 'backpressure-3'])
   })
 })
 

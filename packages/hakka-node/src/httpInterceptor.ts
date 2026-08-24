@@ -37,6 +37,16 @@ const saved: Array<{ mod: typeof nodeHttp | typeof nodeHttps; key: 'request' | '
 /** Bridge hub hosts skipped by default to avoid self-capture loops. */
 export const DEFAULT_BRIDGE_HOSTS = ['localhost:8989', 'localhost:8990']
 
+// A caller who observes 'timeout' without destroying the request (the
+// documented, valid way to treat it as informational) leaves the terminal
+// signal entirely up to the peer. If the peer never responds AND never tears
+// down the TCP connection, the request's own 'close' never fires either — so
+// without this fallback, the request would vanish from the inspector
+// forever instead of surfacing (even if belatedly) as a timeout. This grace
+// window is deliberately generous so it never wins a race against a real
+// response/error/close — see the 'timeout' handler in `instrument`.
+const TIMEOUT_FALLBACK_GRACE_MS = 30_000
+
 export interface HttpInterceptorOptions {
   /**
    * Pre-capture gate, evaluated per request right after the bridge-host skip
@@ -47,6 +57,14 @@ export interface HttpInterceptorOptions {
    * one gate function shared by both interceptors.
    */
   shouldCapture?: () => boolean
+  /**
+   * Overrides {@link TIMEOUT_FALLBACK_GRACE_MS} — the grace window after a
+   * socket 'timeout' before the interceptor emits a best-effort timeout
+   * record on its own, for the case the request's own 'close' never fires.
+   * Exists mainly so tests can shrink a 30s wait; production callers should
+   * rarely need it.
+   */
+  timeoutFallbackGraceMs?: number
 }
 
 function isNodeRuntime(): boolean {
@@ -356,7 +374,35 @@ function instrument(
     res.on('aborted', () => finish(false))
   })
   req.on('error', (err: Error) => emit({ status: null, error: err.message }))
-  req.on('timeout', () => emit({ status: null, error: 'timeout' }))
+  // Node's 'timeout' event only signals that the socket has been idle — it
+  // does NOT abort the request, so a real 'response' (or 'error') can still
+  // follow. Emitting a terminal record here would set the one-shot `emitted`
+  // guard and permanently discard whatever the request's true outcome turns
+  // out to be. Record the fact instead and defer: the request's own 'close'
+  // (fired once, always, at the end of its lifecycle — after 'response' when
+  // one arrives, after 'error', or on its own if the caller destroys the
+  // request in response to the timeout) is the last-resort terminal signal
+  // that emits the timeout record, but only if nothing else already did.
+  let timedOut = false
+  let timeoutFallbackTimer: ReturnType<typeof setTimeout> | null = null
+  req.on('timeout', () => {
+    timedOut = true
+    // Last-resort visibility net for the case 'close' never fires at all
+    // (see TIMEOUT_FALLBACK_GRACE_MS above). Never touches `req`/the socket —
+    // only affects what the inspector shows, and only if nothing real
+    // resolves first: `emit`'s one-shot `emitted` guard makes this a no-op
+    // once 'response', 'error', or 'close' has already emitted a record.
+    const graceMs = interceptorOptions?.timeoutFallbackGraceMs ?? TIMEOUT_FALLBACK_GRACE_MS
+    timeoutFallbackTimer = setTimeout(() => emit({ status: null, error: 'timeout' }), graceMs)
+    timeoutFallbackTimer.unref?.()
+  })
+  req.on('close', () => {
+    if (timeoutFallbackTimer) {
+      clearTimeout(timeoutFallbackTimer)
+      timeoutFallbackTimer = null
+    }
+    if (timedOut) emit({ status: null, error: 'timeout' })
+  })
 
   return req
 }

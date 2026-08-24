@@ -86,6 +86,14 @@ export interface BridgeClient {
 
 const MAX_QUEUE = 1000
 const DEFAULT_MAX_QUEUE_BYTES = 5 * 1024 * 1024
+// ws.send() never throws just because the peer accepts the TCP connection
+// but reads slowly — frames pile up in ws's own internal send buffer
+// (tracked by `ws.bufferedAmount`) instead. Without a check here, flush()
+// would drain the bounded app-level `queue` straight into that unbounded
+// buffer at full capture volume. Once bufferedAmount crosses this threshold,
+// flush() stops draining and leaves the remainder in `queue`, where the
+// existing MAX_QUEUE/maxQueueBytes caps keep bounding it.
+const MAX_BUFFERED_AMOUNT = 1 * 1024 * 1024
 
 // Serialised once at enqueue time and kept only as its wire string — never
 // the live NetworkRequest object — so the queue's footprint is exactly the
@@ -159,6 +167,11 @@ export function createBridgeClient(opts: BridgeClientOptions = {}): BridgeClient
   const flush = (): void => {
     if (!ws || ws.readyState !== WebSocket.OPEN) return
     while (queue.length > 0) {
+      // A slow-but-connected peer never makes ws.send() throw — it just grows
+      // ws's internal send buffer. Stop feeding it once backed up; the rest
+      // stays in `queue`, bounded by MAX_QUEUE/maxQueueBytes, and drains on a
+      // later flush() once the peer catches up.
+      if (ws.bufferedAmount > MAX_BUFFERED_AMOUNT) break
       const entry = queue[0]
       if (!entry) break // queue.length > 0 guarantees this, but noUncheckedIndexedAccess needs the check
       try {

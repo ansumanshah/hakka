@@ -163,8 +163,17 @@ function hostFromUrl(url: string): string | null {
   }
 }
 
-/** Start the bridge hub in this process. No-op if the port is already taken. */
-async function startEmbeddedBridge(url: string): Promise<void> {
+/**
+ * Start the bridge hub in this process. No-op if the port is already taken.
+ *
+ * `stoppedRef` is a per-`startCapture()`-call flag: if `stop()` runs before
+ * `startBridgeServer` resolves, `embeddedBridge?.close()` in `stop()` is a
+ * no-op (nothing assigned yet) and this function's `await` settles afterward
+ * holding a live, port-bound server nothing has asked it to close. Checking
+ * `stoppedRef.stopped` once the await resolves lets us close that server
+ * immediately instead of leaking it via an unconditional assignment.
+ */
+async function startEmbeddedBridge(url: string, stoppedRef: { stopped: boolean }): Promise<void> {
   let port = 8989
   try {
     const parsed = Number(new URL(url).port)
@@ -174,7 +183,12 @@ async function startEmbeddedBridge(url: string): Promise<void> {
   }
   try {
     const { startBridgeServer } = await import('hakka-bridge')
-    embeddedBridge = await startBridgeServer({ port })
+    const server = await startBridgeServer({ port })
+    if (stoppedRef.stopped) {
+      void server.close()
+      return
+    }
+    embeddedBridge = server
   } catch {
     // Port in use → a hub (or another worker) already hosts it; the bridge
     // client connects to that one. Nothing to do.
@@ -194,9 +208,11 @@ export function startCapture(options: HakkaNodeOptions = {}): HakkaNodeCapture {
   const bridgeHosts = resolvedHost ? [...new Set([...DEFAULT_BRIDGE_HOSTS, resolvedHost])] : DEFAULT_BRIDGE_HOSTS
 
   // Embed the hub in-process by default so there's no separate `hakka-bridge`
-  // process. Fire-and-forget; the bridge client queues until ready.
+  // process. Fire-and-forget; the bridge client queues until ready. Scoped
+  // per-call so a stop() from THIS capture can't affect a later one's race.
+  const embeddedBridgeStopped = { stopped: false }
   if (useBridge && options.embedBridge !== false && runtime !== 'edge') {
-    void startEmbeddedBridge(bridgeUrl)
+    void startEmbeddedBridge(bridgeUrl, embeddedBridgeStopped)
   }
 
   const bridge: BridgeClient | null = useBridge
@@ -262,6 +278,7 @@ export function startCapture(options: HakkaNodeOptions = {}): HakkaNodeCapture {
   active = {
     runtime,
     stop() {
+      embeddedBridgeStopped.stopped = true
       if (killSwitchTimer) clearInterval(killSwitchTimer)
       for (let i = teardowns.length - 1; i >= 0; i--) teardowns[i]()
       undiciTiming?.teardown()

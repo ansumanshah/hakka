@@ -149,6 +149,35 @@ describe('embedded bridge (no separate process)', () => {
     expect(got).toBeTruthy()
     expect(got?.payload?.runtime).toBe('server')
   })
+
+  test('stop() called synchronously right after startCapture() does not leak a bound-but-unclosed hub', async () => {
+    // Regression for the race: startEmbeddedBridge is fire-and-forget, so
+    // stop() can run (and find embeddedBridge still null, making its close()
+    // a no-op) before the dynamic import('hakka-bridge')/startBridgeServer()
+    // chain resolves and assigns a live, port-bound server. Calling stop()
+    // in the same synchronous tick as startCapture() (before any microtask
+    // from that chain can run) reproduces the race deterministically.
+    const bridgeUrl = 'ws://localhost:8992'
+    const handle = startCapture({ runtime: 'server', bridgeUrl })
+    handle.stop()
+
+    // Give the embedded bridge's async start (dynamic import + real socket
+    // bind) plenty of time to finish, whichever way the race resolves.
+    await new Promise((r) => setTimeout(r, 700))
+
+    // Pre-fix, startEmbeddedBridge unconditionally binds the port after its
+    // await resolves, regardless of stop() — this probe would connect.
+    // Post-fix, the race is detected and the server is closed immediately.
+    const leaked = await new Promise<boolean>((resolve) => {
+      const probe = new WebSocket(bridgeUrl)
+      probe.onopen = () => {
+        probe.close()
+        resolve(true)
+      }
+      probe.onerror = () => resolve(false)
+    })
+    expect(leaked).toBe(false)
+  })
 })
 
 /** Binds an OS-assigned port and resolves once listening — used to stand in for the desktop app's hub. */

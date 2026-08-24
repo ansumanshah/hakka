@@ -475,4 +475,107 @@ describe('http interceptor', () => {
     server.close()
     expect(sawTraceHeader).toBe('T-GET')
   })
+
+  test("a socket 'timeout' that isn't fatal does not clobber the real response that arrives later", async () => {
+    // Node's 'timeout' event is advisory — it only means the socket has been
+    // idle, not that the request failed. This upstream is slow but alive: it
+    // responds well after the request's socket timeout fires, and the caller
+    // deliberately does NOT abort on 'timeout' (the documented, valid way to
+    // treat it as informational). The real 200 must win, not a fabricated
+    // timeout record.
+    const server = http.createServer((_req, res) => {
+      setTimeout(() => {
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end('{"ok":true}')
+      }, 150)
+    })
+    const port = await listen(server)
+    const records: NetworkRequest[] = []
+    enableHttpInterceptor((r) => records.push(r), 1000, [])
+
+    await new Promise<void>((resolve, reject) => {
+      const req = http.request({ host: '127.0.0.1', port, path: '/slow-but-alive', timeout: 40 }, (resp) => {
+        resp.on('data', () => {})
+        resp.on('end', () => resolve())
+      })
+      req.on('error', reject)
+      req.on('timeout', () => {}) // observed, deliberately not fatal — no destroy()
+      req.end()
+    })
+    await settle()
+    server.close()
+
+    const recs = records.filter((r) => r.url.includes('/slow-but-alive'))
+    expect(recs.length).toBe(1)
+    expect(recs[0]?.status).toBe(200)
+    expect(recs[0]?.error).toBeUndefined()
+  })
+
+  test("a socket 'timeout' followed by req.destroy() with no response ever arriving records the REAL abort reason, not a fabricated 'timeout'", async () => {
+    // The other half of the contract: when the caller DOES treat 'timeout' as
+    // fatal (the documented pattern — destroy the request themselves) and no
+    // response ever comes, the request must not vanish from the inspector
+    // just because the fix stopped treating 'timeout' itself as terminal.
+    // Destroying an in-flight request makes Node/undici raise a real 'error'
+    // (a "socket hang up" — verified empirically in this runtime) before
+    // 'close' fires, so that's the record that must win — not a fabricated
+    // `error: 'timeout'` a pre-fix interceptor would have already locked in
+    // before this 'error' ever had a chance to fire.
+    const server = http.createServer(() => {
+      // Deliberately never respond.
+    })
+    const port = await listen(server)
+    const records: NetworkRequest[] = []
+    enableHttpInterceptor((r) => records.push(r), 1000, [])
+
+    await new Promise<void>((resolve) => {
+      const req = http.request({ host: '127.0.0.1', port, path: '/hangs', timeout: 40 })
+      req.on('timeout', () => req.destroy())
+      req.on('error', () => {})
+      req.on('close', () => resolve())
+      req.end()
+    })
+    await settle()
+    server.close()
+
+    const rec = records.find((r) => r.url.includes('/hangs'))
+    expect(rec).toBeTruthy()
+    expect(rec?.status).toBeNull()
+    expect(rec?.error).toBeTruthy()
+    expect(rec?.error).not.toBe('timeout')
+  })
+
+  test("a socket 'timeout' with no destroy, whose peer never responds or closes, surfaces via the fallback grace window instead of vanishing forever", async () => {
+    // The gap the 'close'-only fix (above) leaves open on its own: if the
+    // caller treats 'timeout' as informational (no destroy — same valid
+    // pattern as the "not fatal" test above) AND the peer neither responds
+    // nor tears down the TCP connection, the request's own 'close' never
+    // fires either, so nothing would ever emit a record without this
+    // fallback. `timeoutFallbackGraceMs` is shrunk here so the test doesn't
+    // have to wait out the real 30s production default.
+    const server = http.createServer(() => {
+      // Deliberately never respond, never end() — a peer gone silent.
+    })
+    const port = await listen(server)
+    const records: NetworkRequest[] = []
+    const graceMs = 30
+    enableHttpInterceptor((r) => records.push(r), 1000, [], undefined, { timeoutFallbackGraceMs: graceMs })
+
+    const req = http.request({ host: '127.0.0.1', port, path: '/hangs-forever', timeout: 20 })
+    req.on('timeout', () => {}) // observed, deliberately not fatal — no destroy()
+    req.on('error', () => {})
+    req.end()
+
+    // Long enough for both the socket timeout (20ms) and the fallback grace
+    // window (30ms) to have elapsed.
+    await new Promise((r) => setTimeout(r, graceMs + 100))
+
+    const rec = records.find((r) => r.url.includes('/hangs-forever'))
+    expect(rec).toBeTruthy()
+    expect(rec?.status).toBeNull()
+    expect(rec?.error).toBe('timeout')
+
+    req.destroy()
+    server.close()
+  })
 })
