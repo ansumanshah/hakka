@@ -70,9 +70,9 @@ Driven remotely as a `breakpoint.add` / `breakpoint.remove` `ControlCommand` —
 
 ## Test anchors
 
-- `packages/hakka-core/src/engine/control.test.ts` (breakpoint add/remove via `ControlCommand`)
-- `packages/hakka-core/src/capture/rewrite.test.ts`, `packages/hakka-core/src/capture/xhr.test.ts`
-- `packages/hakka-browser/src/ui/Breakpoints.test.tsx`
+- `packages/hakka-core/src/engine/__tests__/control.test.ts` (breakpoint add/remove via `ControlCommand`)
+- `packages/hakka-core/src/capture/__tests__/rewrite.test.ts`, `packages/hakka-core/src/capture/__tests__/xhr.test.ts`
+- `packages/hakka-browser/src/ui/__tests__/Breakpoints.test.tsx`
 - `ios/Tests/HakkaTests/BreakpointEngineTests.swift`
 - `android/hakka-common/src/test/kotlin/com/noodleapps/hakka/BreakpointEngineTest.kt`
 

@@ -84,8 +84,8 @@ open, `messages: WsMessage[]`, and `wsProtocol` (the negotiated sub-protocol, em
 
 ## Test anchors
 
-- `packages/hakka-core/src/capture/websocket.test.ts`
-- `packages/hakka-core/src/engine/wsDecoders.test.ts`
+- `packages/hakka-core/src/capture/__tests__/websocket.test.ts`
+- `packages/hakka-core/src/engine/__tests__/wsDecoders.test.ts`
 - `android/hakka-network/src/test/kotlin/com/noodleapps/hakka/HakkaWebSocketWrapperTest.kt`
 
 ## Limits & non-goals

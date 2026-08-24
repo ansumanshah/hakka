@@ -146,9 +146,9 @@ prop/option shapes, not wire messages.
 
 ## Test anchors
 
-- `packages/hakka-core/src/engine/HakkaFacade.show.test.ts` — `Hakka.show()`/`.hide()` return-value and
+- `packages/hakka-core/src/engine/__tests__/HakkaFacade.show.test.ts` — `Hakka.show()`/`.hide()` return-value and
   native-adapter-missing behavior.
-- `packages/hakka-browser/src/ui/Inspector.test.tsx` (`opens panel on toggle button click`) — the web FAB.
+- `packages/hakka-browser/src/ui/__tests__/Inspector.test.tsx` (`opens panel on toggle button click`) — the web FAB.
 
 No dedicated test exists for shake detection or the bubble/notification UI on RN, iOS, or Android
 — see Limits below.

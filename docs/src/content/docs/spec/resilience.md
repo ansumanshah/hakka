@@ -49,6 +49,6 @@ web/RN's. RN's stale-body revalidation (async bridge body fetch) is still roadma
 
 ## Test anchors
 
-- `packages/hakka-browser/src/ui/CrashBoundary.test.tsx`
-- `packages/hakka-browser/src/ui/Detail.bodyHydration.test.tsx`
+- `packages/hakka-browser/src/ui/__tests__/CrashBoundary.test.tsx`
+- `packages/hakka-browser/src/ui/__tests__/Detail.bodyHydration.test.tsx`
 - `packages/hakka-react-native/src/ui/__tests__/CrashBoundary.test.tsx`

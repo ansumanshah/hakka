@@ -103,7 +103,7 @@ element, unlike request-list/filter-bar/stats. If you inject a custom `store` in
 
 `max-depth` is a real, working attribute — it changes `JsonViewer`'s per-node collapse
 threshold (`depth >= max-depth` starts collapsed), verified against
-`packages/hakka-browser/src/ui/elements/json-tree.test.tsx`'s own coverage (`max-depth="1"` collapses a
+`packages/hakka-browser/src/ui/elements/__tests__/json-tree.test.tsx`'s own coverage (`max-depth="1"` collapses a
 depth-1 node; `max-depth="9"` expands everything). It is not a no-op.
 
 ## SSR safety

@@ -76,9 +76,9 @@ reconnect **replaces** the buffered entry in place rather than appending a dupli
 
 ## Test anchors
 
-- `packages/hakka-bridge/src/hub.test.ts`
-- `packages/hakka-bridge/src/server.test.ts`
-- `packages/hakka-bridge/src/wsCompat.test.ts`
+- `packages/hakka-bridge/src/__tests__/BridgeHub.test.ts`
+- `packages/hakka-bridge/src/__tests__/server.test.ts`
+- `packages/hakka-bridge/src/__tests__/wsCompat.test.ts`
 - `scripts/smoke-bridge-replay.mjs`
 
 ## Limits & non-goals

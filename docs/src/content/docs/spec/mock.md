@@ -215,14 +215,15 @@ MCP `generate_mocks` tool. Three deliberate design choices:
 
 ## Test anchors
 
-- `packages/hakka-core/src/engine/MockEngine.test.ts`
-- `packages/hakka-core/src/engine/mockFromTraffic.test.ts`
-- `packages/hakka-core/src/capture/rewrite.test.ts`
-- `packages/hakka-core/src/capture/xhr.test.ts`
-- `packages/hakka-core/src/capture/mockSkipStopFailure.test.ts`
-- `packages/hakka-core/src/interop/msw.test.ts`
+- `packages/hakka-core/src/engine/__tests__/MockEngine.test.ts`
+- `packages/hakka-core/src/engine/__tests__/mockFromTraffic.test.ts`
+- `packages/hakka-core/src/capture/__tests__/rewrite.test.ts`
+- `packages/hakka-core/src/capture/__tests__/xhr.test.ts`
+- `packages/hakka-core/src/capture/__tests__/mockSkipStopFailure.test.ts`
+- `packages/hakka-core/src/interop/__tests__/msw.test.ts`
 - iOS: `ios/Tests/HakkaTests/MockEngineTests.swift`, `MockEngineSkipStopFailureTests.swift`,
-  `MockRuleModifyTests.swift`, `URLProtocolRewriteTests.swift`, `ControlCommandTests.swift`,
+  `MockRuleModifyTests.swift`, `URLProtocolEdgeTests.swift` (its "Rewrite path (block /
+  redirectTo / modify)" section), `ControlCommandTests.swift`,
   `ControlCommandMockSkipStopFailureTests.swift`
 - Android: `android/hakka-network/src/test/kotlin/com/noodleapps/hakka/MockEngineTest.kt`,
   `MockEngineSkipStopFailureTest.kt`, `MockRuleTransformTest.kt`, `HakkaInterceptorTest.kt`,

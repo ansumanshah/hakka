@@ -91,10 +91,10 @@ applying them as `mock.add` commands).
 
 ## Test anchors
 
-- `packages/hakka-core/src/engine/control.test.ts`
+- `packages/hakka-core/src/engine/__tests__/control.test.ts`
 - `scripts/smoke-control-roundtrip.mjs`
 - `scripts/smoke-mcp-handshake.mjs`
-- `packages/hakka/src/mcp/server.test.ts`
+- `packages/hakka/src/mcp/__tests__/server.test.ts`
 
 ## Limits & non-goals
 

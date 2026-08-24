@@ -62,8 +62,8 @@ Driven remotely as a `throttle.set` `ControlCommand` (`{ profile, latencyMs?, do
 
 ## Test anchors
 
-- `packages/hakka-core/src/engine/ThrottleEngine.test.ts`
-- `packages/hakka-core/src/engine/control.test.ts` (`throttle.set` roundtrip)
+- `packages/hakka-core/src/engine/__tests__/ThrottleEngine.test.ts`
+- `packages/hakka-core/src/engine/__tests__/control.test.ts` (`throttle.set` roundtrip)
 
 ## Limits & non-goals
 

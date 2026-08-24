@@ -86,8 +86,8 @@ capturing platform used.
 
 ## Test anchors
 
-- `packages/hakka-core/src/utils/headerRedaction.test.ts`
-- `packages/hakka-core/src/utils/bodyRedaction.test.ts`
+- `packages/hakka-core/src/utils/__tests__/headerRedaction.test.ts`
+- `packages/hakka-core/src/utils/__tests__/bodyRedaction.test.ts`
 - `packages/hakka-node/src/__tests__/redactionBoundary.test.ts` — end-to-end ordering: a real
   request through the real interceptor and bridge client, asserting the secret is absent from the
   exact string that crosses the socket

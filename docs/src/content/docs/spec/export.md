@@ -79,15 +79,16 @@ share-sheet buttons wired into RN's request-detail share action. cURL is shell-h
 
 ## Test anchors
 
-- `packages/hakka-core/src/model/har.test.ts`, `packages/hakka-core/src/model/harBuild.test.ts`
-- `packages/hakka-core/src/model/postman.test.ts`
-- `packages/hakka-core/src/model/otel.test.ts`, `packages/hakka-core/src/model/otlp.test.ts`
-- `packages/hakka-core/src/model/exportRoundtrip.test.ts`
-- `packages/hakka-core/src/codegen/generators.test.ts`
-- `packages/hakka-core/src/export/agentContext.test.ts`
-- `packages/hakka-core/src/repro/buildReproBundle.test.ts`
-- `packages/hakka-core/src/session/serialize.test.ts`
-- `packages/hakka-core/src/interop/msw.test.ts`
+- `packages/hakka-core/src/model/__tests__/har.test.ts`, `packages/hakka-core/src/model/__tests__/harBuild.test.ts`
+- `packages/hakka-core/src/model/__tests__/postman.test.ts`
+- `packages/hakka-core/src/model/__tests__/otel.test.ts`, `packages/hakka-core/src/model/__tests__/otlp.test.ts`
+- `packages/hakka-core/src/model/__tests__/exportRoundtrip.test.ts`
+- `packages/hakka-core/src/codegen/__tests__/buildAxios.test.ts`, `buildFetch.test.ts`, `buildHttpie.test.ts`,
+  `buildPython.test.ts`
+- `packages/hakka-core/src/export/__tests__/agentContext.test.ts`
+- `packages/hakka-core/src/repro/__tests__/buildReproBundle.test.ts`
+- `packages/hakka-core/src/session/__tests__/serialize.test.ts`
+- `packages/hakka-core/src/interop/__tests__/msw.test.ts`
 
 ## Evidence bundle (`buildEvidenceBundle`)
 

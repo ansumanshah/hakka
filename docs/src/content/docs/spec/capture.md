@@ -93,16 +93,16 @@ Captured requests are normalized to `ContractRecord` (kind `'network.request'`) 
 
 ## Test anchors
 
-- `packages/hakka-core/src/capture/fetchBasics.test.ts`
-- `packages/hakka-core/src/capture/fetchSafety.test.ts`
-- `packages/hakka-core/src/capture/maxBodySize.test.ts`
-- `packages/hakka-core/src/capture/xhr.test.ts`
-- `packages/hakka-core/src/capture/rewrite.test.ts`
-- `packages/hakka-core/src/capture/readCappedBody.test.ts`
-- `packages/hakka-core/src/capture/sseCapture.test.ts`
-- `packages/hakka-core/src/capture/console.test.ts`
-- `packages/hakka-core/src/capture/bodyCapture.test.ts`
-- `packages/hakka-core/src/engine/decoders.test.ts`
+- `packages/hakka-core/src/capture/__tests__/fetchBasics.test.ts`
+- `packages/hakka-core/src/capture/__tests__/fetchSafety.test.ts`
+- `packages/hakka-core/src/capture/__tests__/maxBodySize.test.ts`
+- `packages/hakka-core/src/capture/__tests__/xhr.test.ts`
+- `packages/hakka-core/src/capture/__tests__/rewrite.test.ts`
+- `packages/hakka-core/src/capture/__tests__/readCappedBody.test.ts`
+- `packages/hakka-core/src/capture/__tests__/sseCapture.test.ts`
+- `packages/hakka-core/src/capture/__tests__/console.test.ts`
+- `packages/hakka-core/src/capture/__tests__/bodyCapture.test.ts`
+- `packages/hakka-core/src/engine/__tests__/decoders.test.ts`
 
 ## Limits & non-goals
 

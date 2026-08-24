@@ -67,10 +67,10 @@ the DSL string as its `query` param over MCP's own JSON-RPC transport (not the b
 
 ## Test anchors
 
-- `packages/hakka-core/src/query/compile.test.ts`
-- `packages/hakka-core/src/query/parser.test.ts`
-- `packages/hakka-core/src/query/sortGroup.test.ts`
-- `packages/hakka-core/src/search/nlToQuery.test.ts`
+- `packages/hakka-core/src/query/__tests__/compile.test.ts`
+- `packages/hakka-core/src/query/__tests__/parser.test.ts`
+- `packages/hakka-core/src/query/__tests__/sortGroup.test.ts`
+- `packages/hakka-core/src/search/__tests__/nlToQuery.test.ts`
 
 ## Natural-language mapping (`nlToQuery`)
 

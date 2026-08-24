@@ -117,11 +117,11 @@ they aren't wired in here yet.
 
 **Covered** (`bun run --cwd packages/hakka-rozenite test`, happy-dom + vitest):
 
-- `react-native/bridge.test.ts` — backlog-flush/live-forward/`get-snapshot`/`clear` wiring,
+- `react-native/__tests__/bridge.test.ts` — backlog-flush/live-forward/`get-snapshot`/`clear` wiring,
   against a fake Rozenite client and a fake `Hakka` facade.
-- `ui/panelStore.test.ts` — the store adapter's upsert-by-id mirroring, subscriber fan-out,
+- `ui/__tests__/panelStore.test.ts` — the store adapter's upsert-by-id mirroring, subscriber fan-out,
   `clear()`/`ingest()`/`destroy()`.
-- `ui/App.test.tsx` — mounts the real panel with `useRozeniteDevToolsClient` mocked; verifies
+- `ui/__tests__/App.test.tsx` — mounts the real panel with `useRozeniteDevToolsClient` mocked; verifies
   the connecting state, that all three custom elements mount and register, row selection
   reaching the detail pane, and listener cleanup on unmount.
 

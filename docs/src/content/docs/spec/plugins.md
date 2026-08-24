@@ -77,7 +77,7 @@ console, decoders) are themselves implemented as plugins that ship pre-registere
 
 ## Test anchors
 
-- `packages/hakka-core/src/engine/orchestrator.test.ts`
+- `packages/hakka-core/src/engine/__tests__/orchestrator.test.ts`
 
 ## Limits & non-goals
 

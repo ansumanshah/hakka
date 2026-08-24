@@ -71,8 +71,8 @@ None — an in-process buffer, not a wire concept.
 
 ## Test anchors
 
-- `packages/hakka-core/src/storage/RetentionPolicy.test.ts`
-- `packages/hakka-core/src/storage/RingBuffer.test.ts`
+- `packages/hakka-core/src/storage/__tests__/RetentionPolicy.test.ts`
+- `packages/hakka-core/src/storage/__tests__/RingBuffer.test.ts`
 - `ios/Tests/HakkaTests/RetentionPolicyTests.swift`
 - `android/hakka-network/src/test/kotlin/com/noodleapps/hakka/RetentionPolicyTest.kt`
 

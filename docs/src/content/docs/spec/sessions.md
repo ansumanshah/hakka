@@ -118,13 +118,13 @@ does with the records (file, SQLite, remote) is entirely up to the host app.
 
 ## Test anchors
 
-- `packages/hakka-core/src/session/serialize.test.ts` — `.hakka` round-trip, tolerant parse, error cases.
-- `packages/hakka-core/src/repro/buildReproBundle.test.ts` — `.hakka-repro` construction.
-- `packages/hakka-core/src/engine/persistence.test.ts` — `StorageAdapter` save/load/clear wiring
+- `packages/hakka-core/src/session/__tests__/serialize.test.ts` — `.hakka` round-trip, tolerant parse, error cases.
+- `packages/hakka-core/src/repro/__tests__/buildReproBundle.test.ts` — `.hakka-repro` construction.
+- `packages/hakka-core/src/engine/__tests__/persistence.test.ts` — `StorageAdapter` save/load/clear wiring
   (coalesced writes, `clearLogs()` cancels a pending write).
 - `packages/hakka-react-native/src/ui/viewModels/__tests__/SettingsViewModel.test.ts` —
   `importSession` success/failure and modal state.
-- `packages/hakka-browser/src/ui/Inspector.uxFeatures.test.tsx` (`describe('Session save/load')`) — the
+- `packages/hakka-browser/src/ui/__tests__/Inspector.uxFeatures.test.tsx` (`describe('Session save/load')`) — the
   Session menu's Save/Load actions, session-file import merging into the store, and the Repro
   bundle download action.
 

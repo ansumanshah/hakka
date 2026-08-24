@@ -89,8 +89,8 @@ x-hakka-trace: <uuid-or-generated-id>
 
 ## Test anchors
 
-- `packages/hakka-core/src/engine/trace.test.ts`
-- `packages/hakka-node/src/trace.test.ts`
+- `packages/hakka-core/src/engine/__tests__/trace.test.ts`
+- `packages/hakka-node/src/__tests__/trace.test.ts`
 - `scripts/smoke-trace-correlation.mjs`
 
 ## Limits & non-goals

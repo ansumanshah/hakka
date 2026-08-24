@@ -56,8 +56,8 @@ its real value into the summary.
 
 ## Test anchors
 
-- `packages/hakka-core/src/utils/graphql.test.ts`
-- `packages/hakka-core/src/capture/rewrite.test.ts` (re-derives GraphQL info for rewritten requests)
+- `packages/hakka-core/src/utils/__tests__/graphql.test.ts`
+- `packages/hakka-core/src/capture/__tests__/rewrite.test.ts` (re-derives GraphQL info for rewritten requests)
 
 ## Limits & non-goals
 

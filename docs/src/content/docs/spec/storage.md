@@ -105,7 +105,7 @@ interface StorageData {
 
 ## Test anchors
 
-- `packages/hakka-browser/src/ui/StorageTab.test.tsx`
+- `packages/hakka-browser/src/ui/__tests__/StorageTab.test.tsx`
 - `ios/Tests/HakkaTests/StorageAdapterTests.swift`
 - `android/hakka-network/src/test/kotlin/com/noodleapps/hakka/StorageAdapterTest.kt`
 - `packages/hakka-bridge/src/__tests__/BridgeHub.test.ts`, `server.test.ts` — `storage` frame parse/relay/snapshot-replace
