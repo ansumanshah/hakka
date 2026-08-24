@@ -119,6 +119,7 @@ hakka({
 | `devOnly` | `boolean`                 | `true`  | Restrict injection to dev mode. Set `false` to also inject into the production build (rarely needed). |
 | `start`   | `Record<string, unknown>` | `{}`    | Options forwarded verbatim to `hakka-browser`'s `start()`.                                            |
 | `server`  | `boolean`                 | `false` | Vite only — auto-register `hakka-node` server-side capture. See below.                                |
+| `nonce`   | `string`                  | —       | CSP nonce for the injected `<script>` tag. See [CSP](#csp) below.                                     |
 
 ## `start()` options
 
@@ -156,6 +157,26 @@ and register capture directly. webpack and rspack's dev servers front a
 separate bundling process that doesn't own the app's actual server runtime —
 there's no server for a `configureServer`-style hook to instrument — so their
 plugins silently ignore `server: true` rather than fake support for it.
+
+## CSP
+
+The plugin's only injection mechanism is an inline `<script type="module">` tag. Under a
+[Content Security Policy](https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP) `script-src` that doesn't
+include `'unsafe-inline'`, the browser drops that tag silently — no error from Hakka, just a CSP violation
+in the console the plugin never sees, and the overlay simply never starts.
+
+If your dev/preview environment enforces such a policy, pass the same nonce your CSP header or `<meta>` tag
+already issues for that response:
+
+```ts
+hakka({ nonce: cspNonceForThisRequest })
+```
+
+A nonce only works when it matches the value your CSP emits **for that exact response** — a hardcoded or
+stale nonce is rejected the same as none at all. If your setup can't thread a per-request nonce into the
+Vite/webpack config at all, skip the plugin and call `start()` manually from your own app code instead (see
+[Other bundlers](#other-bundlers)) — that's ordinary bundled app code, not an ad-hoc inline script, so it
+isn't subject to `script-src` the way the plugin's auto-injected tag is.
 
 ## XHR caveat
 

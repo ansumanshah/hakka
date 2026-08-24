@@ -64,7 +64,12 @@ async function registerServerCapture(warn: (msg: string) => void): Promise<void>
 }
 
 /** webpack / rspack: inject the overlay script via html-webpack-plugin's beforeEmit hook. */
-function installHtmlHook(compiler: WebpackCompilerLike, snippet: string, devOnly: boolean): void {
+function installHtmlHook(
+  compiler: WebpackCompilerLike,
+  snippet: string,
+  devOnly: boolean,
+  nonce: string | undefined,
+): void {
   if (devOnly && compiler.options.mode === 'production') return
   compiler.hooks.compilation.tap(PLUGIN_NAME, (compilation) => {
     let plugin: HtmlWebpackPluginStatic
@@ -76,7 +81,7 @@ function installHtmlHook(compiler: WebpackCompilerLike, snippet: string, devOnly
     }
     const hooks = plugin.getHooks?.(compilation)
     hooks?.beforeEmit?.tapAsync(PLUGIN_NAME, (data, cb) => {
-      data.html = injectIntoHtml(data.html, snippet)
+      data.html = injectIntoHtml(data.html, snippet, nonce)
       cb(null, data)
     })
   })
@@ -97,7 +102,7 @@ const unpluginFactory: UnpluginFactory<HakkaPluginOptions | undefined> = (option
           return [
             {
               tag: 'script',
-              attrs: { type: 'module', 'data-hakka': 'true' },
+              attrs: { type: 'module', 'data-hakka': 'true', ...(options.nonce ? { nonce: options.nonce } : {}) },
               injectTo: 'body',
               children: snippet,
             },
@@ -116,10 +121,10 @@ const unpluginFactory: UnpluginFactory<HakkaPluginOptions | undefined> = (option
     // webpack + rspack share the html-webpack-plugin hook surface. Neither
     // reads `options.server` — see the `configureServer` comment above.
     webpack(compiler) {
-      installHtmlHook(compiler as unknown as WebpackCompilerLike, snippet, devOnly)
+      installHtmlHook(compiler as unknown as WebpackCompilerLike, snippet, devOnly, options.nonce)
     },
     rspack(compiler) {
-      installHtmlHook(compiler as unknown as WebpackCompilerLike, snippet, devOnly)
+      installHtmlHook(compiler as unknown as WebpackCompilerLike, snippet, devOnly, options.nonce)
     },
   }
 }

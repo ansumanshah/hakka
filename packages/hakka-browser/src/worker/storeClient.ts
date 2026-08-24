@@ -159,12 +159,57 @@ function createInProcessClient(opts: StoreClientOptions): StoreClient {
   }
 }
 
-function createWorkerClient(worker: Worker, opts: StoreClientOptions): StoreClient {
-  const fan = createFanout()
-  const pending = new Map<number, (value: unknown) => void>()
-  let rid = 0
+/** One in-flight RPC: its resolver plus the sentinel value to settle it with
+ * if the worker dies (error or `destroy()`) before a real `'result'` message
+ * arrives — keeps every caller's return type honest (`[]`/`''`/`null`/`{}`)
+ * instead of resolving everything with a single untyped `undefined`. */
+interface PendingRpc {
+  resolve: (value: unknown) => void
+  fallback: unknown
+}
 
-  const send = (msg: MainToWorker) => worker.postMessage(msg)
+// Exported so tests can drive the worker backend against a hand-rolled fake
+// `Worker` (happy-dom has no real Worker/blob-URL support) — see
+// `createStoreClient`'s doc comment for the public entry point.
+export function createWorkerClient(worker: Worker, opts: StoreClientOptions): StoreClient {
+  const fan = createFanout()
+  const pending = new Map<number, PendingRpc>()
+  let rid = 0
+  // Set once by `worker.onerror` (never by `destroy()` — `destroy()` is a
+  // clean, intentional shutdown, not a failure). Guards `send`/`rpc` against
+  // talking to a worker we already gave up on, so any RPC made *after* the
+  // failure resolves immediately with its fallback instead of hanging again.
+  let failed = false
+
+  const send = (msg: MainToWorker) => {
+    if (failed) return
+    worker.postMessage(msg)
+  }
+
+  /** Resolve every in-flight RPC with its fallback and drop it — used by both
+   * an async worker failure and a clean `destroy()`, so no caller awaiting
+   * `getBody`/`getSnapshot`/etc. is left hanging forever either way. */
+  const settlePending = () => {
+    for (const { resolve, fallback } of pending.values()) resolve(fallback)
+    pending.clear()
+  }
+
+  // Only catches a *synchronous* throw from `new StoreWorker()` (see
+  // `createStoreClient`). This covers the async case: the worker constructs
+  // fine but then fails to load/execute — CSP `worker-src` blocking the blob
+  // script after construction, a sandboxed embedding context, etc. Without
+  // this, every RPC (in flight now or made later) would hang forever with
+  // nothing surfaced anywhere — capture just goes silently dark.
+  worker.onerror = (ev) => {
+    if (failed) return
+    failed = true
+    ev.preventDefault?.()
+    // Same reporting path as `ui/CrashBoundary.tsx` — a store that silently
+    // stops capturing with zero signal is worse than one console line.
+    console.error('[hakka] store worker failed to start; capture is disabled for this session', ev.message || ev)
+    settlePending()
+    worker.terminate()
+  }
 
   worker.onmessage = (ev: MessageEvent<WorkerToMain>) => {
     const msg = ev.data
@@ -182,10 +227,10 @@ function createWorkerClient(worker: Worker, opts: StoreClientOptions): StoreClie
         applyRemoteControl(msg.payload)
         break
       case 'result': {
-        const resolve = pending.get(msg.rid)
-        if (resolve) {
+        const entry = pending.get(msg.rid)
+        if (entry) {
           pending.delete(msg.rid)
-          resolve(msg.value)
+          entry.resolve(msg.value)
         }
         break
       }
@@ -196,10 +241,11 @@ function createWorkerClient(worker: Worker, opts: StoreClientOptions): StoreClie
 
   send({ type: 'init', config: opts.config })
 
-  const rpc = <T>(make: (id: number) => MainToWorker): Promise<T> => {
+  const rpc = <T>(make: (id: number) => MainToWorker, fallback: T): Promise<T> => {
+    if (failed) return Promise.resolve(fallback)
     const id = ++rid
     return new Promise<T>((resolve) => {
-      pending.set(id, resolve as (value: unknown) => void)
+      pending.set(id, { resolve: resolve as (value: unknown) => void, fallback })
       send(make(id))
     })
   }
@@ -211,7 +257,7 @@ function createWorkerClient(worker: Worker, opts: StoreClientOptions): StoreClie
     applyResourceTiming: (url, entryEpochStart, patch) => send({ type: 'resourceTiming', url, entryEpochStart, patch }),
     clear: () => send({ type: 'clear' }),
     configure: (config) => send({ type: 'configure', config }),
-    getSnapshot: (query) => rpc<NetworkRequest[]>((id) => ({ type: 'snapshot', rid: id, query })),
+    getSnapshot: (query) => rpc<NetworkRequest[]>((id) => ({ type: 'snapshot', rid: id, query }), []),
     subscribe: (cb) => {
       const first = fan.requestSubs.size === 0
       fan.requestSubs.add(cb)
@@ -225,16 +271,16 @@ function createWorkerClient(worker: Worker, opts: StoreClientOptions): StoreClie
       fan.spanSubs.add(cb)
       return () => fan.spanSubs.delete(cb)
     },
-    getSpansForTrace: (traceId) => rpc<FrameworkSpan[]>((rid) => ({ type: 'spansForTrace', rid, traceId })),
-    exportHar: () => rpc<string>((id) => ({ type: 'exportHar', rid: id })),
-    exportOtel: (options) => rpc<string>((id) => ({ type: 'exportOtel', rid: id, options })),
-    exportPostman: () => rpc<string>((id) => ({ type: 'exportPostman', rid: id })),
-    getBody: (id) => rpc<BodyPair | null>((rid) => ({ type: 'getBody', rid, id })),
+    getSpansForTrace: (traceId) => rpc<FrameworkSpan[]>((rid) => ({ type: 'spansForTrace', rid, traceId }), []),
+    exportHar: () => rpc<string>((id) => ({ type: 'exportHar', rid: id }), ''),
+    exportOtel: (options) => rpc<string>((id) => ({ type: 'exportOtel', rid: id, options }), ''),
+    exportPostman: () => rpc<string>((id) => ({ type: 'exportPostman', rid: id }), ''),
+    getBody: (id) => rpc<BodyPair | null>((rid) => ({ type: 'getBody', rid, id }), null),
     getBodies: (ids) =>
-      rpc<Record<string, BodyPair>>((rid) => ({ type: 'getBodies', rid, ids })).then(
+      rpc<Record<string, BodyPair>>((rid) => ({ type: 'getBodies', rid, ids }), {}).then(
         (rec) => new Map(Object.entries(rec)),
       ),
-    matchIds: (query) => rpc<string[]>((rid) => ({ type: 'matchIds', rid, query })),
+    matchIds: (query) => rpc<string[]>((rid) => ({ type: 'matchIds', rid, query }), []),
     bridgeConnect: (url) => send({ type: 'bridgeConnect', url }),
     bridgeDisconnect: () => send({ type: 'bridgeDisconnect' }),
     onBridgeStatus: (cb) => {
@@ -244,14 +290,25 @@ function createWorkerClient(worker: Worker, opts: StoreClientOptions): StoreClie
     getBridgeStatus: () => fan.status,
     destroy: () => {
       send({ type: 'bridgeDisconnect' })
+      // Any in-flight getBody/getSnapshot/etc. caller unwinds with its
+      // fallback instead of hanging forever — a terminated worker can never
+      // post the 'result' message that would otherwise resolve it.
+      settlePending()
       worker.terminate()
     },
   }
 }
 
 /**
- * Create the store client. Uses the Worker backend when possible, transparently
- * falling back to the in-process engine (SSR, no Worker, or `forceInProcess`).
+ * Create the store client. Uses the Worker backend when possible, falling
+ * back to the in-process engine up front (SSR, no Worker, or
+ * `forceInProcess`) or on a *synchronous* construction failure (below). A
+ * worker that constructs fine but then fails to load/execute (CSP
+ * `worker-src` blocking the blob script, a sandboxed embedder, …) is caught
+ * async instead, inside `createWorkerClient`'s own `worker.onerror` — by then
+ * this function has already returned the worker-backed client, so that path
+ * disables the dead worker and settles every RPC with a safe fallback rather
+ * than swapping the already-returned client's backend.
  */
 export function createStoreClient(opts: StoreClientOptions = {}): StoreClient {
   if (!opts.forceInProcess && typeof Worker !== 'undefined') {

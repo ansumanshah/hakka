@@ -52,6 +52,42 @@ describe('injectIntoHtml', () => {
   })
 })
 
+describe('nonce (CSP)', () => {
+  it('injectIntoHtml attaches the nonce to the tag when given', () => {
+    const out = injectIntoHtml('<body></body>', 'S', 'abc123')
+    expect(out).toContain('nonce="abc123"')
+  })
+
+  it('injectIntoHtml omits the nonce attribute entirely when not given', () => {
+    const out = injectIntoHtml('<body></body>', 'S')
+    expect(out).not.toContain('nonce=')
+  })
+
+  it('injectIntoHtml escapes a stray quote in the nonce rather than breaking the attribute', () => {
+    const out = injectIntoHtml('<body></body>', 'S', 'weird"nonce')
+    expect(out).toContain('nonce="weird&quot;nonce"')
+  })
+
+  function transformIndexHtmlTagsOf(
+    options: Parameters<typeof hakkaVite>[0],
+  ): Array<{ attrs?: Record<string, unknown> }> {
+    const plugin = hakkaVite(options) as {
+      transformIndexHtml?: { handler: () => Array<{ attrs?: Record<string, unknown> }> }
+    }
+    return plugin.transformIndexHtml?.handler() ?? []
+  }
+
+  it('the Vite plugin attaches the nonce to the injected tag attrs when given', () => {
+    const tags = transformIndexHtmlTagsOf({ nonce: 'abc123' })
+    expect(tags[0]?.attrs?.nonce).toBe('abc123')
+  })
+
+  it('the Vite plugin omits the nonce attr entirely when not given', () => {
+    const tags = transformIndexHtmlTagsOf({})
+    expect(tags[0]?.attrs).not.toHaveProperty('nonce')
+  })
+})
+
 describe('bundler entry points', () => {
   it('the webpack plugin builds a webpack plugin instance', () => {
     const plugin = hakkaWebpack()

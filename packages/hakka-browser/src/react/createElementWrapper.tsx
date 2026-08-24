@@ -15,11 +15,21 @@ export type EventMap = Record<string, string>
  *
  * - Props not listed in `events` pass straight to `React.createElement(tag,
  *   ...)` — React 19 assigns each as a DOM property when the element's class
- *   declares it, falling back to an attribute otherwise.
+ *   already declares it (`key in domElement` at commit time), falling back
+ *   to a stringified attribute otherwise. Object props (`store`, `viewModel`,
+ *   …) only survive that check.
  * - Props listed in `events` bind via `ref.addEventListener` instead, rebound
  *   each render and cleaned up on unmount.
- * - `register` runs from `useEffect`, so only client-side after mount — SSR-
- *   safe even though `register()` itself touches browser globals.
+ * - `register()` runs synchronously in the render body, NOT from a
+ *   `useEffect` — `createElement(tag, ...)` below commits its initial props
+ *   in the same synchronous phase, before any effect runs, so
+ *   `customElements.define()` must already have happened by then or the
+ *   element is still an un-upgraded plain node and every object prop
+ *   silently stringifies to `"[object Object]"` with no way to recover it
+ *   once the tag does upgrade. `register()` is idempotent and SSR-safe (see
+ *   its own doc comment), so calling it unconditionally on every render —
+ *   including React 18 StrictMode's double-invoked render — is a no-op after
+ *   the first.
  */
 export function createElementWrapper<P extends object, E extends HTMLElement = HTMLElement>(
   tag: string,
@@ -30,9 +40,11 @@ export function createElementWrapper<P extends object, E extends HTMLElement = H
     const elRef = useRef<E | null>(null)
     const propsRecord = props as Record<string, unknown>
 
-    useEffect(() => {
-      register()
-    }, [])
+    // Must run here, synchronously during render — see the doc comment
+    // above. A `useEffect` runs after this render's `createElement(tag,
+    // ...)` call has already committed the element's initial props, which
+    // is too late for the very first mount of any given tag.
+    register()
 
     useEffect(() => {
       const el = elRef.current
