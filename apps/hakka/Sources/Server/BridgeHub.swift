@@ -70,98 +70,60 @@ public struct CapturedRequest: Sendable, Equatable {
 /// every OTHER connected peer regardless of kind (`server.ts`'s message
 /// handler relays `request`/`span`/`control` alike — this hub matches that
 /// rather than special-casing `request` out), and `.request` frames are also
-/// decoded and yielded on `requests` for the desktop app's own capture UI.
+/// decoded and fanned out to `subscribeRequests()` callers for the desktop
+/// app's own capture UI.
 ///
 /// Deliberately does not port `BridgeHub.ts`'s request/span backlog + replay
 /// (buffered so a freshly-connected *browser viewer* sees history): the
-/// desktop app is the one local consumer of `requests`, not a dashboard other
-/// peers connect to inspect, so there is no "late joiner" to replay to.
+/// desktop app is the one local consumer of a request subscription, not a
+/// dashboard other peers connect to inspect, so there is no "late joiner" to
+/// replay to.
+///
+/// Each channel (`requests`, `hostControls`, `spans`, `consoleEntries`,
+/// `storageSnapshots`, `deviceEvents`) is exposed as a `subscribeX()` method
+/// (`BridgeHub+Subscriptions.swift`) rather than a stored `AsyncStream`.
+/// Every call returns a FRESH stream backed by its own continuation, held in
+/// this actor's per-channel dictionary below; `ingest`/`addPeer`/`removePeer`
+/// fan a value out to every live continuation on the relevant channel, and a
+/// subscription's `onTermination` deregisters only that one continuation.
+///
+/// This replaced six stored, single-consumer `AsyncStream` properties — see
+/// ADR 0013. Cancelling a `Task` suspended in `AsyncStream.Iterator.next()`
+/// finishes that stream's storage permanently, for every iterator ever drawn
+/// from the same stream value, not just the cancelled one. With a stored
+/// stream, `TrafficModel.start()`'s consumers dying when a window closed
+/// (SwiftUI cancels the scene's `.task`) meant the channel was gone for the
+/// rest of the process — a later `start()` from a reopened window
+/// re-subscribed to an already-finished stream and received nothing, ever
+/// again. A fresh subscription per `start()` call closes that gap: only the
+/// cancelled subscription dies.
 public actor BridgeHub {
     private var peers: [BridgePeerID: any BridgeRelayPeer] = [:]
-    private let requestContinuation: AsyncStream<CapturedRequest>.Continuation
-    private let hostControlContinuation: AsyncStream<ControlCommand>.Continuation
-    private let spanContinuation: AsyncStream<FrameworkSpan>.Continuation
-    private let consoleContinuation: AsyncStream<[LogEntry]>.Continuation
-    private let storageContinuation: AsyncStream<StorageSnapshot>.Continuation
-    private let deviceEventContinuation: AsyncStream<BridgeDeviceEvent>.Continuation
     /// Assigns "Device N" labels to peers as their frames are first seen —
     /// see `BridgeDeviceLabel.swift` for why this is the honest amount of
     /// identity the hub can offer.
     private var deviceLabeler = BridgeDeviceLabeler()
 
-    /// Decoded `request` frames paired with sender identity, in ingestion
-    /// order. One logical consumer (the desktop app's capture store) —
-    /// `AsyncStream` does not fan out to multiple concurrent iterators.
-    /// `nonisolated`: the stream itself is an immutable, `Sendable` handle
-    /// with its own internal thread-safe buffering, so consuming it needs
-    /// no actor hop.
-    public nonisolated let requests: AsyncStream<CapturedRequest>
+    // Per-channel subscriber continuations, keyed by a subscription id
+    // private to that one `subscribeX()` call. Declared here rather than in
+    // `BridgeHub+Subscriptions.swift` because an extension cannot add stored
+    // properties; not `private` because that extension needs to reach them.
+    var requestSubscribers: [UUID: AsyncStream<CapturedRequest>.Continuation] = [:]
+    var hostControlSubscribers: [UUID: AsyncStream<ControlCommand>.Continuation] = [:]
+    var spanSubscribers: [UUID: AsyncStream<FrameworkSpan>.Continuation] = [:]
+    var consoleSubscribers: [UUID: AsyncStream<[LogEntry]>.Continuation] = [:]
+    var storageSubscribers: [UUID: AsyncStream<StorageSnapshot>.Continuation] = [:]
+    var deviceEventSubscribers: [UUID: AsyncStream<BridgeDeviceEvent>.Continuation] = [:]
 
-    /// Decoded `control` frames a device sent *to* this host, in ingestion
-    /// order — today that means `breakpoint.paused` only. Filtered through
-    /// `isDeviceToHostCommand` (HakkaCommon, the single source of truth for
-    /// the contract's direction split) rather than yielding every control
-    /// frame: a host-authored command relayed back by some misbehaving peer
-    /// must never be mistaken here for a device reporting a pause. One
-    /// logical consumer, same `nonisolated` reasoning as `requests`.
-    public nonisolated let hostControls: AsyncStream<ControlCommand>
-
-    /// Decoded `span` frames, in ingestion order — the moat-feature
-    /// counterpart to `requests`. Same single-consumer contract.
-    public nonisolated let spans: AsyncStream<FrameworkSpan>
-
-    /// Decoded `console` frames, one array per frame (a frame's payload is
-    /// always a batch, even for a single entry — see `BridgeFrame.console`).
-    /// Same single-consumer contract as `requests`/`spans`. No backlog/replay
-    /// (unlike TS's `BridgeHub`, which buffers spans for a browser viewer):
-    /// this hub has no late-joining dashboard to replay to, only the app's
-    /// own Logs panel, which is either already listening or has missed a
-    /// live moment permanently — matching `LogEntry`'s own nature.
-    public nonisolated let consoleEntries: AsyncStream<[LogEntry]>
-
-    /// Decoded `storage` frames, one snapshot per frame — snapshot-replace
-    /// semantics (see `StorageSnapshot`'s doc comment), so the Storage panel
-    /// only ever needs the latest value per store name, which it keeps for
-    /// itself; the hub does not buffer for replay (same reasoning as
-    /// `consoleEntries` above — no late-joining dashboard here).
-    public nonisolated let storageSnapshots: AsyncStream<StorageSnapshot>
-
-    /// Connect/disconnect transitions, in the order `addPeer`/`removePeer`
-    /// observe them — the device sidebar's connection signal. Same
-    /// single-consumer, `nonisolated` reasoning as the streams above.
-    public nonisolated let deviceEvents: AsyncStream<BridgeDeviceEvent>
-
-    public init() {
-        var continuation: AsyncStream<CapturedRequest>.Continuation?
-        requests = AsyncStream { continuation = $0 }
-        requestContinuation = continuation!
-
-        var controlContinuation: AsyncStream<ControlCommand>.Continuation?
-        hostControls = AsyncStream { controlContinuation = $0 }
-        hostControlContinuation = controlContinuation!
-
-        var spanCont: AsyncStream<FrameworkSpan>.Continuation?
-        spans = AsyncStream { spanCont = $0 }
-        spanContinuation = spanCont!
-
-        var consoleCont: AsyncStream<[LogEntry]>.Continuation?
-        consoleEntries = AsyncStream { consoleCont = $0 }
-        consoleContinuation = consoleCont!
-
-        var storageCont: AsyncStream<StorageSnapshot>.Continuation?
-        storageSnapshots = AsyncStream { storageCont = $0 }
-        storageContinuation = storageCont!
-
-        var deviceEventCont: AsyncStream<BridgeDeviceEvent>.Continuation?
-        deviceEvents = AsyncStream { deviceEventCont = $0 }
-        deviceEventContinuation = deviceEventCont!
-    }
+    public init() {}
 
     public var peerCount: Int { peers.count }
 
     public func addPeer(_ peer: any BridgeRelayPeer) {
         peers[peer.id] = peer
-        deviceEventContinuation.yield(.connected(peer.id))
+        for continuation in deviceEventSubscribers.values {
+            continuation.yield(.connected(peer.id))
+        }
     }
 
     public func removePeer(_ id: BridgePeerID) {
@@ -170,7 +132,9 @@ public actor BridgeHub {
         // delivery (or an id that was never added) yielding a spurious
         // event the sidebar would have nothing to reconcile it against.
         guard peers.removeValue(forKey: id) != nil else { return }
-        deviceEventContinuation.yield(.disconnected(id))
+        for continuation in deviceEventSubscribers.values {
+            continuation.yield(.disconnected(id))
+        }
     }
 
     /// Ingest one raw text frame from `senderID`. Never throws: a malformed
@@ -186,19 +150,30 @@ public actor BridgeHub {
         }
         if let request = frame.request {
             let deviceLabel = deviceLabeler.label(for: senderID)
-            requestContinuation.yield(CapturedRequest(request: request, peerID: senderID, deviceLabel: deviceLabel))
+            let captured = CapturedRequest(request: request, peerID: senderID, deviceLabel: deviceLabel)
+            for continuation in requestSubscribers.values {
+                continuation.yield(captured)
+            }
         }
         if let control = frame.control, isDeviceToHostCommand(control) {
-            hostControlContinuation.yield(control)
+            for continuation in hostControlSubscribers.values {
+                continuation.yield(control)
+            }
         }
         if let span = frame.span {
-            spanContinuation.yield(span)
+            for continuation in spanSubscribers.values {
+                continuation.yield(span)
+            }
         }
         if let console = frame.console {
-            consoleContinuation.yield(console)
+            for continuation in consoleSubscribers.values {
+                continuation.yield(console)
+            }
         }
         if let storage = frame.storage {
-            storageContinuation.yield(storage)
+            for continuation in storageSubscribers.values {
+                continuation.yield(storage)
+            }
         }
         return BridgeIngestResult(
             kind: frame.kind,
@@ -226,11 +201,11 @@ public actor BridgeHub {
     }
 
     deinit {
-        requestContinuation.finish()
-        hostControlContinuation.finish()
-        spanContinuation.finish()
-        consoleContinuation.finish()
-        storageContinuation.finish()
-        deviceEventContinuation.finish()
+        for continuation in requestSubscribers.values { continuation.finish() }
+        for continuation in hostControlSubscribers.values { continuation.finish() }
+        for continuation in spanSubscribers.values { continuation.finish() }
+        for continuation in consoleSubscribers.values { continuation.finish() }
+        for continuation in storageSubscribers.values { continuation.finish() }
+        for continuation in deviceEventSubscribers.values { continuation.finish() }
     }
 }

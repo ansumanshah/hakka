@@ -140,7 +140,7 @@ final class TrafficModel {
         // being an untracked detached `Task` that outlives the scene.
         await withTaskGroup(of: Void.self) { group in
             group.addTask { [traceStore] in
-                for await span in hub.spans {
+                for await span in await hub.subscribeSpans() {
                     await traceStore.addSpan(span)
                 }
             }
@@ -151,7 +151,7 @@ final class TrafficModel {
     }
 
     private func consumeRequests(hub: BridgeHub) async {
-        for await captured in hub.requests {
+        for await captured in await hub.subscribeRequests() {
             let request = captured.request
             await store.append(request)
             requests.append(request)
@@ -175,7 +175,7 @@ final class TrafficModel {
     /// dropped rather than trusted, matching `PendingPause.init?(command:)`'s
     /// own defensiveness.
     private func consumeHostControls(hub: BridgeHub) async {
-        for await command in hub.hostControls {
+        for await command in await hub.subscribeHostControls() {
             guard let pause = PendingPause(command: command) else { continue }
             await pauses.ingest(pause)
         }

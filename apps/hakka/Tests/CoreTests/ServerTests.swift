@@ -229,13 +229,17 @@ struct BridgeHubTests {
         let hub = BridgeHub()
         let sender = FakeBridgePeer()
         await hub.addPeer(sender)
+        // Subscribe BEFORE ingesting — a per-subscription stream only
+        // fans out to continuations already registered when `ingest`
+        // yields, unlike the old stored/shared stream a subscribe after
+        // ingest could still drain.
+        var iterator = await hub.subscribeSpans().makeAsyncIterator()
 
         let raw = validSpanFrameJSON()
         let result = await hub.ingest(raw, from: sender.id)
 
         #expect(result?.span?.id == "span-root-1")
 
-        var iterator = hub.spans.makeAsyncIterator() // `spans` is `nonisolated` — no actor hop needed
         let received = await iterator.next()
         #expect(received?.id == "span-root-1")
         #expect(received?.traceId == "trace-1")
@@ -247,6 +251,8 @@ struct BridgeHubTests {
         let other = FakeBridgePeer()
         await hub.addPeer(sender)
         await hub.addPeer(other)
+        // Subscribe before ingesting — see `spanFrameSurfacesOnSpansStream`.
+        var iterator = await hub.subscribeRequests().makeAsyncIterator()
 
         let raw = requestFrameJSON(id: "req-42")
         let result = await hub.ingest(raw, from: sender.id)
@@ -254,7 +260,6 @@ struct BridgeHubTests {
         #expect(result?.request?.id == "req-42")
         #expect(other.sent == [raw])
 
-        var iterator = hub.requests.makeAsyncIterator() // `requests` is `nonisolated` — no actor hop needed
         let received = await iterator.next()
         #expect(received?.id == "req-42")
         #expect(received?.peerID == sender.id)
@@ -271,7 +276,7 @@ struct BridgeHubTests {
         await hub.addPeer(peerA)
         await hub.addPeer(peerB)
 
-        var iterator = hub.requests.makeAsyncIterator()
+        var iterator = await hub.subscribeRequests().makeAsyncIterator()
 
         _ = await hub.ingest(requestFrameJSON(id: "a-1"), from: peerA.id)
         let fromA1 = await iterator.next()
@@ -307,11 +312,12 @@ struct BridgeHubTests {
         let hub = BridgeHub()
         let sender = FakeBridgePeer()
         await hub.addPeer(sender)
+        // Subscribe before ingesting — see `spanFrameSurfacesOnSpansStream`.
+        var iterator = await hub.subscribeConsoleEntries().makeAsyncIterator()
 
         let result = await hub.ingest(consoleFrameJSON(id: "log-42"), from: sender.id)
         #expect(result?.console?.first?.id == "log-42")
 
-        var iterator = hub.consoleEntries.makeAsyncIterator() // nonisolated — no actor hop needed
         let received = await iterator.next()
         #expect(received?.first?.id == "log-42")
     }
@@ -336,11 +342,12 @@ struct BridgeHubTests {
         let hub = BridgeHub()
         let sender = FakeBridgePeer()
         await hub.addPeer(sender)
+        // Subscribe before ingesting — see `spanFrameSurfacesOnSpansStream`.
+        var iterator = await hub.subscribeStorageSnapshots().makeAsyncIterator()
 
         let result = await hub.ingest(storageFrameJSON(store: "keychain-redacted"), from: sender.id)
         #expect(result?.storage?.store == "keychain-redacted")
 
-        var iterator = hub.storageSnapshots.makeAsyncIterator() // nonisolated — no actor hop needed
         let received = await iterator.next()
         #expect(received?.store == "keychain-redacted")
         #expect(received?.entries == ["theme": "dark"])
@@ -377,7 +384,8 @@ struct BridgeHubTests {
 /// assembled frame, and Swift gives no ordering guarantee between two
 /// independently-created `Task`s reaching their first suspension point — so
 /// a burst of back-to-back frames from one peer could reach `hub.ingest`
-/// (and thus get relayed / surface on `hub.requests`) out of order. The fix
+/// (and thus get relayed / surface on `hub.subscribeRequests()`) out of
+/// order. The fix
 /// funnels every frame through a single per-connection consumer `Task` fed
 /// by an `AsyncStream`, so this asserts strict FIFO holds under a burst.
 ///
@@ -390,6 +398,9 @@ struct BridgeConnectionOrderingTests {
         let hub = BridgeHub()
         let dummyConnection = NWConnection(host: "127.0.0.1", port: 1, using: .tcp)
         let peer = BridgeConnection(connection: dummyConnection, hub: hub, maxFrameBytes: BridgeWireLimits.maxFrameBytes)
+        // Subscribe before sending any frames — see
+        // `BridgeHubTests.spanFrameSurfacesOnSpansStream`.
+        var iterator = await hub.subscribeRequests().makeAsyncIterator()
 
         let frameCount = 50
         for i in 0..<frameCount {
@@ -397,7 +408,6 @@ struct BridgeConnectionOrderingTests {
             peer.handleAssembledMessage(raw, opcode: .text)
         }
 
-        var iterator = hub.requests.makeAsyncIterator() // `requests` is `nonisolated` — no actor hop needed
         var seenIDs: [String] = []
         for _ in 0..<frameCount {
             guard let request = await iterator.next() else { break }

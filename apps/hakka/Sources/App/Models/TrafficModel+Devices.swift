@@ -60,14 +60,15 @@ extension TrafficModel {
         searchText = searchText.trimmingCharacters(in: .whitespaces) == term ? "" : term
     }
 
-    /// Consumes `hub.deviceEvents` for the lifetime of `start()`'s task
-    /// group. `.connected` and `attributeToDevice` (called from
+    /// Subscribes fresh to `hub.subscribeDeviceEvents()` and consumes it for
+    /// the lifetime of `start()`'s task group. `.connected` and
+    /// `attributeToDevice` (called from
     /// `consumeRequests`) race each other — `BridgeConnection`'s own doc
     /// comment covers why `addPeer` and first-frame ingestion have no
     /// ordering guarantee between them — so both sides are written to be
     /// idempotent and to tolerate arriving in either order.
     func consumeDeviceEvents(hub: BridgeHub) async {
-        for await event in hub.deviceEvents {
+        for await event in await hub.subscribeDeviceEvents() {
             switch event {
             case let .connected(peerID):
                 guard deviceIndexByPeer[peerID] == nil else { continue }

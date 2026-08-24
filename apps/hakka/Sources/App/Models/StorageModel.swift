@@ -63,11 +63,12 @@ final class StorageModel {
         selectedStore = selectedStore == store ? nil : store
     }
 
-    /// Consumes `hub.storageSnapshots` for the lifetime of the calling
-    /// task — meant to be driven by a SwiftUI `.task` at the app root,
-    /// alongside `TrafficModel.start()`, not spawned as a detached `Task`.
+    /// Subscribes fresh to `hub`'s storage channel and consumes it for the
+    /// lifetime of the calling task — meant to be driven by a SwiftUI
+    /// `.task` at the app root, alongside `TrafficModel.start()`, not
+    /// spawned as a detached `Task`.
     func start(hub: BridgeHub) async {
-        for await snapshot in hub.storageSnapshots {
+        for await snapshot in await hub.subscribeStorageSnapshots() {
             snapshotsByStore[snapshot.store] = snapshot
         }
     }

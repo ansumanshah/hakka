@@ -26,16 +26,21 @@ struct BridgeSocketTests {
         return nil
     }
 
-    /// Pulls the next item off `hub.requests`. Safe to call multiple times
-    /// in sequence within one test — each call creates a new iterator over
-    /// the same `AsyncStream`, but `AsyncStream`'s buffered elements live in
-    /// storage shared across every iterator drawn from the same stream
-    /// value, so sequential (non-concurrent) calls drain it FIFO rather
-    /// than each starting from scratch or racing each other.
-    private func nextCapturedRequest(_ server: BridgeServer, timeout: Duration = .seconds(5)) async -> CapturedRequest? {
+    /// Pulls the next item off `stream` — a `BridgeHub.subscribeRequests()`
+    /// result the caller subscribed to BEFORE triggering whatever produces
+    /// the item, since a fresh per-subscription stream (unlike the old
+    /// stored/shared one) only sees values yielded after it exists. Safe to
+    /// call multiple times in sequence against the SAME `stream` value
+    /// within one test: each call draws a new iterator, but those iterators
+    /// share the one stream's buffered storage, so sequential
+    /// (non-concurrent) calls drain it FIFO rather than each starting from
+    /// scratch or racing each other.
+    private func nextCapturedRequest(
+        _ stream: AsyncStream<CapturedRequest>, timeout: Duration = .seconds(5)
+    ) async -> CapturedRequest? {
         await withTaskGroup(of: CapturedRequest?.self) { group in
             group.addTask {
-                for await captured in await server.hub.requests { return captured }
+                for await captured in stream { return captured }
                 return nil
             }
             group.addTask {
@@ -49,11 +54,13 @@ struct BridgeSocketTests {
     }
 
     /// The `deviceEvents` counterpart to `nextCapturedRequest` — same
-    /// sequential-draw-is-safe reasoning applies.
-    private func nextDeviceEvent(_ server: BridgeServer, timeout: Duration = .seconds(5)) async -> BridgeDeviceEvent? {
+    /// subscribe-before-trigger, sequential-draw-is-safe reasoning applies.
+    private func nextDeviceEvent(
+        _ stream: AsyncStream<BridgeDeviceEvent>, timeout: Duration = .seconds(5)
+    ) async -> BridgeDeviceEvent? {
         await withTaskGroup(of: BridgeDeviceEvent?.self) { group in
             group.addTask {
-                for await event in await server.hub.deviceEvents { return event }
+                for await event in stream { return event }
                 return nil
             }
             group.addTask {
@@ -81,21 +88,22 @@ struct BridgeSocketTests {
         try await server.start()
         let port = try #require(await boundPort(of: server))
         defer { Task { await server.stop() } }
+        let stream = await server.hub.subscribeRequests()
 
         let task = openSocket(port: port)
         try await task.send(.string(requestFrame(id: "sock-1")))
 
-        let received = await nextCapturedRequest(server)
+        let received = await nextCapturedRequest(stream)
         task.cancel(with: .goingAway, reason: nil)
 
         let captured = try #require(received, "a frame sent over a live socket never reached the hub")
         #expect(captured.request.id == "sock-1")
     }
 
-    private func waitForFirstSpan(_ server: BridgeServer, timeout: Duration = .seconds(5)) async -> FrameworkSpan? {
+    private func waitForFirstSpan(_ stream: AsyncStream<FrameworkSpan>, timeout: Duration = .seconds(5)) async -> FrameworkSpan? {
         await withTaskGroup(of: FrameworkSpan?.self) { group in
             group.addTask {
-                for await span in await server.hub.spans { return span }
+                for await span in stream { return span }
                 return nil
             }
             group.addTask {
@@ -118,13 +126,14 @@ struct BridgeSocketTests {
         try await server.start()
         let port = try #require(await boundPort(of: server))
         defer { Task { await server.stop() } }
+        let stream = await server.hub.subscribeSpans()
 
         let task = URLSession.shared.webSocketTask(with: URL(string: "ws://127.0.0.1:\(port)")!)
         task.resume()
         let payload = #"{"id":"span-sock-1","traceId":"trace-sock","parentId":null,"name":"GET /","startTime":1,"endTime":2,"verbosity":"primary","runtime":"server"}"#
         try await task.send(.string(#"{"type":"span","payload":\#(payload)}"#))
 
-        let received = await waitForFirstSpan(server)
+        let received = await waitForFirstSpan(stream)
         task.cancel(with: .goingAway, reason: nil)
 
         let span = try #require(received, "a span frame sent over a live socket never reached the hub")
@@ -132,10 +141,10 @@ struct BridgeSocketTests {
         #expect(span.traceId == "trace-sock")
     }
 
-    private func waitForFirstConsoleBatch(_ server: BridgeServer, timeout: Duration = .seconds(5)) async -> [LogEntry]? {
+    private func waitForFirstConsoleBatch(_ stream: AsyncStream<[LogEntry]>, timeout: Duration = .seconds(5)) async -> [LogEntry]? {
         await withTaskGroup(of: [LogEntry]?.self) { group in
             group.addTask {
-                for await batch in await server.hub.consoleEntries { return batch }
+                for await batch in stream { return batch }
                 return nil
             }
             group.addTask {
@@ -157,13 +166,14 @@ struct BridgeSocketTests {
         try await server.start()
         let port = try #require(await boundPort(of: server))
         defer { Task { await server.stop() } }
+        let stream = await server.hub.subscribeConsoleEntries()
 
         let task = URLSession.shared.webSocketTask(with: URL(string: "ws://127.0.0.1:\(port)")!)
         task.resume()
         let payload = #"[{"id":"log-sock-1","timestamp":1,"level":"warn","message":"cache stale"}]"#
         try await task.send(.string(#"{"type":"console","payload":\#(payload)}"#))
 
-        let received = await waitForFirstConsoleBatch(server)
+        let received = await waitForFirstConsoleBatch(stream)
         task.cancel(with: .goingAway, reason: nil)
 
         let batch = try #require(received, "a console frame sent over a live socket never reached the hub")
@@ -173,10 +183,10 @@ struct BridgeSocketTests {
         #expect(batch.first?.message == "cache stale")
     }
 
-    private func waitForFirstStorageSnapshot(_ server: BridgeServer, timeout: Duration = .seconds(5)) async -> StorageSnapshot? {
+    private func waitForFirstStorageSnapshot(_ stream: AsyncStream<StorageSnapshot>, timeout: Duration = .seconds(5)) async -> StorageSnapshot? {
         await withTaskGroup(of: StorageSnapshot?.self) { group in
             group.addTask {
-                for await snapshot in await server.hub.storageSnapshots { return snapshot }
+                for await snapshot in stream { return snapshot }
                 return nil
             }
             group.addTask {
@@ -195,13 +205,14 @@ struct BridgeSocketTests {
         try await server.start()
         let port = try #require(await boundPort(of: server))
         defer { Task { await server.stop() } }
+        let stream = await server.hub.subscribeStorageSnapshots()
 
         let task = URLSession.shared.webSocketTask(with: URL(string: "ws://127.0.0.1:\(port)")!)
         task.resume()
         let payload = #"{"store":"defaults","timestamp":1,"entries":{"theme":"dark"}}"#
         try await task.send(.string(#"{"type":"storage","payload":\#(payload)}"#))
 
-        let received = await waitForFirstStorageSnapshot(server)
+        let received = await waitForFirstStorageSnapshot(stream)
         task.cancel(with: .goingAway, reason: nil)
 
         let snapshot = try #require(received, "a storage frame sent over a live socket never reached the hub")
@@ -214,11 +225,12 @@ struct BridgeSocketTests {
         try await server.start()
         let port = try #require(await boundPort(of: server))
         defer { Task { await server.stop() } }
+        let stream = await server.hub.subscribeRequests()
 
         let task = openSocket(port: port)
         // Round-trip a frame so the connection has certainly reached `.ready`.
         try await task.send(.string(requestFrame(id: "p", url: "https://p.test")))
-        _ = await nextCapturedRequest(server)
+        _ = await nextCapturedRequest(stream)
 
         let peers = await server.hub.peerCount
         task.cancel(with: .goingAway, reason: nil)
@@ -236,11 +248,12 @@ struct BridgeSocketTests {
         try await server.start()
         let port = try #require(await boundPort(of: server))
         defer { Task { await server.stop() } }
+        let stream = await server.hub.subscribeRequests()
 
         let task = openSocket(port: port)
         try await task.send(.string(requestFrame(id: "no-token")))
 
-        let received = await nextCapturedRequest(server, timeout: .seconds(1))
+        let received = await nextCapturedRequest(stream, timeout: .seconds(1))
         let peers = await server.hub.peerCount
         task.cancel(with: .goingAway, reason: nil)
 
@@ -255,12 +268,13 @@ struct BridgeSocketTests {
         try await server.start()
         let port = try #require(await boundPort(of: server))
         defer { Task { await server.stop() } }
+        let stream = await server.hub.subscribeRequests()
 
         let task = openSocket(port: port)
         try await task.send(.string(#"{"token":"shh"}"#))
         try await task.send(.string(requestFrame(id: "with-token")))
 
-        let received = await nextCapturedRequest(server)
+        let received = await nextCapturedRequest(stream)
         let peers = await server.hub.peerCount
         task.cancel(with: .goingAway, reason: nil)
 
@@ -279,18 +293,19 @@ struct BridgeSocketTests {
         try await server.start()
         let port = try #require(await boundPort(of: server))
         defer { Task { await server.stop() } }
+        let stream = await server.hub.subscribeRequests()
 
         let clientA = openSocket(port: port)
         let clientB = openSocket(port: port)
 
         try await clientA.send(.string(requestFrame(id: "a-1", url: "https://a.test/1")))
-        let fromA1 = try #require(await nextCapturedRequest(server), "client A's first frame never reached the hub")
+        let fromA1 = try #require(await nextCapturedRequest(stream), "client A's first frame never reached the hub")
 
         try await clientB.send(.string(requestFrame(id: "b-1", url: "https://b.test/1")))
-        let fromB1 = try #require(await nextCapturedRequest(server), "client B's frame never reached the hub")
+        let fromB1 = try #require(await nextCapturedRequest(stream), "client B's frame never reached the hub")
 
         try await clientA.send(.string(requestFrame(id: "a-2", url: "https://a.test/2")))
-        let fromA2 = try #require(await nextCapturedRequest(server), "client A's second frame never reached the hub")
+        let fromA2 = try #require(await nextCapturedRequest(stream), "client A's second frame never reached the hub")
 
         clientA.cancel(with: .goingAway, reason: nil)
         clientB.cancel(with: .goingAway, reason: nil)
@@ -319,11 +334,12 @@ struct BridgeSocketTests {
         try await server.start()
         let port = try #require(await boundPort(of: server))
         defer { Task { await server.stop() } }
+        let stream = await server.hub.subscribeDeviceEvents()
 
         let clientA = openSocket(port: port)
-        let firstEvent = try #require(await nextDeviceEvent(server), "client A's connect never reached deviceEvents")
+        let firstEvent = try #require(await nextDeviceEvent(stream), "client A's connect never reached deviceEvents")
         let clientB = openSocket(port: port)
-        let secondEvent = try #require(await nextDeviceEvent(server), "client B's connect never reached deviceEvents")
+        let secondEvent = try #require(await nextDeviceEvent(stream), "client B's connect never reached deviceEvents")
 
         clientA.cancel()
         clientB.cancel()
@@ -349,10 +365,10 @@ struct BridgeSocketTests {
     // connect, capture, and disconnect, and passes reliably regardless of
     // how many other real-socket tests ran before it in the same process.
 
-    private func waitForHostControl(_ server: BridgeServer, timeout: Duration = .seconds(5)) async -> ControlCommand? {
+    private func waitForHostControl(_ stream: AsyncStream<ControlCommand>, timeout: Duration = .seconds(5)) async -> ControlCommand? {
         await withTaskGroup(of: ControlCommand?.self) { group in
             group.addTask {
-                for await command in await server.hub.hostControls { return command }
+                for await command in stream { return command }
                 return nil
             }
             group.addTask {
@@ -367,8 +383,8 @@ struct BridgeSocketTests {
 
     /// Proves the plumbing this task restores end to end: a device's
     /// `breakpoint.paused` control frame, sent over a real socket exactly
-    /// like a device would send it, reaches `BridgeHub.hostControls` — the
-    /// stream the desktop app's pause inbox consumes. Before
+    /// like a device would send it, reaches `BridgeHub.subscribeHostControls()`
+    /// — the channel the desktop app's pause inbox consumes. Before
     /// `hostControls` existed, this frame would relay to other peers but
     /// never surface to the app itself, the same class of bug
     /// `BridgeSocketTests` exists to catch (see the suite doc comment).
@@ -377,6 +393,7 @@ struct BridgeSocketTests {
         try await server.start()
         let port = try #require(await boundPort(of: server))
         defer { Task { await server.stop() } }
+        let stream = await server.hub.subscribeHostControls()
 
         let task = URLSession.shared.webSocketTask(with: URL(string: "ws://127.0.0.1:\(port)")!)
         task.resume()
@@ -386,7 +403,7 @@ struct BridgeSocketTests {
         """
         try await task.send(.string(pauseFrame))
 
-        let received = await waitForHostControl(server)
+        let received = await waitForHostControl(stream)
         task.cancel(with: .goingAway, reason: nil)
 
         guard case let .breakpointPaused(pauseId, _, phase, device, request, _) = try #require(
@@ -410,13 +427,14 @@ struct BridgeSocketTests {
         try await server.start()
         let port = try #require(await boundPort(of: server))
         defer { Task { await server.stop() } }
+        let stream = await server.hub.subscribeRequests()
 
         let device = URLSession.shared.webSocketTask(with: URL(string: "ws://127.0.0.1:\(port)")!)
         device.resume()
         // Round-trip a frame first so the connection has certainly reached
         // `.ready` and is registered as a peer before the broadcast below.
         try await device.send(.string(#"{"type":"request","payload":{"id":"warm","url":"https://w.test","method":"GET","startTime":1}}"#))
-        _ = await nextCapturedRequest(server)
+        _ = await nextCapturedRequest(stream)
 
         let command = ControlCommand.breakpointResume(
             pauseId: "pause-sock-1",
@@ -464,10 +482,10 @@ struct SDKBridgeClientTests {
         return nil
     }
 
-    private func firstRequest(_ server: BridgeServer, timeout: Duration = .seconds(8)) async -> NetworkRequest? {
+    private func firstRequest(_ stream: AsyncStream<CapturedRequest>, timeout: Duration = .seconds(8)) async -> NetworkRequest? {
         await withTaskGroup(of: NetworkRequest?.self) { group in
             group.addTask {
-                for await captured in await server.hub.requests { return captured.request }
+                for await captured in stream { return captured.request }
                 return nil
             }
             group.addTask {
@@ -485,6 +503,7 @@ struct SDKBridgeClientTests {
         try await server.start()
         let port = try #require(await boundPort(of: server))
         defer { Task { await server.stop() } }
+        let stream = await server.hub.subscribeRequests()
 
         let client = HakkaBridgeClient(url: URL(string: "ws://127.0.0.1:\(port)")!)
         client.start()
@@ -500,16 +519,16 @@ struct SDKBridgeClientTests {
         client.send(record)
 
         let received = try #require(
-            await firstRequest(server),
+            await firstRequest(stream),
             "the SDK's own bridge client connected but its frame never reached the hub"
         )
         #expect(received.id == "sdk-1")
     }
 
-    private func firstConsoleBatch(_ server: BridgeServer, timeout: Duration = .seconds(8)) async -> [LogEntry]? {
+    private func firstConsoleBatch(_ stream: AsyncStream<[LogEntry]>, timeout: Duration = .seconds(8)) async -> [LogEntry]? {
         await withTaskGroup(of: [LogEntry]?.self) { group in
             group.addTask {
-                for await batch in await server.hub.consoleEntries { return batch }
+                for await batch in stream { return batch }
                 return nil
             }
             group.addTask {
@@ -533,6 +552,7 @@ struct SDKBridgeClientTests {
         try await server.start()
         let port = try #require(await boundPort(of: server))
         defer { Task { await server.stop() } }
+        let stream = await server.hub.subscribeConsoleEntries()
 
         let client = HakkaBridgeClient(url: URL(string: "ws://127.0.0.1:\(port)")!)
         client.start()
@@ -542,7 +562,7 @@ struct SDKBridgeClientTests {
         client.sendConsole([entry])
 
         let received = try #require(
-            await firstConsoleBatch(server),
+            await firstConsoleBatch(stream),
             "the SDK's own bridge client connected but its console frame never reached the hub"
         )
         #expect(received.count == 1)
@@ -550,10 +570,10 @@ struct SDKBridgeClientTests {
         #expect(received.first?.level == .error)
     }
 
-    private func firstStorageSnapshot(_ server: BridgeServer, timeout: Duration = .seconds(8)) async -> StorageSnapshot? {
+    private func firstStorageSnapshot(_ stream: AsyncStream<StorageSnapshot>, timeout: Duration = .seconds(8)) async -> StorageSnapshot? {
         await withTaskGroup(of: StorageSnapshot?.self) { group in
             group.addTask {
-                for await snapshot in await server.hub.storageSnapshots { return snapshot }
+                for await snapshot in stream { return snapshot }
                 return nil
             }
             group.addTask {
@@ -574,6 +594,7 @@ struct SDKBridgeClientTests {
         try await server.start()
         let port = try #require(await boundPort(of: server))
         defer { Task { await server.stop() } }
+        let stream = await server.hub.subscribeStorageSnapshots()
 
         let client = HakkaBridgeClient(url: URL(string: "ws://127.0.0.1:\(port)")!)
         client.start()
@@ -582,7 +603,7 @@ struct SDKBridgeClientTests {
         client.sendStorage(StorageSnapshot(store: "defaults", timestamp: 1, entries: ["theme": "dark"]))
 
         let received = try #require(
-            await firstStorageSnapshot(server),
+            await firstStorageSnapshot(stream),
             "the SDK's own bridge client connected but its storage frame never reached the hub"
         )
         #expect(received.store == "defaults")

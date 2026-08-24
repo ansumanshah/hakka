@@ -58,11 +58,12 @@ final class LogsModel {
         }
     }
 
-    /// Consumes `hub.consoleEntries` for the lifetime of the calling task —
-    /// meant to be driven by a SwiftUI `.task` at the app root, alongside
-    /// `TrafficModel.start()`, not spawned as a detached `Task`.
+    /// Subscribes fresh to `hub`'s console channel and consumes it for the
+    /// lifetime of the calling task — meant to be driven by a SwiftUI
+    /// `.task` at the app root, alongside `TrafficModel.start()`, not
+    /// spawned as a detached `Task`.
     func start(hub: BridgeHub) async {
-        for await batch in hub.consoleEntries {
+        for await batch in await hub.subscribeConsoleEntries() {
             entries.append(contentsOf: batch)
             if entries.count > Self.capacity {
                 entries.removeFirst(entries.count - Self.capacity)

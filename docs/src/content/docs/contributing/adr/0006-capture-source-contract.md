@@ -108,7 +108,7 @@ isn't a foreign import — it's naming a pattern that already exists.
 Ship `CaptureSource` as an `@experimental` contract in
 `packages/hakka-core/src/contract/captureSource.ts`, plus a conformance
 harness in `packages/hakka-core/src/contract/conformance.ts` (tested against
-a trivial in-memory fake in `conformance.test.ts`, per ADR 0009's
+a trivial in-memory fake in `packages/hakka-core/src/contract/__tests__/conformance.test.ts`, per ADR 0009's
 "contract = tests + docs" condition). The full interface, verbatim from that
 file:
 
@@ -280,7 +280,7 @@ emission (checked by asserting exactly one emission after exactly one
 context's `ingest`/`emitSpan`; nothing is emitted after `stop()`; and a
 `start()` → `stop()` → `start()` cycle re-arms the source.
 
-`conformance.test.ts` runs this against three in-memory fakes, none of which
+`packages/hakka-core/src/contract/__tests__/conformance.test.ts` runs this against three in-memory fakes, none of which
 do real interception: a well-behaved one (asserted to pass every check), and
 two deliberately broken ones — one that double-wires on a second `start()`,
 one that keeps emitting after `stop()` because it forgets to clear its

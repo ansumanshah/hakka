@@ -212,8 +212,8 @@ unredacted body has already transited process memory and the wire on its
 way to the hub, which is precisely the exposure the invariant exists to
 prevent.
 
-**Existing test anchors** (real, today): `packages/hakka-core/src/utils/headerRedaction.test.ts`
-and `packages/hakka-core/src/utils/bodyRedaction.test.ts` cover the redaction
+**Existing test anchors** (real, today): `packages/hakka-core/src/utils/__tests__/headerRedaction.test.ts`
+and `packages/hakka-core/src/utils/__tests__/bodyRedaction.test.ts` cover the redaction
 functions themselves. `packages/hakka-core/src/capture/fetch.ts` calls
 `isSensitiveHeader` / `redactJsonBody` while building
 `recordedReqHeaders`/`recordedResHeaders`/the redacted body _before_
