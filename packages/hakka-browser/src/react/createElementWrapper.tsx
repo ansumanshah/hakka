@@ -74,6 +74,9 @@ export function createElementWrapper<P extends object, E extends HTMLElement = H
       [forwardedRef],
     )
 
+    // The ref callback runs at commit, not during render — the rule just
+    // can't see that through object-form createElement (vs a JSX ref={...}).
+    // oxlint-disable-next-line react/refs
     return createElement(tag, { ...elementProps, ref: setRefs })
   }
 
