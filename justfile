@@ -200,8 +200,8 @@ test-e2e: build-core build-bridge
 e2e-install:
     bun run --cwd packages/hakka-browser test:e2e:install
 
-# Run all tests across all platforms (rn + web + android + ios)
-test-all: test test-web test-android test-ios
+# Run all tests across all platforms (rn + web + android + ios + desktop)
+test-all: test test-web test-android test-ios test-desktop
 
 # ── Code quality ──────────────────────────────────────────────────────────────
 

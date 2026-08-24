@@ -7,7 +7,9 @@
 // A card row whose name doesn't match any SPEC §5 row (e.g. "Redaction",
 // "Theming (token sync)" — capabilities SPEC §5 doesn't track as a distinct
 // row) is reported as informational only, never a failure: there is nothing
-// in SPEC.md to drift from.
+// in SPEC.md to drift from. But a whole *card* going dark (every one of its
+// rows unmatched) is checked per-card against ZERO_MATCH_ALLOWLIST below —
+// see that constant for why.
 //
 //   node scripts/spec-drift-check.mjs
 
@@ -23,6 +25,26 @@ const PLATFORMS = ['RN', 'iOS', 'Android', 'Web', 'Mac app']
 // DESIGN.md "No emojis" status marks: ● shipped, ◐ partial, ○ roadmap, — not
 // offered, ⊘ out of scope.
 const VALID_SYMBOLS = new Set(['●', '◐', '○', '—', '⊘'])
+
+// Cards whose "## Platform matrix" rows are, by design, entirely absent from
+// SPEC.md §5 — process/tooling concepts (CI gate, leak detection) and
+// triggers/UI affordances SPEC §5 doesn't track as capability rows at all,
+// not a coincidence or drift. Verified 2026-08-23: every card in the repo is
+// either 100% matched or 0% matched against SPEC §5, never partial, and
+// these seven are the 0% side. A per-card coverage floor requires every
+// OTHER card to have >=1 matched row; a card lands here only when someone
+// has confirmed its rows genuinely have no SPEC §5 counterpart — a *new*
+// card (or an existing one whose rows suddenly go dark) failing the floor
+// instead of silently passing is the point of this check.
+const ZERO_MATCH_ALLOWLIST = new Set([
+  'ci-gate.md',
+  'leak-detection.md',
+  'redaction.md',
+  'sessions.md',
+  'share-scrubbing.md',
+  'theming.md',
+  'triggers.md',
+])
 
 // Strip superscript footnote markers (¹²³⁴⁵⁶⁷⁸⁹⁰, any run of them) and any
 // parenthetical suffix (e.g. "(core)", "(v3)"), then trim whitespace.
@@ -168,6 +190,7 @@ function main() {
 
   const mismatches = []
   const unmatchedInfo = []
+  const coverageErrors = []
   let checkedRows = 0
 
   for (const file of cardFiles) {
@@ -183,6 +206,7 @@ function main() {
       continue
     }
 
+    let matchedInCard = 0
     for (const [rowName, cardCells] of cardMatrix) {
       const specCells = specMatrix.get(rowName)
       if (!specCells) {
@@ -190,6 +214,7 @@ function main() {
         continue
       }
       checkedRows++
+      matchedInCard++
       for (const platform of PLATFORMS) {
         const expected = specCells[platform]
         const actual = cardCells[platform]
@@ -210,6 +235,21 @@ function main() {
           mismatches.push({ file, row: rowName, platform, expected, actual })
         }
       }
+    }
+
+    // Per-card coverage floor: every card with any "## Platform matrix" rows
+    // must have at least one row that matches a SPEC.md §5 row, unless it's
+    // on ZERO_MATCH_ALLOWLIST. A global/average floor can't catch a single
+    // card going fully dark (a few row-dense cards mask it); checking each
+    // card individually can. This also catches the catastrophic case (SPEC
+    // §5 renamed, or the wrong table parsed) — every non-allowlisted card
+    // fails at once, not just one.
+    if (matchedInCard === 0 && !ZERO_MATCH_ALLOWLIST.has(file)) {
+      coverageErrors.push(
+        `${file}: 0 of ${cardMatrix.size} platform-matrix row(s) matched a SPEC.md §5 row. Either SPEC.md §5 ` +
+          `dropped/renamed the row(s) this card tracks, or this card's rows genuinely have no SPEC §5 counterpart ` +
+          `— if so, add "${file}" to ZERO_MATCH_ALLOWLIST in scripts/spec-drift-check.mjs with a reason.`,
+      )
     }
   }
 
@@ -238,6 +278,17 @@ function main() {
     console.error(
       '\nFix: make the card cell match SPEC.md §5 exactly, or update SPEC.md §5 if the card reflects newly ' +
         'shipped/changed platform support (then update this card set to match).',
+    )
+    process.exit(1)
+  }
+
+  if (coverageErrors.length > 0) {
+    console.error(`\nCoverage floor not met (${coverageErrors.length} card(s) with zero matched rows):\n`)
+    for (const message of coverageErrors) console.error(`  ${message}`)
+    console.error(
+      '\nFix: if the card genuinely has no SPEC.md §5 counterpart, add it to ZERO_MATCH_ALLOWLIST in ' +
+        'scripts/spec-drift-check.mjs with a one-line reason; otherwise SPEC.md §5 and the card have drifted apart ' +
+        '— restore the matching row name in whichever one is stale.',
     )
     process.exit(1)
   }

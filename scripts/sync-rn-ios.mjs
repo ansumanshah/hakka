@@ -12,20 +12,99 @@
 //   node scripts/sync-rn-ios.mjs --check    verify the RN copy is in sync (CI gate)
 //
 // Canonical lives in multiple SPM modules (HakkaCommon, HakkaNetwork, …); the RN
-// pod compiles everything as ONE module, so two deliberate omissions apply:
-//   - Common/Headers.swift   — its `firstValue` extension is also defined in
-//                              Network/RequestBuilder.swift; in a single module
-//                              keeping both is a duplicate-symbol error.
-//   - Common/OtelExport.swift — unused by the RN surface; keeps the bridge lean.
+// pod compiles everything as ONE module, so every canonical file under the dirs
+// below must be either in MANIFEST or in ALLOWLIST (with a reason) — an
+// unaccounted-for file fails the run instead of silently missing the RN copy.
 // RNHakkaCoreBridge.swift is RN-owned and never touched by this script.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const CANON_ROOT = join(repoRoot, 'ios/Sources')
 const RN_ROOT = join(repoRoot, 'packages/hakka-react-native/ios')
+
+// Top-level ios/Sources dirs the RN bridge draws from. Other dirs (UI/* beyond
+// ShakeDetector, NetworkNoop, PerformanceNoop) belong to SPM products RN never
+// consumes and are out of scope for the coverage check below.
+const SCANNED_CANON_DIRS = ['Common', 'Network', 'Performance']
+
+// Canonical files inside SCANNED_CANON_DIRS deliberately not synced to RN.
+// Every entry needs a reason; anything else missing from MANIFEST fails the run.
+const ALLOWLIST = new Map([
+  [
+    'Common/Headers.swift',
+    'its `firstValue` extension is also defined in Network/RequestBuilder.swift; in a single module keeping both is a duplicate-symbol error',
+  ],
+  ['Common/OtelExport.swift', 'unused by the RN surface; keeps the bridge lean'],
+  ['Common/CookieParser.swift', 'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)'],
+  ['Common/GraphQLBodyParser.swift', 'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)'],
+  ['Common/HakkaConsole.swift', 'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)'],
+  ['Common/SearchQueryCompiler.swift', 'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)'],
+  ['Common/SearchQueryParser.swift', 'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)'],
+  ['Common/Export/PostmanExporter.swift', 'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)'],
+  ['Common/Export/URLSessionExporter.swift', 'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)'],
+  [
+    'Common/BodyDecoders/BodyDecoderRegistry.swift',
+    'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)',
+  ],
+  [
+    'Common/BodyDecoders/BodyDecoders+Builtins.swift',
+    'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)',
+  ],
+  ['Common/BodyDecoders/GrpcWebDecoder.swift', 'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)'],
+  [
+    'Common/BodyDecoders/GzipDeflateDecoders.swift',
+    'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)',
+  ],
+  ['Common/BodyDecoders/InflateSupport.swift', 'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)'],
+  ['Common/BodyDecoders/ProtoReader.swift', 'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)'],
+  ['Common/BodyDecoders/ProtobufDetectors.swift', 'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)'],
+  [
+    'Common/BodyDecoders/ProtobufWireDecoder.swift',
+    'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)',
+  ],
+  ['Common/BodyDecoders/SseDecoder.swift', 'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)'],
+  [
+    'Common/BodyDecoders/WsFrameDecoderRegistry.swift',
+    'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)',
+  ],
+  [
+    'Common/BodyDecoders/WsFrameDecoders+Builtins.swift',
+    'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)',
+  ],
+  [
+    'Common/BodyDecoders/WsFrameDecoders+GraphqlWs.swift',
+    'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)',
+  ],
+  [
+    'Common/BodyDecoders/WsFrameDecoders+Mqtt.swift',
+    'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)',
+  ],
+  [
+    'Common/BodyDecoders/WsFrameDecoders+SocketIO.swift',
+    'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)',
+  ],
+  [
+    'Common/BodyDecoders/WsFrameDecoders+Stomp.swift',
+    'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)',
+  ],
+])
+
+/** Recursively list files under `dir` matching `suffix`, as paths relative to `dir`. */
+function walkFiles(dir, suffix) {
+  const out = []
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name)
+    if (entry.isDirectory()) {
+      out.push(...walkFiles(full, suffix).map((f) => join(entry.name, f)))
+    } else if (entry.name.endsWith(suffix)) {
+      out.push(entry.name)
+    }
+  }
+  return out
+}
 
 // canonical path (under ios/Sources) -> RN path (under packages/hakka-react-native/ios)
 const MANIFEST = [
@@ -50,6 +129,7 @@ const MANIFEST = [
   ['Common/Export/TextExporter.swift', 'Core/Export/TextExporter.swift'],
   ['Common/HakkaLog.swift', 'Core/HakkaLog.swift'],
   ['Common/HealthReportGenerator.swift', 'Core/HealthReportGenerator.swift'],
+  ['Common/JSONDepthGuard.swift', 'Core/JSONDepthGuard.swift'],
   ['Common/LogStore.swift', 'Core/LogStore.swift'],
   ['Common/MockEngine.swift', 'Core/MockEngine.swift'],
   ['Common/MockEngineMatching.swift', 'Core/MockEngineMatching.swift'],
@@ -122,10 +202,53 @@ if (missingCanonical.length > 0) {
   process.exit(1)
 }
 
+// Every canonical .swift file under SCANNED_CANON_DIRS must be accounted for by
+// MANIFEST or ALLOWLIST — otherwise a new file silently never reaches RN.
+const manifestCanonSet = new Set(MANIFEST.map(([canonRel]) => canonRel))
+const unmappedCanonical = []
+for (const dir of SCANNED_CANON_DIRS) {
+  for (const rel of walkFiles(join(CANON_ROOT, dir), '.swift')) {
+    const canonRel = join(dir, rel)
+    if (!manifestCanonSet.has(canonRel) && !ALLOWLIST.has(canonRel)) {
+      unmappedCanonical.push(canonRel)
+    }
+  }
+}
+if (unmappedCanonical.length > 0) {
+  console.error(`ERROR: canonical file(s) neither in MANIFEST nor ALLOWLIST (${unmappedCanonical.length}):`)
+  for (const f of unmappedCanonical.sort()) console.error(`  ios/Sources/${f}`)
+  console.error('\nFix: add to MANIFEST (RN needs it) or ALLOWLIST with a reason (RN does not).')
+  process.exit(1)
+}
+
+// Any @generated RN file whose rnRel is no longer in MANIFEST is stale — the
+// canonical file it was synced from was renamed or deleted from MANIFEST.
+const expectedRnRelSet = new Set(MANIFEST.map(([, rnRel]) => rnRel))
+const staleGenerated = []
+for (const rnRel of walkFiles(RN_ROOT, '.swift')) {
+  if (RN_OWNED.has(rnRel) || expectedRnRelSet.has(rnRel)) continue
+  const destPath = join(RN_ROOT, rnRel)
+  const content = readFileSync(destPath, 'utf8')
+  if (!content.startsWith('// @generated')) continue // not ours to manage
+
+  if (check) {
+    staleGenerated.push(rnRel)
+  } else {
+    rmSync(destPath)
+    console.log(`  removed ${rnRel} (stale — no longer in MANIFEST)`)
+  }
+}
+
 if (check) {
-  if (drifted.length > 0) {
-    console.error(`RN iOS sources are out of sync with ios/Sources (${drifted.length}):`)
-    for (const f of drifted) console.error(`  packages/hakka-react-native/ios/${f}`)
+  if (drifted.length > 0 || staleGenerated.length > 0) {
+    if (drifted.length > 0) {
+      console.error(`RN iOS sources are out of sync with ios/Sources (${drifted.length}):`)
+      for (const f of drifted) console.error(`  packages/hakka-react-native/ios/${f}`)
+    }
+    if (staleGenerated.length > 0) {
+      console.error(`Stale generated file(s) no longer in MANIFEST (${staleGenerated.length}):`)
+      for (const f of staleGenerated.sort()) console.error(`  packages/hakka-react-native/ios/${f}`)
+    }
     console.error('\nFix: run `just sync-ios` (edit canonical sources, never the RN copy).')
     process.exit(1)
   }
