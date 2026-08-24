@@ -1,4 +1,4 @@
-import { createElement, forwardRef, useEffect, useRef } from 'react'
+import { createElement, forwardRef, useCallback, useEffect, useRef } from 'react'
 import type { ForwardedRef, ForwardRefExoticComponent, PropsWithoutRef, ReactElement, RefAttributes } from 'react'
 
 /**
@@ -64,14 +64,17 @@ export function createElementWrapper<P extends object, E extends HTMLElement = H
       if (!(key in events)) elementProps[key] = propsRecord[key]
     }
 
-    return createElement(tag, {
-      ...elementProps,
-      ref: (node: E | null) => {
+    // Stable merged ref callback — runs at commit, not render.
+    const setRefs = useCallback(
+      (node: E | null) => {
         elRef.current = node
         if (typeof forwardedRef === 'function') forwardedRef(node)
         else if (forwardedRef) forwardedRef.current = node
       },
-    })
+      [forwardedRef],
+    )
+
+    return createElement(tag, { ...elementProps, ref: setRefs })
   }
 
   // `forwardRef`'s generic signature can't express "P minus ref, plus ref
