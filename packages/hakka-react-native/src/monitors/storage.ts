@@ -49,8 +49,32 @@ export interface MMKVMonitorInstance {
   delete: (key: string) => void
 }
 
+// Sequence for synthesizing LogEntry ids — see sendStorageData below.
+let storageLogSeq = 0
+
+/**
+ * Forward one storage operation as a canonical `{type:'console', payload: LogEntry[]}`
+ * frame via `hakkaBridge.sendConsole` — matches `HakkaBridge.ts`'s own console routing.
+ * There is no 'storage:update' branch in the wire protocol (`parseBridgeMessage` in
+ * `packages/hakka-bridge/src/protocol.ts`), so emitting that type directly is silently
+ * dropped by the bridge hub; `LogEntry.metadata` carries the structured operation detail.
+ */
 function sendStorageData(data: StorageData): void {
-  hakkaBridge.emit('storage:update', { ...data, value: redactStorageValue(data.key, data.value) })
+  hakkaBridge.sendConsole([
+    {
+      id: `storage_${++storageLogSeq}_${data.timestamp}`,
+      timestamp: data.timestamp,
+      level: 'info',
+      message: `${data.storageType} ${data.operation} ${data.key}`,
+      category: 'storage',
+      metadata: {
+        storageType: data.storageType,
+        key: data.key,
+        value: redactStorageValue(data.key, data.value),
+        operation: data.operation,
+      },
+    },
+  ])
 }
 
 /**
@@ -59,53 +83,93 @@ function sendStorageData(data: StorageData): void {
  */
 export function useAsyncStorageMonitor(): void {
   useEffect(() => {
-    if (!hakkaBridge.isConnected) return
+    let AsyncStorage: AsyncStorageLike | null = null
+    let originals: {
+      getItem: AsyncStorageLike['getItem']
+      setItem: AsyncStorageLike['setItem']
+      removeItem: AsyncStorageLike['removeItem']
+      clear: AsyncStorageLike['clear']
+    } | null = null
 
-    let AsyncStorage: AsyncStorageLike
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const mod = require('@react-native-async-storage/async-storage') as {
-        default?: AsyncStorageLike
-      } & AsyncStorageLike
-      AsyncStorage = mod.default ?? mod
-    } catch {
-      return // not installed
+    function install(): void {
+      if (originals) return // already installed
+
+      let mod: ({ default?: AsyncStorageLike } & AsyncStorageLike) | undefined
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        mod = require('@react-native-async-storage/async-storage')
+      } catch {
+        return // not installed
+      }
+      AsyncStorage = mod!.default ?? mod!
+      const storage = AsyncStorage
+
+      originals = {
+        getItem: storage.getItem,
+        setItem: storage.setItem,
+        removeItem: storage.removeItem,
+        clear: storage.clear,
+      }
+
+      storage.getItem = async (key: string) => {
+        const result = await originals!.getItem.call(storage, key)
+        sendStorageData({ storageType: 'AsyncStorage', key, value: result, operation: 'get', timestamp: Date.now() })
+        return result
+      }
+
+      storage.setItem = async (key: string, value: string) => {
+        const result = await originals!.setItem.call(storage, key, value)
+        sendStorageData({ storageType: 'AsyncStorage', key, value, operation: 'set', timestamp: Date.now() })
+        return result
+      }
+
+      storage.removeItem = async (key: string) => {
+        const result = await originals!.removeItem.call(storage, key)
+        sendStorageData({
+          storageType: 'AsyncStorage',
+          key,
+          value: null,
+          operation: 'remove',
+          timestamp: Date.now(),
+        })
+        return result
+      }
+
+      storage.clear = async () => {
+        const result = await originals!.clear.call(storage)
+        sendStorageData({
+          storageType: 'AsyncStorage',
+          key: '*',
+          value: null,
+          operation: 'clear',
+          timestamp: Date.now(),
+        })
+        return result
+      }
     }
 
-    const originalGetItem = AsyncStorage.getItem
-    const originalSetItem = AsyncStorage.setItem
-    const originalRemoveItem = AsyncStorage.removeItem
-    const originalClear = AsyncStorage.clear
-
-    AsyncStorage.getItem = async (key: string) => {
-      const result = await originalGetItem.call(AsyncStorage, key)
-      sendStorageData({ storageType: 'AsyncStorage', key, value: result, operation: 'get', timestamp: Date.now() })
-      return result
+    function uninstall(): void {
+      if (!originals || !AsyncStorage) return
+      AsyncStorage.getItem = originals.getItem
+      AsyncStorage.setItem = originals.setItem
+      AsyncStorage.removeItem = originals.removeItem
+      AsyncStorage.clear = originals.clear
+      originals = null
     }
 
-    AsyncStorage.setItem = async (key: string, value: string) => {
-      const result = await originalSetItem.call(AsyncStorage, key, value)
-      sendStorageData({ storageType: 'AsyncStorage', key, value, operation: 'set', timestamp: Date.now() })
-      return result
-    }
-
-    AsyncStorage.removeItem = async (key: string) => {
-      const result = await originalRemoveItem.call(AsyncStorage, key)
-      sendStorageData({ storageType: 'AsyncStorage', key, value: null, operation: 'remove', timestamp: Date.now() })
-      return result
-    }
-
-    AsyncStorage.clear = async () => {
-      const result = await originalClear.call(AsyncStorage)
-      sendStorageData({ storageType: 'AsyncStorage', key: '*', value: null, operation: 'clear', timestamp: Date.now() })
-      return result
-    }
+    // `hakkaBridge.connect()` typically resolves after this effect has already
+    // run (see e.g. `SettingsViewModel`'s `loadSettings().then(() => connect())`),
+    // so a one-time `isConnected` check at mount misses the connection entirely
+    // and the patch never installs. Subscribing to `onStatus` re-checks on every
+    // transition, including a later connect.
+    const unsubscribeStatus = hakkaBridge.onStatus(() => {
+      if (hakkaBridge.isConnected) install()
+      else uninstall()
+    })
 
     return () => {
-      AsyncStorage.getItem = originalGetItem
-      AsyncStorage.setItem = originalSetItem
-      AsyncStorage.removeItem = originalRemoveItem
-      AsyncStorage.clear = originalClear
+      unsubscribeStatus()
+      uninstall()
     }
   }, [])
 }
@@ -116,66 +180,99 @@ export function useAsyncStorageMonitor(): void {
  */
 export function useMMKVMonitor(mmkv?: MMKVMonitorInstance): void {
   useEffect(() => {
-    if (!hakkaBridge.isConnected || !mmkv) return
+    if (!mmkv) return
 
-    const originalGetString = mmkv.getString
-    const originalSetString = mmkv.setString
-    const originalGetNumber = mmkv.getNumber
-    const originalSetNumber = mmkv.setNumber
-    const originalGetBoolean = mmkv.getBoolean
-    const originalSetBoolean = mmkv.setBoolean
-    const originalDelete = mmkv.delete
+    let installed = false
+    let originals: {
+      getString: MMKVMonitorInstance['getString']
+      setString: MMKVMonitorInstance['setString']
+      getNumber: MMKVMonitorInstance['getNumber']
+      setNumber: MMKVMonitorInstance['setNumber']
+      getBoolean: MMKVMonitorInstance['getBoolean']
+      setBoolean: MMKVMonitorInstance['setBoolean']
+      delete: MMKVMonitorInstance['delete']
+    } | null = null
 
-    mmkv.getString = (key: string) => {
-      const result = originalGetString.call(mmkv, key)
-      sendStorageData({ storageType: 'MMKV', key, value: result, operation: 'get', timestamp: Date.now() })
-      return result
+    function install(): void {
+      if (installed) return
+      installed = true
+
+      originals = {
+        getString: mmkv!.getString,
+        setString: mmkv!.setString,
+        getNumber: mmkv!.getNumber,
+        setNumber: mmkv!.setNumber,
+        getBoolean: mmkv!.getBoolean,
+        setBoolean: mmkv!.setBoolean,
+        delete: mmkv!.delete,
+      }
+
+      mmkv!.getString = (key: string) => {
+        const result = originals!.getString.call(mmkv, key)
+        sendStorageData({ storageType: 'MMKV', key, value: result, operation: 'get', timestamp: Date.now() })
+        return result
+      }
+
+      mmkv!.setString = (key: string, value: string) => {
+        const result = originals!.setString.call(mmkv, key, value)
+        sendStorageData({ storageType: 'MMKV', key, value, operation: 'set', timestamp: Date.now() })
+        return result
+      }
+
+      mmkv!.getNumber = (key: string) => {
+        const result = originals!.getNumber.call(mmkv, key)
+        sendStorageData({ storageType: 'MMKV', key, value: result, operation: 'get', timestamp: Date.now() })
+        return result
+      }
+
+      mmkv!.setNumber = (key: string, value: number) => {
+        const result = originals!.setNumber.call(mmkv, key, value)
+        sendStorageData({ storageType: 'MMKV', key, value, operation: 'set', timestamp: Date.now() })
+        return result
+      }
+
+      mmkv!.getBoolean = (key: string) => {
+        const result = originals!.getBoolean.call(mmkv, key)
+        sendStorageData({ storageType: 'MMKV', key, value: result, operation: 'get', timestamp: Date.now() })
+        return result
+      }
+
+      mmkv!.setBoolean = (key: string, value: boolean) => {
+        const result = originals!.setBoolean.call(mmkv, key, value)
+        sendStorageData({ storageType: 'MMKV', key, value, operation: 'set', timestamp: Date.now() })
+        return result
+      }
+
+      mmkv!.delete = (key: string) => {
+        const result = originals!.delete.call(mmkv, key)
+        sendStorageData({ storageType: 'MMKV', key, value: null, operation: 'remove', timestamp: Date.now() })
+        return result
+      }
     }
 
-    mmkv.setString = (key: string, value: string) => {
-      const result = originalSetString.call(mmkv, key, value)
-      sendStorageData({ storageType: 'MMKV', key, value, operation: 'set', timestamp: Date.now() })
-      return result
+    function uninstall(): void {
+      if (!installed || !originals) return
+      mmkv!.getString = originals.getString
+      mmkv!.setString = originals.setString
+      mmkv!.getNumber = originals.getNumber
+      mmkv!.setNumber = originals.setNumber
+      mmkv!.getBoolean = originals.getBoolean
+      mmkv!.setBoolean = originals.setBoolean
+      mmkv!.delete = originals.delete
+      installed = false
+      originals = null
     }
 
-    mmkv.getNumber = (key: string) => {
-      const result = originalGetNumber.call(mmkv, key)
-      sendStorageData({ storageType: 'MMKV', key, value: result, operation: 'get', timestamp: Date.now() })
-      return result
-    }
-
-    mmkv.setNumber = (key: string, value: number) => {
-      const result = originalSetNumber.call(mmkv, key, value)
-      sendStorageData({ storageType: 'MMKV', key, value, operation: 'set', timestamp: Date.now() })
-      return result
-    }
-
-    mmkv.getBoolean = (key: string) => {
-      const result = originalGetBoolean.call(mmkv, key)
-      sendStorageData({ storageType: 'MMKV', key, value: result, operation: 'get', timestamp: Date.now() })
-      return result
-    }
-
-    mmkv.setBoolean = (key: string, value: boolean) => {
-      const result = originalSetBoolean.call(mmkv, key, value)
-      sendStorageData({ storageType: 'MMKV', key, value, operation: 'set', timestamp: Date.now() })
-      return result
-    }
-
-    mmkv.delete = (key: string) => {
-      const result = originalDelete.call(mmkv, key)
-      sendStorageData({ storageType: 'MMKV', key, value: null, operation: 'remove', timestamp: Date.now() })
-      return result
-    }
+    // Same connect-after-mount race as `useAsyncStorageMonitor` above — re-check
+    // on every status transition instead of only once at mount.
+    const unsubscribeStatus = hakkaBridge.onStatus(() => {
+      if (hakkaBridge.isConnected) install()
+      else uninstall()
+    })
 
     return () => {
-      mmkv.getString = originalGetString
-      mmkv.setString = originalSetString
-      mmkv.getNumber = originalGetNumber
-      mmkv.setNumber = originalSetNumber
-      mmkv.getBoolean = originalGetBoolean
-      mmkv.setBoolean = originalSetBoolean
-      mmkv.delete = originalDelete
+      unsubscribeStatus()
+      uninstall()
     }
   }, [mmkv])
 }

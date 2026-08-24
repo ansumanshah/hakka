@@ -9,7 +9,8 @@ import HakkaCommon
 // MARK: - Constants
 
 /// Binary frames larger than this threshold are stored as a byte count only.
-private let wsBinaryCap = 32 * 1024  // 32KB
+/// Not `private` so `buildWsMessage`'s cap boundary is directly testable.
+let wsBinaryCap = 32 * 1024  // 32KB
 
 // MARK: - HakkaWebSocketMonitor
 
@@ -19,6 +20,14 @@ private let wsBinaryCap = 32 * 1024  // 32KB
 ///   - text frames store the payload string
 ///   - binary frames ≤32KB are base64-encoded; larger frames store the byte count only
 /// The negotiated sub-protocol is recorded in `wsProtocol`.
+///
+/// Outbound frames are captured by swizzling `send`; inbound frames are
+/// captured by swizzling `receive` the same way — piggybacking on the app's
+/// OWN `receive()` calls rather than issuing an independent one of Hakka's.
+/// `URLSessionWebSocketTask` allows only ONE outstanding `receive()` call at
+/// a time, so a monitor that called `receive()` itself would compete with,
+/// and could silently consume frames meant for, the host app's own receive
+/// loop. See `swizzleWebSocketReceive` below for details.
 ///
 /// Requires iOS 13+ (URLSessionWebSocketTask debut).  The class compiles
 /// but is a no-op on older OS versions; the `@available` guard ensures
@@ -74,6 +83,8 @@ public final class HakkaWebSocketMonitor: @unchecked Sendable {
 
         // Swizzle URLSessionWebSocketTask.send for outbound frame capture
         swizzleWebSocketSend()
+        // Swizzle URLSessionWebSocketTask.receive for inbound frame capture
+        swizzleWebSocketReceive()
     }
 }
 
@@ -111,38 +122,10 @@ extension URLSession {
         let startTime = Int64(Date().timeIntervalSince1970 * 1000)
         let taskId = UUID().uuidString
         let tracker = HakkaWSTracker(taskId: taskId, url: urlString, startTime: startTime)
-        // Attach tracker to task so it lives as long as the task
+        // Attach tracker to task so it lives as long as the task. Inbound frame
+        // capture happens passively from here on — see `swizzleWebSocketReceive`
+        // below — Hakka never calls `receive()` on this task itself.
         objc_setAssociatedObject(task, &hakkaWSTrackerKey, tracker, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
-
-        chainReceive(task: task, tracker: tracker)
-    }
-
-    private func chainReceive(task: URLSessionWebSocketTask, tracker: HakkaWSTracker) {
-        guard HakkaWebSocketMonitor.globalInterceptor?.isRunning == true else { return }
-        task.receive { [weak self, weak task] result in
-            switch result {
-            case .success(let message):
-                // Negotiated sub-protocol is only populated after the handshake, so it's
-                // read per-frame via KVC (no public API exposes it on the task).
-                let negotiated = task?.value(forKey: "_protocol") as? String
-                    ?? task?.value(forKey: "subprotocol") as? String
-                tracker.frameReceived(message: message, negotiatedProtocol: negotiated)
-                if let self, let task {
-                    self.chainReceive(task: task, tracker: tracker)
-                }
-            case .failure:
-                // Task ended — emit what's been captured so far
-                if let task {
-                    tracker.emitClose(
-                        closeCode: task.closeCode.rawValue,
-                        reason: task.closeReason.map { String(data: $0, encoding: .utf8) } ?? nil
-                    )
-                } else {
-                    tracker.emitClose(closeCode: URLSessionWebSocketTask.CloseCode.abnormalClosure.rawValue, reason: nil)
-                }
-                HakkaWebSocketMonitor.globalInterceptor.map { tracker.flush(interceptor: $0) }
-            }
-        }
     }
 }
 
@@ -213,6 +196,106 @@ extension URLSessionWebSocketTask {
         if let imp = originalWSSendIMP {
             imp(self, #selector(hakka_sendMessage(_:completionHandler:)), messageObj, completionHandler)
         }
+    }
+}
+
+// MARK: - URLSessionWebSocketTask receive swizzle
+//
+// URLSessionWebSocketTask allows only ONE outstanding `receive()` call at a
+// time. An earlier version of this monitor drove its own perpetually
+// re-arming `task.receive()` loop, independent of and competing with any
+// receive loop the host app runs on the same task — since Hakka's loop was
+// armed synchronously at task-creation time (inside the swizzled factory
+// method, before the app even gets the task back), it typically claimed the
+// slot first, meaning inbound frames could be handed to Hakka and never
+// reach the app's own `receive()` completion handler at all.
+//
+// Fix: never call `receive()` independently. Instead, piggyback on the
+// app's OWN `receive()` calls, the same way `send` is intercepted above —
+// swizzle the ObjC entry point Swift's public `receive(completionHandler:)`
+// compiles down to (confirmed against Foundation's NSURLSession.h:
+// `- (void)receiveMessageWithCompletionHandler:(void (^)(NSURLSessionWebSocketMessage
+// * _Nullable message, NSError * _Nullable error))completionHandler;`) so every
+// message the app reads is observed on its way OUT, then forwarded to the
+// app's own completion handler unchanged. Hakka never holds the task's one
+// outstanding receive slot, so it can never starve or steal a frame meant
+// for the app.
+
+typealias WSReceiveIMP = @convention(c) (
+    AnyObject,          // self (URLSessionWebSocketTask)
+    Selector,           // _cmd  (receiveMessageWithCompletionHandler:)
+    AnyObject           // completionHandler (block bridged from Swift closure)
+) -> Void
+
+nonisolated(unsafe) private var originalWSReceiveIMP: WSReceiveIMP?
+
+@available(iOS 13.0, macOS 10.15, *)
+private func swizzleWebSocketReceive() {
+    let sel = NSSelectorFromString("receiveMessageWithCompletionHandler:")
+    guard
+        let method = class_getInstanceMethod(URLSessionWebSocketTask.self, sel),
+        let hookMethod = class_getInstanceMethod(URLSessionWebSocketTask.self,
+                                                 #selector(URLSessionWebSocketTask.hakka_receiveMessageWithCompletionHandler(_:)))
+    else { return }
+
+    originalWSReceiveIMP = unsafeBitCast(method_getImplementation(method), to: WSReceiveIMP.self)
+    method_exchangeImplementations(method, hookMethod)
+}
+
+@available(iOS 13.0, macOS 10.15, *)
+extension URLSessionWebSocketTask {
+    // This @objc method is the swizzled replacement for
+    // `receiveMessageWithCompletionHandler:` — at runtime the implementations
+    // are exchanged so this runs whenever app code calls `receive(completionHandler:)`.
+    // Wraps the app's own completion handler (never calling `receive()` on its
+    // own behalf) so Hakka observes each inbound frame on its way back out to
+    // the app, then forwards it unchanged.
+    @objc func hakka_receiveMessageWithCompletionHandler(_ completionHandler: AnyObject) {
+        guard let imp = originalWSReceiveIMP else { return }
+        guard let tracker = objc_getAssociatedObject(self, &hakkaWSTrackerKey) as? HakkaWSTracker else {
+            imp(self, #selector(hakka_receiveMessageWithCompletionHandler(_:)), completionHandler)
+            return
+        }
+
+        let originalHandler = unsafeBitCast(
+            completionHandler,
+            to: (@convention(block) (NSObject?, NSError?) -> Void).self
+        )
+        let wrapped: @convention(block) (NSObject?, NSError?) -> Void = { [weak self] messageObj, error in
+            if let messageObj, error == nil {
+                let negotiated = self?.value(forKey: "_protocol") as? String
+                    ?? self?.value(forKey: "subprotocol") as? String
+                // Exactly one of `string`/`data` is populated per message —
+                // NSURLSessionWebSocketMessage's own documented contract — so
+                // checking which is present sidesteps relying on the numeric
+                // `type` raw value.
+                if let text = messageObj.value(forKey: "string") as? String {
+                    tracker.frameReceived(message: .string(text), negotiatedProtocol: negotiated)
+                } else if let data = messageObj.value(forKey: "data") as? Data {
+                    tracker.frameReceived(message: .data(data), negotiatedProtocol: negotiated)
+                }
+            } else if error != nil, let self {
+                // A receive() error observed on the app's OWN completion handler
+                // is a genuine close — Hakka no longer issues a competing
+                // receive() of its own, so there's no contended-call case left
+                // to filter out here.
+                if self.state == .completed {
+                    tracker.emitClose(
+                        closeCode: self.closeCode.rawValue,
+                        reason: self.closeReason.flatMap { String(data: $0, encoding: .utf8) }
+                    )
+                    HakkaWebSocketMonitor.globalInterceptor.map { tracker.flush(interceptor: $0) }
+                }
+            } else if error != nil {
+                // The task itself has already been deallocated — nothing left
+                // to race with, so this is a genuine end.
+                tracker.emitClose(closeCode: URLSessionWebSocketTask.CloseCode.abnormalClosure.rawValue, reason: nil)
+                HakkaWebSocketMonitor.globalInterceptor.map { tracker.flush(interceptor: $0) }
+            }
+            originalHandler(messageObj, error)
+        }
+
+        imp(self, #selector(hakka_receiveMessageWithCompletionHandler(_:)), wrapped as AnyObject)
     }
 }
 
@@ -301,7 +384,9 @@ final class HakkaWSTracker: @unchecked Sendable {
 
 // MARK: - Frame encoding
 
-private func buildWsMessage(
+/// Not `private` so tests can exercise the string/small-binary/oversized-binary
+/// encoding cases directly.
+func buildWsMessage(
     message: URLSessionWebSocketTask.Message,
     direction: WsDirection,
     timestamp: Int64

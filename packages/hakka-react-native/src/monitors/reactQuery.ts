@@ -55,10 +55,6 @@ export interface QueryClientMonitorInstance {
   getQueryCache: () => QueryCacheLike
 }
 
-interface ReactQueryModuleLike {
-  getQueryClient?: () => QueryClientMonitorInstance | null
-}
-
 /**
  * Redact a cached query payload before it leaves the device.
  *
@@ -87,34 +83,49 @@ export function redactQueryData(data: unknown): unknown {
   }
 }
 
+// Sequence for synthesizing LogEntry ids — see sendQueryData below.
+let queryLogSeq = 0
+
+/**
+ * Forward one query snapshot as a canonical `{type:'console', payload: LogEntry[]}`
+ * frame via `hakkaBridge.sendConsole` — matches `storage.ts`'s `sendStorageData`.
+ * There is no 'queries:update' branch in the wire protocol (`parseBridgeMessage` in
+ * `packages/hakka-bridge/src/protocol.ts`), so emitting that type directly is silently
+ * dropped by the bridge hub; `LogEntry.metadata` carries the structured query detail.
+ */
 function sendQueryData(queryData: QueryData): void {
-  hakkaBridge.emit('queries:update', {
-    ...queryData,
-    data: redactQueryData(queryData.data),
-    timestamp: Date.now(),
-  })
+  const timestamp = Date.now()
+  hakkaBridge.sendConsole([
+    {
+      id: `query_${++queryLogSeq}_${timestamp}`,
+      timestamp,
+      level: queryData.status === 'error' ? 'error' : 'info',
+      message: `query [${queryData.queryKey}] -> ${queryData.status}`,
+      category: 'query',
+      metadata: {
+        ...queryData,
+        data: redactQueryData(queryData.data),
+      },
+    },
+  ])
 }
 
 /**
  * Monitor specific queries by key and send periodic snapshots.
+ *
+ * `queryClient` must be passed explicitly — TanStack Query v5 only exposes
+ * the client via `<QueryClientProvider>` context (`useQueryClient()`, a hook,
+ * which can't be called from inside this effect), not a module-level export,
+ * so there is no way to auto-detect it here.
  */
 export function useQueryMonitor(queryKeys: string[][], queryClient?: QueryClientMonitorInstance): void {
   useEffect(() => {
-    if (!hakkaBridge.isConnected) return
+    if (!queryClient) return
+    const client = queryClient
 
-    let client = queryClient
-    if (!client) {
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const rq = require('@tanstack/react-query') as ReactQueryModuleLike
-        client = rq.getQueryClient?.() ?? undefined
-      } catch {
-        return
-      }
-    }
-    if (!client) return
+    let interval: ReturnType<typeof setInterval> | null = null
 
-    const interval = setInterval(() => {
+    function poll(): void {
       queryKeys.forEach((queryKey) => {
         const query = client.getQueryState(queryKey)
         if (query) {
@@ -129,35 +140,53 @@ export function useQueryMonitor(queryKeys: string[][], queryClient?: QueryClient
           })
         }
       })
-    }, 1000)
+    }
 
-    return () => clearInterval(interval)
+    function install(): void {
+      if (interval) return // already installed
+      interval = setInterval(poll, 1000)
+    }
+
+    function uninstall(): void {
+      if (!interval) return
+      clearInterval(interval)
+      interval = null
+    }
+
+    // `hakkaBridge.connect()` typically resolves after this effect has already
+    // run (see e.g. `SettingsViewModel`'s `loadSettings().then(() => connect())`),
+    // so a one-time `isConnected` check at mount misses the connection entirely
+    // and polling never starts. Subscribing to `onStatus` re-checks on every
+    // transition, including a later connect — mirrors `storage.ts`'s monitors.
+    const unsubscribeStatus = hakkaBridge.onStatus(() => {
+      if (hakkaBridge.isConnected) install()
+      else uninstall()
+    })
+
+    return () => {
+      unsubscribeStatus()
+      uninstall()
+    }
   }, [queryClient, queryKeys])
 }
+
+// Coalescing window for `useReactQueryDevTools`'s cache-subscribe handler —
+// matches `useNetworkLogs`'s `DEFAULT_UPDATE_INTERVAL_MS`. Without this, a
+// single cache event (fired per fetch-stage transition, per query) triggers a
+// full re-serialize of the entire cache, unthrottled.
+const DEVTOOLS_THROTTLE_MS = 250
 
 /**
  * Full React Query devtools integration — subscribes to cache changes
  * and sends all query states to the desktop app.
  *
- * Must be rendered inside a `<QueryClientProvider>`. Pass your own
- * `queryClient` if you're not using the default provider.
+ * Must be rendered inside a `<QueryClientProvider>` and passed that client —
+ * see `useQueryMonitor`'s doc comment for why there is no auto-detect fallback.
  */
 export function useReactQueryDevTools(queryClient?: QueryClientMonitorInstance): void {
   useEffect(() => {
-    if (!hakkaBridge.isConnected) return
-
-    let client = queryClient
-    if (!client) {
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const rq = require('@tanstack/react-query') as ReactQueryModuleLike
-        // useQueryClient is a hook and can't be called here — fall back to the module-level accessor.
-        client = rq.getQueryClient?.() ?? undefined
-      } catch {
-        return
-      }
-    }
-    if (!client) return
+    if (!queryClient) return
+    const client = queryClient
 
     const sendAllQueries = () => {
       const queries = client.getQueryCache().getAll()
@@ -174,12 +203,42 @@ export function useReactQueryDevTools(queryClient?: QueryClientMonitorInstance):
       })
     }
 
-    sendAllQueries()
+    let unsubscribeCache: (() => void) | null = null
+    let pendingRefresh: ReturnType<typeof setTimeout> | null = null
 
-    const unsubscribe = client.getQueryCache().subscribe(() => {
+    function install(): void {
+      if (unsubscribeCache) return // already installed
       sendAllQueries()
+      unsubscribeCache = client.getQueryCache().subscribe(() => {
+        if (pendingRefresh !== null) return
+        pendingRefresh = setTimeout(() => {
+          pendingRefresh = null
+          sendAllQueries()
+        }, DEVTOOLS_THROTTLE_MS)
+      })
+    }
+
+    function uninstall(): void {
+      if (unsubscribeCache) {
+        unsubscribeCache()
+        unsubscribeCache = null
+      }
+      if (pendingRefresh !== null) {
+        clearTimeout(pendingRefresh)
+        pendingRefresh = null
+      }
+    }
+
+    // Same connect-after-mount race as `useQueryMonitor` above — re-check on
+    // every status transition instead of only once at mount.
+    const unsubscribeStatus = hakkaBridge.onStatus(() => {
+      if (hakkaBridge.isConnected) install()
+      else uninstall()
     })
 
-    return unsubscribe
+    return () => {
+      unsubscribeStatus()
+      uninstall()
+    }
   }, [queryClient])
 }

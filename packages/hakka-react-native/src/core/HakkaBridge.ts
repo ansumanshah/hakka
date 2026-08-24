@@ -9,9 +9,48 @@
  * mmkv:set, mmkv:delete) and console interceptor forwarding.
  */
 import { applyControlCommand, ConsoleInterceptor, Hakka, logStore, parseControlCommand } from 'hakka-core'
-import type { ConnectionStatus, LogEntry, NetworkRequest, StorageSnapshot } from 'hakka-core'
+import type { ConnectionStatus, LogEntry, LogLevel, NetworkRequest, StorageSnapshot } from 'hakka-core'
 
 import { redactStorageEntries } from '../storage/redact'
+
+/**
+ * Minimal shape of a configured `react-native-mmkv` `MMKV` instance — matches
+ * `MMKVMonitorInstance` in `monitors/storage.ts` plus the read methods the
+ * on-connect snapshot needs. Deliberately not imported from `react-native-mmkv`
+ * so this module keeps it as an optional peer dependency, resolved via `require`.
+ */
+export interface MMKVInstanceLike {
+  set: (key: string, value: string) => void
+  getString: (key: string) => string | undefined
+  getAllKeys: () => string[]
+  delete: (key: string) => void
+}
+
+// Host-registered MMKV instance for `mmkv:set`/`mmkv:delete`/the on-connect
+// snapshot — see `configureMMKVInstance` below.
+let registeredMMKV: MMKVInstanceLike | null = null
+
+/**
+ * Register the host app's configured MMKV instance so `mmkv:set`/`mmkv:delete`
+ * desktop commands and the on-connect storage snapshot read/write the app's
+ * actual store. Without this, those paths fall back to `new MMKV()` — MMKV's
+ * *default* instance — which is a different, effectively empty store for any
+ * host app using a named or encrypted MMKV instance (a common pattern). Call
+ * once at app start; pass `null` to clear the registration.
+ */
+export function configureMMKVInstance(instance: MMKVInstanceLike | null): void {
+  registeredMMKV = instance
+}
+
+/**
+ * The instance registered via `configureMMKVInstance`, or `null` if the host
+ * app hasn't called it. Lets other in-package MMKV consumers (e.g.
+ * `StorageViewer.tsx`) share the same registry instead of each falling back
+ * to their own throwaway `new MMKV()` default instance.
+ */
+export function getConfiguredMMKVInstance(): MMKVInstanceLike | null {
+  return registeredMMKV
+}
 
 // Storage write allowlist — prefix-based: desktop can only write keys starting with 'hakka:'
 const ALLOWED_KEY_PREFIX = 'hakka:'
@@ -55,6 +94,8 @@ export class HakkaBridge {
   private nativeStorageUnsub: (() => void) | null = null
   private statusListeners = new Set<(status: ConnectionStatus) => void>()
   private _status: ConnectionStatus = { state: 'disconnected' }
+  // Sequence for synthesizing LogEntry ids for raw console.* capture — see consoleUnsub below.
+  private _consoleLogSeq = 0
 
   /** Connect to the desktop app WebSocket server; auto-reconnects with exponential backoff on disconnect. */
   connect(url: string): void {
@@ -160,14 +201,8 @@ export class HakkaBridge {
     }
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const mmkvMod = require('react-native-mmkv')
-      const mmkvLib = mmkvMod.default ?? mmkvMod
-      if (mmkvLib.MMKV) {
-        const storage = new mmkvLib.MMKV() as {
-          getAllKeys: () => string[]
-          getString: (key: string) => string | undefined
-        }
+      const storage = registeredMMKV ?? this._defaultMMKVInstance()
+      if (storage) {
         const entries: Record<string, string> = {}
         for (const key of storage.getAllKeys()) entries[key] = storage.getString(key) ?? ''
         this.sendStorage({ store: 'mmkv', timestamp: Date.now(), entries: redactStorageEntries(entries) })
@@ -175,6 +210,18 @@ export class HakkaBridge {
     } catch {
       // MMKV not installed
     }
+  }
+
+  /**
+   * Falls back to MMKV's default (unconfigured) instance when the host app
+   * hasn't called `configureMMKVInstance`. See that function's doc comment —
+   * this is best-effort and may not be the store the host app actually uses.
+   */
+  private _defaultMMKVInstance(): MMKVInstanceLike | null {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const mmkvMod = require('react-native-mmkv')
+    const mmkvLib = mmkvMod.default ?? mmkvMod
+    return mmkvLib.MMKV ? (new mmkvLib.MMKV() as MMKVInstanceLike) : null
   }
 
   private _connect(): void {
@@ -187,7 +234,19 @@ export class HakkaBridge {
     if (!this.consoleUnsub) {
       ConsoleInterceptor.enable()
       this.consoleUnsub = ConsoleInterceptor.onEntry((entry) => {
-        this._send({ type: 'console:log', payload: entry })
+        // Raw console.* capture, converted into the same canonical `{type:'console',
+        // payload: LogEntry[]}` frame `sendConsole` below uses — the wire protocol
+        // (`parseBridgeMessage`) has no 'console:log' branch, so sending that type
+        // directly is silently dropped by the bridge hub. ConsoleEntry's level includes
+        // 'log' (from console.log), which LogLevel doesn't — mapped to 'info'.
+        this.sendConsole([
+          {
+            id: `console_${++this._consoleLogSeq}_${entry.timestamp}`,
+            timestamp: entry.timestamp,
+            level: entry.level === 'log' ? 'info' : (entry.level as LogLevel),
+            message: entry.message,
+          },
+        ])
       })
     }
 
@@ -195,7 +254,7 @@ export class HakkaBridge {
     // `LogEntry` model iOS's `HakkaInterceptor.log()` streams from) forward as canonical
     // `{type:'console', payload: LogEntry[]}` frames, one entry per call — matches iOS's
     // per-`log()`-call `sendConsole([entry])`. Distinct from `consoleUnsub` above, which
-    // forwards raw `console.*` capture under the legacy `console:log` type.
+    // forwards raw `console.*` capture — both land on the same wire shape.
     if (!this.logUnsub) {
       this.logUnsub = logStore.subscribe((entry) => {
         this.sendConsole([entry])
@@ -327,26 +386,16 @@ export class HakkaBridge {
       } else if (msg.type === 'mmkv:set') {
         if (!isAllowedKey(payload.key) || !isAllowedValue(payload.value)) return
         try {
-          // eslint-disable-next-line @typescript-eslint/no-var-requires
-          const mmkvMod = require('react-native-mmkv')
-          const mmkvLib = mmkvMod.default ?? mmkvMod
-          if (mmkvLib.MMKV) {
-            const storage = new mmkvLib.MMKV()
-            storage.set(payload.key, payload.value)
-          }
+          const storage = registeredMMKV ?? this._defaultMMKVInstance()
+          storage?.set(payload.key, payload.value)
         } catch {
           // MMKV not installed
         }
       } else if (msg.type === 'mmkv:delete') {
         if (!isAllowedKey(payload.key)) return
         try {
-          // eslint-disable-next-line @typescript-eslint/no-var-requires
-          const mmkvMod = require('react-native-mmkv')
-          const mmkvLib = mmkvMod.default ?? mmkvMod
-          if (mmkvLib.MMKV) {
-            const storage = new mmkvLib.MMKV()
-            storage.delete(payload.key)
-          }
+          const storage = registeredMMKV ?? this._defaultMMKVInstance()
+          storage?.delete(payload.key)
         } catch {
           // MMKV not installed
         }

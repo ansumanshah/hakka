@@ -40,6 +40,21 @@ const PixelRatio = {
   roundToNearestPixel: jest.fn((px) => Math.round(px)),
 }
 
+// Minimal DeviceEventEmitter stand-in — real RN backs this with its own native
+// event system; tests drive it directly via `emit()` to simulate a native
+// 'shake' event (or any other device event) without a real device.
+const DeviceEventEmitter = {
+  _listeners: {},
+  addListener(eventName, handler) {
+    if (!this._listeners[eventName]) this._listeners[eventName] = new Set()
+    this._listeners[eventName].add(handler)
+    return { remove: () => this._listeners[eventName]?.delete(handler) }
+  },
+  emit(eventName, ...args) {
+    this._listeners[eventName]?.forEach((handler) => handler(...args))
+  },
+}
+
 module.exports = {
   Share,
   Platform,
@@ -50,6 +65,7 @@ module.exports = {
   Alert,
   Dimensions,
   PixelRatio,
+  DeviceEventEmitter,
   StyleSheet: {
     create: (styles) => styles,
     flatten: (style) => style,

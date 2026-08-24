@@ -37,6 +37,14 @@ public final class HakkaURLProtocol: URLProtocol, @unchecked Sendable {
     private var requestId = UUID().uuidString
     fileprivate var dataTask: URLSessionDataTask?
     private var receivedData = Data()
+    /// Full, untruncated response bytes accumulated while either a response-phase
+    /// breakpoint pause buffers delivery (`responsePhasePending`) or a rewrite-mode
+    /// mock rule (`pendingRewriteRule`) is transforming the response — the two
+    /// branches are mutually exclusive (see the `pendingRewriteRule` check in
+    /// `didReceive response:` below). `receivedData` above is capped at
+    /// `currentBodyCaptureLimit()` for storage/inspection — both paths must still
+    /// deliver/transform every byte the real response sent, not that capped copy.
+    private var fullResponseData = Data()
     private var receivedBodySize: Int64 = 0
     private var receivedResponse: URLResponse?
     private var bodyCaptureLimit: Int?
@@ -191,15 +199,7 @@ public final class HakkaURLProtocol: URLProtocol, @unchecked Sendable {
                         Self.interceptor?.removeInFlight(id: self.requestId)
                     }
                 case .resume(let edits):
-                    var edited = outgoing
-                    if let edits {
-                        if let newURL = URL(string: edits.url) {
-                            edited.url = newURL
-                        }
-                        if let newBody = edits.body {
-                            edited.httpBody = newBody.data(using: .utf8)
-                        }
-                    }
+                    let edited = edits.map { Self.applyRequestBreakpointEdits($0, to: outgoing) } ?? outgoing
                     self.issueDataTask(request: edited)
                 }
             }
@@ -238,6 +238,28 @@ public final class HakkaURLProtocol: URLProtocol, @unchecked Sendable {
         }
 
         issueDataTask(request: outgoing)
+    }
+
+    /// Apply a request-phase breakpoint's URL/body edits to `outgoing`. Kept as
+    /// a standalone (non-`private`) static function — rather than inlined in
+    /// `startLoading`'s `.resume` case — so the `Content-Length` recompute
+    /// below is directly testable without driving the full async
+    /// `BreakpointEngine` pause/resume round-trip through a live network call.
+    static func applyRequestBreakpointEdits(_ edits: PausedRequest, to outgoing: URLRequest) -> URLRequest {
+        var edited = outgoing
+        if let newURL = URL(string: edits.url) {
+            edited.url = newURL
+        }
+        if let newBody = edits.body {
+            let newBodyData = newBody.data(using: .utf8)
+            edited.httpBody = newBodyData
+            // Keep Content-Length truthful: a stale value left over from the
+            // original (pre-edit) body would otherwise describe a different
+            // length than what's actually sent. `setValue(_:forHTTPHeaderField:)`
+            // is case-insensitive.
+            edited.setValue(String(newBodyData?.count ?? 0), forHTTPHeaderField: "Content-Length")
+        }
+        return edited
     }
 
     /// Issue the inner URLSession dataTask after any request-phase processing.
@@ -444,7 +466,11 @@ public final class HakkaURLProtocol: URLProtocol, @unchecked Sendable {
         for (key, value) in httpResponse.allHeaderFields {
             if let k = key as? String, let v = value as? String { headers[k] = v }
         }
-        var bodyText = String(data: receivedData, encoding: .utf8) ?? ""
+        // Built from `fullResponseData` (uncapped), not the size-capped `receivedData`
+        // — a rewrite rule with no `modify.replaceBody` (or an empty one) falls
+        // through to `finalData = ... ?? fullResponseData` below and must still
+        // deliver every byte the real response sent, not a `maxBodySize`-truncated copy.
+        var bodyText = String(data: fullResponseData, encoding: .utf8) ?? ""
 
         if let modify = rule.modify {
             status = modify.status ?? status
@@ -456,7 +482,7 @@ public final class HakkaURLProtocol: URLProtocol, @unchecked Sendable {
             bodyText = MockRuleTransform.applyBodyReplacements(body: bodyText, replacements: modify.replaceBody)
         }
 
-        let finalData = bodyText.data(using: .utf8) ?? receivedData
+        let finalData = bodyText.data(using: .utf8) ?? fullResponseData
         let finalResponse = HTTPURLResponse(
             url: httpResponse.url ?? request.url ?? URL(string: "about:blank")!,
             statusCode: status,
@@ -674,7 +700,21 @@ extension HakkaURLProtocol: URLSessionDataDelegate {
             let remaining = limit - receivedData.count
             receivedData.append(data.prefix(remaining))
         }
-        if responsePhasePending || pendingRewriteRule != nil { return }
+        if responsePhasePending {
+            // Delivery is deferred until the pause resolves — buffer every byte
+            // here, uncapped, so a plain resume can hand the client the real
+            // response instead of the size-capped `receivedData` above.
+            fullResponseData.append(data)
+            return
+        }
+        if pendingRewriteRule != nil {
+            // `finishRewriteDelivery` transforms the full response once it's
+            // complete — buffer every byte here, uncapped, so a response larger
+            // than `maxBodySize` isn't truncated before the rule's
+            // `modify.replaceBody`/pass-through logic ever sees it.
+            fullResponseData.append(data)
+            return
+        }
 
         if ThrottleEngine.shared.isActive, let client = self.client {
             dripThrottled(data: data, client: client)
@@ -711,8 +751,9 @@ extension HakkaURLProtocol: URLSessionDataDelegate {
             return
         }
 
-        // All body bytes are buffered in receivedData. Pause on a background
-        // thread so the UI can inspect/edit, then deliver to the client.
+        // All body bytes are buffered — capped in receivedData for the paused
+        // preview/storage, uncapped in fullResponseData for delivery. Pause on
+        // a background thread so the UI can inspect/edit, then deliver to the client.
         if responsePhasePending, error == nil, let httpResp = receivedResponse as? HTTPURLResponse {
             let bodyText = String(data: receivedData, encoding: .utf8) ?? ""
             var respHeaders: [String: String] = [:]
@@ -747,20 +788,27 @@ extension HakkaURLProtocol: URLSessionDataDelegate {
                     if let edits {
                         let editedURL = httpResp.url ?? URL(string: "about:blank")!
                         let newStatus = edits.status
-                        let newHeaders = edits.headers
+                        let editedBodyData = edits.body.data(using: .utf8) ?? Data()
+                        // Keep Content-Length truthful against the edited body —
+                        // `edits.headers` may still carry the pre-edit length.
+                        let newHeaders = MockRuleTransform.applyHeaderEdits(
+                            headers: edits.headers,
+                            set: ["Content-Length": String(editedBodyData.count)],
+                            remove: ["Content-Length"]
+                        )
                         finalResponse = HTTPURLResponse(
                             url: editedURL,
                             statusCode: newStatus,
                             httpVersion: "HTTP/1.1",
                             headerFields: newHeaders
                         ) ?? httpResp
-                        finalData = edits.body.data(using: .utf8) ?? Data()
+                        finalData = editedBodyData
                         self.receivedResponse = finalResponse
                         self.receivedData = finalData
                         self.receivedBodySize = Int64(finalData.count)
                     } else {
                         finalResponse = httpResp
-                        finalData = self.receivedData
+                        finalData = self.fullResponseData
                     }
                     self.client?.urlProtocol(self, didReceive: finalResponse, cacheStoragePolicy: .allowed)
                     if !finalData.isEmpty {

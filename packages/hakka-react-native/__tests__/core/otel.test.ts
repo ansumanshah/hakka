@@ -67,7 +67,9 @@ describe('OTel-shaped export', () => {
     )
     expect(payload.spans).toHaveLength(1)
     expect(payload.spans[0]).toMatchObject({
-      spanId: 'network-1',
+      // Derived deterministically from the record id — a valid 16-hex OTel
+      // span id, not the raw 'network-1' record id (which OTel ingestion rejects).
+      spanId: expect.stringMatching(/^[0-9a-f]{16}$/),
       name: 'GET https://api.example.com/users',
       kind: 'client',
       startTimeUnixNano: '1000000000',

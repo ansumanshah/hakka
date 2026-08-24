@@ -9,14 +9,14 @@
  */
 
 import './bootstrap'
-import { Hakka, mockEngine } from 'hakka-core'
+import { Hakka } from 'hakka-core'
 
 export { Hakka }
 
 // Core bridge — the singleton is the API; the class is exported type-only so
 // `new HakkaBridge()` never becomes accidental public surface to semver-lock.
-export { hakkaBridge, getDesktopSocket } from './core/HakkaBridge'
-export type { HakkaBridge } from './core/HakkaBridge'
+export { hakkaBridge, getDesktopSocket, configureMMKVInstance } from './core/HakkaBridge'
+export type { HakkaBridge, MMKVInstanceLike } from './core/HakkaBridge'
 export type { ConnectionStatus } from 'hakka-core'
 
 export { useNetworkLogs } from './hooks/useNetworkLogs'

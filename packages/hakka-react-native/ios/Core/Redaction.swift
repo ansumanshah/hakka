@@ -49,7 +49,7 @@ extension HakkaInterceptor {
         // and crashing at 600, versus ~800 on the main thread. A stack overflow
         // is a signal, not an error, so `try?` cannot contain it, and capture
         // runs on exactly such a task inside someone else's app.
-        guard !Self.exceedsDepthLimit(body) else { return body }
+        guard !JSONDepthGuard.exceedsDepthLimit(body, limit: Self.maxRedactionDepth) else { return body }
         guard let data = body.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: data) else { return body }
         let redacted = redactJsonValue(json, depth: 0)
@@ -62,34 +62,6 @@ extension HakkaInterceptor {
     /// rather than recursed into: capture must never crash the host app, and
     /// the body arrives from the network, so its depth is not ours to trust.
     private static let maxRedactionDepth = 100
-
-    /// Scan for bracket nesting past the limit without building any structure.
-    /// Bytes, not characters, since every byte that matters here is ASCII and
-    /// multi-byte UTF-8 continuation bytes never collide with them.
-    private static func exceedsDepthLimit(_ body: String) -> Bool {
-        var depth = 0
-        var inString = false
-        var escaped = false
-        for byte in body.utf8 {
-            if escaped {
-                escaped = false
-                continue
-            }
-            if inString {
-                if byte == 0x5C { escaped = true } else if byte == 0x22 { inString = false }
-                continue
-            }
-            switch byte {
-            case 0x22: inString = true
-            case 0x7B, 0x5B:
-                depth += 1
-                if depth > maxRedactionDepth { return true }
-            case 0x7D, 0x5D: depth -= 1
-            default: break
-            }
-        }
-        return false
-    }
 
     private func redactJsonValue(_ value: Any, depth: Int) -> Any {
         if depth > Self.maxRedactionDepth { return value }
@@ -139,6 +111,10 @@ extension HakkaInterceptor {
         let isGraphQLUrl = url.lowercased().contains("graphql")
         guard isJsonContent || isGraphQLUrl else { return nil }
 
+        // Same stack-overflow hazard as redactBodyFields above: JSONSerialization
+        // recurses while parsing and can SIGBUS past the depth limit rather than
+        // throwing, so the guard must run before parsing, not after.
+        guard !JSONDepthGuard.exceedsDepthLimit(body, limit: maxRedactionDepth) else { return nil }
         guard let data = body.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
 

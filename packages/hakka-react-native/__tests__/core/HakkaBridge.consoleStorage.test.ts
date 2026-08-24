@@ -161,6 +161,23 @@ describe('HakkaBridge — console/storage senders', () => {
     // must not throw from inside the WebSocket onopen handler.
     await expect(connect()).resolves.toBeDefined()
   })
+
+  it('forwards raw console.* capture as a canonical console frame, not the dropped legacy console:log type', async () => {
+    const ws = await connect()
+
+    console.warn('raw console capture marker')
+
+    const consoleEntries = framesOf(ws, 'console').flatMap((f) => f.payload as LogEntry[])
+    const raw = consoleEntries.find((e) => e.message.includes('raw console capture marker'))
+    expect(raw).toBeDefined()
+    expect(raw!.level).toBe('warn')
+    expect(typeof raw!.id).toBe('string')
+
+    // The old ad hoc type must never appear on the wire — protocol.ts's
+    // parseBridgeMessage has no branch for it, so BridgeHub silently dropped
+    // every frame this used to send.
+    expect(framesOf(ws, 'console:log')).toHaveLength(0)
+  })
 })
 
 describe('HakkaBridge — native storage relay (RN native-render mode)', () => {

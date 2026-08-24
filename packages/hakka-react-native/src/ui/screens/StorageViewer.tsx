@@ -8,12 +8,22 @@
 import React, { useCallback, useEffect, useMemo, useReducer } from 'react'
 import { Alert } from 'react-native'
 
-import { hakkaBridge } from '../../core/HakkaBridge'
+import { getConfiguredMMKVInstance, hakkaBridge } from '../../core/HakkaBridge'
 import { redactStorageEntries } from '../../storage/redact'
 import { AsyncStorageModule, MMKVModule } from './StorageViewerBackends'
+import type { MMKVInstance } from './StorageViewerBackends'
 import { StorageViewerDetail } from './StorageViewerDetail'
 import { StorageViewerList } from './StorageViewerList'
 import { createStorageViewerState, storageViewerReducer, storeNameForBackend } from './StorageViewerState'
+
+// Prefer the host app's registered instance (`configureMMKVInstance`) over a
+// throwaway default `new MMKV()` — otherwise this screen browses/edits/deletes
+// against an effectively empty store for any host using a named or encrypted
+// MMKV instance, exactly the bug `configureMMKVInstance` was added to fix.
+// Only called where `MMKVModule` is already known non-null.
+function mmkvInstance(): MMKVInstance {
+  return getConfiguredMMKVInstance() ?? new MMKVModule!.MMKV()
+}
 
 export interface StorageViewerProps {
   onClose?: () => void
@@ -41,7 +51,7 @@ export const StorageViewer: React.FC<StorageViewerProps> = ({ onClose, showHeade
         const pairs = await AsyncStorageModule.multiGet(keys)
         entries = pairs.map(([k, v]) => ({ key: k, value: v ?? '' }))
       } else if (state.backend === 'MMKV' && MMKVModule) {
-        const storage = new MMKVModule.MMKV()
+        const storage = mmkvInstance()
         const keys = storage.getAllKeys()
         entries = keys.map((k) => ({ key: k, value: storage.getString(k) ?? '' }))
       } else {
@@ -102,7 +112,7 @@ export const StorageViewer: React.FC<StorageViewerProps> = ({ onClose, showHeade
               if (state.backend === 'AsyncStorage' && AsyncStorageModule) {
                 await AsyncStorageModule.removeItem(key)
               } else if (state.backend === 'MMKV' && MMKVModule) {
-                const storage = new MMKVModule.MMKV()
+                const storage = mmkvInstance()
                 storage.delete(key)
               }
               dispatch({ type: 'deleted', key })
@@ -123,7 +133,7 @@ export const StorageViewer: React.FC<StorageViewerProps> = ({ onClose, showHeade
       if (state.backend === 'AsyncStorage' && AsyncStorageModule) {
         await AsyncStorageModule.setItem(state.selectedKey, state.editValue)
       } else if (state.backend === 'MMKV' && MMKVModule) {
-        const storage = new MMKVModule.MMKV()
+        const storage = mmkvInstance()
         storage.set(state.selectedKey, state.editValue)
       }
       dispatch({ type: 'saveComplete' })

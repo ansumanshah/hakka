@@ -16,6 +16,12 @@ module.exports = {
     // Mock @react-native-clipboard/clipboard to avoid TurboModule loading
     '^@react-native-clipboard/clipboard$': '<rootDir>/__tests__/__mocks__/clipboard.js',
     '^hakka-core$': '<rootDir>/../hakka-core/src/index.ts',
+    // hakka-bridge's protocol.ts only — its index.ts also pulls in the
+    // server/discovery modules (ws, bonjour-service), real npm deps this
+    // workspace doesn't install. protocol.ts itself is type-only against
+    // hakka-core, so this is safe as a direct source mapping (same pattern
+    // as hakka-core above). Used by the wire-protocol contract test.
+    '^hakka-bridge$': '<rootDir>/../hakka-bridge/src/protocol.ts',
   },
   // Setup globals used in RN source (__DEV__)
   globals: {
