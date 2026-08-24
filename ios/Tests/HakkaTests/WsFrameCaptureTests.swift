@@ -286,4 +286,39 @@ struct HakkaWSTrackerTests {
         #expect(interceptor.store.requests.first?.wsMessageCount == 5)
         #expect(interceptor.store.requests.first?.messages?.count == 5)
     }
+
+    @Test func firstNonEmptyNegotiatedProtocolWins() {
+        let interceptor = HakkaInterceptor()
+        let tracker = HakkaWSTracker(taskId: "t9", url: "wss://x.com", startTime: 1000)
+        tracker.frameReceived(message: .string("first"), negotiatedProtocol: "chat.v1")
+        tracker.frameReceived(message: .string("second"), negotiatedProtocol: "chat.v2")
+        tracker.emitClose(closeCode: 1000, reason: nil)
+        flushAndSync(tracker: tracker, interceptor: interceptor)
+        #expect(interceptor.store.requests.first?.wsProtocol == "chat.v1")
+    }
+
+    @Test func firstCloseCodeWins() {
+        let interceptor = HakkaInterceptor()
+        let tracker = HakkaWSTracker(taskId: "t10", url: "wss://x.com", startTime: 1000)
+        tracker.emitClose(closeCode: 1000, reason: nil)
+        tracker.emitClose(closeCode: 1006, reason: nil)  // second call must not override
+        flushAndSync(tracker: tracker, interceptor: interceptor)
+        #expect(interceptor.store.requests.first?.wsCloseCode == 1000)
+    }
+
+    @Test func binaryFrameAtExactCapStoresBase64() {
+        let interceptor = HakkaInterceptor()
+        let tracker = HakkaWSTracker(taskId: "t11", url: "wss://x.com", startTime: 1000)
+        let bytes = Data(repeating: 0xCD, count: wsBinaryCap)  // exactly at the cap, not over it
+        tracker.frameReceived(message: .data(bytes), negotiatedProtocol: nil)
+        tracker.emitClose(closeCode: 1000, reason: nil)
+        flushAndSync(tracker: tracker, interceptor: interceptor)
+        let frame = interceptor.store.requests.first?.messages?.first
+        #expect(frame?.binary == true)
+        if case .text(let b64) = frame?.data {
+            #expect(Data(base64Encoded: b64)?.count == wsBinaryCap)
+        } else {
+            Issue.record("Expected base64 text payload at the exact cap boundary")
+        }
+    }
 }

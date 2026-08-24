@@ -199,6 +199,158 @@ struct URLProtocolEdgeTests {
         #expect(captured.responseBody == "abcd")
     }
 
+    /// A response-phase breakpoint buffers delivery until the user resumes.
+    /// The capture-side `receivedData` is capped at `maxBodySize` for storage,
+    /// but a plain resume (no edits) must still hand the client every byte the
+    /// real response sent — not that capped copy.
+    @Test func responsePhaseBreakpointResumeWithoutEditsDeliversFullBodyNotTruncatedCapture() throws {
+        let interceptor = HakkaInterceptor(config: HakkaConfig(maxBodySize: 4))
+        HakkaURLProtocol.interceptor = interceptor
+        defer { HakkaURLProtocol.interceptor = nil }
+
+        let breakpointId = BreakpointEngine.shared.addBreakpoint(
+            BreakpointInput(pattern: "/large-response", on: .response)
+        )
+        defer {
+            BreakpointEngine.shared.removeBreakpoint(id: breakpointId)
+            BreakpointEngine.shared.drainPausedWorkers()
+        }
+
+        let firstChunk = Data("abc".utf8)
+        let secondChunk = Data("defgh".utf8)
+        let (protocolInstance, client) = makeProtocol(url: "https://api.example.test/large-response")
+        let requestURL = try #require(protocolInstance.request.url)
+        let response = try #require(HTTPURLResponse(
+            url: requestURL,
+            statusCode: 200,
+            httpVersion: "HTTP/1.1",
+            headerFields: ["Content-Type": "text/plain"]
+        ))
+        let session = URLSession(configuration: .ephemeral)
+        let task = session.dataTask(with: protocolInstance.request)
+
+        protocolInstance.urlSession(
+            session,
+            dataTask: task,
+            didReceive: response
+        ) { disposition in
+            #expect(disposition == .allow)
+        }
+        protocolInstance.urlSession(session, dataTask: task, didReceive: firstChunk)
+        protocolInstance.urlSession(session, dataTask: task, didReceive: secondChunk)
+        protocolInstance.urlSession(session, task: task, didCompleteWithError: nil)
+
+        #expect(BlockingTestSupport.waitUntil { !BreakpointEngine.shared.getPaused().isEmpty })
+        let pauseId = try #require(BreakpointEngine.shared.getPaused().first?.id)
+        BreakpointEngine.shared.resumeResponse(pauseId: pauseId, responseEdits: nil)
+
+        #expect(BlockingTestSupport.waitUntil { client.didFinishCount == 1 })
+        interceptor.flushCaptureProcessing()
+
+        #expect(client.loadedData == firstChunk + secondChunk)
+        let captured = try #require(interceptor.store.requests.first)
+        #expect(captured.responseBodySize == Int64(firstChunk.count + secondChunk.count))
+        #expect(captured.responseBody == "abcd")
+    }
+
+    /// When a response-phase breakpoint edits only the body, `headers` in the
+    /// resume payload still carries the pre-edit Content-Length. Delivery must
+    /// not pass that stale value through to the client.
+    @Test func responsePhaseBreakpointResumeWithEditsRecomputesStaleContentLength() throws {
+        let interceptor = HakkaInterceptor()
+        HakkaURLProtocol.interceptor = interceptor
+        defer { HakkaURLProtocol.interceptor = nil }
+
+        let breakpointId = BreakpointEngine.shared.addBreakpoint(
+            BreakpointInput(pattern: "/edited-response", on: .response)
+        )
+        defer {
+            BreakpointEngine.shared.removeBreakpoint(id: breakpointId)
+            BreakpointEngine.shared.drainPausedWorkers()
+        }
+
+        let (protocolInstance, client) = makeProtocol(url: "https://api.example.test/edited-response")
+        let requestURL = try #require(protocolInstance.request.url)
+        let response = try #require(HTTPURLResponse(
+            url: requestURL,
+            statusCode: 200,
+            httpVersion: "HTTP/1.1",
+            headerFields: ["Content-Type": "text/plain", "Content-Length": "3"]
+        ))
+        let session = URLSession(configuration: .ephemeral)
+        let task = session.dataTask(with: protocolInstance.request)
+
+        protocolInstance.urlSession(session, dataTask: task, didReceive: response) { _ in }
+        protocolInstance.urlSession(session, dataTask: task, didReceive: Data("abc".utf8))
+        protocolInstance.urlSession(session, task: task, didCompleteWithError: nil)
+
+        #expect(BlockingTestSupport.waitUntil { !BreakpointEngine.shared.getPaused().isEmpty })
+        let pauseId = try #require(BreakpointEngine.shared.getPaused().first?.id)
+
+        // Only the body is edited — headers still carry the pre-edit Content-Length.
+        let editedBody = "a much longer replacement body"
+        let edited = PausedResponse(
+            status: 200,
+            headers: ["Content-Type": "text/plain", "Content-Length": "3"],
+            body: editedBody
+        )
+        BreakpointEngine.shared.resumeResponse(pauseId: pauseId, responseEdits: edited)
+
+        #expect(BlockingTestSupport.waitUntil { client.didFinishCount == 1 })
+
+        let delivered = try #require(client.receivedResponses.last as? HTTPURLResponse)
+        #expect(delivered.value(forHTTPHeaderField: "Content-Length") == String(editedBody.utf8.count))
+        #expect(client.loadedData == Data(editedBody.utf8))
+    }
+
+    /// Mirrors `responsePhaseBreakpointResumeWithEditsRecomputesStaleContentLength`
+    /// above for the request-phase edit path: when a request-phase breakpoint
+    /// edits the body, the pre-edit `Content-Length` header must not survive
+    /// unchanged. Exercises `HakkaURLProtocol.applyRequestBreakpointEdits`
+    /// directly — it's the exact helper `startLoading`'s `.resume` case calls —
+    /// rather than driving the full async `BreakpointEngine` round-trip, which
+    /// would need a live network dependency for the dummy host once
+    /// `issueDataTask` hands the edited request to the real inner `URLSession`.
+    @Test func requestPhaseBreakpointEditRecomputesStaleContentLength() throws {
+        var outgoing = URLRequest(url: try #require(URL(string: "https://api.example.test/edited-request")))
+        outgoing.httpMethod = "POST"
+        outgoing.setValue("3", forHTTPHeaderField: "Content-Length")
+        outgoing.httpBody = Data("abc".utf8)
+
+        let editedBody = "a much longer replacement body"
+        let edits = PausedRequest(
+            url: "https://api.example.test/edited-request",
+            method: "POST",
+            headers: ["Content-Length": "3"],
+            body: editedBody
+        )
+
+        let edited = HakkaURLProtocol.applyRequestBreakpointEdits(edits, to: outgoing)
+
+        #expect(edited.value(forHTTPHeaderField: "Content-Length") == String(editedBody.utf8.count))
+        #expect(edited.httpBody == Data(editedBody.utf8))
+    }
+
+    /// A request-phase edit that only changes the URL (no `body`) must leave
+    /// `Content-Length` untouched — the recompute is scoped to a body change.
+    @Test func requestPhaseBreakpointUrlOnlyEditLeavesContentLengthUntouched() throws {
+        var outgoing = URLRequest(url: try #require(URL(string: "https://api.example.test/original")))
+        outgoing.httpMethod = "GET"
+        outgoing.setValue("0", forHTTPHeaderField: "Content-Length")
+
+        let edits = PausedRequest(
+            url: "https://api.example.test/redirected",
+            method: "GET",
+            headers: [:],
+            body: nil
+        )
+
+        let edited = HakkaURLProtocol.applyRequestBreakpointEdits(edits, to: outgoing)
+
+        #expect(edited.url?.absoluteString == "https://api.example.test/redirected")
+        #expect(edited.value(forHTTPHeaderField: "Content-Length") == "0")
+    }
+
     @Test func bodyStreamMockCaptureKeepsRequestBodyVisibleToCapturePipeline() async throws {
         MockEngine.shared.clearRules()
         defer { MockEngine.shared.clearRules() }

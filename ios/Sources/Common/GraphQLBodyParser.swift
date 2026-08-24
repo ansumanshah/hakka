@@ -25,6 +25,7 @@ public enum GraphQLBodyParser {
     /// Returns `nil` for non-JSON or non-GraphQL bodies.
     public static func parse(_ body: String?) -> GraphQLBodyInfo? {
         guard let body, !body.isEmpty,
+              !JSONDepthGuard.exceedsDepthLimit(body, limit: maxParseDepth),
               let data = body.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return nil
@@ -61,6 +62,7 @@ public enum GraphQLBodyParser {
     /// Extract the `errors` array from a GraphQL response body.
     public static func parseErrors(_ responseBody: String?) -> [GraphQLResponseError] {
         guard let body = responseBody, !body.isEmpty,
+              !JSONDepthGuard.exceedsDepthLimit(body, limit: maxParseDepth),
               let data = body.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let errors = json["errors"] as? [[String: Any]] else {
@@ -75,4 +77,11 @@ public enum GraphQLBodyParser {
             return GraphQLResponseError(message: message, path: path)
         }
     }
+
+    // MARK: - Depth guard
+
+    /// Matches Redaction.swift's `maxRedactionDepth`. `JSONDepthGuard` (shared
+    /// scanner) is checked before parsing, not after — this runs on the main
+    /// thread when a stored body is opened for display.
+    private static let maxParseDepth = 100
 }

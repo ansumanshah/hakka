@@ -103,6 +103,17 @@ import Foundation
         #expect(store.count == 0)
     }
 
+    /// `HakkaNetworkNoop` must mirror `HakkaCommon.LogStore.update(id:transform:)` —
+    /// missing it here is a compile break when app code written against the
+    /// real (Debug) module's `LogStore` swaps to this noop target in Release.
+    @Test func logStoreUpdateIsNoOp() {
+        let store = LogStore()
+        store.add(makeRequest(id: "test-id"))
+        let updated = store.update(id: "test-id") { _ in }
+        #expect(updated == false)
+        #expect(store.count == 0)
+    }
+
     // MARK: - MockEngine
 
     @Test func mockEngineAddRuleReturnsPlaceholder() {

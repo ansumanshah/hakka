@@ -63,6 +63,11 @@ public final class BubbleWindow {
     var isDragging = false
     var idleWorkItem: DispatchWorkItem?
     var keyboardHeight: CGFloat = 0
+    /// The bubble's Y origin just before `keyboardWillShow` clamps it above
+    /// the keyboard. `nil` when the bubble wasn't clamped (keyboard didn't
+    /// overlap it). Restored by `keyboardWillHide` so the bubble doesn't
+    /// stay stuck at the clamped position after the keyboard dismisses.
+    var preKeyboardOriginY: CGFloat?
     var savedPosition: CGPoint?
     var storeObserver: NSObjectProtocol?
     var pollTimer: Timer?
@@ -220,6 +225,9 @@ public final class BubbleWindow {
         ringLayer = nil
         expansionState = .collapsed
         hudPanel = nil
+        // Otherwise a stale Y from a previous show/hide cycle's keyboard
+        // clamp can restore a freshly re-shown bubbleView to the wrong spot.
+        preKeyboardOriginY = nil
         window?.isHidden = true; window = nil
     }
 }

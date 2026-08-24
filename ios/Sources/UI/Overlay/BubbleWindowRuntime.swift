@@ -117,11 +117,21 @@ extension BubbleWindow {
         // bubble may currently be the taller expanded HUD shape.
         let maxY = screenHeight - keyboardHeight - bubble.frame.height - 8
         if bubble.frame.origin.y > maxY {
+            if preKeyboardOriginY == nil { preKeyboardOriginY = bubble.frame.origin.y }
             UIView.animate(withDuration: dur) { bubble.frame.origin.y = maxY }
         }
     }
 
-    @objc private func keyboardWillHide(_ note: Notification) { keyboardHeight = 0 }
+    @objc private func keyboardWillHide(_ note: Notification) {
+        keyboardHeight = 0
+        guard let bubble = bubbleView, let originY = preKeyboardOriginY else { return }
+        preKeyboardOriginY = nil
+        // Mid-drag the user's own frame updates own the position — don't
+        // fight the pan gesture by snapping back underneath it.
+        guard !isDragging else { return }
+        let dur = (note.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? TimeInterval) ?? 0.25
+        UIView.animate(withDuration: dur) { bubble.frame.origin.y = originY }
+    }
 
     func removeObservers() {
         pollTimer?.invalidate(); pollTimer = nil

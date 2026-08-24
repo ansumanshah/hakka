@@ -180,6 +180,12 @@ extension BubbleWindow {
             }
         case .ended, .cancelled:
             isDragging = false
+            // The user just placed the bubble deliberately (possibly while
+            // the keyboard is still up and `snapToEdge` below already
+            // clamps for `keyboardHeight`) — drop any pending pre-keyboard
+            // Y so a later `keyboardWillHide` doesn't snap the bubble back
+            // to a now-stale position and discard this drag.
+            preKeyboardOriginY = nil
             if bubble.center.y > container.bounds.height - hideZoneHeight {
                 savedPosition = nil
                 UIView.animate(withDuration: 0.18, delay: 0, options: [.curveEaseIn], animations: {

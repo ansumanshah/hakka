@@ -197,6 +197,20 @@ import Foundation
         #expect(info == nil)
     }
 
+    /// Display-time parsing runs on stored bodies whose nesting depth is not
+    /// ours to trust. `JSONSerialization` overflows the stack (SIGBUS, not a
+    /// throw) on deeply nested input rather than throwing, so this must bail
+    /// out before parsing, not after — mirrors Redaction's
+    /// `deeplyNestedBodyDoesNotOverflow`.
+    @Test func deeplyNestedBodyDoesNotOverflow() {
+        let depth = 2000
+        let body = String(repeating: #"{"a":"#, count: depth) + #"{"query":"query Q { u }"}"# + String(repeating: "}", count: depth)
+
+        let info = GraphQLBodyParser.parse(body)
+
+        #expect(info == nil)
+    }
+
     // MARK: - Query text
 
     @Test func parsesQueryText() throws {
@@ -261,6 +275,13 @@ import Foundation
 
     @Test func errorsEmptyForNonJsonBody() {
         #expect(GraphQLBodyParser.parseErrors("bad json").isEmpty)
+    }
+
+    @Test func errorsEmptyForDeeplyNestedBody() {
+        let depth = 2000
+        let body = String(repeating: #"{"a":"#, count: depth) + #"{"errors":[{"message":"err"}]}"# + String(repeating: "}", count: depth)
+
+        #expect(GraphQLBodyParser.parseErrors(body).isEmpty)
     }
 
     @Test func errorWithMultiSegmentPath() {

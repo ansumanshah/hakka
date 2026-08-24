@@ -30,6 +30,14 @@ public final class OverlayWindow {
 
     private var presentingWindow: UIWindow?
     private weak var sheetController: UIViewController?
+    /// Set synchronously the moment `hide()` calls `dismiss(animated:)`,
+    /// cleared only in that dismissal's completion handler. `show()` /
+    /// `showFullscreen()` / `showMonitor()` / `toggle()` all gate on this
+    /// (in addition to `sheetController?.presentingViewController`) because
+    /// UIKit's own timing for clearing `presentingViewController` during a
+    /// dismiss transition isn't documented/guaranteed — this flag is the
+    /// only signal in this file's control, so it's the one the guards trust.
+    private var isDismissing = false
 
     // MARK: - Initialization
 
@@ -50,7 +58,7 @@ public final class OverlayWindow {
 
     /// Show the inspector sheet.
     public func show() {
-        if sheetController?.presentingViewController != nil { return }
+        if isDismissing || sheetController?.presentingViewController != nil { return }
 
         guard let windowScene = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene })
@@ -93,16 +101,29 @@ public final class OverlayWindow {
 
     /// Hide the inspector sheet.
     public func hide() {
-        sheetController?.dismiss(animated: true) {
+        guard !isDismissing, let controller = sheetController else { return }
+        // `isDismissing` is set here, synchronously, and only cleared in the
+        // completion below — the `show()`/`showFullscreen()`/`showMonitor()`/
+        // `toggle()` guards all read it to detect an in-flight dismissal.
+        // This doesn't rely on `presentingViewController` going nil at any
+        // particular point during the transition (undocumented UIKit
+        // timing); it's this file's own synchronous flag, so a show()/
+        // toggle() call anywhere in the ~0.3s animation window is reliably
+        // rejected instead of racing to `present` on a mid-dismiss controller.
+        isDismissing = true
+        controller.dismiss(animated: true) { [weak self] in
             NotificationCenter.default.post(name: .init("HakkaOverlayDismissed"), object: nil)
             BubbleWindow.shared.setHiddenForOverlay(false)
+            if self?.sheetController === controller {
+                self?.sheetController = nil
+            }
+            self?.isDismissing = false
         }
-        sheetController = nil
     }
 
     /// Show the inspector as a fullscreen sheet (large detent only, no half-sheet).
     public func showFullscreen() {
-        if sheetController?.presentingViewController != nil { return }
+        if isDismissing || sheetController?.presentingViewController != nil { return }
 
         guard let windowScene = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene })
@@ -139,7 +160,7 @@ public final class OverlayWindow {
     /// opens the same Inspector as `show()`, pre-selected to Stats instead
     /// of presenting `DashboardView` solo.
     public func showMonitor() {
-        if sheetController?.presentingViewController != nil { return }
+        if isDismissing || sheetController?.presentingViewController != nil { return }
 
         guard let windowScene = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene })
@@ -173,6 +194,7 @@ public final class OverlayWindow {
 
     /// Toggle visibility.
     public func toggle() {
+        if isDismissing { return }
         if sheetController?.presentingViewController != nil {
             hide()
         } else {

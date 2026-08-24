@@ -17,6 +17,10 @@ public final class LogStore: @unchecked Sendable {
     /// Look up a request by ID. Always `nil`.
     public func request(byId id: String) -> NetworkRequest? { nil }
 
+    /// No-op. Always returns `false` — the noop store holds no entries to mutate.
+    @discardableResult
+    public func update(id: String, transform: (inout NetworkRequest) -> Void) -> Bool { false }
+
     /// Query requests matching the given filter. Always empty.
     public func query(filter: RequestFilter) -> [NetworkRequest] { [] }
 

@@ -413,4 +413,19 @@ struct GraphQLDetectionTests {
             ) == nil
         )
     }
+
+    /// Bodies come off the network, so their nesting depth is not ours to
+    /// trust. Unbounded recursion here would take the host app down from
+    /// inside capture, which must never happen — same hazard as
+    /// `redactBodyFields`'s `deeplyNestedBodyDoesNotOverflow`.
+    @Test func deeplyNestedBodyDoesNotOverflow() {
+        let depth = 2000
+        let body = String(repeating: #"{"a":"#, count: depth) + #"{"operationName":"Foo"}"# + String(repeating: "}", count: depth)
+
+        let result = HakkaInterceptor.extractGraphQLOperationName(
+            contentType: "application/json", body: body, url: "https://api.example.com/graphql"
+        )
+
+        #expect(result == nil)
+    }
 }
