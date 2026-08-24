@@ -212,7 +212,17 @@ async function runCdp(rest: string[]): Promise<void> {
 
 /** `hakka sim attach <bundle-id> [--device ...] [--dylib ...] [--bridge-url ...]` */
 function parseSimAttachArgs(rest: string[]): SimAttachOptions | undefined {
-  const bundleId = rest.find((a) => !a.startsWith('--'))
+  const valuedFlags = new Set(['--device', '--dylib', '--bridge-url'])
+  let bundleId: string | undefined
+  for (let i = 0; i < rest.length; i++) {
+    const arg = rest[i]
+    if (arg?.startsWith('--')) {
+      if (valuedFlags.has(arg)) i++ // skip its value operand too
+      continue
+    }
+    bundleId = arg
+    break
+  }
   if (!bundleId) return undefined
   const opts: SimAttachOptions = { bundleId }
   for (let i = 0; i < rest.length; i++) {
@@ -232,9 +242,18 @@ async function main(): Promise<void> {
       init(rest)
       break
     case 'diagnose': {
-      const filePath = rest.find((a) => !a.startsWith('--'))
       const slowIdx = rest.indexOf('--slow-ms')
       const slowMs = slowIdx !== -1 && rest[slowIdx + 1] ? Number(rest[slowIdx + 1]) : undefined
+      let filePath: string | undefined
+      for (let i = 0; i < rest.length; i++) {
+        const a = rest[i]
+        if (a?.startsWith('--')) {
+          if (a === '--slow-ms') i++ // skip its value operand too
+          continue
+        }
+        filePath = a
+        break
+      }
       if (filePath === undefined) {
         diagnoseUsage()
         process.exitCode = 1

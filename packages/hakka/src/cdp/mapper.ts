@@ -31,6 +31,26 @@ import type {
  * it would risk silent drift if core's meaning changes. */
 export const DEFAULT_MAX_BODY_SIZE = 100 * 1024
 
+/**
+ * Cap on `pendingRequestExtra`/`pendingResponseExtra`/`settledRedirectStatus`
+ * (see below) — stashes for a requestId whose matching event never arrives
+ * (canceled/service-worker-intercepted requests, a documented CDP quirk)
+ * would otherwise grow unbounded over a long-running `hakka mcp`/`hakka cdp`
+ * session. FIFO eviction is a blunt instrument but the entries it drops are
+ * already orphaned — the worst case is a late straggler failing to merge
+ * into a request that has long since finalized.
+ */
+export const MAX_PENDING_STASH_ENTRIES = 500
+
+/** `Map.set` that evicts the oldest entry (insertion order) before growing past `MAX_PENDING_STASH_ENTRIES`. */
+function setBounded<K, V>(map: Map<K, V>, key: K, value: V): void {
+  if (!map.has(key) && map.size >= MAX_PENDING_STASH_ENTRIES) {
+    const oldestKey = map.keys().next().value
+    if (oldestKey !== undefined) map.delete(oldestKey)
+  }
+  map.set(key, value)
+}
+
 export interface CdpMapperOptions {
   onRequest: (req: NetworkRequest) => void
   /**
@@ -217,7 +237,7 @@ export function createCdpMapper(options: CdpMapperOptions): CdpMapper {
       finalize(prior, epochMsFor(prior, params.timestamp), null)
       // Recorded so a late `responseReceivedExtraInfo` for this hop can be
       // recognized and dropped — see `handleResponseReceivedExtraInfo`.
-      settledRedirectStatus.set(cdpRequestId, params.redirectResponse.status)
+      setBounded(settledRedirectStatus, cdpRequestId, params.redirectResponse.status)
     }
 
     const hop = prior ? prior.hop + 1 : 1
@@ -271,7 +291,7 @@ export function createCdpMapper(options: CdpMapperOptions): CdpMapper {
   function handleRequestWillBeSentExtraInfo(params: CdpRequestWillBeSentExtraInfoParams): void {
     const entry = active.get(params.requestId)
     if (!entry) {
-      pendingRequestExtra.set(params.requestId, params.headers)
+      setBounded(pendingRequestExtra, params.requestId, params.headers)
       return
     }
     entry.requestHeaders = mergeHeaders(entry.requestHeaders, params.headers)
@@ -315,7 +335,7 @@ export function createCdpMapper(options: CdpMapperOptions): CdpMapper {
         return
       }
       // Otherwise stash for `applyResponse` to pick up when `responseReceived` arrives.
-      pendingResponseExtra.set(params.requestId, params.headers)
+      setBounded(pendingResponseExtra, params.requestId, params.headers)
       return
     }
     entry.responseHeaders = mergeHeaders(entry.responseHeaders, params.headers)

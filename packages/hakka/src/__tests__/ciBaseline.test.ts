@@ -57,6 +57,19 @@ describe('parseCiBaselineArgs', () => {
   test('mode is undefined for an unrecognized subcommand', () => {
     expect(parseCiBaselineArgs(['bogus']).mode).toBeUndefined()
   })
+
+  test('a --allow-host (and its value) preceding the positional paths does not consume them', () => {
+    const parsed = parseCiBaselineArgs([
+      'check',
+      '--allow-host',
+      'trusted.example.com',
+      'capture.hakka',
+      'baseline.txt',
+    ])
+    expect(parsed.capturePath).toBe('capture.hakka')
+    expect(parsed.baselinePath).toBe('baseline.txt')
+    expect(parsed.allowHosts).toEqual(['trusted.example.com'])
+  })
 })
 
 describe('recordCommand', () => {

@@ -173,9 +173,21 @@ function printReport(
   log()
 }
 
+/** Flags that consume the following token as their value — the positional file path scan must skip over both. */
+const VALUED_FLAGS = new Set(['--max-failures', '--max-duration-ms', '--budget-p95-ms', '--slow-ms'])
+
 /** Parse `--flag <value>` / boolean-flag CLI args into AssertOptions. */
 export function parseAssertArgs(args: string[]): { filePath: string | undefined; options: AssertOptions } {
-  const filePath = args.find((a) => !a.startsWith('--'))
+  let filePath: string | undefined
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i]
+    if (a?.startsWith('--')) {
+      if (VALUED_FLAGS.has(a)) i++ // skip its value operand too
+      continue
+    }
+    filePath = a
+    break
+  }
   const numFlag = (name: string): number | undefined => {
     const idx = args.indexOf(name)
     if (idx === -1 || args[idx + 1] === undefined) return undefined

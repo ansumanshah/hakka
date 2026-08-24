@@ -16,7 +16,14 @@ import type { RequestStore } from '../RequestStore.js'
 
 export type ReplayableCheck =
   | { ok: true }
-  | { ok: false; reason: 'websocket_not_replayable' | 'runtime_not_replayable'; message: string }
+  | {
+      ok: false
+      reason: 'websocket_not_replayable' | 'runtime_not_replayable' | 'redacted_headers_not_replayable'
+      message: string
+    }
+
+/** The placeholder capture-time redaction writes over sensitive header values (see hakka-core's `redactHeaders`). */
+const REDACTED_PLACEHOLDER = '[REDACTED]'
 
 /** Fast-fail gate run BEFORE dispatching a `request.replay` control command. Never throws. */
 export function checkReplayable(req: NetworkRequest): ReplayableCheck {
@@ -36,6 +43,17 @@ export function checkReplayable(req: NetworkRequest): ReplayableCheck {
         'server/edge-captured requests (hakka-node) cannot be replayed — its bridge client is send-only (no ' +
         'control-channel listener) by design (ADR 0002). Replay only works for client-runtime (browser/RN) ' +
         'captures. Diagnose/verify with get_trace + export_evidence instead of replay_request for this request.',
+    }
+  }
+  const redactedHeader = Object.entries(req.requestHeaders ?? {}).find(([, v]) => v === REDACTED_PLACEHOLDER)
+  if (redactedHeader) {
+    return {
+      ok: false,
+      reason: 'redacted_headers_not_replayable',
+      message:
+        `the '${redactedHeader[0]}' header was redacted at capture time and would replay as the literal string ` +
+        '"[REDACTED]" instead of the real credential, producing a misleading auth failure that looks like an ' +
+        'unfixed bug. Reproduce this request manually instead of replaying it.',
     }
   }
   return { ok: true }

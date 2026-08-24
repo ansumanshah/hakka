@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import type { NetworkRequest } from 'hakka-core'
 
-import { createCdpMapper, DEFAULT_MAX_BODY_SIZE } from '../mapper'
+import { createCdpMapper, DEFAULT_MAX_BODY_SIZE, MAX_PENDING_STASH_ENTRIES } from '../mapper'
 import type {
   CdpGetResponseBodyResult,
   CdpLoadingFailedParams,
@@ -586,6 +586,34 @@ describe('createCdpMapper — pending extra-info stashes are not unbounded', () 
 
     const reused = records.at(-1)
     expect(reused?.responseHeaders?.['x-stale-nomatch-marker']).toBeUndefined()
+  })
+
+  test('pendingRequestExtra is bounded — the oldest orphaned stash is evicted once the cap is exceeded', () => {
+    const { records, onRequest } = recorder()
+    const mapper = createCdpMapper({ onRequest })
+
+    // Orphaned requestWillBeSentExtraInfo events for ids whose matching
+    // requestWillBeSent never arrives (a documented CDP quirk for some
+    // canceled/service-worker-intercepted requests) — without a cap these
+    // would leak in `pendingRequestExtra` forever in a long-running capture.
+    for (let i = 0; i <= MAX_PENDING_STASH_ENTRIES; i++) {
+      mapper.handleEvent('Network.requestWillBeSentExtraInfo', {
+        requestId: `orphan-${i}`,
+        headers: { 'x-orphan-marker': `${i}` },
+      })
+    }
+
+    // orphan-0 was stashed first and is evicted once orphan-500 pushes the map
+    // past its cap — its eventual (late) match must not pick up stale headers.
+    mapper.handleEvent('Network.requestWillBeSent', requestWillBeSent({ requestId: 'orphan-0' }))
+    const evicted = records.find((r) => r.id === 'orphan-0')
+    expect(evicted?.requestHeaders?.['x-orphan-marker']).toBeUndefined()
+
+    // orphan-500 (the most recent) is still within the cap and merges normally.
+    const newestId = `orphan-${MAX_PENDING_STASH_ENTRIES}`
+    mapper.handleEvent('Network.requestWillBeSent', requestWillBeSent({ requestId: newestId }))
+    const kept = records.find((r) => r.id === newestId)
+    expect(kept?.requestHeaders?.['x-orphan-marker']).toBe(`${MAX_PENDING_STASH_ENTRIES}`)
   })
 })
 

@@ -64,6 +64,12 @@ describe('parseAssertArgs', () => {
     const { filePath } = parseAssertArgs(['--fail-on-secrets', 'capture.har'])
     expect(filePath).toBe('capture.har')
   })
+
+  test('finds the file path when a valued flag (and its value) comes first', () => {
+    const { filePath, options } = parseAssertArgs(['--max-failures', '3', 'capture.har'])
+    expect(filePath).toBe('capture.har')
+    expect(options.maxFailures).toBe(3)
+  })
 })
 
 describe('computeP95DurationMs', () => {

@@ -191,10 +191,16 @@ export function parseCiBaselineArgs(args: string[]): {
   allowHosts: string[]
 } {
   const mode = args[0] === 'record' || args[0] === 'check' ? args[0] : undefined
-  const positional = args.slice(1).filter((a) => !a.startsWith('--'))
   const allowHosts: string[] = []
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--allow-host' && args[i + 1]) allowHosts.push(args[i + 1]!)
+  const positional: string[] = []
+  for (let i = 1; i < args.length; i++) {
+    const a = args[i]
+    if (a === '--allow-host') {
+      if (args[i + 1]) allowHosts.push(args[i + 1]!)
+      i++ // skip its value operand too
+    } else if (a !== undefined && !a.startsWith('--')) {
+      positional.push(a)
+    }
   }
   return { mode, capturePath: positional[0], baselinePath: positional[1], allowHosts }
 }
