@@ -200,8 +200,12 @@ export function enableXHRInterceptor(
   XMLHttpRequest.prototype.setRequestHeader = function (header: string, value: string) {
     const state = xhrState.get(this)
     if (state) {
-      state.rawRequestHeaders[header] = value
-      state.requestHeaders[header] = isSensitiveHeader(header, redactHeaders) ? '[REDACTED]' : value
+      // Per spec, setRequestHeader APPENDS on a repeat call for the same header name
+      // rather than replacing it — mirror that here so capture and breakpoint replay
+      // see the same combined value the real request actually carries.
+      const combined = header in state.rawRequestHeaders ? `${state.rawRequestHeaders[header]}, ${value}` : value
+      state.rawRequestHeaders[header] = combined
+      state.requestHeaders[header] = isSensitiveHeader(header, redactHeaders) ? '[REDACTED]' : combined
       state.setHeaderNamesLower.add(header.toLowerCase())
     }
     savedSetHeader.call(this, header, value)
@@ -211,7 +215,9 @@ export function enableXHRInterceptor(
     const state = xhrState.get(this)
     if (state) {
       if (data != null) {
-        const capture = captureBody(data)
+        // maxBodySize lets an oversized object body bail its JSON.stringify early instead of
+        // paying full serialization cost for a preview discarded by the size check just below.
+        const capture = captureBody(data, maxBodySize)
         state.requestBodySize = capture.size
         const redactionFields = getBodyRedactionFields()
         const rawPreview = capture.preview != null && capture.size <= maxBodySize ? capture.preview : null

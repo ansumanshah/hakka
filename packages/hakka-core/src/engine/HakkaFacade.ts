@@ -9,6 +9,7 @@ import { RetentionPolicy } from '../storage/RetentionPolicy'
 import { RingBuffer } from '../storage/RingBuffer'
 import type { StorageAdapter } from '../storage/StorageAdapter'
 import { hostMatchesList, matchesIgnoredPattern } from '../utils/hostFilter'
+import { breakpointEngine } from './BreakpointEngine'
 import { findDuplicateRequest, mergeDuplicateRequest } from './dedupeRules'
 import { mockEngine } from './MockEngine'
 import {
@@ -269,6 +270,9 @@ class HakkaImpl {
     this.teardowns = []
 
     this.pluginRegistry.teardownAll()
+    // Resolve any request parked in a breakpoint pause — without this, a fetch/xhr paused by a
+    // request/response breakpoint would hang forever once its interceptor is torn down above.
+    breakpointEngine.resumeAll()
     // Resume the native engine before tearing down, or the next start() silently records nothing.
     if (this.paused) this.nativeAdapter?.resume?.()
     this.paused = false

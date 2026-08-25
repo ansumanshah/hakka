@@ -121,6 +121,29 @@ describe('WebSocket close event', () => {
   })
 })
 
+// Regression: unlike emitUpdate() (which already wraps onRequest in try/catch), the 'error' and
+// 'close' listeners used to call onRequest directly — a throwing listener became an uncaught
+// exception during the page's own native error/close event dispatch instead of being swallowed.
+describe('WebSocket error/close listeners never propagate a throwing onRequest', () => {
+  test('a throwing onRequest during the error event does not throw', () => {
+    dispose?.()
+    dispose = enableWebSocketInterceptor(() => {
+      throw new Error('listener boom')
+    })
+    const ws = connect()
+    expect(() => ws.dispatchFakeEvent('error', {})).not.toThrow()
+  })
+
+  test('a throwing onRequest during the close event does not throw', () => {
+    dispose?.()
+    dispose = enableWebSocketInterceptor(() => {
+      throw new Error('listener boom')
+    })
+    const ws = connect()
+    expect(() => ws.dispatchFakeEvent('close', { code: 1000, wasClean: true })).not.toThrow()
+  })
+})
+
 describe('WebSocket scheduleEmit', () => {
   test('open event fires immediately', () => {
     const ws = connect()
@@ -130,17 +153,55 @@ describe('WebSocket scheduleEmit', () => {
     expect(records[0].status).toBe(101)
   })
 
-  test('single message fires emitUpdate immediately without queuing a dangling timer', () => {
-    // After one message, emitUpdate() runs synchronously and debounceTimer stays null — verified
-    // indirectly: a subsequent second message also fires immediately (no timer to coalesce into).
+  test('first message in a burst fires immediately (leading edge)', () => {
     const ws = connect()
+    ws.dispatchFakeEvent('message', { data: 'hello' })
+    expect(records).toHaveLength(1)
+  })
 
+  test('a second message arriving while the trailing-edge timer is armed is coalesced, not double-emitted', () => {
+    const ws = connect()
     ws.dispatchFakeEvent('message', { data: 'hello' })
     expect(records).toHaveLength(1)
 
+    // Fires while debounceTimer is still armed from the first message — must NOT emit again
+    // immediately, only mark pending for the trailing timer to pick up.
     ws.dispatchFakeEvent('message', { data: 'world' })
-    // Second message should have fired another immediate emit (timer was null)
-    expect(records).toHaveLength(2)
+    expect(records).toHaveLength(1)
+  })
+
+  // Regression: scheduleEmit used to only arm the debounce timer when a second call was
+  // re-entrant during the synchronous emitUpdate() — a later ASYNC message (how a real socket
+  // actually delivers messages) found debounceTimer null and emitted immediately again, so
+  // chatty sockets were never actually batched. The fix unconditionally arms a trailing-edge
+  // timer after the leading emit.
+  test('async messages within the debounce window coalesce into exactly one trailing emit', async () => {
+    // A dedicated URL, filtered on below, isolates this assertion from any earlier test's
+    // trailing-edge timer that hasn't fired yet — real (unmocked) timers, so a prior test's
+    // dangling 250ms timer can land inside this test's own await window.
+    const url = 'wss://api.example.com/burst-test'
+    const ws = connect(url)
+    const own = () => records.filter((r) => r.url === url)
+
+    ws.dispatchFakeEvent('message', { data: 'm1' })
+    expect(own()).toHaveLength(1) // leading-edge emit
+
+    await new Promise((r) => setTimeout(r, 10))
+    ws.dispatchFakeEvent('message', { data: 'm2' }) // separate async event, not re-entrant
+    await new Promise((r) => setTimeout(r, 10))
+    ws.dispatchFakeEvent('message', { data: 'm3' })
+
+    // Still inside the debounce window — no further immediate emits.
+    expect(own()).toHaveLength(1)
+
+    // Wait out the window — the trailing timer fires exactly once for m2+m3.
+    await new Promise((r) => setTimeout(r, 300))
+    expect(own()).toHaveLength(2)
+    expect(
+      own()
+        .at(-1)
+        ?.messages?.map((m) => m.data),
+    ).toEqual(['m1', 'm2', 'm3'])
   })
 
   test('close event clears debounceTimer before emitting', () => {

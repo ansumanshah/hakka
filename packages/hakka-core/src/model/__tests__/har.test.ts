@@ -229,3 +229,27 @@ describe('HAR response headers — multi-value fidelity via responseHeaderValues
     expect(entry.request.headers).toEqual([{ name: 'Accept', value: '*/*' }])
   })
 })
+
+describe('HAR queryString — malformed percent-escapes', () => {
+  test('a single malformed pair is dropped raw, not discarding the whole query string', () => {
+    const entry = requestToHarEntry(makeRequest({ url: 'http://x?a=1&q=100%&b=2' }))
+    expect(entry.request.queryString).toEqual([
+      { name: 'a', value: '1' },
+      { name: 'q', value: '100%' },
+      { name: 'b', value: '2' },
+    ])
+  })
+
+  test('a malformed name (not just value) also falls back to its raw form', () => {
+    const entry = requestToHarEntry(makeRequest({ url: 'http://x?100%=bad&ok=1' }))
+    expect(entry.request.queryString).toEqual([
+      { name: '100%', value: 'bad' },
+      { name: 'ok', value: '1' },
+    ])
+  })
+
+  test('all-valid query strings still decode normally', () => {
+    const entry = requestToHarEntry(makeRequest({ url: 'http://x?a=hello%20world' }))
+    expect(entry.request.queryString).toEqual([{ name: 'a', value: 'hello world' }])
+  })
+})

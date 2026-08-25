@@ -103,26 +103,26 @@ const headersToHar = (headers?: Record<string, string>, headerValues?: Record<st
 }
 
 const parseQueryString = (url: string): HarHeader[] => {
-  try {
-    const questionIndex = url.indexOf('?')
-    if (questionIndex === -1) return []
-    const query = url.substring(questionIndex + 1)
-    const pairs: HarHeader[] = []
+  const questionIndex = url.indexOf('?')
+  if (questionIndex === -1) return []
+  const query = url.substring(questionIndex + 1)
+  const pairs: HarHeader[] = []
 
-    for (const pair of query.split('&')) {
-      if (!pair) continue
+  for (const pair of query.split('&')) {
+    if (!pair) continue
 
-      const [name, ...valueParts] = pair.split('=')
-      pairs.push({
-        name: decodeURIComponent(name),
-        value: valueParts.length > 0 ? decodeURIComponent(valueParts.join('=')) : '',
-      })
+    const [name, ...valueParts] = pair.split('=')
+    const rawValue = valueParts.length > 0 ? valueParts.join('=') : ''
+    // Guard each pair individually — a single malformed percent-escape (e.g. `q=100%`)
+    // must only drop that pair, not the whole query string.
+    try {
+      pairs.push({ name: decodeURIComponent(name), value: rawValue ? decodeURIComponent(rawValue) : '' })
+    } catch {
+      pairs.push({ name, value: rawValue })
     }
-
-    return pairs
-  } catch {
-    return []
   }
+
+  return pairs
 }
 
 /**

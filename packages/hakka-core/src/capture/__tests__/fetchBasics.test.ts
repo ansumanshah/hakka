@@ -65,6 +65,49 @@ describe('fetch interceptor — success two-phase emission', () => {
   })
 })
 
+describe('fetch interceptor — shouldCapture(url) gate', () => {
+  test('shouldCapture receives the resolved request URL, not a zero-arg call', async () => {
+    globalThis.fetch = (async () => new Response('{}', { status: 200 })) as typeof globalThis.fetch
+
+    const seenUrls: string[] = []
+    const dispose = enableFetchInterceptor((_r) => {}, 1_000_000, [], {
+      shouldCapture: (url) => {
+        seenUrls.push(url)
+        return true
+      },
+    })
+    try {
+      await globalThis.fetch('https://api.example.com/gated')
+      expect(seenUrls).toEqual(['https://api.example.com/gated'])
+    } finally {
+      dispose()
+    }
+  })
+
+  test('a url-based false skips capture before any capture work runs — onRequest never fires', async () => {
+    globalThis.fetch = (async () => new Response('{}', { status: 200 })) as typeof globalThis.fetch
+
+    const records: NetworkRequest[] = []
+    const dispose = enableFetchInterceptor((r) => records.push(r), 1_000_000, [], {
+      // Composable URL-allowlist gate, the same shape `hakka-node/prod.ts` builds:
+      // gates on the resolved URL instead of a fixed true/false.
+      shouldCapture: (url) => url.includes('/allowed'),
+    })
+    try {
+      const res = await globalThis.fetch('https://api.example.com/blocked')
+      // The real, un-intercepted response still comes back — a gated-out
+      // request passes straight through untouched.
+      expect(res.status).toBe(200)
+      expect(records).toHaveLength(0)
+
+      await globalThis.fetch('https://api.example.com/allowed')
+      expect(records.some((r) => r.url === 'https://api.example.com/allowed')).toBe(true)
+    } finally {
+      dispose()
+    }
+  })
+})
+
 describe('fetch interceptor — Request-input method', () => {
   test('records the method from a Request object when no init override is given', async () => {
     globalThis.fetch = (async (_input: unknown, _init?: RequestInit) =>

@@ -20,8 +20,39 @@ function hasType<T>(name: string, value: unknown): value is T {
   return typeof ctor === 'function' && value instanceof ctor
 }
 
+/** Thrown from inside `JSON.stringify`'s replacer to unwind serialization early — see `stringifyObjectBody`. */
+const OVER_MAX_BODY_SIZE = Symbol('over-max-body-size')
+
+/**
+ * `JSON.stringify` an object body, bailing out early once the output is already guaranteed to
+ * exceed `maxBodySize` instead of paying for the full serialization of a preview the caller is
+ * about to discard anyway (the caller keeps `preview` only when `size <= maxBodySize`). The
+ * replacer is invoked in the same depth-first order `JSON.stringify` writes output in, so
+ * throwing from it aborts serialization at that point.
+ *
+ * The running total only counts string VALUE lengths (not keys, quotes, or structural
+ * punctuation), so it's a strict lower bound of the true serialized size — the bail-out only
+ * ever fires once truly over the cap, never falsely early. On bail-out, `size` is that lower
+ * bound, not an exact count — acceptable because a body over the cap never has its size shown
+ * precisely to begin with (callers already null out the preview at that point).
+ */
+function stringifyObjectBody(body: object, maxBodySize: number): BodyCapture {
+  let runningSize = 0
+  try {
+    const text = JSON.stringify(body, (_key, value) => {
+      if (typeof value === 'string') runningSize += value.length
+      if (runningSize > maxBodySize) throw OVER_MAX_BODY_SIZE
+      return value
+    })
+    return { preview: text, size: text.length }
+  } catch (e) {
+    if (e === OVER_MAX_BODY_SIZE) return { preview: null, size: runningSize }
+    return EMPTY
+  }
+}
+
 /** Serialize an outgoing/incoming body to a capture-safe preview + size. */
-export function captureBody(body: unknown): BodyCapture {
+export function captureBody(body: unknown, maxBodySize: number = Number.POSITIVE_INFINITY): BodyCapture {
   if (body == null) return EMPTY
   if (typeof body === 'string') return { preview: body, size: body.length }
 
@@ -53,12 +84,7 @@ export function captureBody(body: unknown): BodyCapture {
     return EMPTY // do not consume the stream
   }
   if (typeof body === 'object') {
-    try {
-      const text = JSON.stringify(body)
-      return { preview: text, size: text.length }
-    } catch {
-      return EMPTY
-    }
+    return stringifyObjectBody(body, maxBodySize)
   }
   const text = String(body)
   return { preview: text, size: text.length }

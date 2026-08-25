@@ -192,6 +192,48 @@ describe('fetch interceptor — rewrite mode', () => {
       dispose()
     }
   })
+
+  test('a request-changing rewrite preserves credentials/mode/signal from the original init', async () => {
+    mockEngine.addRule(
+      makeRule({
+        mode: 'rewrite',
+        rewriteRequest: (req) => ({ ...req, url: 'https://api.example.com/data?rewritten=1' }),
+      }),
+    )
+    const { calls, dispose } = withInterceptor(async () => new Response('real'))
+    const controller = new AbortController()
+    try {
+      await globalThis.fetch('https://api.example.com/data', {
+        credentials: 'include',
+        mode: 'cors',
+        signal: controller.signal,
+      })
+      expect(calls.length).toBe(1)
+      expect(calls[0].init?.credentials).toBe('include')
+      expect(calls[0].init?.mode).toBe('cors')
+      expect(calls[0].init?.signal).toBe(controller.signal)
+    } finally {
+      dispose()
+    }
+  })
+
+  test('a rewrite that changes method to GET never attaches a body to the real fetch', async () => {
+    mockEngine.addRule(
+      makeRule({
+        mode: 'rewrite',
+        rewriteRequest: (req) => ({ ...req, method: 'GET' }),
+      }),
+    )
+    const { calls, dispose } = withInterceptor(async () => new Response('real'))
+    try {
+      await globalThis.fetch('https://api.example.com/data', { method: 'POST', body: 'payload' })
+      expect(calls.length).toBe(1)
+      expect(calls[0].init?.method).toBe('GET')
+      expect(calls[0].init?.body).toBeUndefined()
+    } finally {
+      dispose()
+    }
+  })
 })
 
 // Includes the cheap "query" pre-check before JSON.parse.

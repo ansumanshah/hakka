@@ -23,6 +23,7 @@ export function findDuplicateRequest(logs: RingBuffer, request: NetworkRequest):
 
     if (
       existing.url === request.url &&
+      existing.method === request.method &&
       existing.source !== request.source &&
       Math.abs(existing.startTime - request.startTime) < DEDUP_WINDOW_MS
     ) {

@@ -105,8 +105,17 @@ function absolutizeUrl(url: string): string {
 }
 
 export interface FetchInterceptorOptions {
-  /** Pre-capture gate evaluated before any capture work; false sends the request through untouched — makes cohort sampling free for non-cohort traffic (ADR 0002), not "captured then dropped". */
-  shouldCapture?: () => boolean
+  /**
+   * Pre-capture gate evaluated before any capture work; false sends the
+   * request through untouched — makes cohort sampling free for non-cohort
+   * traffic (ADR 0002), not "captured then dropped". Receives the resolved
+   * request URL so a caller can compose a URL-allowlist into the SAME early
+   * gate as cohort/sampling — mirrors `hakka-node`'s `HttpInterceptorOptions.shouldCapture`,
+   * whose own doc comment explains the pairing. The `url` argument is opt-in:
+   * a plain `() => boolean` gate remains a valid value for this field, since
+   * JS ignores an extra argument a function doesn't declare.
+   */
+  shouldCapture?: (url: string) => boolean
 }
 
 export function enableFetchInterceptor(
@@ -156,7 +165,7 @@ export function enableFetchInterceptor(
     if (shouldCapture) {
       let capture = true
       try {
-        capture = shouldCapture()
+        capture = shouldCapture(url)
       } catch {
         capture = false
       }
@@ -209,7 +218,9 @@ export function enableFetchInterceptor(
       })
 
       // Capture the body without corrupting non-string types (FormData/Blob/ArrayBuffer/stream).
-      const bodyCapture = captureBody(init?.body)
+      // Passing maxBodySize lets an oversized object body bail its JSON.stringify early instead
+      // of paying full serialization cost for a preview discarded by the size check just below.
+      const bodyCapture = captureBody(init?.body, maxBodySize)
       requestBodySize = bodyCapture.size
       if (bodyCapture.preview != null && bodyCapture.size <= maxBodySize) {
         const preview = bodyCapture.preview
@@ -385,8 +396,19 @@ export function enableFetchInterceptor(
         const sentCtx = await mockEngine.applyRewriteRequest(rewriteRule, reqCtx)
         const reqChanged = sentCtx !== reqCtx
         const rwStartMs = Date.now()
+        // Preserve the caller's original init (credentials/signal/mode/cache/etc.) on top of
+        // which the rewrite's url/method/headers/body land — dropping it made a rewritten
+        // request uncancellable and could silently change credentialed-request behavior.
+        // A body is never sent on GET/HEAD, mirroring replayRequest.ts's same guard — the
+        // real fetch() throws a TypeError if one is attached to a rewrite targeting those.
+        const sentMethod = sentCtx.method.toUpperCase()
         const realResponse = reqChanged
-          ? await savedFetch(sentCtx.url, { method: sentCtx.method, headers: sentCtx.headers, body: sentCtx.body })
+          ? await savedFetch(sentCtx.url, {
+              ...init,
+              method: sentCtx.method,
+              headers: sentCtx.headers,
+              body: sentMethod === 'GET' || sentMethod === 'HEAD' ? undefined : sentCtx.body,
+            })
           : await savedFetch(input, init)
         const ttfbMs = Date.now() - rwStartMs
 

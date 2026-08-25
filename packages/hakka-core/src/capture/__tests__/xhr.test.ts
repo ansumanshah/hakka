@@ -208,6 +208,25 @@ describe('enableXHRInterceptor', () => {
     xhr.send('{"q":"hello"}')
   })
 
+  it('repeated setRequestHeader calls for the same name append, matching spec behavior', (done) => {
+    dispose = enableXHRInterceptor(
+      (r) => {
+        // Per spec, setRequestHeader appends on a repeat call rather than overwriting —
+        // capture must preserve both values, not just the last one.
+        expect(r.requestHeaders['X-Custom']).toBe('a, b')
+        done()
+      },
+      262_144,
+      [],
+    )
+
+    const xhr = new XMLHttpRequest() as unknown as FakeXHR
+    xhr.open('POST', 'https://api.example.com/search')
+    xhr.setRequestHeader('X-Custom', 'a')
+    xhr.setRequestHeader('X-Custom', 'b')
+    xhr.send('{}')
+  })
+
   it('sets error:"Network error" when status is 0', (done) => {
     dispose = enableXHRInterceptor(
       (r) => {

@@ -130,7 +130,6 @@ export function enableWebSocketInterceptor(onRequest: RequestListener): () => vo
 
       const emitUpdate = () => {
         pendingEmit = false
-        debounceTimer = null
         try {
           onRequest({
             ...base,
@@ -152,19 +151,16 @@ export function enableWebSocketInterceptor(onRequest: RequestListener): () => vo
           pendingEmit = true
           return
         }
-        // Fire immediately on first message in a burst
+        // Fire immediately on first message in a burst, then unconditionally arm a
+        // trailing-edge timer for WS_DEBOUNCE_MS — real WS messages arrive as separate
+        // ASYNC events, so a later message within the window must find debounceTimer
+        // already set (above) and just mark pendingEmit, coalescing into the timer's
+        // single trailing emit instead of firing onRequest again immediately.
         emitUpdate()
-        // Only schedule a follow-up timer if messages arrived synchronously during emitUpdate()
-        // (a re-entrant scheduleEmit call sets pendingEmit).
-        if (pendingEmit) {
-          debounceTimer = setTimeout(() => {
-            if (pendingEmit) {
-              emitUpdate()
-            } else {
-              debounceTimer = null
-            }
-          }, WS_DEBOUNCE_MS)
-        }
+        debounceTimer = setTimeout(() => {
+          debounceTimer = null
+          if (pendingEmit) emitUpdate()
+        }, WS_DEBOUNCE_MS)
       }
 
       this.addEventListener('open', () => {
@@ -205,15 +201,19 @@ export function enableWebSocketInterceptor(onRequest: RequestListener): () => vo
           clearTimeout(debounceTimer)
           debounceTimer = null
         }
-        onRequest({
-          ...base,
-          status: null,
-          startTime,
-          duration: Date.now() - startTime,
-          error: 'WebSocket error',
-          messages,
-          wsProtocol,
-        })
+        try {
+          onRequest({
+            ...base,
+            status: null,
+            startTime,
+            duration: Date.now() - startTime,
+            error: 'WebSocket error',
+            messages,
+            wsProtocol,
+          })
+        } catch {
+          /* never break the real connection's own error dispatch */
+        }
       })
 
       this.addEventListener('close', (ev: CloseEvent) => {
@@ -222,15 +222,19 @@ export function enableWebSocketInterceptor(onRequest: RequestListener): () => vo
           clearTimeout(debounceTimer)
           debounceTimer = null
         }
-        onRequest({
-          ...base,
-          status: ev.code,
-          startTime,
-          duration: Date.now() - startTime,
-          error: ev.wasClean ? null : `WebSocket closed uncleanly (code ${ev.code})`,
-          messages,
-          wsProtocol,
-        })
+        try {
+          onRequest({
+            ...base,
+            status: ev.code,
+            startTime,
+            duration: Date.now() - startTime,
+            error: ev.wasClean ? null : `WebSocket closed uncleanly (code ${ev.code})`,
+            messages,
+            wsProtocol,
+          })
+        } catch {
+          /* never break the real connection's own close dispatch */
+        }
       })
 
       const originalSend = this.send.bind(this)

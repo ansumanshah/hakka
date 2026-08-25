@@ -58,3 +58,32 @@ describe('captureBody — no corruption of non-string bodies', () => {
     expect(computeBodySize(new Uint8Array([1, 2, 3, 4]).buffer)).toBe(4)
   })
 })
+
+describe('captureBody — maxBodySize short-circuits object serialization', () => {
+  test('an object body under maxBodySize is still returned with an exact preview + size', () => {
+    const c = captureBody({ a: 1, b: 'hello' }, 1000)
+    expect(c.preview).toBe('{"a":1,"b":"hello"}')
+    expect(c.size).toBe(c.preview!.length)
+  })
+
+  test('an object body over maxBodySize is dropped (preview null) without a full stringify', () => {
+    const big = { data: 'x'.repeat(10_000) }
+    const c = captureBody(big, 100)
+    expect(c.preview).toBeNull()
+    // The bailed-out size is a lower bound (string-value lengths only), not the exact
+    // serialized size — but it must still clearly exceed the cap the caller checks against.
+    expect(c.size).toBeGreaterThan(100)
+  })
+
+  test('no maxBodySize argument behaves exactly as before (unbounded)', () => {
+    const c = captureBody({ a: 1 })
+    expect(c.preview).toBe('{"a":1}')
+    expect(c.size).toBe(7)
+  })
+
+  test('a circular object still falls back to empty, not a crash', () => {
+    const circular: Record<string, unknown> = { a: 1 }
+    circular.self = circular
+    expect(captureBody(circular, 1000)).toEqual({ preview: null, size: 0 })
+  })
+})
