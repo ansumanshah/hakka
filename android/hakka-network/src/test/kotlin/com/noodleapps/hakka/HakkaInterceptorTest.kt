@@ -557,6 +557,115 @@ class HakkaInterceptorTest {
     }
 
     @Test
+    fun `responseBodySize reports the real Content-Length when the peek is truncated`() {
+        // Larger than a single Okio segment (8 KiB) so peekResponseBody's request(maxBodySize)
+        // stops well short of EOF instead of accidentally slurping the whole local response
+        // in one internal read.
+        val fullBody = "x".repeat(50_000)
+        server.enqueue(MockResponse().setBody(fullBody).setResponseCode(200))
+        val captured = mutableListOf<NetworkRequest>()
+        val interceptor = HakkaInterceptor {
+            maxBodySize = 50
+            listener { captured.add(it) }
+        }
+        val client = OkHttpClient.Builder().addInterceptor(interceptor).build()
+        client.newCall(Request.Builder().url(server.url("/big")).build()).execute()
+        assertTrue(interceptor.flushCaptureProcessing())
+
+        assertEquals(1, captured.size)
+        val req = captured[0]
+        assertEquals(
+            fullBody.length.toLong(),
+            req.responseBodySize,
+            "A truncated peek should report the server's real Content-Length, not the maxBodySize cap",
+        )
+        assertNotNull(req.responseBody)
+        assertTrue(req.responseBody!!.length <= 50, "captured body text should still be capped at maxBodySize")
+    }
+
+    @Test
+    fun `downloadMs is patched in once a large response finishes streaming`() {
+        val fullBody = "y".repeat(50_000)
+        server.enqueue(MockResponse().setBody(fullBody).setResponseCode(200))
+        val interceptor = HakkaInterceptor { maxBodySize = 50 }
+        val client = OkHttpClient.Builder()
+            .addInterceptor(interceptor)
+            .apply { interceptor.eventListenerFactory()?.let { eventListenerFactory(it) } }
+            .build()
+
+        val response = client.newCall(Request.Builder().url(server.url("/big-timed")).build()).execute()
+        assertTrue(interceptor.flushCaptureProcessing())
+        // Only maxBodySize bytes were peeked at capture time — the body hadn't finished
+        // streaming yet, so downloadMs may still be unset on the just-enqueued record.
+
+        val body = response.body!!.string() // drains the rest of the body, closes it
+        assertEquals(fullBody.length, body.length)
+
+        val deadline = System.currentTimeMillis() + 5_000
+        var req = interceptor.logStore.all().first()
+        while (System.currentTimeMillis() < deadline && req.downloadMs == null) {
+            Thread.sleep(20)
+            req = interceptor.logStore.all().first()
+        }
+        assertNotNull(req.downloadMs, "downloadMs should be patched in once the large body finishes streaming")
+    }
+
+    @Test
+    fun `downloadMs patch survives a backlogged CaptureProcessor racing callEnd`() {
+        // Regression test for the race where onCallComplete's callback (fired from whatever
+        // thread drains the response body) could reach logStore before CaptureProcessor's
+        // single worker thread had gotten around to adding the record for this id — the
+        // patch would then silently find nothing to update. Unlike the test above, this one
+        // does NOT call flushCaptureProcessing() before draining the body: it deliberately
+        // backs up the executor's queue with a blocking listener call first, so the record
+        // for the timed request is provably still unprocessed at the moment the body finishes
+        // draining and the patch is attempted.
+        val blockerStarted = CountDownLatch(1)
+        val releaseBlocker = CountDownLatch(1)
+        val interceptor = HakkaInterceptor {
+            maxBodySize = 50
+            listener {
+                if (it.url.contains("/blocker")) {
+                    blockerStarted.countDown()
+                    releaseBlocker.await(5, java.util.concurrent.TimeUnit.SECONDS)
+                }
+            }
+        }
+        val client = OkHttpClient.Builder()
+            .addInterceptor(interceptor)
+            .apply { interceptor.eventListenerFactory()?.let { eventListenerFactory(it) } }
+            .build()
+
+        // Occupies CaptureProcessor's single worker thread inside process() -> onRequest(),
+        // backing up everything enqueued after it until releaseBlocker is counted down.
+        server.enqueue(MockResponse().setResponseCode(200))
+        client.newCall(Request.Builder().url(server.url("/blocker")).build()).execute()
+        assertTrue(
+            blockerStarted.await(5, java.util.concurrent.TimeUnit.SECONDS),
+            "blocker listener should start running on CaptureProcessor's worker thread",
+        )
+
+        val fullBody = "z".repeat(50_000)
+        server.enqueue(MockResponse().setBody(fullBody).setResponseCode(200))
+        val response = client.newCall(Request.Builder().url(server.url("/big-timed")).build()).execute()
+        // Drain immediately — no intervening flush — while the worker thread is still stuck
+        // on the blocker above, so this record cannot possibly be in logStore yet. This is
+        // exactly when the old bare `logStore.update(id)` from the callEnd callback would
+        // have raced logStore.add() and silently lost the patch.
+        val body = response.body!!.string()
+        assertEquals(fullBody.length, body.length)
+
+        releaseBlocker.countDown()
+        assertTrue(interceptor.flushCaptureProcessing(10_000))
+
+        val req = interceptor.logStore.all().first { it.url.contains("/big-timed") }
+        assertNotNull(
+            req.downloadMs,
+            "downloadMs patch must not be lost when CaptureProcessor is backlogged relative to callEnd",
+        )
+    }
+
+    @Test
     fun `cleans up in-flight after failed request`() {
         val interceptor = HakkaInterceptor()
         val client = OkHttpClient.Builder().addInterceptor(interceptor).build()

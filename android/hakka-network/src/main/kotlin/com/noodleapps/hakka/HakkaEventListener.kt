@@ -15,11 +15,20 @@ import java.util.concurrent.ConcurrentHashMap
  * OkHttp [EventListener] that captures timing milestones for each call.
  *
  * Tracks DNS, TLS, connect, TTFB, download durations, TLS detail, and protocol per-call.
- * Timing data is stored in a concurrent map keyed by the [Call] object itself (identity),
- * and consumed by [HakkaInterceptor] when building [NetworkRequest].
+ * Timing data is stored in a concurrent map keyed by the [Call] object itself (identity).
+ * [HakkaInterceptor] reads a snapshot via [Factory.peek] when it builds the initial
+ * [NetworkRequest] — for a response peeked only up to `maxBodySize`, [TimingData.downloadMs]
+ * isn't known yet at that point, since the body hasn't finished streaming. It then registers
+ * [Factory.onCallComplete] to queue a patch for the record once this listener's [callEnd]/
+ * [callFailed] observes the real finish (see those methods' doc for why). That callback fires
+ * on whatever thread drains the response body — unrelated to CaptureProcessor's own worker
+ * thread — so the patch itself is submitted to CaptureProcessor rather than applied directly
+ * here; see [HakkaInterceptor.schedulePatchDownloadTiming] and `CaptureProcessor.enqueuePatch`
+ * for why that ordering matters.
  */
 class HakkaEventListener private constructor(
     private val timings: ConcurrentHashMap<Call, TimingData>,
+    private val completionHandlers: ConcurrentHashMap<Call, (TimingData) -> Unit>,
 ) : EventListener() {
 
     /** Timing milestones captured during a call. All time values in epoch ms. */
@@ -100,15 +109,19 @@ class HakkaEventListener private constructor(
     }
 
     override fun callEnd(call: Call) {
-        // Clean up timing data for completed calls not consumed by the interceptor.
-        // This handles the normal case where the interceptor already consumed it (no-op remove),
-        // and the edge case where timing data was orphaned.
-        timings.remove(call)
+        // The call is truly done here — the body (if any) has been fully read or closed,
+        // so responseBodyEnd already ran and TimingData.downloadMs is final. Notify whoever
+        // registered onCallComplete (the interceptor, patching a large-body capture whose
+        // initial snapshot predated this) before dropping the entry; a call nobody registered
+        // for just falls through to cleanup, same as before.
+        val data = timings.remove(call)
+        if (data != null) completionHandlers.remove(call)?.invoke(data)
     }
 
     override fun callFailed(call: Call, ioe: IOException) {
-        // Clean up timing data on failed/cancelled calls to prevent memory leaks.
-        timings.remove(call)
+        // Same finish notification as callEnd, for the failed/cancelled path.
+        val data = timings.remove(call)
+        if (data != null) completionHandlers.remove(call)?.invoke(data)
     }
 
     override fun responseHeadersEnd(call: Call, response: Response) {
@@ -127,12 +140,28 @@ class HakkaEventListener private constructor(
     /** Factory that shares a timing map with [HakkaInterceptor]. */
     class Factory : EventListener.Factory {
         internal val timings = ConcurrentHashMap<Call, TimingData>()
+        private val completionHandlers = ConcurrentHashMap<Call, (TimingData) -> Unit>()
 
         override fun create(call: Call): EventListener =
-            HakkaEventListener(timings)
+            HakkaEventListener(timings, completionHandlers)
 
-        /** Consume and remove timing data for a call. */
-        fun consume(call: Call): TimingData? =
-            timings.remove(call)
+        /**
+         * Non-destructive snapshot of the current timing data for [call]. Safe to call
+         * before the call has finished — milestones not yet reached are simply absent
+         * from the snapshot (see [TimingData]'s nullable getters). Returns null once the
+         * call has already finished and [callEnd]/[callFailed] cleaned the entry up.
+         */
+        fun peek(call: Call): TimingData? = timings[call]?.copy()
+
+        /**
+         * Registers [onComplete] to run exactly once, from [callEnd] or [callFailed], with
+         * the call's final [TimingData] — the point at which [TimingData.downloadMs] is
+         * guaranteed accurate even for a response whose body was only peeked up to
+         * `maxBodySize` at capture time. No-op if [call] has already finished by the time
+         * this is registered (nothing left to patch).
+         */
+        fun onCallComplete(call: Call, onComplete: (TimingData) -> Unit) {
+            if (timings.containsKey(call)) completionHandlers[call] = onComplete
+        }
     }
 }

@@ -93,7 +93,7 @@ class HakkaActivity : Activity() {
         addView(headerTitle)
 
         // Settings gear — persistent, one tap from any tab. See SettingsActivity.
-        addView(iconButton(context, resources, R.drawable.hakka_ic_settings) {
+        addView(iconButton(context, resources, R.drawable.hakka_ic_settings, "Settings") {
             startActivity(Intent(this@HakkaActivity, SettingsActivity::class.java))
         })
 
@@ -101,6 +101,7 @@ class HakkaActivity : Activity() {
         // for a low-frequency, once-per-session action.
         addView(TextView(context).apply {
             text = "✕"; textSize = GeneratedMetrics.FontSize.sm.toFloat(); gravity = Gravity.CENTER
+            contentDescription = "Close"
             setTextColor(Theme.textSecondary(this@HakkaActivity))
             setTypeface(null, Typeface.BOLD)
             background = GradientDrawable().apply {

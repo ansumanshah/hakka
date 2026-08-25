@@ -107,9 +107,20 @@ internal fun HakkaBubble.render() {
     }
 }
 
+/**
+ * Reuses the process-wide instance started via `Hakka.startPerf(context)` / `Hakka.install(
+ * context, perfMonitoring = true)` when present — same rationale and pattern as
+ * [StatsTabController]'s `startPerformanceMetrics`: with perf monitoring enabled plus a
+ * visible bubble, spinning up a second local collector would run two frame samplers
+ * concurrently for no reason and risk disagreeing FPS values between the two surfaces.
+ * Falls back to a local frame-only collector so the bubble still shows FPS even if the
+ * host app never called `startPerf`.
+ */
 internal fun HakkaBubble.startPerformanceMetrics() {
     if (performance != null) return
-    val perf = HakkaPerformance {
+    val act = activity ?: return
+    val shared = HakkaUI.getInstance(act).sharedPerformance
+    val perf = shared ?: HakkaPerformance {
         sampleIntervalMs = 1000L
         tags = mapOf("surface" to "hakka-ui-bubble")
         enableFrameMetrics = true
@@ -117,6 +128,7 @@ internal fun HakkaBubble.startPerformanceMetrics() {
         enableCpuMetrics = false
         enableNetworkUsageMetrics = false
     }
+    usesSharedPerformance = shared != null
     performanceSubscription = perf.addSink { record ->
         if (record is FrameMetricRecord) {
             val frameStats = parseFrameStats(record)
@@ -128,14 +140,21 @@ internal fun HakkaBubble.startPerformanceMetrics() {
         }
     }
     performance = perf
-    perf.start()
+    if (!usesSharedPerformance) {
+        perf.start()
+    }
 }
 
 internal fun HakkaBubble.stopPerformanceMetrics() {
     performanceSubscription?.close()
     performanceSubscription = null
-    performance?.close()
+    // Never close the shared instance here — `Hakka.stopPerf()` owns its lifecycle since
+    // other surfaces (and the host app) may still be reading from it.
+    if (!usesSharedPerformance) {
+        performance?.close()
+    }
     performance = null
+    usesSharedPerformance = false
     currentFps = null
     statsRefreshScheduled = false
     mainHandler.removeCallbacks(statsRefreshRunnable)

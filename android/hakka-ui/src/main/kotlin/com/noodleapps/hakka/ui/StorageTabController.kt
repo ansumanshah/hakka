@@ -206,6 +206,7 @@ internal class StorageTabController(private val activity: Activity) : TabControl
             addView(ImageView(context).apply {
                 tag = "deleteBtn"
                 setImageResource(R.drawable.hakka_ic_close)
+                contentDescription = "Delete"
                 val pad = dp(Theme.s8)
                 setPadding(pad, pad, pad, pad)
                 layoutParams = LinearLayout.LayoutParams(dp(36), dp(36))

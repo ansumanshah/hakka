@@ -184,11 +184,16 @@ internal fun navigationBarInsetPx(res: Resources): Int {
  * vector assets — never `android.R.drawable.ic_menu_*` (shaded 2.x-era bitmaps whose
  * internal gloss/gradient survives tinting, and which vary per OEM skin) and never a
  * unicode/emoji glyph rendered as a TextView. See `res/drawable/hakka_ic_*.xml`.
+ *
+ * [label] is required, not optional — an icon-only button has no other text TalkBack/Voice
+ * Access can announce, so every call site must name the action (e.g. "Settings", "Share
+ * report") rather than leaving it to read the glyph or nothing at all.
  */
 internal fun iconButton(
-    ctx: Context, res: Resources, drawableRes: Int, tint: Int? = null, onClick: () -> Unit,
+    ctx: Context, res: Resources, drawableRes: Int, label: String, tint: Int? = null, onClick: () -> Unit,
 ) = ImageView(ctx).apply {
     setImageResource(drawableRes)
+    contentDescription = label
     val color = tint ?: Theme.textSecondary(ctx)
     @Suppress("DEPRECATION") setColorFilter(color, PorterDuff.Mode.SRC_IN)
     val pad = dp(res, Theme.s8)

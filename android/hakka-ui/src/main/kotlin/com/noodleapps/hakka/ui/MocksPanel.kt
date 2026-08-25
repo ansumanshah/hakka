@@ -253,6 +253,7 @@ internal class MocksPanel(private val activity: Activity) {
             addView(ImageView(activity).apply {
                 tag = "deleteBtn"
                 setImageResource(R.drawable.hakka_ic_close)
+                contentDescription = "Delete"
                 scaleType = ImageView.ScaleType.CENTER_INSIDE
                 setPadding(dp(Theme.s14), dp(Theme.s14), dp(Theme.s14), dp(Theme.s14))
                 layoutParams = LinearLayout.LayoutParams(dp(48), dp(48))

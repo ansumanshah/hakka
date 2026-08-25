@@ -216,4 +216,33 @@ class HakkaWebSocketWrapperTest {
         val result = prepared.webSocket.send("early")
         assertFalse(result, "send() before open should return false (no socket yet)")
     }
+
+    @Test
+    fun `frames are capped at MAX_FRAMES, dropping oldest first`() {
+        // No connection needed — send() buffers frames regardless of socket state, and
+        // emit() (internal) lets the test read the resulting capture without a real
+        // round trip through MockWebServer.
+        val prepared = HakkaWebSocketWrapper.prepare(wsUrl(), null, logStore)
+        val overflow = 5
+        repeat(HakkaWebSocketWrapper.MAX_FRAMES + overflow) { i ->
+            prepared.webSocket.send("frame-$i")
+        }
+        prepared.webSocket.emit(1000, null)
+
+        val record = logStore.all().firstOrNull()
+        assertNotNull(record)
+        val frames = record!!.wsMessages
+        assertEquals(
+            HakkaWebSocketWrapper.MAX_FRAMES,
+            frames.size,
+            "Frame count should be capped at MAX_FRAMES instead of growing without bound",
+        )
+        // Drop-oldest: the retained frames should be the last MAX_FRAMES sent, in order.
+        assertEquals("frame-$overflow", frames.first().data, "Oldest frames should have been evicted")
+        assertEquals(
+            "frame-${HakkaWebSocketWrapper.MAX_FRAMES + overflow - 1}",
+            frames.last().data,
+            "Newest frame should be retained",
+        )
+    }
 }

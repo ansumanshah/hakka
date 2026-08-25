@@ -9,7 +9,9 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.MotionEvent
+import android.view.VelocityTracker
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.Window
 import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
@@ -51,6 +53,10 @@ class HakkaBottomSheet(
     private var isDragging = false
     private var dragStartY = 0f
     private var dragStartHeight = 0
+    // Real px/s fling velocity from VelocityTracker (not cumulative displacement) — see
+    // [handleDrag]/[snapToDetent] and [snapTarget]'s doc comment for why displacement alone
+    // is the wrong signal for "was this a fling".
+    private var velocityTracker: VelocityTracker? = null
 
     // Sheet height states
     private val screenHeight: Int get() = activity.resources.displayMetrics.heightPixels
@@ -288,10 +294,13 @@ class HakkaBottomSheet(
                 isDragging = true
                 dragStartY = event.rawY
                 dragStartHeight = currentHeight
+                velocityTracker?.recycle()
+                velocityTracker = VelocityTracker.obtain().apply { addMovement(event) }
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
                 if (!isDragging) return false
+                velocityTracker?.addMovement(event)
                 val dy = dragStartY - event.rawY
                 val newHeight = (dragStartHeight + dy).toInt()
                     .coerceIn(dp(activity, 100).toInt(), largeHeight)
@@ -304,26 +313,25 @@ class HakkaBottomSheet(
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 isDragging = false
-                val velocity = event.rawY - dragStartY
-                snapToDetent(velocity)
+                // px/s, positive = moving down the screen — computeCurrentVelocity's units
+                // match ViewConfiguration.getScaledMinimumFlingVelocity()'s, both px/s.
+                val tracker = velocityTracker
+                tracker?.addMovement(event)
+                tracker?.computeCurrentVelocity(1000)
+                val velocityPxPerSec = tracker?.yVelocity ?: 0f
+                tracker?.recycle()
+                velocityTracker = null
+                snapToDetent(velocityPxPerSec)
                 return true
             }
         }
         return false
     }
 
-    /** Snap to medium/large/dismiss based on position + velocity. */
-    private fun snapToDetent(velocity: Float) {
-        val target = when {
-            // Fast downward fling → dismiss
-            velocity > 300 && currentHeight < mediumHeight -> 0
-            // Below 30% of medium → dismiss
-            currentHeight < mediumHeight * 0.3 -> 0
-            // Above 75% of large → snap to large
-            currentHeight > largeHeight * 0.75 -> largeHeight
-            // Otherwise snap to medium
-            else -> mediumHeight
-        }
+    /** Snap to medium/large/dismiss based on position + real fling velocity. */
+    private fun snapToDetent(velocityPxPerSec: Float) {
+        val minFlingVelocityPxPerSec = ViewConfiguration.get(activity).scaledMinimumFlingVelocity.toFloat()
+        val target = snapTarget(velocityPxPerSec, minFlingVelocityPxPerSec, currentHeight, mediumHeight, largeHeight)
 
         if (target == 0) {
             dismissWithAnimation()
@@ -348,4 +356,29 @@ class HakkaBottomSheet(
 
     private fun dp(ctx: Context, dp: Float): Float = dp * ctx.resources.displayMetrics.density
     private fun dp(ctx: Context, dp: Int): Float = dp * ctx.resources.displayMetrics.density
+}
+
+/**
+ * Pure decision half of [HakkaBottomSheet.snapToDetent]: given a real fling velocity (px/s,
+ * positive = downward, from [VelocityTracker.getYVelocity] — NOT cumulative drag displacement,
+ * which is time-independent and fires just as readily on a slow deliberate drag as on a fast
+ * fling) plus the sheet's current/medium/large heights, returns the target height to animate
+ * to, or 0 to dismiss. Kept pure (no Android view/motion-event types) so it's testable without
+ * Robolectric, like [exceedsTouchSlop].
+ */
+internal fun snapTarget(
+    velocityPxPerSec: Float,
+    minFlingVelocityPxPerSec: Float,
+    currentHeight: Int,
+    mediumHeight: Int,
+    largeHeight: Int,
+): Int = when {
+    // Fast downward fling → dismiss
+    velocityPxPerSec > minFlingVelocityPxPerSec && currentHeight < mediumHeight -> 0
+    // Below 30% of medium → dismiss
+    currentHeight < mediumHeight * 0.3 -> 0
+    // Above 75% of large → snap to large
+    currentHeight > largeHeight * 0.75 -> largeHeight
+    // Otherwise snap to medium
+    else -> mediumHeight
 }

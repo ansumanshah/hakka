@@ -77,6 +77,7 @@ class DetailActivity : Activity() {
         addView(hRow(context) {
             addView(ImageView(context).apply {
                 setImageResource(R.drawable.hakka_ic_back)
+                contentDescription = "Back"
                 setColorFilter(Theme.text(this@DetailActivity))
                 val circle = GradientDrawable().apply {
                     shape = GradientDrawable.OVAL
@@ -119,7 +120,7 @@ class DetailActivity : Activity() {
             // (Copy cURL / Copy URL / Share / Postman / Mock this) instead of a permanently
             // docked, flame-filled 3-button bar. None of these is "the" primary action, so
             // none should hold the accent permanently.
-            addView(iconButton(context, resources, R.drawable.hakka_ic_more) { showActionsMenu() })
+            addView(iconButton(context, resources, R.drawable.hakka_ic_more, "More actions") { showActionsMenu() })
         })
     }
 

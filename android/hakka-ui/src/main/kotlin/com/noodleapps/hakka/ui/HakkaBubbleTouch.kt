@@ -37,7 +37,6 @@ internal fun HakkaBubble.bubbleTouchListener(activity: Activity) = View.OnTouchL
             touchStartY = event.rawY
             touchStartParamX = params.x
             touchStartParamY = params.y
-            touchStartTime = System.currentTimeMillis()
             movedPastSlop = false
             longPressFired = false
             true
@@ -70,16 +69,16 @@ internal fun HakkaBubble.bubbleTouchListener(activity: Activity) = View.OnTouchL
                     snapToEdge(activity, view, params)
                 }
             } else {
-                val elapsed = System.currentTimeMillis() - touchStartTime
-                if (elapsed < TAP_TIMEOUT_MS) {
-                    // Tap -> expand/collapse the inline HUD in place. Routed through
-                    // performClick() (handled by the OnClickListener set in attach())
-                    // rather than calling setExpanded() directly, so a TalkBack/Voice
-                    // Access synthesized ACTION_CLICK reaches the same code path.
-                    view.performClick()
-                }
-                // else: held past the tap window but never moved and never long-
-                // pressed (still short of GestureDetector's own timer) — no-op.
+                // Tap -> expand/collapse the inline HUD in place. Routed through
+                // performClick() (handled by the OnClickListener set in attach())
+                // rather than calling setExpanded() directly, so a TalkBack/Voice
+                // Access synthesized ACTION_CLICK reaches the same code path.
+                // No elapsed-time gate: drag is already ruled out (`!movedPastSlop`
+                // above) and long-press already returned early, so any release that
+                // reaches here is a tap no matter how long it was held — a fixed
+                // tap-timeout window here would otherwise leave a dead zone between
+                // it and GestureDetector's own (longer, system) long-press timeout.
+                view.performClick()
             }
             true
         }

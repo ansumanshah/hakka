@@ -52,7 +52,7 @@ internal fun NetworkTabController.buildSearchBar() = LinearLayout(activity).appl
  * everything past search+methods.
  */
 private fun NetworkTabController.buildFiltersTrigger(): FrameLayout {
-    val icon = iconButton(activity, activity.resources, R.drawable.hakka_ic_sort,
+    val icon = iconButton(activity, activity.resources, R.drawable.hakka_ic_sort, "Filters",
         if (filtersExpanded) Theme.accent(activity) else Theme.textSecondary(activity)) {
         filtersExpanded = !filtersExpanded
         filterContainer.visibility = if (filtersExpanded) View.VISIBLE else View.GONE

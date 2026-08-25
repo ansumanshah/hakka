@@ -237,6 +237,7 @@ internal class BreakpointsPanel(private val activity: Activity) {
             addView(ImageView(activity).apply {
                 tag = "deleteBtn"
                 setImageResource(R.drawable.hakka_ic_close)
+                contentDescription = "Delete"
                 val pad = dp(Theme.s8)
                 setPadding(pad, dp(Theme.s6), pad, dp(Theme.s6))
                 layoutParams = LinearLayout.LayoutParams(dp(36), dp(32))

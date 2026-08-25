@@ -1,5 +1,6 @@
 package com.noodleapps.hakka
 
+import okhttp3.Call
 import okhttp3.Headers
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.Interceptor
@@ -664,7 +665,7 @@ class HakkaInterceptor private constructor(
                     val source = body.source()
                     peekResponseBody(source, config.maxBodySize)
                     val buffer = source.buffer
-                    respBodySize = buffer.size
+                    respBodySize = resolveResponseBodySize(resp, buffer, config.maxBodySize)
                     respContentType = resp.body?.contentType()?.toString()
                     if (isTextContentType(respContentType)) {
                         respBodyText = captureBody(buffer.clone())
@@ -724,7 +725,8 @@ class HakkaInterceptor private constructor(
                 }
             }
 
-            val timing = eventListenerFactory?.consume(chain.call())
+            val timing = eventListenerFactory?.peek(chain.call())
+            schedulePatchDownloadTiming(chain.call(), id, timing)
 
             captureProcessor.enqueue(
                 RawNetworkCapture(
@@ -821,14 +823,16 @@ class HakkaInterceptor private constructor(
         var respBodyText: String? = null
         var respBodySize = 0L
         var respContentType: String? = null
-        response?.body?.let { body ->
-            val source = body.source()
-            peekResponseBody(source, config.maxBodySize)
-            val buffer = source.buffer
-            respBodySize = buffer.size
-            respContentType = body.contentType()?.toString()
-            if (isTextContentType(respContentType)) {
-                respBodyText = captureBody(buffer.clone())
+        response?.let { resp ->
+            resp.body?.let { body ->
+                val source = body.source()
+                peekResponseBody(source, config.maxBodySize)
+                val buffer = source.buffer
+                respBodySize = resolveResponseBodySize(resp, buffer, config.maxBodySize)
+                respContentType = body.contentType()?.toString()
+                if (isTextContentType(respContentType)) {
+                    respBodyText = captureBody(buffer.clone())
+                }
             }
         }
 
@@ -863,7 +867,8 @@ class HakkaInterceptor private constructor(
             respContentType = ct.toString()
         }
 
-        val timing = eventListenerFactory?.consume(chain.call())
+        val timing = eventListenerFactory?.peek(chain.call())
+        schedulePatchDownloadTiming(chain.call(), id, timing)
 
         captureProcessor.enqueue(
             RawNetworkCapture(
@@ -900,6 +905,53 @@ class HakkaInterceptor private constructor(
             buffer.clone().readUtf8(bytesToRead)
         } catch (_: Exception) {
             null
+        }
+    }
+
+    /**
+     * Resolves the response body size to report after [peekResponseBody]. When [buffer]
+     * filled to [maxBodySize] the peek may have stopped short of the real body — [buffer].size
+     * would then report the cap itself rather than the true size. Prefers the server's
+     * `Content-Length` in that case, since it's the true size for an identity-encoded body
+     * (a compressed body's `Content-Length` is wire bytes, not decoded size, so it isn't
+     * trustworthy there and [buffer].size is kept instead). Mirrors the equivalent
+     * `readCappedBody` size-reporting rule in hakka-core — see
+     * docs/src/content/docs/concepts/performance.md. Falls back to [buffer].size whenever no
+     * usable `Content-Length` is present (chunked transfer, malformed header, compressed body).
+     */
+    private fun resolveResponseBodySize(response: Response, buffer: Buffer, maxBodySize: Long): Long {
+        if (buffer.size < maxBodySize) return buffer.size
+        val contentEncoding = response.header("Content-Encoding")
+        if (contentEncoding != null && !contentEncoding.equals("identity", ignoreCase = true)) {
+            return buffer.size
+        }
+        return response.header("Content-Length")?.toLongOrNull() ?: buffer.size
+    }
+
+    /**
+     * Patches the capture already enqueued for [id] with the real `downloadMs` once [call]
+     * truly finishes, when [initialTiming] didn't already have one. [peekResponseBody] only
+     * buffers up to `maxBodySize`, so for a response larger than that the body hasn't
+     * finished streaming — and `responseBodyEnd` hasn't fired — at the point the capture is
+     * built; `downloadMs` becomes known only once the app finishes reading (or closes) the
+     * body, which [HakkaEventListener.Factory.onCallComplete] observes via `callEnd`/
+     * `callFailed`. No-op when [initialTiming] already has a `downloadMs` (the common
+     * small-body case, where the peek itself already reached EOF) or timing capture is off.
+     *
+     * The patch itself goes through [CaptureProcessor.enqueuePatch] rather than a bare
+     * `logStore.update(id)` here — `onCallComplete`'s callback fires on whatever thread
+     * finishes draining the response body, which has no ordering relationship to
+     * [captureProcessor]'s own worker thread. If that worker is backlogged (or the body
+     * drains fast enough), [id]'s record may not have been added to [logStore] yet when
+     * this callback runs, and a direct `update` would silently find nothing to patch. See
+     * [CaptureProcessor.enqueuePatch]'s doc for why routing through the same executor makes
+     * the ordering correct instead of racy.
+     */
+    private fun schedulePatchDownloadTiming(call: Call, id: String, initialTiming: HakkaEventListener.TimingData?) {
+        if (initialTiming?.downloadMs != null) return
+        eventListenerFactory?.onCallComplete(call) { finalTiming ->
+            val downloadMs = finalTiming.downloadMs ?: return@onCallComplete
+            captureProcessor.enqueuePatch(id) { req -> req.copy(downloadMs = downloadMs) }
         }
     }
 

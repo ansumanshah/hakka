@@ -108,6 +108,37 @@ class BridgeSinkTest {
     }
 
     @Test
+    fun `drainQueue re-enqueues the frame that failed mid-drain instead of dropping it`() {
+        // Port 1 refuses the connection outright — same "genuinely disconnected" pattern
+        // BridgeSinkConsoleStorageTest uses — so onRecord/sendConsole queue frames instead
+        // of sending them, giving drainQueue something to work with in isolation.
+        sink = BridgeSink("ws://127.0.0.1:1", client)
+        val bridgeSink = sink!!
+        (0..3).forEach { i ->
+            bridgeSink.sendConsole(listOf(LogEntry(id = "log_$i", timestamp = 0L, level = LogLevel.INFO, message = "m$i")))
+        }
+
+        // Simulate onOpen's drain: the 1st send succeeds, the 2nd fails (as if the
+        // connection died mid-drain), matching the real webSocket.send() failure path.
+        var callCount = 0
+        bridgeSink.drainQueue {
+            callCount++
+            callCount != 2
+        }
+        assertEquals(2, callCount, "drain should stop right after the failed send")
+
+        // Drain what's left and capture it — the frame that failed above must still be
+        // in there (re-enqueued, not dropped), even though its position shifted to the tail.
+        val remaining = mutableListOf<String>()
+        bridgeSink.drainQueue { frame -> remaining.add(frame); true }
+
+        assertTrue(
+            remaining.any { it.contains("\"m1\"") },
+            "The frame that failed to send mid-drain was lost instead of being retried: $remaining",
+        )
+    }
+
+    @Test
     fun `BridgeSink never throws when the server sends a hostile frame`() {
         val closed = CountDownLatch(1)
         server.enqueue(

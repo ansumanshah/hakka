@@ -34,14 +34,14 @@ internal fun NetworkTabController.buildNormalTopBar() {
                 it.tag = "pauseBtn"
             })
             addView(View(activity), LinearLayout.LayoutParams(0, 1, 1f))
-            addView(iconButton(activity, activity.resources, R.drawable.hakka_ic_share) {
+            addView(iconButton(activity, activity.resources, R.drawable.hakka_ic_share, "Share report") {
                 shareReport(allRequests.take(20))
             })
             // Destructive — chili tint, per Wok Hei accent discipline.
-            addView(iconButton(activity, activity.resources, R.drawable.hakka_ic_trash, Theme.error) {
+            addView(iconButton(activity, activity.resources, R.drawable.hakka_ic_trash, "Clear requests", Theme.error) {
                 clearRequests()
             })
-            addView(iconButton(activity, activity.resources, R.drawable.hakka_ic_check) {
+            addView(iconButton(activity, activity.resources, R.drawable.hakka_ic_check, "Select requests") {
                 enterSelectionMode()
             })
         })
@@ -57,7 +57,7 @@ internal fun NetworkTabController.buildSelectionTopBar() {
         addView(boldText(activity, "${selectedIds.size} selected", 14f).apply {
             layoutParams = LinearLayout.LayoutParams(0, WC, 1f)
         })
-        addView(iconButton(activity, activity.resources, R.drawable.hakka_ic_share) {
+        addView(iconButton(activity, activity.resources, R.drawable.hakka_ic_share, "Share selected") {
             val selected = allRequests.filter { it.id in selectedIds }
             if (selected.isNotEmpty()) shareReport(selected)
             else Toast.makeText(activity, "No requests selected", Toast.LENGTH_SHORT).show()

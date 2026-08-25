@@ -62,6 +62,10 @@ class HakkaBubble private constructor() {
     internal var currentFrameStats = FrameMetricStats()
     internal var performance: HakkaPerformance? = null
     internal var performanceSubscription: SinkSubscription? = null
+    // True when [performance] is the process-wide instance from `HakkaUI.sharedPerformance`
+    // rather than one this bubble started itself — see [startPerformanceMetrics]. Mirrors
+    // StatsTabController's identically-named field; governs who owns start()/close().
+    internal var usesSharedPerformance = false
     internal var activity: Activity? = null
     internal var logStore: LogStore? = null
     internal var uiState = BubbleUiState.COLLAPSED
@@ -90,7 +94,6 @@ class HakkaBubble private constructor() {
     internal val MAX_RECENT_ROWS = 5
     internal val EDGE_PADDING_DP = 8
     internal val HIDE_ZONE_DP = 80
-    internal val TAP_TIMEOUT_MS = 200L
     internal val SNAP_DURATION_MS = 250L
     internal val STATS_REFRESH_MS = 250L
 
@@ -228,7 +231,6 @@ class HakkaBubble private constructor() {
     internal var touchStartY = 0f
     internal var touchStartParamX = 0
     internal var touchStartParamY = 0
-    internal var touchStartTime = 0L
     internal var movedPastSlop = false
     internal var longPressFired = false
 

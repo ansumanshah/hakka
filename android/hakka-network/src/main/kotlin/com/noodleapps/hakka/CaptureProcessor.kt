@@ -56,6 +56,33 @@ internal class CaptureProcessor(
         }
     }
 
+    /**
+     * Applies [transform] to the stored record for [id], FIFO-ordered on this same
+     * single-thread executor behind the [enqueue] call that will create that record.
+     *
+     * This exists for callers (currently [HakkaInterceptor.schedulePatchDownloadTiming])
+     * whose patch trigger — an OkHttp `callEnd`/`callFailed` callback — fires on a thread
+     * with no relationship to [logStore]'s state, arbitrarily long after [id]'s capture was
+     * enqueued but with no guarantee [process] has actually run for it yet. A bare
+     * `logStore.update(id)` from that callback races [process]: if the single worker thread
+     * hasn't reached this capture yet (queue backlog, or the patch trigger firing very
+     * fast), [LogStore.update] finds no entry and silently drops the patch. Routing through
+     * this executor instead makes the ordering an invariant rather than a race: the caller
+     * always submits [id]'s own [enqueue] task before any code path that could trigger a
+     * patch for it can run (the patch trigger needs data — e.g. a fully-drained response
+     * body — that only exists after the enqueuing call site has already returned), so by
+     * FIFO submission order this task is guaranteed to run after [process] has added the
+     * record.
+     */
+    fun enqueuePatch(id: String, transform: (NetworkRequest) -> NetworkRequest) {
+        try {
+            executor.execute { logStore.update(id, transform) }
+        } catch (_: RejectedExecutionException) {
+            // Best-effort, same as enqueue()'s rejection path — no onProcessed hook needed
+            // since a patch doesn't gate inFlight cleanup.
+        }
+    }
+
     fun flush(timeoutMs: Long = 5_000L): Boolean {
         val timeoutNanos = TimeUnit.MILLISECONDS.toNanos(timeoutMs.coerceAtLeast(0))
         val deadline = System.nanoTime() + timeoutNanos

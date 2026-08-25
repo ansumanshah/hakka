@@ -141,6 +141,25 @@ internal class BridgeSink(
         }
     }
 
+    /**
+     * Drains [queue] into [send] in arrival order, stopping at the first failed send.
+     * The frame that failed is put back via [enqueue] rather than dropped — otherwise a
+     * connection that dies mid-drain (send() returning false without throwing) would
+     * silently lose it instead of getting a shot at the next connection. Internal (not
+     * private) so tests can drive it directly against a fake `send`, the same pattern
+     * [HakkaInterceptor.peekResponseBody] uses for a fake [okio.Source].
+     */
+    internal fun drainQueue(send: (String) -> Boolean) {
+        var frame = queue.poll()
+        while (frame != null) {
+            if (!send(frame)) {
+                enqueue(frame)
+                break
+            }
+            frame = queue.poll()
+        }
+    }
+
     private fun connect() {
         if (closed.get()) return
         val request = Request.Builder().url(bridgeUrl).build()
@@ -167,12 +186,7 @@ internal class BridgeSink(
             socket.set(webSocket)
             backoffMs.set(INITIAL_BACKOFF_MS.toInt())
 
-            // Drain buffered frames in arrival order.
-            var frame = queue.poll()
-            while (frame != null) {
-                if (!webSocket.send(frame)) break
-                frame = queue.poll()
-            }
+            drainQueue { frame -> webSocket.send(frame) }
         }
 
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {

@@ -38,6 +38,7 @@ import java.util.concurrent.atomic.AtomicReference
  * - Text frames: stored verbatim.
  * - Binary frames ≤ [WsMessage.BINARY_CAP_BYTES] (32 KB): base-64 encoded.
  * - Binary frames > cap: size recorded, [WsMessage.data] = null, [WsMessage.binary] = true.
+ * - Frame count is capped per connection (drop-oldest) — see `MAX_FRAMES`.
  *
  * ### Thread safety
  * [frames] uses [CopyOnWriteArrayList]; all other state is either atomic or written once
@@ -64,7 +65,7 @@ class HakkaWebSocketWrapper private constructor(
     override fun queueSize(): Long = socketRef.get()?.queueSize() ?: 0L
 
     override fun send(text: String): Boolean {
-        frames.add(
+        recordFrame(
             WsMessage(
                 timestampMs = System.currentTimeMillis(),
                 sent = true,
@@ -81,7 +82,7 @@ class HakkaWebSocketWrapper private constructor(
         val encoded = if (bytes.size <= WsMessage.BINARY_CAP_BYTES) {
             java.util.Base64.getEncoder().encodeToString(bytes.toByteArray())
         } else null
-        frames.add(
+        recordFrame(
             WsMessage(
                 timestampMs = System.currentTimeMillis(),
                 sent = true,
@@ -106,7 +107,7 @@ class HakkaWebSocketWrapper private constructor(
     }
 
     internal fun recordReceived(text: String) {
-        frames.add(
+        recordFrame(
             WsMessage(
                 timestampMs = System.currentTimeMillis(),
                 sent = false,
@@ -122,7 +123,7 @@ class HakkaWebSocketWrapper private constructor(
         val encoded = if (bytes.size <= WsMessage.BINARY_CAP_BYTES) {
             java.util.Base64.getEncoder().encodeToString(bytes.toByteArray())
         } else null
-        frames.add(
+        recordFrame(
             WsMessage(
                 timestampMs = System.currentTimeMillis(),
                 sent = false,
@@ -131,6 +132,20 @@ class HakkaWebSocketWrapper private constructor(
                 binary = true,
             )
         )
+    }
+
+    /**
+     * Appends [frame] to [frames], then evicts the oldest frame(s) if the per-connection
+     * cap ([MAX_FRAMES]) is crossed. [frames] is only drained on close/failure ([emit]), so
+     * without a cap a long-lived, high-traffic socket would retain every frame's payload in
+     * memory for the life of the connection — drop-oldest bounds that the same way
+     * [LogStore]'s ring buffer bounds the overall request count.
+     */
+    private fun recordFrame(frame: WsMessage) {
+        frames.add(frame)
+        while (frames.size > MAX_FRAMES) {
+            frames.removeAt(0)
+        }
     }
 
     internal fun emit(wsCloseCode: Int, error: String?) {
@@ -179,6 +194,14 @@ class HakkaWebSocketWrapper private constructor(
     )
 
     companion object {
+        /**
+         * Per-connection cap on retained [frames] — see [recordFrame]. Generous enough
+         * that ordinary sessions never hit it, but bounded so a long-lived high-traffic
+         * socket can't grow [frames] without limit. Internal (not private) so tests can
+         * assert against it directly rather than hardcoding the number.
+         */
+        internal const val MAX_FRAMES = 2_000
+
         /**
          * Prepares a capture pair for a single WebSocket connection.
          *
