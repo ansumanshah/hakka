@@ -75,12 +75,13 @@ GitHub fetch (`runtime: server`); click **Fetch products** and you'll see the br
 `/api/products` (`runtime: client`) **and** that route handler's downstream call (`runtime: server`).
 Use the **runtime filter** to isolate client / server / edge.
 
-This example actually starts the overlay from a client component (`app/hakka-overlay.tsx`,
-mounted in `app/layout.tsx`), **not** `instrumentation-client.ts` — see
-[`packages/hakka-node/README.md`](../../packages/hakka-node/README.md#overlay-pattern-prefer-a-client-component-over-instrumentation-clientts)
-for why: Next's `instrumentation-client.ts` pipeline runs before the app bundle's async-chunk
-machinery is wired up, and `hakka-browser`'s overlay UI loads as an async chunk. The
-client-component pattern is the reliable one:
+This example ships **both** wirings. `instrumentation-client.ts` is the canonical Next 15.3+
+path shown above and starts the overlay on its own (an earlier `sideEffects` packaging bug made
+that import unreliable under Turbopack; that is fixed). The example also keeps a client
+component (`app/hakka-overlay.tsx`, mounted in `app/layout.tsx`) as the pattern for
+older Next versions — see
+[`packages/hakka-node/README.md`](../../packages/hakka-node/README.md#overlay-pattern-prefer-a-client-component-over-instrumentation-clientts).
+Running both is harmless: `hakka-browser`'s `start()` ignores a second call.
 
 ```tsx
 // app/hakka-overlay.tsx
