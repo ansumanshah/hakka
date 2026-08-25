@@ -52,6 +52,40 @@ export interface MMKVMonitorInstance {
 // Sequence for synthesizing LogEntry ids — see sendStorageData below.
 let storageLogSeq = 0
 
+// Shared install state for `useAsyncStorageMonitor`/`useMMKVMonitor`, keyed
+// by refcount rather than per-effect closures. Either hook can be mounted
+// more than once at a time (nested providers, HMR remounts); a raw
+// save/restore per effect instance has no way to tell "am I the only
+// installer" — the second install's saved "originals" would actually be the
+// first hook's already-patched wrapper (not the true original), and
+// whichever instance unmounts first stomps the shared AsyncStorage/MMKV
+// object's methods, silently breaking the other instance's monitoring.
+// Tracking the true originals + a refcount at module scope means only the
+// first mount patches and only the last unmount restores.
+let asyncStorageRefCount = 0
+let asyncStorageOriginals: {
+  getItem: AsyncStorageLike['getItem']
+  setItem: AsyncStorageLike['setItem']
+  removeItem: AsyncStorageLike['removeItem']
+  clear: AsyncStorageLike['clear']
+} | null = null
+
+const mmkvPatches = new Map<
+  MMKVMonitorInstance,
+  {
+    refCount: number
+    originals: {
+      getString: MMKVMonitorInstance['getString']
+      setString: MMKVMonitorInstance['setString']
+      getNumber: MMKVMonitorInstance['getNumber']
+      setNumber: MMKVMonitorInstance['setNumber']
+      getBoolean: MMKVMonitorInstance['getBoolean']
+      setBoolean: MMKVMonitorInstance['setBoolean']
+      delete: MMKVMonitorInstance['delete']
+    }
+  }
+>()
+
 /**
  * Forward one storage operation as a canonical `{type:'console', payload: LogEntry[]}`
  * frame via `hakkaBridge.sendConsole` — matches `HakkaBridge.ts`'s own console routing.
@@ -84,15 +118,10 @@ function sendStorageData(data: StorageData): void {
 export function useAsyncStorageMonitor(): void {
   useEffect(() => {
     let AsyncStorage: AsyncStorageLike | null = null
-    let originals: {
-      getItem: AsyncStorageLike['getItem']
-      setItem: AsyncStorageLike['setItem']
-      removeItem: AsyncStorageLike['removeItem']
-      clear: AsyncStorageLike['clear']
-    } | null = null
+    let installedHere = false // this effect instance's own contribution to the shared refcount
 
     function install(): void {
-      if (originals) return // already installed
+      if (installedHere) return // this instance already installed
 
       let mod: ({ default?: AsyncStorageLike } & AsyncStorageLike) | undefined
       try {
@@ -102,59 +131,78 @@ export function useAsyncStorageMonitor(): void {
         return // not installed
       }
       AsyncStorage = mod!.default ?? mod!
-      const storage = AsyncStorage
+      installedHere = true
 
-      originals = {
-        getItem: storage.getItem,
-        setItem: storage.setItem,
-        removeItem: storage.removeItem,
-        clear: storage.clear,
-      }
+      if (asyncStorageRefCount === 0) {
+        // First installer — patch and record the true originals.
+        const storage = AsyncStorage
 
-      storage.getItem = async (key: string) => {
-        const result = await originals!.getItem.call(storage, key)
-        sendStorageData({ storageType: 'AsyncStorage', key, value: result, operation: 'get', timestamp: Date.now() })
-        return result
-      }
+        asyncStorageOriginals = {
+          getItem: storage.getItem,
+          setItem: storage.setItem,
+          removeItem: storage.removeItem,
+          clear: storage.clear,
+        }
 
-      storage.setItem = async (key: string, value: string) => {
-        const result = await originals!.setItem.call(storage, key, value)
-        sendStorageData({ storageType: 'AsyncStorage', key, value, operation: 'set', timestamp: Date.now() })
-        return result
-      }
+        storage.getItem = async (key: string) => {
+          const result = await asyncStorageOriginals!.getItem.call(storage, key)
+          sendStorageData({
+            storageType: 'AsyncStorage',
+            key,
+            value: result,
+            operation: 'get',
+            timestamp: Date.now(),
+          })
+          return result
+        }
 
-      storage.removeItem = async (key: string) => {
-        const result = await originals!.removeItem.call(storage, key)
-        sendStorageData({
-          storageType: 'AsyncStorage',
-          key,
-          value: null,
-          operation: 'remove',
-          timestamp: Date.now(),
-        })
-        return result
-      }
+        storage.setItem = async (key: string, value: string) => {
+          const result = await asyncStorageOriginals!.setItem.call(storage, key, value)
+          sendStorageData({ storageType: 'AsyncStorage', key, value, operation: 'set', timestamp: Date.now() })
+          return result
+        }
 
-      storage.clear = async () => {
-        const result = await originals!.clear.call(storage)
-        sendStorageData({
-          storageType: 'AsyncStorage',
-          key: '*',
-          value: null,
-          operation: 'clear',
-          timestamp: Date.now(),
-        })
-        return result
+        storage.removeItem = async (key: string) => {
+          const result = await asyncStorageOriginals!.removeItem.call(storage, key)
+          sendStorageData({
+            storageType: 'AsyncStorage',
+            key,
+            value: null,
+            operation: 'remove',
+            timestamp: Date.now(),
+          })
+          return result
+        }
+
+        storage.clear = async () => {
+          const result = await asyncStorageOriginals!.clear.call(storage)
+          sendStorageData({
+            storageType: 'AsyncStorage',
+            key: '*',
+            value: null,
+            operation: 'clear',
+            timestamp: Date.now(),
+          })
+          return result
+        }
       }
+      // Later installers reuse the already-patched storage — every call
+      // above always routes through `asyncStorageOriginals`, the true
+      // pre-patch functions, regardless of which mount happens to be first.
+      asyncStorageRefCount++
     }
 
     function uninstall(): void {
-      if (!originals || !AsyncStorage) return
-      AsyncStorage.getItem = originals.getItem
-      AsyncStorage.setItem = originals.setItem
-      AsyncStorage.removeItem = originals.removeItem
-      AsyncStorage.clear = originals.clear
-      originals = null
+      if (!installedHere || !AsyncStorage) return
+      installedHere = false
+      asyncStorageRefCount = Math.max(0, asyncStorageRefCount - 1)
+      if (asyncStorageRefCount === 0 && asyncStorageOriginals) {
+        AsyncStorage.getItem = asyncStorageOriginals.getItem
+        AsyncStorage.setItem = asyncStorageOriginals.setItem
+        AsyncStorage.removeItem = asyncStorageOriginals.removeItem
+        AsyncStorage.clear = asyncStorageOriginals.clear
+        asyncStorageOriginals = null
+      }
     }
 
     // `hakkaBridge.connect()` typically resolves after this effect has already
@@ -181,86 +229,93 @@ export function useAsyncStorageMonitor(): void {
 export function useMMKVMonitor(mmkv?: MMKVMonitorInstance): void {
   useEffect(() => {
     if (!mmkv) return
+    const storage: MMKVMonitorInstance = mmkv // narrowed once; nested closures below reuse this, not the optional param
 
-    let installed = false
-    let originals: {
-      getString: MMKVMonitorInstance['getString']
-      setString: MMKVMonitorInstance['setString']
-      getNumber: MMKVMonitorInstance['getNumber']
-      setNumber: MMKVMonitorInstance['setNumber']
-      getBoolean: MMKVMonitorInstance['getBoolean']
-      setBoolean: MMKVMonitorInstance['setBoolean']
-      delete: MMKVMonitorInstance['delete']
-    } | null = null
+    let installedHere = false // this effect instance's own contribution to the shared refcount
 
     function install(): void {
-      if (installed) return
-      installed = true
+      if (installedHere) return // this instance already installed
+      installedHere = true
 
-      originals = {
-        getString: mmkv!.getString,
-        setString: mmkv!.setString,
-        getNumber: mmkv!.getNumber,
-        setNumber: mmkv!.setNumber,
-        getBoolean: mmkv!.getBoolean,
-        setBoolean: mmkv!.setBoolean,
-        delete: mmkv!.delete,
-      }
+      let entry = mmkvPatches.get(storage)
+      if (!entry) {
+        // First installer for this MMKV instance — patch and record the true originals.
+        const originals = {
+          getString: storage.getString,
+          setString: storage.setString,
+          getNumber: storage.getNumber,
+          setNumber: storage.setNumber,
+          getBoolean: storage.getBoolean,
+          setBoolean: storage.setBoolean,
+          delete: storage.delete,
+        }
+        entry = { refCount: 0, originals }
+        mmkvPatches.set(storage, entry)
 
-      mmkv!.getString = (key: string) => {
-        const result = originals!.getString.call(mmkv, key)
-        sendStorageData({ storageType: 'MMKV', key, value: result, operation: 'get', timestamp: Date.now() })
-        return result
-      }
+        storage.getString = (key: string) => {
+          const result = originals.getString.call(storage, key)
+          sendStorageData({ storageType: 'MMKV', key, value: result, operation: 'get', timestamp: Date.now() })
+          return result
+        }
 
-      mmkv!.setString = (key: string, value: string) => {
-        const result = originals!.setString.call(mmkv, key, value)
-        sendStorageData({ storageType: 'MMKV', key, value, operation: 'set', timestamp: Date.now() })
-        return result
-      }
+        storage.setString = (key: string, value: string) => {
+          const result = originals.setString.call(storage, key, value)
+          sendStorageData({ storageType: 'MMKV', key, value, operation: 'set', timestamp: Date.now() })
+          return result
+        }
 
-      mmkv!.getNumber = (key: string) => {
-        const result = originals!.getNumber.call(mmkv, key)
-        sendStorageData({ storageType: 'MMKV', key, value: result, operation: 'get', timestamp: Date.now() })
-        return result
-      }
+        storage.getNumber = (key: string) => {
+          const result = originals.getNumber.call(storage, key)
+          sendStorageData({ storageType: 'MMKV', key, value: result, operation: 'get', timestamp: Date.now() })
+          return result
+        }
 
-      mmkv!.setNumber = (key: string, value: number) => {
-        const result = originals!.setNumber.call(mmkv, key, value)
-        sendStorageData({ storageType: 'MMKV', key, value, operation: 'set', timestamp: Date.now() })
-        return result
-      }
+        storage.setNumber = (key: string, value: number) => {
+          const result = originals.setNumber.call(storage, key, value)
+          sendStorageData({ storageType: 'MMKV', key, value, operation: 'set', timestamp: Date.now() })
+          return result
+        }
 
-      mmkv!.getBoolean = (key: string) => {
-        const result = originals!.getBoolean.call(mmkv, key)
-        sendStorageData({ storageType: 'MMKV', key, value: result, operation: 'get', timestamp: Date.now() })
-        return result
-      }
+        storage.getBoolean = (key: string) => {
+          const result = originals.getBoolean.call(storage, key)
+          sendStorageData({ storageType: 'MMKV', key, value: result, operation: 'get', timestamp: Date.now() })
+          return result
+        }
 
-      mmkv!.setBoolean = (key: string, value: boolean) => {
-        const result = originals!.setBoolean.call(mmkv, key, value)
-        sendStorageData({ storageType: 'MMKV', key, value, operation: 'set', timestamp: Date.now() })
-        return result
-      }
+        storage.setBoolean = (key: string, value: boolean) => {
+          const result = originals.setBoolean.call(storage, key, value)
+          sendStorageData({ storageType: 'MMKV', key, value, operation: 'set', timestamp: Date.now() })
+          return result
+        }
 
-      mmkv!.delete = (key: string) => {
-        const result = originals!.delete.call(mmkv, key)
-        sendStorageData({ storageType: 'MMKV', key, value: null, operation: 'remove', timestamp: Date.now() })
-        return result
+        storage.delete = (key: string) => {
+          const result = originals.delete.call(storage, key)
+          sendStorageData({ storageType: 'MMKV', key, value: null, operation: 'remove', timestamp: Date.now() })
+          return result
+        }
       }
+      // Later installers for the same instance reuse the already-patched
+      // methods — every wrapper above closes over `originals`, the true
+      // pre-patch functions, regardless of which mount happens to be first.
+      entry.refCount++
     }
 
     function uninstall(): void {
-      if (!installed || !originals) return
-      mmkv!.getString = originals.getString
-      mmkv!.setString = originals.setString
-      mmkv!.getNumber = originals.getNumber
-      mmkv!.setNumber = originals.setNumber
-      mmkv!.getBoolean = originals.getBoolean
-      mmkv!.setBoolean = originals.setBoolean
-      mmkv!.delete = originals.delete
-      installed = false
-      originals = null
+      if (!installedHere) return
+      installedHere = false
+      const entry = mmkvPatches.get(storage)
+      if (!entry) return
+      entry.refCount--
+      if (entry.refCount <= 0) {
+        storage.getString = entry.originals.getString
+        storage.setString = entry.originals.setString
+        storage.getNumber = entry.originals.getNumber
+        storage.setNumber = entry.originals.setNumber
+        storage.getBoolean = entry.originals.getBoolean
+        storage.setBoolean = entry.originals.setBoolean
+        storage.delete = entry.originals.delete
+        mmkvPatches.delete(storage)
+      }
     }
 
     // Same connect-after-mount race as `useAsyncStorageMonitor` above — re-check

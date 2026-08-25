@@ -61,7 +61,11 @@ function isAllowedKey(key: unknown): key is string {
 }
 
 function isAllowedValue(value: unknown): value is string {
-  return typeof value === 'string' && value.length <= MAX_VALUE_BYTES
+  // `.length` is UTF-16 code units, not encoded bytes — a non-ASCII-heavy
+  // string could be up to ~3x MAX_VALUE_BYTES while still passing a `.length`
+  // check. Measure actual UTF-8 byte size instead, matching hakka-core's
+  // `har.ts` sizing convention.
+  return typeof value === 'string' && new TextEncoder().encode(value).length <= MAX_VALUE_BYTES
 }
 
 declare const __DEV__: boolean

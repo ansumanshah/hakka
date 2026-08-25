@@ -11,6 +11,29 @@ interface NativeCaptureState {
 
 let captureState: NativeCaptureState = { webSocket: false }
 
+// Serializes concurrent `configure({ webSocket: true })` calls onto a single
+// in-flight `enableNativeWebSocket()` invocation — without this, two callers
+// that both observe `captureState.webSocket === false` before either write
+// would each fire the native call.
+let pendingWebSocketEnable: Promise<void> | null = null
+
+async function enableNativeWebSocket(module: NonNullable<typeof NativeHakkaMonitor>): Promise<void> {
+  // JS/native version skew: the module is linked but predates this method.
+  // Matches the "safe to call multiple times" doc contract below — skip
+  // rather than throw.
+  if (typeof module.enableNativeWebSocket !== 'function') {
+    if (__DEV__)
+      console.warn('[Hakka] NativeCapture: native module has no enableNativeWebSocket (version mismatch) — skipping')
+    return
+  }
+  try {
+    await module.enableNativeWebSocket()
+    captureState = { ...captureState, webSocket: true }
+  } catch (err) {
+    if (__DEV__) console.warn('[Hakka] NativeCapture: enableNativeWebSocket failed', err)
+  }
+}
+
 /**
  * Configure and enable native-layer capture features.
  *
@@ -29,8 +52,12 @@ async function configure(options: NativeCaptureOptions): Promise<void> {
   if (!module) return
 
   if (options.webSocket && !captureState.webSocket) {
-    await module.enableNativeWebSocket()
-    captureState = { ...captureState, webSocket: true }
+    if (!pendingWebSocketEnable) {
+      pendingWebSocketEnable = enableNativeWebSocket(module).finally(() => {
+        pendingWebSocketEnable = null
+      })
+    }
+    await pendingWebSocketEnable
   }
 }
 
