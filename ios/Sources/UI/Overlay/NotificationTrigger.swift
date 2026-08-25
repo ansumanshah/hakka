@@ -29,8 +29,11 @@ public final class NotificationTrigger: NSObject {
 
     // MARK: - Properties
 
-    private var requestCount = 0
-    private var errorCount = 0
+    // Module-internal (not `private`) so `@testable import HakkaUI` can assert
+    // on them directly — regression coverage for the backgrounding-reset bug
+    // needs to observe count state without driving a real UNUserNotificationCenter.
+    var requestCount = 0
+    var errorCount = 0
     private var isAuthorized = false
 
     // MARK: - Initialization
@@ -146,6 +149,20 @@ public final class NotificationTrigger: NSObject {
             name: UIApplication.didBecomeActiveNotification,
             object: nil
         )
+
+        // `willEnterForeground` only fires after a real `didEnterBackground` —
+        // unlike `didBecomeActive`, it does NOT fire after a transient
+        // resign/become-active cycle that never actually backgrounds the app
+        // (Control Center, Notification Center pull-down, an incoming call
+        // banner, a permission/Face ID prompt, an App Store sheet). Counts
+        // must only clear here, not on every activation, or one of those
+        // interruptions silently zeroes real captured traffic mid-session.
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(appWillEnterForeground),
+            name: UIApplication.willEnterForegroundNotification,
+            object: nil
+        )
         refreshAuthorizationStatus()
 
         // Handle notification tap — only take the delegate if nobody else has it,
@@ -163,6 +180,16 @@ public final class NotificationTrigger: NSObject {
 
     @objc private func appDidBecomeActive() {
         refreshAuthorizationStatus()
+    }
+
+    @objc private func appWillEnterForeground() {
+        // The background notification (if any) already showed the counts
+        // for the session that just ended — clear them here so the *next*
+        // backgrounding reports only new traffic instead of a growing
+        // lifetime total across sessions with zero activity. Fires only after
+        // a genuine `didEnterBackground`, so a transient interruption that
+        // never actually backgrounds the app can't reset counts mid-session.
+        resetCounts()
     }
 
     @objc private func appDidEnterBackground() {

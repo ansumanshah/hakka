@@ -29,6 +29,23 @@ extension BubbleWindow {
         presentOverlay { OverlayWindow.shared.show() }
     }
 
+    // MARK: - VoiceOver Custom Actions
+    //
+    // Mirror the long-press (open inspector) and drag-to-dismiss gestures
+    // above for VoiceOver, which only triggers a plain tap. Wired to
+    // `shadow.accessibilityCustomActions` in BubbleWindowConstruction.swift.
+
+    @objc func openMonitorAccessibilityAction(_ action: UIAccessibilityCustomAction) -> Bool {
+        Haptics.medium()
+        presentOverlay { OverlayWindow.shared.show() }
+        return true
+    }
+
+    @objc func dismissBubbleAccessibilityAction(_ action: UIAccessibilityCustomAction) -> Bool {
+        hide()
+        return true
+    }
+
     private func presentOverlay(_ present: () -> Void) {
         window?.isHidden = true
         present()

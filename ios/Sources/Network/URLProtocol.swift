@@ -58,6 +58,12 @@ public final class HakkaURLProtocol: URLProtocol, @unchecked Sendable {
     private var correlationId: String?
     /// When a response-phase breakpoint is active, client delivery is buffered until completion.
     private var responsePhasePending = false
+    /// Set once the first chunk of this response has gone through `dripThrottled`.
+    /// Checked alongside `ThrottleEngine.shared.isActive` in `didReceive data:` so that if
+    /// throttling is deactivated mid-transfer, later chunks still route through the same
+    /// serial `throttleQueue` as earlier ones instead of delivering immediately and
+    /// overtaking bytes still asleep on the queue.
+    private var isDripping = false
     /// Set when a matched `MockRule` routes this request through the
     /// passthrough-then-transform path (`redirectTo` and/or `modify`). The real
     /// response is buffered (never streamed incrementally) so `modify`'s
@@ -193,7 +199,7 @@ public final class HakkaURLProtocol: URLProtocol, @unchecked Sendable {
                     if !stopped {
                         let err = NSError(domain: NSURLErrorDomain, code: NSURLErrorCancelled, userInfo: nil)
                         self.client?.urlProtocol(self, didFailWithError: err)
-                        Self.interceptor?.removeInFlight(id: self.requestId)
+                        self.enqueueCompletion(error: err)
                     }
                 case .resume(let edits):
                     let edited = edits.map { Self.applyRequestBreakpointEdits($0, to: outgoing) } ?? outgoing
@@ -617,11 +623,16 @@ public final class HakkaURLProtocol: URLProtocol, @unchecked Sendable {
     private func dripThrottled(data: Data, client: URLProtocolClient) {
         let engine = ThrottleEngine.shared
         let kbps = engine.config.downloadKbps
-        guard kbps > 0 else {
-            // Unlimited bandwidth under an active (non-none) profile — deliver immediately.
+        guard kbps > 0 || isDripping else {
+            // Unlimited bandwidth under an active (non-none) profile, and no earlier
+            // chunk of this response is mid-drip — deliver immediately. Once `isDripping`
+            // is true, an earlier chunk may still be asleep on `throttleQueue`, so this
+            // chunk must queue behind it too even if bandwidth has since gone unlimited —
+            // otherwise it would overtake the earlier chunk and reorder the bytes.
             client.urlProtocol(self, didLoad: data)
             return
         }
+        isDripping = true
 
         let chunkSize = ThrottleEngine.dripChunkSize
         throttleQueue.async { [self] in
@@ -713,7 +724,7 @@ extension HakkaURLProtocol: URLSessionDataDelegate {
             return
         }
 
-        if ThrottleEngine.shared.isActive, let client = self.client {
+        if (ThrottleEngine.shared.isActive || isDripping), let client = self.client {
             dripThrottled(data: data, client: client)
         } else {
             client?.urlProtocol(self, didLoad: data)

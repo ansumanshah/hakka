@@ -78,6 +78,18 @@ public final class BubbleWindow {
     /// Tracks the dismiss-notification observer registered in `presentOverlay`
     /// (BubbleWindowGestures.swift); torn down there and in `cleanup()`.
     var dismissObserver: NSObjectProtocol?
+    /// `true` while `hide()`'s 0.18s fade-out animation is in flight and
+    /// `window`/`bubbleView` are still non-nil pending its completion. Lets
+    /// `show()` distinguish "already fully shown" (no-op) from "mid-hide"
+    /// (cancel the hide and revive the bubble) instead of hitting the
+    /// `window == nil` guard and silently no-op-ing.
+    var isHiding = false
+    /// Bumped on every `show()`/`hide()` call. A hide's animation completion
+    /// captures the value at the time it started and only runs `cleanup()`
+    /// if the counter still matches — so a `show()` (or a second `hide()`)
+    /// that runs mid-animation invalidates the pending one instead of racing
+    /// it to tear down state the newer call expects to persist.
+    var lifecycleGeneration = 0
 
     /// Tap toggles between these two; long-press always opens the full
     /// inspector regardless of which one is showing (see `applyExpansionState`).
@@ -91,10 +103,23 @@ public final class BubbleWindow {
     // MARK: - Public API
 
     public func show() {
+        lifecycleGeneration += 1
+
+        // A hide() is mid-animation: window/bubbleView are still alive, so
+        // the `window == nil` guard below would otherwise no-op here and let
+        // the pending hide's completion tear the bubble down right after.
+        // Cancel it and revive the existing bubble instead of creating a
+        // second one.
+        if isHiding, let bubble = bubbleView {
+            isHiding = false
+            bubble.layer.removeAllAnimations()
+            effectView?.layer.removeAllAnimations()
+            finishShowing(bubble)
+            return
+        }
+
         guard window == nil else { return }
-        guard let windowScene = UIApplication.shared.connectedScenes
-            .compactMap({ $0 as? UIWindowScene }).first
-        else { return }
+        guard let windowScene = UIApplication.shared.activeWindowScene else { return }
 
         let win = PassthroughWindow(windowScene: windowScene)
         win.windowLevel = .alert + 1
@@ -124,7 +149,12 @@ public final class BubbleWindow {
         win.makeKeyAndVisible()
         win.resignKey()
 
-        // Materialize entrance.
+        finishShowing(bubble)
+    }
+
+    /// Entrance animation plus the post-show setup calls, shared by a fresh
+    /// `show()` and by canceling an in-flight `hide()`.
+    private func finishShowing(_ bubble: UIView) {
         bubble.alpha = 0
         bubble.transform = CGAffineTransform(translationX: 18, y: -10).scaledBy(x: 0.88, y: 0.88)
         if let ev = effectView {
@@ -156,18 +186,29 @@ public final class BubbleWindow {
         guard let bubble = bubbleView else { cleanup(); return }
         savedPosition = bubble.frame.origin
 
+        lifecycleGeneration += 1
+        let generation = lifecycleGeneration
+        isHiding = true
+
         if let ev = effectView {
             UIView.animate(withDuration: 0.18, delay: 0, options: [.curveEaseIn]) {
                 ev.effect = nil
                 bubble.alpha = 0
                 bubble.transform = CGAffineTransform(translationX: 18, y: -10).scaledBy(x: 0.88, y: 0.88)
-            } completion: { _ in self.cleanup() }
+            } completion: { _ in self.finishHiding(generation: generation) }
         } else {
             UIView.animate(withDuration: 0.18, delay: 0, options: [.curveEaseIn], animations: {
                 bubble.alpha = 0
                 bubble.transform = CGAffineTransform(translationX: 18, y: -10).scaledBy(x: 0.88, y: 0.88)
-            }, completion: { _ in self.cleanup() })
+            }, completion: { _ in self.finishHiding(generation: generation) })
         }
+    }
+
+    /// Runs `cleanup()` only if no later `show()`/`hide()` call has
+    /// superseded this one since its animation started.
+    private func finishHiding(generation: Int) {
+        guard isHiding, lifecycleGeneration == generation else { return }
+        cleanup()
     }
 
     public var isVisible: Bool { window != nil }
@@ -213,6 +254,7 @@ public final class BubbleWindow {
     // MARK: - Cleanup
 
     func cleanup() {
+        isHiding = false
         removeObservers()
         stopPerformanceMetrics()
         if let obs = dismissObserver { NotificationCenter.default.removeObserver(obs); dismissObserver = nil }

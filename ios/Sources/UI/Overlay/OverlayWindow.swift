@@ -60,9 +60,7 @@ public final class OverlayWindow {
     public func show() {
         if isDismissing || sheetController?.presentingViewController != nil { return }
 
-        guard let windowScene = UIApplication.shared.connectedScenes
-            .compactMap({ $0 as? UIWindowScene })
-            .first,
+        guard let windowScene = UIApplication.shared.activeWindowScene,
             let rootVC = windowScene.keyWindow?.rootViewController
         else { return }
 
@@ -125,9 +123,7 @@ public final class OverlayWindow {
     public func showFullscreen() {
         if isDismissing || sheetController?.presentingViewController != nil { return }
 
-        guard let windowScene = UIApplication.shared.connectedScenes
-            .compactMap({ $0 as? UIWindowScene })
-            .first,
+        guard let windowScene = UIApplication.shared.activeWindowScene,
             let rootVC = windowScene.keyWindow?.rootViewController
         else { return }
 
@@ -162,9 +158,7 @@ public final class OverlayWindow {
     public func showMonitor() {
         if isDismissing || sheetController?.presentingViewController != nil { return }
 
-        guard let windowScene = UIApplication.shared.connectedScenes
-            .compactMap({ $0 as? UIWindowScene })
-            .first,
+        guard let windowScene = UIApplication.shared.activeWindowScene,
             let rootVC = windowScene.keyWindow?.rootViewController
         else { return }
 

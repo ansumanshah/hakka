@@ -199,6 +199,39 @@ struct URLProtocolEdgeTests {
         #expect(captured.responseBody == "abcd")
     }
 
+    /// If throttling is switched off mid-transfer, a later chunk must still
+    /// queue behind an earlier one still asleep on `throttleQueue` rather than
+    /// overtaking it via the immediate-delivery path — otherwise streamed bytes
+    /// arrive out of order. The first chunk is large enough (2 dripped slices)
+    /// that its second slice is still sleeping when the throttle is disabled
+    /// and the second chunk arrives.
+    @Test func throttleDeactivationMidResponseKeepsLaterChunksInOrder() async throws {
+        let engine = ThrottleEngine.shared
+        defer { engine.setProfile(.none) }
+        engine.setCustom(latencyMs: 0, downloadKbps: 200)
+
+        let (protocolInstance, client) = makeProtocol(url: "https://drip.example.test/stream")
+        let session = URLSession(configuration: .ephemeral)
+        let task = session.dataTask(with: protocolInstance.request)
+
+        let firstChunk = Data(repeating: 0xAA, count: 2048)
+        let secondChunk = Data(repeating: 0xBB, count: 16)
+
+        // First chunk starts dripping onto `throttleQueue` while throttle is active.
+        protocolInstance.urlSession(session, dataTask: task, didReceive: firstChunk)
+
+        // Deactivate mid-transfer — the first chunk's second slice is still asleep.
+        engine.setProfile(.none)
+
+        // A later chunk arrives after deactivation.
+        protocolInstance.urlSession(session, dataTask: task, didReceive: secondChunk)
+
+        let expected = firstChunk + secondChunk
+        try await waitUntil { client.loadedData.count >= expected.count }
+
+        #expect(client.loadedData == expected)
+    }
+
     /// A response-phase breakpoint buffers delivery until the user resumes.
     /// The capture-side `receivedData` is capped at `maxBodySize` for storage,
     /// but a plain resume (no edits) must still hand the client every byte the
@@ -301,6 +334,51 @@ struct URLProtocolEdgeTests {
         let delivered = try #require(client.receivedResponses.last as? HTTPURLResponse)
         #expect(delivered.value(forHTTPHeaderField: "Content-Length") == String(editedBody.utf8.count))
         #expect(client.loadedData == Data(editedBody.utf8))
+    }
+
+    /// A request-phase breakpoint `.abort` must still leave a completed capture
+    /// behind, mirroring `serveBlockedResponse`'s deliberate "blocked requests
+    /// still show up in the inspector" behavior and the response-phase `.abort`
+    /// case above — otherwise an aborted request silently vanishes from the
+    /// traffic list. Unlike `requestPhaseBreakpointEditRecomputesStaleContentLength`
+    /// below, `.abort` never reaches `issueDataTask`, so driving the full async
+    /// `BreakpointEngine` round trip here has no live-network dependency.
+    @Test func requestPhaseBreakpointAbortRecordsCompletedCapture() throws {
+        let interceptor = HakkaInterceptor()
+        HakkaURLProtocol.interceptor = interceptor
+        defer { HakkaURLProtocol.interceptor = nil }
+
+        let breakpointId = BreakpointEngine.shared.addBreakpoint(
+            BreakpointInput(pattern: "/aborted", on: .request)
+        )
+        defer {
+            BreakpointEngine.shared.removeBreakpoint(id: breakpointId)
+            BreakpointEngine.shared.drainPausedWorkers()
+        }
+
+        let (protocolInstance, client) = makeProtocol(url: "https://api.example.test/aborted")
+        protocolInstance.startLoading()
+
+        #expect(BlockingTestSupport.waitUntil { !BreakpointEngine.shared.getPaused().isEmpty })
+        let pauseId = try #require(BreakpointEngine.shared.getPaused().first?.id)
+        BreakpointEngine.shared.abort(pauseId: pauseId)
+
+        #expect(BlockingTestSupport.waitUntil { !client.failures.isEmpty })
+        let failure = try #require(client.failures.first as NSError?)
+        #expect(failure.domain == NSURLErrorDomain)
+        #expect(failure.code == NSURLErrorCancelled)
+
+        // `enqueueCompletion` runs on the breakpoint's background worker, async
+        // relative to this thread — poll while draining the capture queue on
+        // each attempt rather than flushing once, so a flush that lands before
+        // the worker's `enqueueCompletedCapture` call can't hide a real miss.
+        #expect(BlockingTestSupport.waitUntil {
+            interceptor.flushCaptureProcessing()
+            return !interceptor.store.requests.isEmpty
+        })
+        let captured = try #require(interceptor.store.requests.first)
+        #expect(captured.status == nil)
+        #expect(captured.error != nil)
     }
 
     /// Mirrors `responsePhaseBreakpointResumeWithEditsRecomputesStaleContentLength`

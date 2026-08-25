@@ -86,6 +86,7 @@ public final class HakkaInterceptor: @unchecked Sendable {
     private var _discoveredBridgeHosts: [DiscoveredBridgeHost] = []
     private var requestListeners: [UUID: @Sendable (NetworkRequest) -> Void] = [:]
     private nonisolated(unsafe) static var swizzled = false
+    private static let swizzleLock = NSLock()
 
     /// Bumped (under `bridgeLock`) every time ``start()``/``stop()`` runs. A discovery
     /// completion captures the generation in effect when it began and compares it against
@@ -550,6 +551,8 @@ public final class HakkaInterceptor: @unchecked Sendable {
     // MARK: - Swizzling
 
     private static func swizzleSessionConfigurationIfNeeded() {
+        swizzleLock.lock()
+        defer { swizzleLock.unlock() }
         guard !swizzled else { return }
         swizzled = true
 

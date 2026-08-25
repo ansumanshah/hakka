@@ -23,6 +23,22 @@ extension BubbleWindow {
         shadow.isAccessibilityElement = true
         shadow.accessibilityTraits = .button
         shadow.accessibilityHint = "Double tap to preview recent requests. Touch and hold to open the network monitor."
+        // VoiceOver's activation gesture only triggers a plain tap, so the
+        // long-press-to-open-inspector and drag-to-dismiss gestures above
+        // are otherwise unreachable without these. Handlers live alongside
+        // the gestures they mirror, in BubbleWindowGestures.swift.
+        shadow.accessibilityCustomActions = [
+            UIAccessibilityCustomAction(
+                name: "Open network monitor",
+                target: self,
+                selector: #selector(openMonitorAccessibilityAction(_:))
+            ),
+            UIAccessibilityCustomAction(
+                name: "Dismiss bubble",
+                target: self,
+                selector: #selector(dismissBubbleAccessibilityAction(_:))
+            ),
+        ]
 
         // Glass effect view
         let ev = UIVisualEffectView()
@@ -69,13 +85,15 @@ extension BubbleWindow {
         self.ringLayer = ring
 
         let numLabel = UILabel()
-        numLabel.font = .monospacedDigitSystemFont(ofSize: 15, weight: .heavy)
+        numLabel.font = scaledValueFont(size: 15, weight: .heavy)
+        numLabel.adjustsFontForContentSizeCategory = true
         numLabel.textColor = .white
         numLabel.textAlignment = .center
         self.numeratorLabel = numLabel
 
         let denomLabel = UILabel()
-        denomLabel.font = .systemFont(ofSize: 8, weight: .heavy)
+        denomLabel.font = scaledCaptionFont(size: 8, weight: .heavy)
+        denomLabel.adjustsFontForContentSizeCategory = true
         denomLabel.textColor = UIColor(red: 0xA7 / 255, green: 0xB1 / 255, blue: 0xBE / 255, alpha: 1)
         denomLabel.textAlignment = .center
         denomLabel.text = "req"
@@ -88,13 +106,15 @@ extension BubbleWindow {
         let thirdDivider = makeMetricDivider()
 
         let networkLabel = UILabel()
-        networkLabel.font = .monospacedDigitSystemFont(ofSize: 15, weight: .heavy)
+        networkLabel.font = scaledValueFont(size: 15, weight: .heavy)
+        networkLabel.adjustsFontForContentSizeCategory = true
         networkLabel.textColor = UIColor(red: 0xA7 / 255, green: 0xB1 / 255, blue: 0xBE / 255, alpha: 1)
         networkLabel.textAlignment = .center
         self.networkLabel = networkLabel
 
         let networkCaption = UILabel()
-        networkCaption.font = .systemFont(ofSize: 8, weight: .heavy)
+        networkCaption.font = scaledCaptionFont(size: 8, weight: .heavy)
+        networkCaption.adjustsFontForContentSizeCategory = true
         networkCaption.textColor = UIColor(red: 0xA7 / 255, green: 0xB1 / 255, blue: 0xBE / 255, alpha: 1)
         networkCaption.textAlignment = .center
         networkCaption.text = "lat"
@@ -103,13 +123,15 @@ extension BubbleWindow {
         let networkStack = metricStack(value: networkLabel, caption: networkCaption)
 
         let perfLabel = UILabel()
-        perfLabel.font = .monospacedDigitSystemFont(ofSize: 15, weight: .heavy)
+        perfLabel.font = scaledValueFont(size: 15, weight: .heavy)
+        perfLabel.adjustsFontForContentSizeCategory = true
         perfLabel.textColor = UIColor(red: 0xA7 / 255, green: 0xB1 / 255, blue: 0xBE / 255, alpha: 1)
         perfLabel.textAlignment = .center
         self.performanceLabel = perfLabel
 
         let perfCaption = UILabel()
-        perfCaption.font = .systemFont(ofSize: 8, weight: .heavy)
+        perfCaption.font = scaledCaptionFont(size: 8, weight: .heavy)
+        perfCaption.adjustsFontForContentSizeCategory = true
         perfCaption.textColor = UIColor(red: 0xA7 / 255, green: 0xB1 / 255, blue: 0xBE / 255, alpha: 1)
         perfCaption.textAlignment = .center
         perfCaption.text = "fps"
@@ -118,13 +140,15 @@ extension BubbleWindow {
         let performanceStack = metricStack(value: perfLabel, caption: perfCaption)
 
         let slowLabel = UILabel()
-        slowLabel.font = .monospacedDigitSystemFont(ofSize: 15, weight: .heavy)
+        slowLabel.font = scaledValueFont(size: 15, weight: .heavy)
+        slowLabel.adjustsFontForContentSizeCategory = true
         slowLabel.textColor = UIColor(red: 0xA7 / 255, green: 0xB1 / 255, blue: 0xBE / 255, alpha: 1)
         slowLabel.textAlignment = .center
         self.slowFrameLabel = slowLabel
 
         let slowCaption = UILabel()
-        slowCaption.font = .systemFont(ofSize: 8, weight: .heavy)
+        slowCaption.font = scaledCaptionFont(size: 8, weight: .heavy)
+        slowCaption.adjustsFontForContentSizeCategory = true
         slowCaption.textColor = UIColor(red: 0xA7 / 255, green: 0xB1 / 255, blue: 0xBE / 255, alpha: 1)
         slowCaption.textAlignment = .center
         slowCaption.text = "slow"
@@ -211,6 +235,25 @@ extension BubbleWindow {
         divider.backgroundColor = UIColor.white.withAlphaComponent(0.12)
         divider.translatesAutoresizingMaskIntoConstraints = false
         return divider
+    }
+
+    /// Scales a metric-card value label with the user's preferred text size
+    /// (relative to `.footnote`, the closest system style to 15pt) instead of
+    /// staying pinned to a fixed point size. Capped a few points above the
+    /// base — this is a fixed 244x58 HUD capsule, not a scrolling list, so
+    /// unbounded growth at the largest accessibility sizes would blow past
+    /// its layout rather than just becoming more readable.
+    private func scaledValueFont(size: CGFloat, weight: UIFont.Weight) -> UIFont {
+        let base = UIFont.monospacedDigitSystemFont(ofSize: size, weight: weight)
+        return UIFontMetrics(forTextStyle: .footnote).scaledFont(for: base, maximumPointSize: size + 5)
+    }
+
+    /// Same as `scaledValueFont`, for the small caption labels underneath
+    /// each value (relative to `.caption2`), capped tighter since a caption
+    /// sits directly under an already-scaled value label.
+    private func scaledCaptionFont(size: CGFloat, weight: UIFont.Weight) -> UIFont {
+        let base = UIFont.systemFont(ofSize: size, weight: weight)
+        return UIFontMetrics(forTextStyle: .caption2).scaledFont(for: base, maximumPointSize: size + 3)
     }
 }
 #endif
