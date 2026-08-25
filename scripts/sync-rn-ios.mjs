@@ -173,14 +173,21 @@ function expectedContent(canonRel) {
 }
 
 const check = process.argv.includes('--check')
-const drifted = []
-const missingCanonical = []
 
+// Validate the whole manifest BEFORE writing anything — a missing canonical
+// file discovered mid-loop must not leave some RN files regenerated and
+// others stale (mixed old/new generated sources).
+const missingCanonical = MANIFEST.filter(([canonRel]) => !existsSync(join(CANON_ROOT, canonRel))).map(
+  ([canonRel]) => canonRel,
+)
+if (missingCanonical.length > 0) {
+  console.error('ERROR: manifest references canonical files that do not exist:')
+  for (const f of missingCanonical) console.error(`  ios/Sources/${f}`)
+  process.exit(1)
+}
+
+const drifted = []
 for (const [canonRel, rnRel] of MANIFEST) {
-  if (!existsSync(join(CANON_ROOT, canonRel))) {
-    missingCanonical.push(canonRel)
-    continue
-  }
   const expected = expectedContent(canonRel)
   const destPath = join(RN_ROOT, rnRel)
   const actual = existsSync(destPath) ? readFileSync(destPath, 'utf8') : null
@@ -194,12 +201,6 @@ for (const [canonRel, rnRel] of MANIFEST) {
     writeFileSync(destPath, expected)
     console.log(`  synced  ${rnRel}`)
   }
-}
-
-if (missingCanonical.length > 0) {
-  console.error('ERROR: manifest references canonical files that do not exist:')
-  for (const f of missingCanonical) console.error(`  ios/Sources/${f}`)
-  process.exit(1)
 }
 
 // Every canonical .swift file under SCANNED_CANON_DIRS must be accounted for by

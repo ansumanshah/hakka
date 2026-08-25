@@ -13,7 +13,7 @@
  * imports count — they are equally copy-pasteable.
  */
 import { readdirSync, readFileSync, existsSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -43,45 +43,70 @@ const packageEntries = {
  * `export … from './x'` so barrel files resolve. Deliberately not a full
  * module graph: one level covers how these packages are laid out, and a
  * checker nobody can debug is worse than a shallow one.
+ *
+ * A named re-export (`export { X } from './y'`) is only trusted after `./y`
+ * is resolved and shown to actually export `X` — otherwise a renamed or
+ * removed re-export would pass silently. Re-exports from a bare package
+ * specifier (e.g. `from 'hakka-core'`) are out of scope for that check, same
+ * as `export *` below: only relative specifiers get followed.
  */
 function exportedNames(pkg) {
   const entry = join(root, packageEntries[pkg])
   if (!existsSync(entry)) return null
+  return resolveExports(entry, 0)
+}
 
+function resolveExports(file, depth) {
   const names = new Set()
-  const visit = (file, depth) => {
-    if (depth > 2 || !existsSync(file)) return
-    const text = readFileSync(file, 'utf8')
+  if (depth > 2) {
+    problems.push(`${relative(root, file)}: re-export chain deeper than 2 hops, cannot verify`)
+    return names
+  }
+  if (!existsSync(file)) {
+    problems.push(`${relative(root, file)}: cannot resolve module`)
+    return names
+  }
+  const text = readFileSync(file, 'utf8')
 
-    for (const match of text.matchAll(/export\s+(?:type\s+)?\{([^}]*)\}(?:\s+from\s+'([^']+)')?/g)) {
-      for (const raw of match[1].split(',')) {
-        const name = raw
-          .trim()
-          .split(/\s+as\s+/)
-          .pop()
-          ?.trim()
-        if (name) names.add(name.replace(/^type\s+/, ''))
+  for (const match of text.matchAll(/export\s+(?:type\s+)?\{([^}]*)\}(?:\s+from\s+'([^']+)')?/g)) {
+    const fromSpec = match[2]
+    const isRelative = fromSpec?.startsWith('.')
+    const sourceNames = isRelative ? resolveExports(resolveRelative(file, fromSpec), depth + 1) : null
+
+    for (const raw of match[1].split(',')) {
+      const trimmed = raw.trim().replace(/^type\s+/, '')
+      if (!trimmed) continue
+      const parts = trimmed.split(/\s+as\s+/)
+      const localName = parts[0]?.trim()
+      const publicName = (parts[1] ?? parts[0])?.trim()
+      if (!publicName) continue
+
+      if (sourceNames && !sourceNames.has(localName)) {
+        problems.push(
+          `${relative(root, file)}: re-exports '${localName}' from '${fromSpec}', but '${fromSpec}' does not export it`,
+        )
+        continue
       }
-    }
-    // `export const foo`, `export function foo`, `export class Foo`, …
-    for (const match of text.matchAll(
-      /export\s+(?:declare\s+)?(?:const|function|class|interface|type|enum)\s+(\w+)/g,
-    )) {
-      names.add(match[1])
-    }
-    // `export * from './x'` — follow it, since the names live there.
-    for (const match of text.matchAll(/export\s+\*\s+from\s+'(\.[^']+)'/g)) {
-      visit(resolveRelative(file, match[1]), depth + 1)
+      names.add(publicName)
     }
   }
+  // `export const foo`, `export function foo`, `export async function foo`, `export class Foo`, …
+  for (const match of text.matchAll(
+    /export\s+(?:declare\s+)?(?:async\s+)?(?:const|function|class|interface|type|enum)\s+(\w+)/g,
+  )) {
+    names.add(match[1])
+  }
+  // `export * from './x'` — follow it, since the names live there.
+  for (const match of text.matchAll(/export\s+\*\s+from\s+'(\.[^']+)'/g)) {
+    for (const name of resolveExports(resolveRelative(file, match[1]), depth + 1)) names.add(name)
+  }
 
-  visit(entry, 0)
   return names
 }
 
 function resolveRelative(fromFile, spec) {
   const base = join(dirname(fromFile), spec)
-  for (const candidate of [`${base}.ts`, join(base, 'index.ts')]) {
+  for (const candidate of [`${base}.ts`, `${base}.tsx`, join(base, 'index.ts')]) {
     if (existsSync(candidate)) return candidate
   }
   return base

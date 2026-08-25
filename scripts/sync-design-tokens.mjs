@@ -206,15 +206,7 @@ function emitCSS() {
     ...Object.entries(metrics.radius).map(([k, v]) => [`radius-${k}`, `${v}px`]),
     ['radius-circle', '50%'],
     // Hugs a glyph to its label tighter than `space-xs` — pill interiors only.
-    ['space-xxs', '2px'],
-    ['space-xs', '4px'],
-    ['space-sm', '6px'],
-    ['space-md', '8px'],
-    ['space-ml', '10px'],
-    ['space-lg', '12px'],
-    ['space-ll', '14px'],
-    ['space-xl', '16px'],
-    ['space-xxl', '20px'],
+    ...Object.entries(metrics.spacing).map(([k, v]) => [`space-${k}`, `${v}px`]),
     // The panel's left/right edge. Every top-level row, section title and list
     // row aligns here — never a bare `space-*` step, so no component can pick
     // its own page edge.
@@ -247,11 +239,13 @@ function emitCSS() {
     ['ctl-h-sm', '20px'],
     // Devtools-tight default: buttons (incl. primary), inputs, selects,
     // seg-buttons. See web-control-standardization-2026-08.md "Target system".
-    ['ctl-h-md', '28px'],
+    // Derived from metrics.controlHeight (md/field/bar) so it can't drift
+    // from the Swift/Kotlin/RN copy the way a hand-typed literal could.
+    ['ctl-h-md', `${metrics.controlHeight.md}px`],
     ['ctl-h', '26px'],
     ['ctl-h-lg', '32px'],
-    ['ctl-h-xl', '36px'],
-    ['ctl-h-tap', '44px'],
+    ['ctl-h-xl', `${metrics.controlHeight.field}px`],
+    ['ctl-h-tap', `${metrics.controlHeight.bar}px`],
     // Default panel height on a mobile-width floating panel (< 680px) — a
     // fixed 60% fraction, not the browser's own concept of "medium," chosen
     // to match iOS's custom UISheetPresentationController detent and
