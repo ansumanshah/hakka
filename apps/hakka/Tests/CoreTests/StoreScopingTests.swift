@@ -127,6 +127,18 @@ struct StoreScopingTests {
         #expect(!slug.hasSuffix("-"))
     }
 
+    /// `maxSlugLength` is documented as a UTF-8 byte budget for macOS's
+    /// 255-byte filename limit, not just a Character count. A slug built
+    /// entirely from CJK scalars (3 bytes each in UTF-8) is the case that
+    /// tells the two apart: capped at 200 *Characters* it would still be 600
+    /// bytes, well past the limit the doc comment claims to enforce.
+    @Test("a CJK name's slug stays within the byte budget, not just the character cap")
+    func slugIsCappedByBytesNotCharactersForWideScalars() {
+        let slug = CollectionFileNaming.slug(for: String(repeating: "請", count: 500))
+
+        #expect(slug.utf8.count <= CollectionFileNaming.maxSlugLength, "a slug under the Character cap still exceeded the 255-byte filename limit")
+    }
+
     /// Truncation must not turn two distinct long names into one file.
     @Test("two long names that share a prefix still get distinct files")
     func longNamesStillDisambiguate() async throws {

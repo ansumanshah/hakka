@@ -9,15 +9,14 @@ import SwiftUI
 /// no delta grammar to join and show the raw events alone.
 struct DetailSseTabView: View {
     @State private var showsRawEvents = false
+    /// Parsed/assembled lazily by `.task(id:)` below, keyed to `record.id` —
+    /// not eagerly in `init`, which reran on every ancestor re-render (any
+    /// observed `AppModel` field, not just the selected record), re-parsing
+    /// a potentially large event stream on the main thread each time.
+    @State private var events: [SseEvent] = []
+    @State private var assembled: AssembledStream?
 
-    private let events: [SseEvent]
-    private let assembled: AssembledStream?
-
-    init(record: NetworkRequest) {
-        let parsed = SseEventParser.parse(record.responseBody)
-        events = parsed
-        assembled = DetailSseTabView.assemble(provider: detectLlmProvider(url: record.url)?.id, events: parsed)
-    }
+    let record: NetworkRequest
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
@@ -26,6 +25,11 @@ struct DetailSseTabView: View {
                 AssembledMessageSection(assembled: assembled)
             }
             RawEventList(events: events, isExpanded: $showsRawEvents)
+        }
+        .task(id: record.id) {
+            let parsed = SseEventParser.parse(record.responseBody)
+            events = parsed
+            assembled = Self.assemble(provider: detectLlmProvider(url: record.url)?.id, events: parsed)
         }
     }
 

@@ -156,7 +156,19 @@ final class PauseInboxModel {
         timeouts[pauseId] = Task { [weak self] in
             try? await Task.sleep(for: timeout)
             guard !Task.isCancelled, let self else { return }
-            guard let current = self.entries.first(where: { $0.pauseId == pauseId }) else { return }
+            // The pause may have vanished from `entries` without ever going
+            // through `resolve(_:command:reason:)` — e.g. removed directly
+            // from the store by another path. `resolve` is what normally
+            // clears this watchdog's own `timeouts[pauseId]` slot
+            // (`cancelTimeout`), so this early-exit path must clear it too:
+            // otherwise the slot leaks forever, and if the same pauseId is
+            // ever re-ingested, `scheduleTimeoutIfNeeded`'s `timeouts[...] ==
+            // nil` guard sees the stale entry and silently skips scheduling
+            // a fresh watchdog for it.
+            guard let current = self.entries.first(where: { $0.pauseId == pauseId }) else {
+                self.timeouts.removeValue(forKey: pauseId)
+                return
+            }
             let minutes = max(1, Int(timeout.components.seconds) / 60)
             self.resolve(current, command: .breakpointAbort(pauseId: pauseId), reason: "Timed out after \(minutes) min")
         }

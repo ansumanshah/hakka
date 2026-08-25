@@ -142,6 +142,10 @@ public final class BridgeConnection: BridgeRelayPeer, @unchecked Sendable {
         )
     }
 
+    public func close() {
+        connection.cancel()
+    }
+
     // MARK: - Receive loop
 
     private func receiveNext() {

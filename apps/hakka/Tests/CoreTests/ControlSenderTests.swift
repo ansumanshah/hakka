@@ -22,6 +22,8 @@ private final class FakeDevice: BridgeRelayPeer, @unchecked Sendable {
         _sent.append(raw)
         lock.unlock()
     }
+
+    func close() {}
 }
 
 /// The desktop's control send path: typed command -> encoded frame ->

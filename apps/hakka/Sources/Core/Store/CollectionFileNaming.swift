@@ -15,6 +15,14 @@ enum CollectionFileNaming {
     /// name made `write` fail with a bare "File name too long", which aborted
     /// the save partway through the tree — some nodes written, the rest and
     /// the stale-entry prune skipped.
+    ///
+    /// That ASCII claim is load-bearing, not decorative: `slug(for:)` only
+    /// ever keeps a scalar that is both ASCII and alphanumeric, never a
+    /// non-ASCII member of `CharacterSet.alphanumerics` (CJK and other
+    /// multi-byte scripts count as "alphanumeric" too). Keeping any of those
+    /// would let a name well under `maxSlugLength` *Characters* still blow
+    /// past 255 UTF-8 *bytes* on disk — the same "File name too long" abort
+    /// this cap exists to prevent, just triggered by width instead of length.
     static let maxSlugLength = 200
 
     static func slug(for name: String) -> String {
@@ -22,7 +30,7 @@ enum CollectionFileNaming {
         result.reserveCapacity(name.count)
         var lastWasDash = false
         for scalar in name.lowercased().unicodeScalars {
-            if CharacterSet.alphanumerics.contains(scalar) {
+            if scalar.isASCII, CharacterSet.alphanumerics.contains(scalar) {
                 result.unicodeScalars.append(scalar)
                 lastWasDash = false
             } else if !result.isEmpty, !lastWasDash {

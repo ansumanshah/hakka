@@ -131,8 +131,15 @@ public actor BridgeServer {
         self.listener = listener
     }
 
-    public func stop() {
+    /// Stops accepting new connections AND disconnects every already-accepted
+    /// one. `listener?.cancel()` alone only stops the listener — accepted
+    /// `NWConnection`s are independent objects Network.framework keeps alive
+    /// on their own, so without the `hub.closeAllPeers()` below, a device
+    /// connected before `stop()` kept relaying frames through `hub`
+    /// indefinitely even though `isRunning` had already gone `false`.
+    public func stop() async {
         listener?.cancel()
         listener = nil
+        await hub.closeAllPeers()
     }
 }

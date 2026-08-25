@@ -111,10 +111,38 @@ private struct BridgeStorageEnvelope: Decodable {
     let payload: StorageSnapshot
 }
 
+/// Whether `payload`'s JSON shape is the one `kind` requires on the wire,
+/// matching `parseBridgeMessage` in `protocol.ts` exactly — which is NOT the
+/// same rule for every kind. `.console` requires an array
+/// (`Array.isArray(payload)`, `BridgeFrame.console`'s doc comment). `.storage`
+/// is the only kind that requires a non-array object (`typeof payload ===
+/// 'object' && payload !== null && !Array.isArray(payload)`). `.request`,
+/// `.span`, and `.control` only check `typeof payload === 'object' && payload
+/// !== null` — and in JS, `typeof` on an array is also `'object'`, so those
+/// three kinds accept either an object OR an array on the wire; only a JSON
+/// scalar (string/number/bool) is rejected for them, same as `.storage`.
+/// Before this existed, the shallow check accepted either shape for every
+/// kind, so this hub relayed frames `protocol.ts` would drop as malformed
+/// (e.g. `{"type":"storage","payload":[...]}`) — the two hubs disagreeing on
+/// what counts as parseable. Narrowing `.request`/`.span`/`.control` to
+/// non-array objects as well would reintroduce that exact disagreement in
+/// the opposite direction, dropping array-payload frames `protocol.ts`
+/// relays.
+private func payloadShapeMatches(kind: BridgeFrameKind, payload: Any) -> Bool {
+    switch kind {
+    case .console:
+        payload is [Any]
+    case .storage:
+        payload is [String: Any]
+    case .request, .span, .control:
+        payload is [String: Any] || payload is [Any]
+    }
+}
+
 /// Parse one raw WebSocket text frame into a typed `BridgeFrame`. Returns
 /// `nil` for anything that does not satisfy the shallow wire contract —
 /// malformed JSON, a missing/unrecognized `type`, a missing/null `payload`,
-/// or a `payload` that isn't a JSON object/array — mirroring
+/// or a `payload` shaped wrong for its `kind` — mirroring
 /// `parseBridgeMessage` in `protocol.ts` exactly, including that a `.request`
 /// frame's `payload` is only checked shallowly here: it does NOT have to
 /// satisfy `NetworkRequest`'s full shape to count as parseable (that would
@@ -129,7 +157,7 @@ public func parseBridgeFrame(_ raw: String, maxBytes: Int = BridgeWireLimits.max
           let typeRaw = obj["type"] as? String,
           let kind = BridgeFrameKind(rawValue: typeRaw),
           let payload = obj["payload"], !(payload is NSNull),
-          payload is [String: Any] || payload is [Any]
+          payloadShapeMatches(kind: kind, payload: payload)
     else {
         return nil
     }

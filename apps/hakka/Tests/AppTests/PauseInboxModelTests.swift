@@ -210,6 +210,44 @@ struct PauseInboxModelTimeoutTests {
         #expect(model.deliveryNote?.contains("Timed out") == true)
     }
 
+    /// Deferred-macos item #5: a pause that vanishes from the store WITHOUT
+    /// going through `resolve(_:command:reason:)` (simulated here via a
+    /// direct `pauses.remove`, standing in for any path that drops an entry
+    /// outside resume/abort) must not leak its `timeouts[pauseId]` slot. If
+    /// it leaked, `scheduleTimeoutIfNeeded`'s `timeouts[...] == nil` guard
+    /// would see the stale entry and silently skip arming a fresh watchdog
+    /// the next time the same pauseId is ingested — that second occurrence
+    /// would then never auto-abort. This proves the second occurrence still
+    /// gets its own watchdog.
+    @Test func aVanishedPauseDoesNotLeakItsWatchdogSlot() async throws {
+        let channel = FakePauseChannel()
+        let model = PauseInboxModel(channel: channel, autoAbortTimeout: .milliseconds(30))
+        let observeTask = Task { await model.observe() }
+        await channel.pauses.ingest(requestPause())
+        try await Task.sleep(for: .milliseconds(10))
+
+        // Vanish the pause outside `resolve` — the watchdog's own guard
+        // (`entries.first(where:)`) will find nothing when it fires.
+        await channel.pauses.remove(pauseId: "pause-1")
+        // Let the now-stale watchdog fire and (pre-fix) skip cleanup.
+        try await Task.sleep(for: .milliseconds(60))
+
+        // Re-ingest the same pauseId — a leaked slot silently blocks the
+        // new watchdog from ever being scheduled for it.
+        await channel.pauses.ingest(requestPause())
+        try await Task.sleep(for: .milliseconds(80))
+        observeTask.cancel()
+
+        let abortsForPause1 = channel.sentCommands.filter { command in
+            if case .breakpointAbort(pauseId: "pause-1") = command { return true }
+            return false
+        }
+        #expect(
+            abortsForPause1.count == 1,
+            "the re-ingested pause must get its own watchdog and auto-abort, not be starved by a leaked timeout slot from the vanished one"
+        )
+    }
+
     /// A pause the developer resolves before the timeout must not also fire
     /// a redundant auto-abort afterward.
     @Test func aManuallyResolvedPauseDoesNotAlsoAutoAbort() async throws {

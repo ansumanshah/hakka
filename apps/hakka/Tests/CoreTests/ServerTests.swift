@@ -116,6 +116,39 @@ struct ParseBridgeFrameTests {
         #expect(parseBridgeFrame(raw) == nil)
     }
 
+    /// Mirrors `protocol.ts`'s `type === 'console' && Array.isArray(payload)`
+    /// check: an object-shaped `.console` payload is malformed on the wire,
+    /// same as a string or number payload, even though it would satisfy the
+    /// old kind-agnostic "object or array" shallow check. Before this was
+    /// kind-specific, this hub relayed a frame the TS hub drops.
+    @Test func consolePayloadShapedAsAnObjectDrops() {
+        #expect(parseBridgeFrame(#"{"type":"console","payload":{"id":"log-1"}}"#) == nil)
+    }
+
+    /// `.storage` is the ONLY non-console kind whose payload must be a
+    /// non-array object — mirroring `protocol.ts`'s `!Array.isArray(payload)`
+    /// check, which appears solely on the `storage` branch of
+    /// `parseBridgeMessage`.
+    @Test func storagePayloadShapedAsAnArrayDrops() {
+        #expect(parseBridgeFrame(#"{"type":"storage","payload":[1,2,3]}"#) == nil)
+    }
+
+    /// The other half: `.request`/`.span`/`.control` payloads accept EITHER
+    /// shape. `protocol.ts`'s checks for these three are just `typeof
+    /// payload === 'object' && payload !== null`, and in JS `typeof` on an
+    /// array is also `'object'` — so an array-shaped payload is still
+    /// parseable for these kinds, just as it is in the TS hub. Only a JSON
+    /// scalar (string/number/bool) is malformed for them, covered by
+    /// `malformedFramesDrop`'s `{"type":"control","payload":42}` case.
+    @Test(
+        "array-shaped payload still parses for request/span/control",
+        arguments: ["request", "span", "control"]
+    )
+    func nonConsolePayloadShapedAsAnArrayStillParses(_ type: String) {
+        let frame = parseBridgeFrame(#"{"type":"\#(type)","payload":[1,2,3]}"#)
+        #expect(frame?.kind.rawValue == type)
+    }
+
     @Test func oversizedFrameDrops() {
         let raw = requestFrameJSON()
         #expect(parseBridgeFrame(raw, maxBytes: raw.utf8.count - 1) == nil)
@@ -173,6 +206,7 @@ private final class FakeBridgePeer: BridgeRelayPeer, @unchecked Sendable {
     let id = BridgePeerID()
     private let lock = NSLock()
     private var _sent: [String] = []
+    private var _closed = false
 
     var sent: [String] {
         lock.lock()
@@ -180,9 +214,21 @@ private final class FakeBridgePeer: BridgeRelayPeer, @unchecked Sendable {
         return _sent
     }
 
+    var closed: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return _closed
+    }
+
     func send(_ raw: String) {
         lock.lock()
         _sent.append(raw)
+        lock.unlock()
+    }
+
+    func close() {
+        lock.lock()
+        _closed = true
         lock.unlock()
     }
 }
@@ -373,6 +419,24 @@ struct BridgeHubTests {
         await hub.addPeer(peer)
         #expect(await hub.peerCount == 1)
         await hub.removePeer(peer.id)
+        #expect(await hub.peerCount == 0)
+    }
+
+    /// `BridgeServer.stop()`'s hub-side half: closing every connected peer,
+    /// not just deregistering it. Before `closeAllPeers()` existed, `stop()`
+    /// only cancelled the listener, leaving accepted `NWConnection`s (and
+    /// their `hub` registration) alive indefinitely.
+    @Test func closeAllPeersClosesAndDeregistersEveryPeer() async {
+        let hub = BridgeHub()
+        let a = FakeBridgePeer()
+        let b = FakeBridgePeer()
+        await hub.addPeer(a)
+        await hub.addPeer(b)
+
+        await hub.closeAllPeers()
+
+        #expect(a.closed)
+        #expect(b.closed)
         #expect(await hub.peerCount == 0)
     }
 }

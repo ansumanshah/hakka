@@ -238,6 +238,31 @@ struct BridgeSocketTests {
         #expect(peers == 1, "a live connection must be a relay peer, or control frames reach nobody")
     }
 
+    /// `stop()` used to cancel only the `NWListener`, leaving an
+    /// already-accepted `NWConnection` alive and registered with `hub`
+    /// indefinitely — `isRunning` reported `false` while a previously
+    /// connected device kept relaying frames through the hub forever. This
+    /// drives a real socket connection (not a fake peer) through `stop()` and
+    /// asserts the hub actually drops it.
+    @Test func stoppingTheServerDisconnectsAnAlreadyAcceptedPeer() async throws {
+        let server = BridgeServer(options: BridgeServerOptions(port: 0, advertise: false))
+        try await server.start()
+        let port = try #require(await boundPort(of: server))
+        let stream = await server.hub.subscribeRequests()
+
+        let task = openSocket(port: port)
+        // Round-trip a frame so the connection has certainly reached `.ready`
+        // and registered itself with `hub` — same as `aConnectedClientIsRegisteredAsAPeer`.
+        try await task.send(.string(requestFrame(id: "before-stop", url: "https://before-stop.test")))
+        _ = await nextCapturedRequest(stream)
+        #expect(await server.hub.peerCount == 1, "the client must be registered before stop() runs, or this proves nothing")
+
+        await server.stop()
+
+        #expect(await server.hub.peerCount == 0, "stop() must disconnect an already-accepted peer, not just the listener")
+        task.cancel(with: .goingAway, reason: nil)
+    }
+
     /// A peer that never proves the configured token must never become a
     /// relay peer — `BridgeServerOptions.token`'s whole point. Before this
     /// gate existed, `BridgeConnection` registered every connection with

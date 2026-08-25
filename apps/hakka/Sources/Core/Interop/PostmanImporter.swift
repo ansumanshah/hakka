@@ -24,6 +24,15 @@ public enum PostmanImporter {
     }
 
     private static func request(name: String, value: Any) -> RequestSpec {
+        // Postman Collection v2.x's schema allows `item.request` to be a bare
+        // URL string instead of the full request object — just the URL, no
+        // method (Postman itself defaults that case to GET). Handled before
+        // the object guard below, which used to be the only shape checked,
+        // silently discarding the string form into `url: ""`.
+        if let urlString = value as? String {
+            let (base, query) = Self.url(from: urlString)
+            return RequestSpec(name: name, method: .get, url: base, query: query)
+        }
         guard let request = value as? [String: Any] else {
             return RequestSpec(name: name, method: .get, url: "")
         }

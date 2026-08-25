@@ -16,6 +16,12 @@ public protocol BridgeRelayPeer: Sendable {
     /// Deliver `raw` to this peer. Must not block or throw — a slow/dead
     /// peer must never stall ingestion for every other peer.
     func send(_ raw: String)
+    /// Terminate this peer's underlying connection. `BridgeHub.closeAllPeers()`
+    /// calls this on every registered peer — the `BridgeServer.stop()` half
+    /// of shutdown, so an already-accepted connection is actually
+    /// disconnected instead of staying live and registered here after the
+    /// listener reports itself stopped.
+    func close()
 }
 
 /// Outcome of ingesting one raw frame — returned so callers/tests can
@@ -134,6 +140,18 @@ public actor BridgeHub {
         guard peers.removeValue(forKey: id) != nil else { return }
         for continuation in deviceEventSubscribers.values {
             continuation.yield(.disconnected(id))
+        }
+    }
+
+    /// Closes and deregisters every currently connected peer — the
+    /// `BridgeServer.stop()` counterpart to `addPeer`/`removePeer`. Without
+    /// this, stopping the listener left every already-accepted connection
+    /// live and registered here, relaying frames indefinitely even though
+    /// `BridgeServer.isRunning` had already gone false.
+    public func closeAllPeers() {
+        for id in Array(peers.keys) {
+            peers[id]?.close()
+            removePeer(id)
         }
     }
 

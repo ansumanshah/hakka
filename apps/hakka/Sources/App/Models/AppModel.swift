@@ -106,9 +106,20 @@ final class AppModel {
     /// and its response stay inspectable in the editor — and sends it
     /// immediately. `saveCaptured` loads the editor synchronously, so the
     /// draft is ready when the send runs.
+    ///
+    /// The replayed id is captured synchronously, before the `Task` spawns —
+    /// an unstructured `Task` does not start running until this MainActor
+    /// turn yields, so a sidebar selection change landing in that window
+    /// would otherwise overwrite `editor.draft` before `sendActiveRequest`
+    /// ever read it, silently sending the newly selected request instead of
+    /// the replay.
     func replayCaptured(_ request: NetworkRequest) {
         saveCaptured(request)
-        Task { await sendActiveRequest() }
+        let replayedID = editor.draft?.id
+        Task {
+            guard editor.draft?.id == replayedID else { return }
+            await sendActiveRequest()
+        }
     }
 
     /// Transient feedback from the last capture → mock promotion, shown by

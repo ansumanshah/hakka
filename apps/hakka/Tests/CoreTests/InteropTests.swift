@@ -452,6 +452,28 @@ struct PostmanImporterTests {
             try PostmanImporter.parse(Data())
         }
     }
+
+    /// Postman Collection v2.x schemas allow `item.request` to be a bare URL
+    /// string rather than the full request object. Before this was handled
+    /// explicitly, the object-only guard discarded it, importing `url: ""`.
+    @Test func requestAsAPlainURLStringImportsWithThatURL() throws {
+        let fixture = #"""
+        {
+          "info": { "name": "String Request API" },
+          "item": [
+            { "name": "Get root", "request": "https://api.example.com/root?active=true" }
+          ]
+        }
+        """#
+        let collection = try PostmanImporter.parse(Data(fixture.utf8))
+        guard case let .request(spec) = collection.nodes.first else {
+            Issue.record("expected a request node")
+            return
+        }
+        #expect(spec.method == .get)
+        #expect(spec.url == "https://api.example.com/root")
+        #expect(spec.query.first { $0.name == "active" }?.value == "true")
+    }
 }
 
 // MARK: - OpenAPI importer
