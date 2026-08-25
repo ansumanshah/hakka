@@ -54,9 +54,13 @@ export interface HttpInterceptorOptions {
    * `false` return sends the original call straight through untouched — a
    * gated-out request carries none of Hakka's headers either. Mirrors
    * `hakka-core`'s fetch interceptor gate so `serverCapture.ts` can compose
-   * one gate function shared by both interceptors.
+   * one gate function shared by both interceptors — a plain `() => boolean`
+   * gate (that one's own signature) is still valid here, the `url` argument
+   * is opt-in for a gate that wants to test it (e.g. `prod.ts`'s
+   * `captureUrls` allowlist, folded in early instead of discarding after a
+   * full capture+redact pass in `onRequest`).
    */
-  shouldCapture?: () => boolean
+  shouldCapture?: (url: string) => boolean
   /**
    * Overrides {@link TIMEOUT_FALLBACK_GRACE_MS} — the grace window after a
    * socket 'timeout' before the interceptor emits a best-effort timeout
@@ -103,8 +107,19 @@ function parseArgs(args: unknown[], defaultProtocol: string): ParsedArgs {
   const method = ((options.method as string) ?? 'GET').toUpperCase() as HttpMethod
 
   const rawHeaders: Record<string, string> = {}
-  const headers = options.headers as Record<string, unknown> | undefined
-  if (headers) {
+  const headers = options.headers as Record<string, unknown> | unknown[] | undefined
+  if (Array.isArray(headers)) {
+    // Node also accepts a flat [name, value, name, value, ...] array for
+    // `options.headers` (see `injectHeaders`'s identical handling below) —
+    // spreading it via `Object.entries` on the object branch treats it as an
+    // array-like Record, producing index keys ({0: name, 1: value, ...})
+    // instead of the actual header names. Read it in name/value pairs instead.
+    for (let i = 0; i < headers.length; i += 2) {
+      const k = headers[i]
+      const v = headers[i + 1]
+      if (k != null && v != null) rawHeaders[String(k)] = String(v)
+    }
+  } else if (headers) {
     for (const [k, v] of Object.entries(headers)) {
       if (v != null) rawHeaders[k] = Array.isArray(v) ? v.join(', ') : String(v)
     }
@@ -138,11 +153,33 @@ function injectHeaders(args: unknown[], extra: Record<string, string>): unknown[
   }
 
   const opts = { ...(out[optIdx] as Record<string, unknown>) }
-  const headers: Record<string, unknown> = { ...(opts.headers as Record<string, unknown> | undefined) }
-  for (const [k, v] of Object.entries(extra)) {
-    if (headers[k] == null) headers[k] = v
+  const existingHeaders = opts.headers
+  if (Array.isArray(existingHeaders)) {
+    // Node also accepts a flat [name, value, name, value, ...] array for
+    // `options.headers` — spreading it into a Record (the object branch
+    // below) turns it into `{0: name, 1: value, ...}`, which Node then
+    // serializes as broken, numeric-keyed header names. Keep it flat:
+    // append any extra header whose name isn't already present, without
+    // disturbing the caller's own entries or their order.
+    const headers = [...existingHeaders]
+    for (const [k, v] of Object.entries(extra)) {
+      let present = false
+      for (let i = 0; i < headers.length; i += 2) {
+        if (String(headers[i]).toLowerCase() === k.toLowerCase()) {
+          present = true
+          break
+        }
+      }
+      if (!present) headers.push(k, v)
+    }
+    opts.headers = headers
+  } else {
+    const headers: Record<string, unknown> = { ...(existingHeaders as Record<string, unknown> | undefined) }
+    for (const [k, v] of Object.entries(extra)) {
+      if (headers[k] == null) headers[k] = v
+    }
+    opts.headers = headers
   }
-  opts.headers = headers
   out[optIdx] = opts
   return out
 }
@@ -198,8 +235,18 @@ function instrument(
 ): ClientRequest {
   const preParsed = parseArgs(args, defaultProtocol)
 
-  // Skip Hakka's own bridge sockets to avoid self-capture loops.
-  if (bridgeHosts.some((h) => preParsed.url.includes(h))) {
+  // Skip Hakka's own bridge sockets to avoid self-capture loops. Exact host
+  // match, not substring — `preParsed.url.includes(h)` would also match a
+  // URL that merely CONTAINS a bridge host string elsewhere (a query param,
+  // or as a prefix of a longer port, e.g. `localhost:89890`), silently
+  // routing an unrelated request through the skip path.
+  let requestHost: string | null
+  try {
+    requestHost = new URL(preParsed.url).host
+  } catch {
+    requestHost = null
+  }
+  if (requestHost !== null && bridgeHosts.includes(requestHost)) {
     return original(...args)
   }
 
@@ -212,7 +259,7 @@ function instrument(
   if (shouldCapture) {
     let capture = true
     try {
-      capture = shouldCapture()
+      capture = shouldCapture(preParsed.url)
     } catch {
       capture = false
     }
@@ -238,21 +285,32 @@ function instrument(
 
   const req = original(...finalArgs)
 
-  // Capture the request body by tapping write()/end() (bounded).
+  // Capture the request body by tapping write()/end() (bounded). Chunks are
+  // buffered as raw bytes and decoded ONCE at emit time, below — decoding
+  // each write() call independently corrupts any multibyte UTF-8 sequence
+  // Node splits across chunk boundaries (`write(part1); write(part2)`),
+  // producing replacement characters, and force-decodes binary payloads as
+  // UTF-8 garbage either way.
   let bodyBytes = 0
-  const bodyParts: string[] = []
-  // Tracked incrementally rather than re-joining `bodyParts` on every chunk:
+  const bodyParts: Buffer[] = []
+  // Tracked incrementally rather than re-summing `bodyParts` on every chunk:
   // that made capture quadratic in the number of writes, on the hot path of
   // every outgoing request, purely to answer "how much have I kept so far".
-  let keptLength = 0
+  // Byte-counted (not char-counted) so it lines up with `maxBodySize`, a byte
+  // cap, when the parts are concatenated and truncated at emit time.
+  let keptBytes = 0
   const capture = (chunk: unknown): void => {
     if (bodyBytes >= maxBodySize || chunk == null || typeof chunk === 'function') return
-    const str = typeof chunk === 'string' ? chunk : Buffer.isBuffer(chunk) ? chunk.toString('utf8') : ''
-    if (!str) return
-    bodyBytes += Buffer.byteLength(str)
-    if (keptLength < maxBodySize) {
-      bodyParts.push(str)
-      keptLength += str.length
+    // Copy rather than hold the caller's own Buffer reference — a chunk
+    // could in principle be reused/mutated by the caller after write()
+    // returns, and this capture must not observe that.
+    const buf =
+      typeof chunk === 'string' ? Buffer.from(chunk, 'utf8') : Buffer.isBuffer(chunk) ? Buffer.from(chunk) : null
+    if (!buf || buf.length === 0) return
+    bodyBytes += buf.length
+    if (keptBytes < maxBodySize) {
+      bodyParts.push(buf)
+      keptBytes += buf.length
     }
   }
   const origWrite = req.write.bind(req)
@@ -267,6 +325,27 @@ function instrument(
   req.end = ((chunk: unknown, ...rest: unknown[]) => {
     capture(chunk)
     return (origEnd as (...a: unknown[]) => ClientRequest)(chunk, ...rest)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  }) as any
+
+  // Headers set imperatively via `req.setHeader()` — a common pattern with
+  // libraries/SDKs that build the request object first and set headers
+  // afterward — are otherwise invisible to `requestHeaders` above, which is
+  // a one-time snapshot taken before `original()` even returns `req`. Merge
+  // them in as they're set, redacted the same way as the construction-time
+  // headers. (Trace headers don't need re-injecting here: `injectHeaders`
+  // already wrote them into the options object `original()` was called
+  // with, above, so they're on the request before any `setHeader()` call
+  // could happen.)
+  const origSetHeader = req.setHeader.bind(req)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  req.setHeader = ((name: string, value: number | string | readonly string[]) => {
+    if (value != null) {
+      const v = Array.isArray(value) ? value.join(', ') : String(value)
+      rawHeaders[name] = v
+      requestHeaders[name] = isSensitiveHeader(name, redactHeaders) ? '[REDACTED]' : v
+    }
+    return origSetHeader(name, value)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   }) as any
 
@@ -320,7 +399,7 @@ function instrument(
     emitted = true
     const endTime = Date.now()
     const duration = endTime - startTime
-    const rawBody = bodyParts.length > 0 ? bodyParts.join('').slice(0, maxBodySize) : null
+    const rawBody = bodyParts.length > 0 ? Buffer.concat(bodyParts).subarray(0, maxBodySize).toString('utf8') : null
     const redactionFields = getBodyRedactionFields()
     const requestBody = rawBody != null ? (redactJsonBody(rawBody, redactionFields) ?? rawBody) : null
     const record: NetworkRequest = {

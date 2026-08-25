@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import http from 'node:http'
 import type { Server } from 'node:http'
+import net from 'node:net'
 
 import type { NetworkRequest } from 'hakka-core'
 import { setTraceProvider } from 'hakka-core'
@@ -577,5 +578,213 @@ describe('http interceptor', () => {
 
     req.destroy()
     server.close()
+  })
+
+  test('captures a multibyte UTF-8 body split across write() calls without corrupting it', async () => {
+    const server = http.createServer((req, res) => {
+      req.on('data', () => {})
+      req.on('end', () => res.end('ok'))
+    })
+    const port = await listen(server)
+    const records: NetworkRequest[] = []
+    enableHttpInterceptor((r) => records.push(r), 1000, [])
+
+    // '€' (U+20AC) is 3 UTF-8 bytes (E2 82 AC). Splitting the buffer inside
+    // that sequence, across two write() calls, is exactly what a naive
+    // per-chunk `.toString('utf8')` corrupts into replacement characters.
+    const text = 'price: €100'
+    const full = Buffer.from(text, 'utf8')
+    const euroStart = full.indexOf(Buffer.from('€', 'utf8'))
+    const splitAt = euroStart + 1 // lands inside the 3-byte sequence
+
+    await new Promise<void>((resolve, reject) => {
+      const req = http.request({ host: '127.0.0.1', port, path: '/split-utf8', method: 'POST' }, (resp) => {
+        resp.on('data', () => {})
+        resp.on('end', () => resolve())
+      })
+      req.on('error', reject)
+      req.write(full.subarray(0, splitAt))
+      req.write(full.subarray(splitAt))
+      req.end()
+    })
+    await settle()
+    server.close()
+
+    const rec = records.find((r) => r.url.includes('/split-utf8'))
+    expect(rec?.requestBody).toBe(text)
+    // Byte-accounted, not char-accounted — matters once the body has any
+    // multibyte content at all, where char length and byte length diverge.
+    expect(rec?.requestBodySize).toBe(Buffer.byteLength(text, 'utf8'))
+  })
+
+  test('injectHeaders appends onto array-form options.headers without corrupting it into numeric-keyed junk', async () => {
+    // A real HTTP server can't be used as the SUT here: Node's own
+    // `http.request` doesn't add a default `Host` header when `headers` is
+    // array-form (independent of this interceptor), so any compliant server
+    // 400s the request regardless of whether the array survives intact. A
+    // raw socket, asserting on the literal bytes sent, isolates the one
+    // thing this test cares about.
+    let rawRequest = ''
+    const server = net.createServer((socket) => {
+      let buf = ''
+      socket.on('data', (d) => {
+        buf += d.toString('utf8')
+        if (buf.includes('\r\n\r\n') && !rawRequest) {
+          rawRequest = buf
+          socket.end('HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok')
+        }
+      })
+    })
+    const port = await new Promise<number>((resolve) =>
+      server.listen(0, '127.0.0.1', () => resolve((server.address() as { port: number }).port)),
+    )
+
+    setTraceProvider(() => 'T-ARR')
+    enableHttpInterceptor(() => {}, 1000, [])
+
+    await new Promise<void>((resolve) => {
+      const req = http.request({
+        host: '127.0.0.1',
+        port,
+        path: '/arr',
+        method: 'GET',
+        headers: ['X-Foo', 'bar'],
+      })
+      req.on('response', (resp) => {
+        resp.on('data', () => {})
+        resp.on('end', resolve)
+      })
+      req.on('error', () => resolve())
+      req.end()
+    })
+    await settle()
+    server.close()
+
+    expect(rawRequest).toContain('X-Foo: bar')
+    expect(rawRequest).toContain('x-hakka-trace: T-ARR')
+    // The bug this guards: spreading an array into a Record turns it into
+    // {0: name, 1: value, ...}, which serializes as numeric header names.
+    expect(rawRequest).not.toMatch(/\r\n0:/)
+    expect(rawRequest).not.toMatch(/\r\n1:/)
+  })
+
+  test('parseArgs reads array-form options.headers into rec.requestHeaders correctly, not numeric-keyed junk', async () => {
+    // Companion to the wire-level test above: that one only proves the bytes
+    // sent over the socket survive array-form headers intact. `parseArgs`
+    // (a SEPARATE code path feeding the captured record shown in Hakka's own
+    // inspector, not the request Node actually sends) had the identical bug —
+    // `Object.entries(['X-Foo', 'bar'])` yields {0: 'X-Foo', 1: 'bar'} — so a
+    // request with array-form headers could send correctly on the wire while
+    // still showing garbage in `rec.requestHeaders`.
+    const server = http.createServer((_req, res) => res.end('{}'))
+    const port = await listen(server)
+
+    const records: NetworkRequest[] = []
+    enableHttpInterceptor((r) => records.push(r), 1000, [])
+
+    await new Promise<void>((resolve) => {
+      const req = http.request({
+        host: '127.0.0.1',
+        port,
+        path: '/arr-record',
+        method: 'GET',
+        headers: ['X-Foo', 'bar', 'X-Baz', 'qux'],
+      })
+      req.on('response', (resp) => {
+        resp.on('data', () => {})
+        resp.on('end', resolve)
+      })
+      req.on('error', () => resolve())
+      req.end()
+    })
+    await settle()
+    server.close()
+
+    const rec = records.find((r) => r.url.includes('/arr-record'))
+    expect(rec?.requestHeaders?.['X-Foo']).toBe('bar')
+    expect(rec?.requestHeaders?.['X-Baz']).toBe('qux')
+    // The bug this guards: numeric-keyed junk instead of the real header names.
+    expect(rec?.requestHeaders?.['0']).toBeUndefined()
+    expect(rec?.requestHeaders?.['1']).toBeUndefined()
+  })
+
+  test('a URL that merely CONTAINS a bridge host string (e.g. in a query value) is still captured', async () => {
+    const server = http.createServer((_req, res) => res.end('ok'))
+    const port = await listen(server)
+    const records: NetworkRequest[] = []
+    enableHttpInterceptor((r) => records.push(r), 1000, [])
+
+    await new Promise<void>((resolve, reject) => {
+      // Real host is 127.0.0.1:<port> — not a bridge host — but the URL
+      // string contains a default bridge host ('localhost:8989') as a query
+      // value. Substring matching would wrongly skip this request.
+      const req = http.request(`http://127.0.0.1:${port}/?cb=localhost:8989`, (resp) => {
+        resp.on('data', () => {})
+        resp.on('end', () => resolve())
+      })
+      req.on('error', reject)
+      req.end()
+    })
+    await settle()
+    server.close()
+
+    expect(records.some((r) => r.url.includes('cb=localhost:8989'))).toBe(true)
+  })
+
+  test('shouldCapture receives the in-flight URL', async () => {
+    const server = http.createServer((_req, res) => res.end('ok'))
+    const port = await listen(server)
+    const records: NetworkRequest[] = []
+    const seenUrls: string[] = []
+    enableHttpInterceptor((r) => records.push(r), 1000, [], undefined, {
+      shouldCapture: (url) => {
+        seenUrls.push(url)
+        return true
+      },
+    })
+
+    await new Promise<void>((resolve) => {
+      const req = http.request({ host: '127.0.0.1', port, path: '/gate-url' }, (resp) => {
+        resp.on('data', () => {})
+        resp.on('end', () => resolve())
+      })
+      req.end()
+    })
+    await settle()
+    server.close()
+
+    expect(seenUrls.some((u) => u.includes('/gate-url'))).toBe(true)
+    expect(records.some((r) => r.url.includes('/gate-url'))).toBe(true)
+  })
+
+  test('headers set via req.setHeader() after construction are captured and redacted like construction-time headers', async () => {
+    let sawAuth: string | undefined
+    const server = http.createServer((req, res) => {
+      sawAuth = req.headers['authorization'] as string | undefined
+      res.end('ok')
+    })
+    const port = await listen(server)
+    const records: NetworkRequest[] = []
+    enableHttpInterceptor((r) => records.push(r), 1000, ['authorization'])
+
+    await new Promise<void>((resolve, reject) => {
+      const req = http.request({ host: '127.0.0.1', port, path: '/late-header', method: 'GET' }, (resp) => {
+        resp.on('data', () => {})
+        resp.on('end', () => resolve())
+      })
+      req.on('error', reject)
+      // Set AFTER construction — the case the initial options.headers
+      // snapshot can't see.
+      req.setHeader('X-Late', 'hello')
+      req.setHeader('authorization', 'super-secret')
+      req.end()
+    })
+    await settle()
+    server.close()
+
+    expect(sawAuth).toBe('super-secret') // the real request still carries it
+    const rec = records.find((r) => r.url.includes('/late-header'))
+    expect(rec?.requestHeaders?.['X-Late']).toBe('hello')
+    expect(rec?.requestHeaders?.['authorization']).toBe('[REDACTED]')
   })
 })

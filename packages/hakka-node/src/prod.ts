@@ -196,7 +196,18 @@ export function startProdCapture(options: ProdCaptureOptions): ProdCaptureHandle
   const previousBodyRedactFields = getBodyRedactionFields()
   configureBodyRedaction([...(options.redactBodyFields ?? PROD_DEFAULT_BODY_REDACT_FIELDS)])
 
-  const interceptorOptions = { shouldCapture: cohort }
+  // Shared by BOTH interceptors: `enableFetchInterceptor` (hakka-core) and
+  // `enableHttpInterceptor` (this package) each call `shouldCapture(url)`
+  // before any capture work (timing, body read/parse/redact) runs — so a
+  // cohort request whose URL isn't on `captureUrls` is skipped at the gate,
+  // not just discarded afterward once `onRequest` sees it. The `url === undefined`
+  // fallback only matters for a hypothetical caller of this composed gate
+  // that can't supply one; both interceptors always do.
+  const httpShouldCapture = (url?: string): boolean => {
+    if (!cohort()) return false
+    return url === undefined || patterns.some((re) => re.test(url))
+  }
+  const interceptorOptions = { shouldCapture: httpShouldCapture }
   const teardowns: Array<() => void> = [() => configureBodyRedaction(previousBodyRedactFields)]
   if (options.captureFetch !== false) {
     teardowns.push(enableFetchInterceptor(onRequest, maxBodySize, redactHeaders, interceptorOptions))

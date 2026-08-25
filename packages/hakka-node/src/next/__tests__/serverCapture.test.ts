@@ -266,4 +266,24 @@ describe('register — NEXT_RUNTIME branching', () => {
       else process.env.NODE_ENV = ORIGINAL
     }
   })
+
+  test('register() also honors options.force in production, matching the main hakka-node entry', async () => {
+    const ORIGINAL = process.env.NODE_ENV
+    process.env.NODE_ENV = 'production'
+    try {
+      const records: NetworkRequest[] = []
+      // No `runtime` passed — only `force`. Mirrors `HakkaNodeOptions.force`
+      // on the main `hakka-node` entry, which this wrapper otherwise ignores.
+      await register({ bridge: false, force: true, sink: (r) => records.push(r) })
+      const server = http.createServer((_req, res) => res.end('{}'))
+      const port = await listen(server)
+      await fetch(`http://127.0.0.1:${port}/prod-forced`)
+      await settle()
+      server.close()
+      expect(records.find((r) => r.url.includes('/prod-forced'))).toBeTruthy()
+    } finally {
+      if (ORIGINAL === undefined) delete process.env.NODE_ENV
+      else process.env.NODE_ENV = ORIGINAL
+    }
+  })
 })

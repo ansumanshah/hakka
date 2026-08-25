@@ -103,10 +103,15 @@ export function stopServerCapture(): void {
  *
  * Starts server capture (Node runtime, with the bridge hub embedded so there's no
  * separate process). On the Edge runtime it captures `fetch` only. No-op in
- * production. Pass options to customize.
+ * production unless `options.runtime` or `options.force` is set — mirrors the
+ * main `hakka-node` entry's `force` escape hatch. Pass options to customize.
+ *
+ * NOTE: reachable through the one-line `hakka-node/next` re-export only on
+ * the `nodejs` runtime — see that module's own doc comment for why the Edge
+ * branch below can't be imported from there.
  */
 export async function register(options: ServerCaptureOptions = {}): Promise<void> {
-  if (process.env.NODE_ENV === 'production' && options.runtime == null) return
+  if (process.env.NODE_ENV === 'production' && options.runtime == null && !options.force) return
   const nextRuntime = process.env.NEXT_RUNTIME
   if (nextRuntime === 'edge') {
     startServerCapture({ ...options, runtime: 'edge', captureHttp: false, embedBridge: false })

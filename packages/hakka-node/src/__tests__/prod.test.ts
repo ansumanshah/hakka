@@ -63,6 +63,40 @@ describe('startProdCapture — cohort AND URL-allowlist gating', () => {
     expect(urls.some((u) => u.includes('/api/carts'))).toBe(false)
   })
 
+  test('cohort + URL-allowlist gating also applies via the http module, not just fetch', async () => {
+    // Exercises `enableHttpInterceptor`'s own `shouldCapture(url)` gate — the
+    // allowlist is composed into it early (before any body capture work),
+    // not only checked afterward in `onRequest`. This asserts the OUTCOME is
+    // identical to the fetch-based test above; it isn't a benchmark.
+    const server = http.createServer((_req, res) => res.end('{}'))
+    const port = await listen(server)
+    const base = `http://127.0.0.1:${port}`
+    const capture = startProdCapture({ captureUrls: [`${base}/api/*`] })
+
+    const get = (path: string): Promise<void> =>
+      new Promise((resolve) => {
+        http.get(`${base}${path}`, (res) => {
+          res.on('data', () => {})
+          res.on('end', () => resolve())
+        })
+      })
+
+    // (a) debug cohort + matching URL → captured
+    await runInTraceContext({ traceId: 'T-A', debug: true }, () => get('/api/users'))
+    // (b) debug cohort but URL NOT on the allowlist → not captured
+    await runInTraceContext({ traceId: 'T-B', debug: true }, () => get('/other/path'))
+    // (c) URL matches, but no debug cohort at all → not captured
+    await get('/api/orders')
+
+    await settle()
+    server.close()
+
+    const urls = capture.getRecords().map((r) => r.url)
+    expect(urls.some((u) => u.includes('/api/users'))).toBe(true)
+    expect(urls.some((u) => u.includes('/other/path'))).toBe(false)
+    expect(urls.some((u) => u.includes('/api/orders'))).toBe(false)
+  })
+
   test('tags captured records with runtime: server by default', async () => {
     const server = http.createServer((_req, res) => res.end('{}'))
     const port = await listen(server)
