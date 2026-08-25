@@ -23,11 +23,17 @@ final class RulesModel {
         self.traffic = traffic
     }
 
-    /// Mirrors the store for as long as the calling task lives. Seeds from
-    /// the current snapshot first — the change stream only yields mutations.
+    /// Mirrors the store for as long as the calling task lives. Subscribes
+    /// BEFORE reading the seed snapshot — a fresh `subscribeChanges()`
+    /// stream (ADR 0013) only yields mutations that happen after it's
+    /// created, so seeding first would risk losing a mutation that lands
+    /// between the read and the subscribe call. Subscribing first can
+    /// instead replay a mutation the seed read already saw, which is
+    /// harmless: `entries = snapshot` is an idempotent full-list assignment.
     func observe() async {
+        let stream = await traffic.rules.subscribeChanges()
         entries = await traffic.rules.rules()
-        for await snapshot in traffic.rules.changes {
+        for await snapshot in stream {
             entries = snapshot
         }
     }

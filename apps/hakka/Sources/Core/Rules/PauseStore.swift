@@ -3,26 +3,42 @@ import HakkaCommon
 
 /// Ordered, observable list of breakpoint pauses currently held on connected
 /// devices, waiting on this desktop to resume or abort them. Mirrors
-/// `RuleStore`'s shape on purpose — same `changes` `AsyncStream` of full
-/// snapshots, `nonisolated` so consuming needs no actor hop — keyed here by
-/// `pauseId` instead of a rule id.
+/// `RuleStore`'s shape on purpose — same `subscribeChanges()`
+/// per-subscription broadcast stream of full snapshots (ADR 0013) — keyed
+/// here by `pauseId` instead of a rule id.
 ///
 /// This store only ever holds local bookkeeping: it never touches the wire
 /// itself (same split as `RuleStore`). `PauseInboxModel` owns sending
 /// `breakpoint.resume`/`.abort` and calls `remove`/`restore` around it.
 public actor PauseStore {
-    public nonisolated let changes: AsyncStream<[PendingPause]>
     private var entries: [PendingPause] = []
-    private let changeContinuation: AsyncStream<[PendingPause]>.Continuation
 
-    public init() {
-        var continuation: AsyncStream<[PendingPause]>.Continuation?
-        changes = AsyncStream { continuation = $0 }
-        changeContinuation = continuation!
-    }
+    // Subscriber continuations, keyed by a subscription id private to that
+    // one `subscribeChanges()` call — same shape as `RuleStore`.
+    private var changeSubscribers: [UUID: AsyncStream<[PendingPause]>.Continuation] = [:]
+
+    public init() {}
 
     deinit {
-        changeContinuation.finish()
+        for continuation in changeSubscribers.values { continuation.finish() }
+    }
+
+    /// Registers a fresh subscription and returns its stream. Only sees
+    /// snapshots yielded *after* this call — a fresh `AsyncStream` starts
+    /// empty, so a consumer that needs the current list first should call
+    /// `pauses()` before iterating (see `PauseInboxModel.observe()`).
+    public func subscribeChanges() -> AsyncStream<[PendingPause]> {
+        let id = UUID()
+        let (stream, continuation) = AsyncStream<[PendingPause]>.makeStream()
+        changeSubscribers[id] = continuation
+        continuation.onTermination = { [weak self] _ in
+            Task { await self?.unsubscribeChanges(id) }
+        }
+        return stream
+    }
+
+    private func unsubscribeChanges(_ id: UUID) {
+        changeSubscribers.removeValue(forKey: id)
     }
 
     public var isEmpty: Bool { entries.isEmpty }
@@ -63,6 +79,8 @@ public actor PauseStore {
     }
 
     private func notifyChanged() {
-        changeContinuation.yield(entries)
+        for continuation in changeSubscribers.values {
+            continuation.yield(entries)
+        }
     }
 }

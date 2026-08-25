@@ -50,11 +50,19 @@ final class PauseInboxModel {
 
     /// Mirrors the store for as long as the calling task lives, scheduling
     /// this desktop's auto-abort watchdog for every pause id that does not
-    /// already have one running.
+    /// already have one running. Subscribes BEFORE reading the seed snapshot
+    /// — a fresh `subscribeChanges()` stream (ADR 0013) only yields
+    /// mutations that happen after it's created, so seeding first would
+    /// risk losing one that lands between the read and the subscribe call.
+    /// Subscribing first can instead replay a mutation the seed read already
+    /// saw; `scheduleTimeoutIfNeeded` is itself idempotent (guards on a
+    /// timeout already running for that id), so a re-seen entry schedules
+    /// nothing twice.
     func observe() async {
+        let stream = await channel.pauses.subscribeChanges()
         entries = await channel.pauses.pauses()
         for entry in entries { scheduleTimeoutIfNeeded(entry) }
-        for await snapshot in channel.pauses.changes {
+        for await snapshot in stream {
             let previousIDs = Set(entries.map(\.pauseId))
             entries = snapshot
             for entry in snapshot where !previousIDs.contains(entry.pauseId) {

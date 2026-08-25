@@ -10,29 +10,47 @@ import HakkaCommon
 /// device-global profile, not an entry in a list, so it goes straight to
 /// `ControlSender` without a store.
 ///
-/// Change signaling follows the hub's pattern (`BridgeHub.requests`): an
-/// `AsyncStream` of post-mutation snapshots, `nonisolated` so consuming it
-/// needs no actor hop. The store is the source of truth; a UI model mirrors
-/// the latest snapshot the way `TrafficModel` mirrors `TrafficStore`.
+/// Change signaling follows `BridgeHub`'s per-subscription broadcast-stream
+/// pattern (ADR 0013): `subscribeChanges()` returns a FRESH `AsyncStream` of
+/// post-mutation snapshots on every call, backed by its own continuation in
+/// `changeSubscribers`, rather than one stream stored for the store's whole
+/// lifetime. A stored single-consumer stream dies for good the instant a
+/// suspended consumer's `next()` is abandoned by cancellation — exactly what
+/// happens to `RulesModel.observe()`'s `for await` when its window closes —
+/// so a later subscriber would see nothing, silently, forever. The store is
+/// the source of truth; a UI model mirrors the latest snapshot the way
+/// `TrafficModel` mirrors `TrafficStore`.
 public actor RuleStore {
-    /// Snapshots after every list mutation (add/replace, enable, disable,
-    /// remove, clear) — not after `recordHit`, which mirrors the device
-    /// engines counting a match without notifying listeners. Each snapshot
-    /// fully describes the list, so a consumer that falls behind and
-    /// re-reads on the next element loses nothing.
-    public nonisolated let changes: AsyncStream<[RuleEntry]>
-
     private var entries: [RuleEntry] = []
-    private let changeContinuation: AsyncStream<[RuleEntry]>.Continuation
 
-    public init() {
-        var continuation: AsyncStream<[RuleEntry]>.Continuation?
-        changes = AsyncStream { continuation = $0 }
-        changeContinuation = continuation!
-    }
+    // Subscriber continuations, keyed by a subscription id private to that
+    // one `subscribeChanges()` call — same shape as `BridgeHub`'s
+    // `requestSubscribers` etc.
+    private var changeSubscribers: [UUID: AsyncStream<[RuleEntry]>.Continuation] = [:]
+
+    public init() {}
 
     deinit {
-        changeContinuation.finish()
+        for continuation in changeSubscribers.values { continuation.finish() }
+    }
+
+    /// Registers a fresh subscription and returns its stream. Only sees
+    /// snapshots yielded *after* this call — unlike the old stored stream, a
+    /// fresh `AsyncStream` starts empty, so a consumer that needs the
+    /// current list first should call `rules()` before iterating (see
+    /// `RulesModel.observe()`).
+    public func subscribeChanges() -> AsyncStream<[RuleEntry]> {
+        let id = UUID()
+        let (stream, continuation) = AsyncStream<[RuleEntry]>.makeStream()
+        changeSubscribers[id] = continuation
+        continuation.onTermination = { [weak self] _ in
+            Task { await self?.unsubscribeChanges(id) }
+        }
+        return stream
+    }
+
+    private func unsubscribeChanges(_ id: UUID) {
+        changeSubscribers.removeValue(forKey: id)
     }
 
     // MARK: - Reads
@@ -131,6 +149,8 @@ public actor RuleStore {
     }
 
     private func notifyChanged() {
-        changeContinuation.yield(entries)
+        for continuation in changeSubscribers.values {
+            continuation.yield(entries)
+        }
     }
 }

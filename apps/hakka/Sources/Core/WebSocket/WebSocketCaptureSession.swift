@@ -18,9 +18,14 @@ public enum WebSocketSessionError: Error, Sendable, Equatable, LocalizedError {
 /// injected `WebSocketTransport` (a fake in tests, `URLSessionWebSocketTransport`
 /// in production — no test in this module ever touches the network),
 /// applies `WebSocketCaps`, tracks lifecycle, and republishes a full
-/// snapshot on every change. Same shape as `RuleStore.changes`: an
-/// `AsyncStream` of post-mutation snapshots a `@MainActor` model mirrors
-/// with a plain assignment, no actor hop per frame.
+/// snapshot on every change: an `AsyncStream` of post-mutation snapshots a
+/// `@MainActor` model mirrors with a plain assignment, no actor hop per
+/// frame. Unlike `RuleStore`/`PauseStore` (ADR 0013's per-subscription
+/// broadcast streams), this stream stays a single stored one — one session
+/// serves exactly one `WebSocketConnectionModel` for its own short
+/// connect-to-close lifetime, not a scene-tied consumer that gets cancelled
+/// and re-subscribed across window closes, so the stored-stream defect ADR
+/// 0013 fixes doesn't apply here.
 public actor WebSocketCaptureSession {
     public nonisolated let changes: AsyncStream<WebSocketCaptureSnapshot>
 

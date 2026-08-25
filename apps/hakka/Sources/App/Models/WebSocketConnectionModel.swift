@@ -4,7 +4,8 @@ import Observation
 
 /// The frame console's model: owns one `WebSocketCaptureSession` at a time
 /// (fresh per `connect`) and mirrors its snapshot stream into `@Observable`
-/// state — same shape `RulesModel` uses for `RuleStore.changes`. Lives on
+/// state — the same snapshot-stream shape `RulesModel` mirrors from
+/// `RuleStore.subscribeChanges()`. Lives on
 /// `AppModel` as its own model rather than folding into
 /// `RequestEditorModel`: a socket is a session with many events, not a
 /// request with one response, so it never goes through `RequestRunner` or

@@ -23,7 +23,7 @@ struct PauseStoreTests {
 
     @Test func ingestAppendsAndNotifies() async throws {
         let store = PauseStore()
-        var changes = store.changes.makeAsyncIterator()
+        var changes = await store.subscribeChanges().makeAsyncIterator()
 
         await store.ingest(pause(id: "pause-a"))
         await store.ingest(pause(id: "pause-b"))
@@ -52,8 +52,11 @@ struct PauseStoreTests {
 
     @Test func removeReturnsTheRemovedEntryAndNotifies() async throws {
         let store = PauseStore()
+        // Subscribe before the ingest below — a fresh `subscribeChanges()`
+        // stream (ADR 0013) only yields mutations after it exists, unlike
+        // the old stored stream that buffered regardless of subscribe order.
+        var changes = await store.subscribeChanges().makeAsyncIterator()
         await store.ingest(pause(id: "pause-a"))
-        var changes = store.changes.makeAsyncIterator()
         _ = await changes.next() // the ingest above
 
         let removed = await store.remove(pauseId: "pause-a")

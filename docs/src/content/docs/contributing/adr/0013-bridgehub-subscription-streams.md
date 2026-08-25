@@ -142,13 +142,17 @@ own start/stop lifecycle changed.
   consume for a lifetime), rather than the old accidental convenience of a
   stream that stayed populated between polls whether or not anyone was
   subscribed.
-- `RuleStore.changes` and `PauseStore.changes` (`apps/hakka/Sources/Core/Rules`)
-  are structurally the same stored-single-consumer-stream shape and are
-  consumed from the same cancelled-on-window-close `.task` in
-  `HakkaApp.swift`. They were not in scope for this ADR — nothing in the
-  investigation that produced this fix touched them — but they carry the
-  same latent defect and are the natural next candidate if a restart
-  regression is ever reported against Rules or Pauses.
+- `RuleStore` and `PauseStore` (`apps/hakka/Sources/Core/Rules`) carried the
+  same stored-single-consumer-stream defect and have since been converted to
+  the identical pattern: `subscribeChanges()` replaces the stored `changes`
+  property on each, backed by its own `changeSubscribers` registry.
+  `RulesModel.observe()` and `PauseInboxModel.observe()` — consumed from the
+  same cancelled-on-window-close `.task` in `HakkaApp.swift` — moved to
+  `for await snapshot in await store.subscribeChanges()`, subscribing before
+  their seed read (`rules()`/`pauses()`) rather than after, so a mutation
+  landing between the two can't be lost to a subscription that didn't exist
+  yet. Regression coverage: `RuleStoreRestartTests.swift` and
+  `PauseStoreRestartTests.swift`.
 
 ## Verification plan
 

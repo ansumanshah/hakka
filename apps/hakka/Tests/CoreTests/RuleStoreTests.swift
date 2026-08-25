@@ -16,7 +16,7 @@ struct RuleStoreTests {
 
     @Test func addPreservesAuthoringOrderAndNotifies() async throws {
         let store = RuleStore()
-        var changes = store.changes.makeAsyncIterator()
+        var changes = await store.subscribeChanges().makeAsyncIterator()
 
         try await store.add(mockPayload(), id: "rule-a")
         try await store.add(.breakpoint(BreakpointInput(pattern: "/checkout", on: .both)), id: "rule-b")
@@ -34,7 +34,7 @@ struct RuleStoreTests {
     /// state drift apart on the first edit of an existing rule.
     @Test func addWithDuplicateIDReplacesInsteadOfDuplicating() async throws {
         let store = RuleStore()
-        var changes = store.changes.makeAsyncIterator()
+        var changes = await store.subscribeChanges().makeAsyncIterator()
 
         try await store.add(mockPayload(pattern: "/v1"), id: "dup")
         try await store.add(mockPayload(pattern: "/v2"), id: "dup")
@@ -62,7 +62,7 @@ struct RuleStoreTests {
 
     @Test func setEnabledTogglesAndNotifies() async throws {
         let store = RuleStore()
-        var changes = store.changes.makeAsyncIterator()
+        var changes = await store.subscribeChanges().makeAsyncIterator()
         try await store.add(mockPayload(), id: "rule-a")
         _ = await changes.next()
 
@@ -84,7 +84,7 @@ struct RuleStoreTests {
 
     @Test func removeDeletesAndNotifies() async throws {
         let store = RuleStore()
-        var changes = store.changes.makeAsyncIterator()
+        var changes = await store.subscribeChanges().makeAsyncIterator()
         try await store.add(mockPayload(), id: "rule-a")
         try await store.add(mockPayload(pattern: "/z"), id: "rule-z")
         _ = await changes.next()
@@ -105,7 +105,7 @@ struct RuleStoreTests {
 
     @Test func removeAllClearsAndNotifies() async throws {
         let store = RuleStore()
-        var changes = store.changes.makeAsyncIterator()
+        var changes = await store.subscribeChanges().makeAsyncIterator()
         try await store.add(mockPayload(), id: "rule-a")
         try await store.add(.breakpoint(BreakpointInput(pattern: "/x")), id: "rule-b")
         _ = await changes.next()
@@ -124,7 +124,7 @@ struct RuleStoreTests {
     /// rather than assuming.
     @Test func recordHitPublishesLiveSnapshots() async throws {
         let store = RuleStore()
-        var changes = store.changes.makeAsyncIterator()
+        var changes = await store.subscribeChanges().makeAsyncIterator()
         try await store.add(mockPayload(), id: "rule-a")
         _ = await changes.next()
 
