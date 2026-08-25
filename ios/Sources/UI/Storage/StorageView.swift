@@ -1,5 +1,6 @@
 #if canImport(UIKit)
 import SwiftUI
+import HakkaNetwork
 
 // MARK: - StorageView
 

@@ -48,12 +48,22 @@ build-ios-demo:
     cd ios/Example && xcodebuild -project HakkaDemoApp.xcodeproj -scheme HakkaDemoApp \
         -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
 
+# Type-check HakkaUI against a real iOS SDK. `swift build`/`swift test` on macOS
+# skip every `#if canImport(UIKit)` body entirely, and build-ios-demo compiles
+# ios/Sources into ONE target (module boundaries erased), so a missing
+# cross-module import inside UIKit-guarded code is invisible to both. This is
+# the only local command that catches that class (bit once: StorageView's
+# missing `import HakkaNetwork`, introduced in 9fb2fd54).
+build-ios-sim:
+    cd ios && xcodebuild build -scheme HakkaUI \
+        -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO -quiet
+
 # Build the macOS desktop app (apps/hakka) and its libraries.
 build-desktop:
     cd apps/hakka && swift build
 
 # Build all platforms
-build-all: build build-android build-ios build-ios-demo build-desktop
+build-all: build build-android build-ios build-ios-sim build-ios-demo build-desktop
 
 # ── Test ──────────────────────────────────────────────────────────────────────
 
