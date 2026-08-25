@@ -63,7 +63,8 @@ export function isHarPayload(parsed: unknown): parsed is HarFile {
 export function harToRequests(har: HarFile): NetworkRequest[] {
   const entries = har.log?.entries ?? []
   return entries.map((entry, i) => {
-    const startTime = entry.startedDateTime ? new Date(entry.startedDateTime).getTime() : 0
+    const parsedStartTime = entry.startedDateTime ? new Date(entry.startedDateTime).getTime() : 0
+    const startTime = Number.isNaN(parsedStartTime) ? 0 : parsedStartTime
     const duration = entry.time
     const req = entry.request ?? {}
     const res = entry.response ?? {}
@@ -73,7 +74,8 @@ export function harToRequests(har: HarFile): NetworkRequest[] {
       method: (req.method ?? 'GET').toUpperCase(),
       status: res.status ?? null,
       startTime,
-      duration: duration ?? null,
+      // HAR uses -1 for "not applicable" timing fields — treat any negative or non-finite value as absent.
+      duration: typeof duration === 'number' && Number.isFinite(duration) && duration >= 0 ? duration : null,
       requestHeaders: headersToRecord(req.headers),
       responseHeaders: headersToRecord(res.headers),
       requestBody: req.postData?.text ?? null,

@@ -29,7 +29,13 @@ export interface HakkaFacadeLike {
  */
 export function createHakkaRozeniteBridge(client: RozeniteClientLike, hakka: HakkaFacadeLike): () => void {
   function flushBacklog(): void {
-    for (const request of hakka.getLogs()) {
+    // `getLogs()` is newest-first, but each frame is sent as a separate,
+    // sequentially-processed message and the panel side (`panelStore.ts`)
+    // upserts every incoming request by *prepending* it. Sending newest-first
+    // would therefore reconstruct the backlog oldest-first on the panel — send
+    // oldest-first here so the repeated prepends land back in the newest-first
+    // order the panel's store contract promises.
+    for (const request of [...hakka.getLogs()].reverse()) {
       client.send('request', request)
     }
   }

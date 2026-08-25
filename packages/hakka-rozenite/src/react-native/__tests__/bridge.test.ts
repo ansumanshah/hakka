@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
 import type { HakkaRozeniteEventMap } from '../../shared/protocol'
+import { createPanelStore } from '../../ui/panelStore'
+import type { PanelStoreClientLike } from '../../ui/panelStore'
 import { createHakkaRozeniteBridge } from '../bridge'
 import type { HakkaFacadeLike, RozeniteClientLike } from '../bridge'
 
@@ -77,19 +79,57 @@ function createFakeHakka(initialLogs: FakeRequest[] = []) {
   }
 }
 
+/**
+ * Wires two `send`/`onMessage` ends together in-process, so a `send()` on one
+ * side reaches the other side's `onMessage` listeners — a minimal stand-in
+ * for the real RN<->panel Rozenite channel, used only to exercise the
+ * combined backlog-replay path end-to-end (`createHakkaRozeniteBridge`'s
+ * `flushBacklog` feeding `createPanelStore`'s prepend-on-upsert).
+ */
+function createLinkedClients(): [RozeniteClientLike, PanelStoreClientLike] {
+  const deviceListeners = new Map<string, Set<(payload: unknown) => void>>()
+  const panelListeners = new Map<string, Set<(payload: unknown) => void>>()
+
+  function makeEnd(
+    ownListeners: Map<string, Set<(payload: unknown) => void>>,
+    peerListeners: Map<string, Set<(payload: unknown) => void>>,
+  ) {
+    return {
+      send(type: string, payload: unknown) {
+        for (const listener of peerListeners.get(type) ?? []) listener(payload)
+      },
+      onMessage(type: string, listener: (payload: unknown) => void) {
+        const set = ownListeners.get(type) ?? new Set()
+        set.add(listener)
+        ownListeners.set(type, set)
+        return { remove: () => set.delete(listener) }
+      },
+    }
+  }
+
+  return [
+    makeEnd(deviceListeners, panelListeners) as RozeniteClientLike,
+    makeEnd(panelListeners, deviceListeners) as PanelStoreClientLike,
+  ]
+}
+
 const REQ_A: FakeRequest = { id: 'a', url: 'https://example.com/a', method: 'GET' }
 const REQ_B: FakeRequest = { id: 'b', url: 'https://example.com/b', method: 'POST' }
 
 describe('createHakkaRozeniteBridge', () => {
-  it('flushes the existing backlog as individual request frames on wire-up', () => {
+  it('flushes the existing backlog oldest-first, so panelStore prepends reconstruct newest-first', () => {
     const client = createFakeClient()
     const { facade } = createFakeHakka([REQ_B, REQ_A]) // newest-first, per getLogs()'s contract
 
     createHakkaRozeniteBridge(client, facade)
 
+    // Sent oldest-first (REQ_A then REQ_B): the panel's store upserts each
+    // arriving frame via prepend, so sending in this order is what leaves the
+    // panel's own list newest-first (REQ_B, REQ_A) — see panelStore.test.ts's
+    // matching backlog-replay case for that side of the contract.
     expect(client.sent).toEqual([
-      { type: 'request', payload: REQ_B },
       { type: 'request', payload: REQ_A },
+      { type: 'request', payload: REQ_B },
     ])
   })
 
@@ -149,5 +189,21 @@ describe('createHakkaRozeniteBridge', () => {
 
     expect(client.sent).toEqual([])
     expect(fake.clearCount).toBe(0)
+  })
+})
+
+describe('createHakkaRozeniteBridge + createPanelStore (combined replay)', () => {
+  it('backlog replay lands newest-first on the panel side, matching its documented store contract', async () => {
+    const [deviceClient, panelClient] = createLinkedClients()
+    const { facade } = createFakeHakka([REQ_B, REQ_A]) // newest-first, per getLogs()'s contract
+
+    // Panel side wires up (and registers its 'request' listener) first, same
+    // as real mount order — the panel is what asks the device to (re)connect.
+    const store = createPanelStore(panelClient)
+    createHakkaRozeniteBridge(deviceClient, facade)
+
+    // getLogs() handed the bridge [REQ_B, REQ_A] (newest-first); the panel's
+    // own mirror must come out the same way, not reversed by the replay.
+    await expect(store.getSnapshot()).resolves.toEqual([REQ_B, REQ_A])
   })
 })

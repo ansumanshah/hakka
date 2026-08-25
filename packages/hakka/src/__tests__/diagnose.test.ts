@@ -135,4 +135,15 @@ describe('harToRequests / isHarPayload', () => {
     expect(requests[0]?.url).toBe('')
     expect(requests[0]?.status).toBeNull()
   })
+
+  test('harToRequests falls back to 0 for an unparseable startedDateTime instead of NaN', () => {
+    const requests = harToRequests({ log: { entries: [{ startedDateTime: 'not-a-date' }] } })
+    expect(requests[0]?.startTime).toBe(0)
+    expect(Number.isNaN(requests[0]?.startTime)).toBe(false)
+  })
+
+  test('harToRequests treats a negative HAR "not applicable" time sentinel as null, not a real duration', () => {
+    const requests = harToRequests({ log: { entries: [{ time: -1 }] } })
+    expect(requests[0]?.duration).toBeNull()
+  })
 })

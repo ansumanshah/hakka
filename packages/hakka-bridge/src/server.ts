@@ -17,6 +17,9 @@ export const DEFAULT_BRIDGE_HOST = '127.0.0.1'
 /** Default largest accepted frame. See `BridgeServerOptions.maxPayload`. */
 export const DEFAULT_MAX_PAYLOAD = 8 * 1024 * 1024
 
+/** Default heartbeat cadence. See `BridgeServerOptions.heartbeatIntervalMs`. */
+export const DEFAULT_HEARTBEAT_INTERVAL_MS = 30_000
+
 export interface BridgeServerOptions {
   /**
    * Interface to bind. Default `'127.0.0.1'` (loopback only). Pass
@@ -41,6 +44,15 @@ export interface BridgeServerOptions {
    * bun and delivers the oversized message regardless.
    */
   maxPayload?: number
+  /**
+   * Ping/pong liveness check cadence, in ms. Default 30s. A peer that goes
+   * dark without a close frame (network drop, backgrounded/killed app) leaves
+   * its socket at `readyState OPEN` forever — nothing but an active probe
+   * catches that, and an undetected dead peer sits in the relay set eating
+   * every future broadcast. A peer that misses one pong is terminated.
+   * Override for tests, where 30s is impractically slow to wait out.
+   */
+  heartbeatIntervalMs?: number
   /** Max framework spans retained in the hub buffer, across all traces. See `BridgeHubOptions.maxSpans`. */
   maxSpans?: number
   /** Max framework spans retained per trace in the hub buffer. See `BridgeHubOptions.maxSpansPerTrace`. */
@@ -109,17 +121,40 @@ export function startBridgeServer(options: BridgeServerOptions = {}): Promise<Br
   const allowedOrigins = options.allowedOrigins ?? []
   const token = options.token
   const maxPayload = options.maxPayload ?? DEFAULT_MAX_PAYLOAD
+  const heartbeatIntervalMs = options.heartbeatIntervalMs ?? DEFAULT_HEARTBEAT_INTERVAL_MS
   const hub = new BridgeHub({
     maxRecords: options.maxRecords,
     maxSpans: options.maxSpans,
     maxSpansPerTrace: options.maxSpansPerTrace,
   })
   const clients = new Set<WebSocket>()
+  // Per-socket liveness flag for the heartbeat below. A WeakMap rather than a
+  // property on `socket` so nothing here depends on `ws`'s instance shape;
+  // entries fall out on their own once a socket is garbage-collected.
+  const isAlive = new WeakMap<WebSocket, boolean>()
   const wss = new WebSocketServer({
     port: requestedPort,
     host: requestedHost,
     maxPayload,
   })
+
+  // Ping every connected peer each tick; terminate whichever missed the
+  // previous tick's pong. Catches the case `close`/`error` never fire for: a
+  // peer that goes dark without a FIN (dropped Wi-Fi, backgrounded/killed
+  // app) leaves its socket at `readyState OPEN` forever, so it would
+  // otherwise sit in `clients` indefinitely, silently eating every future
+  // broadcast.
+  const heartbeat = setInterval(() => {
+    for (const client of clients) {
+      if (isAlive.get(client) === false) {
+        client.terminate()
+        clients.delete(client)
+        continue
+      }
+      isAlive.set(client, false)
+      client.ping()
+    }
+  }, heartbeatIntervalMs)
 
   wss.on('connection', (socket, req) => {
     // Reject before anything else touches the socket: no buffer replay, no
@@ -136,9 +171,11 @@ export function startBridgeServer(options: BridgeServerOptions = {}): Promise<Br
     }
 
     clients.add(socket)
+    isAlive.set(socket, true)
+    socket.on('pong', () => isAlive.set(socket, true))
     // Replay the buffer so a freshly-connected viewer sees existing requests.
     for (const request of hub.getRecords()) {
-      safeSendFrame(socket, 'request', request)
+      safeSendFrame(socket, 'request', request, maxPayload)
     }
     // Replay buffered spans *after* requests (trace arrival order, see
     // BridgeHub.getSpans) — a client reconnecting after a hard reload needs
@@ -146,14 +183,14 @@ export function startBridgeServer(options: BridgeServerOptions = {}): Promise<Br
     // `{ type: 'span', payload }` frames, so a dormant client's existing
     // envelope parsing needs no changes.
     for (const span of hub.getSpans()) {
-      safeSendFrame(socket, 'span', span)
+      safeSendFrame(socket, 'span', span, maxPayload)
     }
     // Replay latest storage snapshots last — snapshot-replace semantics
     // (see `StorageSnapshot`), so order relative to requests/spans doesn't
     // matter, only that a freshly-connected viewer ends up with current
     // state rather than nothing until the device's next snapshot.
     for (const snapshot of hub.getStorageSnapshots()) {
-      safeSendFrame(socket, 'storage', snapshot)
+      safeSendFrame(socket, 'storage', snapshot, maxPayload)
     }
     socket.on('message', (data) => {
       const raw = typeof data === 'string' ? data : data.toString()
@@ -162,12 +199,15 @@ export function startBridgeServer(options: BridgeServerOptions = {}): Promise<Br
       // oversized frame anyway. A limit that only holds on one runtime is not
       // a limit, so the bound lives in code we control. `ws`'s option stays as
       // the cheaper first line under Node, where it refuses before buffering.
-      if (raw.length > maxPayload) return
+      // `maxPayload` is a byte budget, so this must measure bytes too — `raw.length`
+      // is UTF-16 code units, which undercounts multi-byte text (emoji, CJK) by
+      // up to 4x and would let payloads well past the intended cap through here.
+      if (Buffer.byteLength(raw, 'utf8') > maxPayload) return
       const result = hub.ingest(raw)
       if (!result) return
       // Relay to OTHER peers (viewers/controllers); never echo back to the sender.
       for (const peer of clients) {
-        if (peer !== socket) safeSend(peer, raw)
+        if (peer !== socket) safeSend(peer, raw, maxPayload)
       }
       if (result.kind === 'request') {
         options.onRecord?.(result.request, clients.size)
@@ -178,7 +218,15 @@ export function startBridgeServer(options: BridgeServerOptions = {}): Promise<Br
   })
 
   return new Promise<BridgeServer>((resolve, reject) => {
-    wss.on('error', reject)
+    wss.on('error', (err) => {
+      // Bind failed (e.g. EADDRINUSE) — `close()` below, which clears this,
+      // is never constructed on this path since we're about to reject instead
+      // of resolve. Without this, every caller that falls back on a bind
+      // failure (packages/hakka/src/mcp/server.ts, hakka-node's
+      // serverCapture.ts) leaks this timer for the life of the process.
+      clearInterval(heartbeat)
+      reject(err)
+    })
     wss.on('listening', () => {
       const address = wss.address()
       const boundPort = typeof address === 'object' && address !== null ? address.port : requestedPort
@@ -201,6 +249,7 @@ export function startBridgeServer(options: BridgeServerOptions = {}): Promise<Br
         hub,
         mdnsAdvertising: advertisement.active,
         close: async () => {
+          clearInterval(heartbeat)
           for (const client of clients) {
             try {
               client.terminate()
@@ -258,8 +307,19 @@ export function advertiseHostFor(requestedHost: string): string | undefined {
   return requestedHost
 }
 
-function safeSend(socket: WebSocket, data: string): void {
+/**
+ * `maxBuffered` doubles as the backpressure threshold: once a peer's own
+ * `bufferedAmount` (bytes still queued in `ws`'s internal send buffer,
+ * un-drained because the peer is slow, stalled, or backgrounded) exceeds it,
+ * further sends to that peer are dropped rather than piling on top of an
+ * already-unbounded queue. Reusing `maxPayload` for this needs no new option
+ * — it's already the "how much of this peer's memory is reasonable" budget.
+ * A peer that falls this far behind resyncs from the buffer replay on its
+ * next connection (or gets reaped by the heartbeat above first).
+ */
+function safeSend(socket: WebSocket, data: string, maxBuffered: number): void {
   if (socket.readyState !== socket.OPEN) return
+  if (socket.bufferedAmount > maxBuffered) return
   try {
     socket.send(data)
   } catch {
@@ -277,14 +337,14 @@ function safeSend(socket: WebSocket, data: string): void {
  * un-serializable reaches the buffer; this is the second lock on the same door,
  * because the cost of being wrong here is the whole hub.
  */
-function safeSendFrame(socket: WebSocket, type: string, payload: unknown): void {
+function safeSendFrame(socket: WebSocket, type: string, payload: unknown, maxBuffered: number): void {
   let frame: string
   try {
     frame = JSON.stringify({ type, payload })
   } catch {
     return
   }
-  safeSend(socket, frame)
+  safeSend(socket, frame, maxBuffered)
 }
 
 /** Matches `http(s)://localhost`, `127.0.0.1`, or `[::1]`, with any port or none. */

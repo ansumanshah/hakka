@@ -1,4 +1,6 @@
-import { afterEach, describe, expect, test } from 'bun:test'
+import { afterEach, describe, expect, spyOn, test } from 'bun:test'
+import { randomBytes } from 'node:crypto'
+import { connect, type Socket } from 'node:net'
 
 import { WebSocket } from 'ws'
 
@@ -41,6 +43,39 @@ function consoleFrame(id: string, message: string): string {
 
 function storageFrame(store: string, entries: Record<string, string>): string {
   return JSON.stringify({ type: 'storage', payload: { store, timestamp: 1, entries } })
+}
+
+/**
+ * Completes just the WebSocket opening handshake over a raw TCP socket, with
+ * no `ws` client involved on this end — so, unlike a real `ws.WebSocket`,
+ * this peer never auto-responds to a ping with a pong. Simulates a peer gone
+ * dark without a close frame (dropped network, frozen/backgrounded device):
+ * `ws.WebSocket.pause()` would normally be the way to make a real client stop
+ * reading, but it's a no-op on this suite's runtime (`ws.WebSocket.pause()
+ * is not implemented in bun`), so this drives the handshake directly instead.
+ */
+function openRawSilentPeer(port: number): Promise<Socket> {
+  return new Promise((resolve, reject) => {
+    const socket = connect(port, '127.0.0.1', () => {
+      const key = randomBytes(16).toString('base64')
+      socket.write(
+        `GET / HTTP/1.1\r\nHost: 127.0.0.1:${port}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: ${key}\r\nSec-WebSocket-Version: 13\r\n\r\n`,
+      )
+    })
+    socket.once('error', reject)
+    let buffered = ''
+    const onData = (chunk: Buffer): void => {
+      buffered += chunk.toString('latin1')
+      if (!buffered.includes('\r\n\r\n')) return
+      socket.off('data', onData)
+      if (!buffered.startsWith('HTTP/1.1 101')) {
+        reject(new Error(`expected a 101 handshake response, got: ${buffered.split('\r\n')[0]}`))
+        return
+      }
+      resolve(socket)
+    }
+    socket.on('data', onData)
+  })
 }
 
 /** Opens a WebSocket with a caller-supplied `Origin` header, like a real browser tab would send. */
@@ -495,5 +530,96 @@ describe('startBridgeServer (frame size)', () => {
 
     expect(server.hub.getRecords().map((r) => r.id)).toEqual(['small'])
     sender.close()
+  })
+
+  /**
+   * `maxPayload` is a byte budget, but the bun-fallback re-check used to
+   * compare `raw.length` — UTF-16 code units — against it. A run of
+   * multi-byte characters (CJK here: 3 bytes in UTF-8, 1 UTF-16 code unit
+   * each) inflates the byte length well past the char length, so a frame
+   * that should be rejected slipped through on that comparison alone.
+   */
+  test('a frame whose byte length exceeds maxPayload but whose UTF-16 length does not is still rejected', async () => {
+    const huge = JSON.stringify({
+      type: 'request',
+      payload: { id: 'wide', url: 'https://x', method: 'GET', requestBody: '中'.repeat(2000) },
+    })
+    const maxPayload = huge.length + 10 // above the UTF-16 length, below the byte length
+    expect(Buffer.byteLength(huge, 'utf8')).toBeGreaterThan(maxPayload)
+
+    server = await startBridgeServer({ port: 0, maxPayload })
+    const sender = await open(`ws://127.0.0.1:${server.port}`)
+
+    sender.send(huge)
+    await new Promise((r) => setTimeout(r, 60))
+
+    expect(server.hub.getRecords()).toHaveLength(0)
+    sender.close()
+  })
+})
+
+describe('startBridgeServer (heartbeat / dead-peer detection)', () => {
+  test('pings connected peers on the configured heartbeat cadence', async () => {
+    server = await startBridgeServer({ port: 0, heartbeatIntervalMs: 20 })
+    const ws = await open(`ws://127.0.0.1:${server.port}`)
+
+    await new Promise<void>((resolve) => ws.once('ping', () => resolve()))
+
+    ws.close()
+  })
+
+  test('terminates a peer that never responds to pings, without disrupting other peers', async () => {
+    server = await startBridgeServer({ port: 0, heartbeatIntervalMs: 20 })
+
+    // A raw socket that completes the WS handshake but then goes silent —
+    // no 'close'/'error' fires on the server side on its own; only an
+    // active heartbeat notices and reaps it.
+    const victim = await openRawSilentPeer(server.port)
+
+    await new Promise<void>((resolve) => victim.once('close', () => resolve()))
+
+    // The reaped dead peer didn't wedge the server or its client set.
+    const alive = await open(`ws://127.0.0.1:${server.port}`)
+    alive.close()
+    victim.destroy()
+  })
+
+  test('a peer that keeps answering pings is never terminated', async () => {
+    server = await startBridgeServer({ port: 0, heartbeatIntervalMs: 20 })
+    const ws = await open(`ws://127.0.0.1:${server.port}`)
+
+    let closed = false
+    ws.on('close', () => {
+      closed = true
+    })
+    // `ws` auto-responds to pings with pongs at the protocol level with no
+    // application code involved; give the heartbeat several ticks to prove a
+    // normally-behaving peer is left alone.
+    await new Promise((r) => setTimeout(r, 120))
+
+    expect(closed).toBe(false)
+    ws.close()
+  })
+
+  test('clears the heartbeat interval when the WebSocketServer fails to bind (EADDRINUSE)', async () => {
+    server = await startBridgeServer({ port: 0 })
+    const port = server.port
+
+    // The failing instance's own heartbeat is the only `setInterval` call in
+    // this window — `wss.on('listening', ...)` (which would start mDNS, etc.)
+    // never fires on a bind failure, so this is exactly the interval the
+    // regression is about: created unconditionally, must be cleared on the
+    // `error` path too, not just inside the success-only `close()`.
+    const setIntervalSpy = spyOn(globalThis, 'setInterval')
+    const clearIntervalSpy = spyOn(globalThis, 'clearInterval')
+
+    await expect(startBridgeServer({ port })).rejects.toThrow()
+
+    expect(setIntervalSpy).toHaveBeenCalledTimes(1)
+    const heartbeatHandle = setIntervalSpy.mock.results[0]?.value
+    expect(clearIntervalSpy).toHaveBeenCalledWith(heartbeatHandle)
+
+    setIntervalSpy.mockRestore()
+    clearIntervalSpy.mockRestore()
   })
 })
