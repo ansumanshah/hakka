@@ -35,6 +35,12 @@ final class PauseInboxModel {
     /// Transient delivery feedback — same shape as `RulesModel.deliveryNote`.
     private(set) var deliveryNote: String?
 
+    /// The last `resolve` action `Task` — same shape and purpose as
+    /// `RulesModel.lastActionTask`: never awaited by the UI, awaited by
+    /// tests so assertions synchronize on the action's actual completion
+    /// instead of a wall-clock sleep that flakes under load.
+    private(set) var lastActionTask: Task<Void, Never>?
+
     /// pauseId -> its running timeout `Task`, so a resume/abort (manual or
     /// timeout-triggered) can cancel the watchdog instead of leaving it to
     /// fire a redundant abort against an already-resolved pause.
@@ -105,7 +111,7 @@ final class PauseInboxModel {
     /// an intermediate `deliveryNote` value).
     private func resolve(_ pause: PendingPause, command: ControlCommand, reason: String? = nil) {
         cancelTimeout(pause.pauseId)
-        Task {
+        lastActionTask = Task {
             do {
                 let delivered = try await channel.send(command)
                 await channel.pauses.remove(pauseId: pause.pauseId)

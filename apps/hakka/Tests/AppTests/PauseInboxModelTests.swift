@@ -124,7 +124,9 @@ struct PauseInboxModelResolveTests {
         let model = PauseInboxModel(channel: channel)
 
         model.abort(requestPause())
-        try await Task.sleep(for: .milliseconds(50))
+        // Deterministic: await the resolve Task itself — a fixed sleep here
+        // flaked under full-suite load (consistently at load average ~12+).
+        await model.lastActionTask?.value
 
         #expect(model.deliveryNote == "No devices connected — the request may still be paused on the device")
     }

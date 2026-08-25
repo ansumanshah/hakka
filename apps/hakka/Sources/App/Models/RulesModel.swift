@@ -19,6 +19,13 @@ final class RulesModel {
     /// the failure, never silence.
     private(set) var deliveryNote: String?
 
+    /// The last fire-and-forget action `Task` (`setEnabled`/`remove`/
+    /// `applyThrottle`). The UI never awaits it — actions are deliberately
+    /// fire-and-forget — but tests do (`await lastActionTask?.value`), so
+    /// assertions on the store and `deliveryNote` synchronize on the actual
+    /// completion instead of a wall-clock sleep that flakes under load.
+    private(set) var lastActionTask: Task<Void, Never>?
+
     init(traffic: RuleControlChannel) {
         self.traffic = traffic
     }
@@ -57,7 +64,7 @@ final class RulesModel {
     /// "saved, no devices" and the local mutation stands.
     func setEnabled(_ enabled: Bool, entry: RuleEntry) {
         let updated = RuleEntry(id: entry.id, payload: entry.payload, isEnabled: enabled, hitCount: entry.hitCount)
-        Task {
+        lastActionTask = Task {
             guard let previous = await traffic.rules.setEnabled(enabled, id: entry.id) else { return }
             do {
                 let delivered = try await traffic.send(installCommand(for: updated))
@@ -80,7 +87,7 @@ final class RulesModel {
     /// re-adding (`add` always appends, which would silently reorder the
     /// list on every failed remove).
     func remove(_ entry: RuleEntry) {
-        Task {
+        lastActionTask = Task {
             guard let removed = await traffic.rules.remove(id: entry.id) else { return }
             do {
                 let delivered = try await traffic.send(removalCommand(for: entry))
@@ -95,7 +102,7 @@ final class RulesModel {
     /// Throttle is one device-global setting, not a list rule — the picker
     /// sends it directly.
     func applyThrottle() {
-        Task {
+        lastActionTask = Task {
             do {
                 let delivered = try await traffic.send(
                     .throttleSet(profile: throttleProfile, latencyMs: nil, downloadKbps: nil)

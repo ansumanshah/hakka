@@ -46,7 +46,9 @@ struct RulesModelTests {
         let model = RulesModel(traffic: channel)
 
         model.setEnabled(false, entry: entry)
-        try await Task.sleep(for: .milliseconds(50))
+        // Deterministic: await the action Task itself — a fixed sleep here
+        // flaked under full-suite load (consistently at load average ~12+).
+        await model.lastActionTask?.value
 
         let stored = try #require(await channel.rules.rule(id: "rule-a"))
         #expect(stored.isEnabled == true, "a failed send must not leave the toggle flipped")
