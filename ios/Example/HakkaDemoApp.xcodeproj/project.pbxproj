@@ -11,6 +11,15 @@
 		18E8871927D11E5B0C5B2B10 /* HakkaNetwork in Frameworks */ = {isa = PBXBuildFile; productRef = A189346FA2D29BD261B65EB4 /* HakkaNetwork */; };
 		486E31D100DABFB306EFF57B /* HakkaDemoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87FB1B2F90A485040C05DB5A /* HakkaDemoApp.swift */; };
 		A142DC7FD94809BF1655CCB6 /* DemoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27FD45121E928B482713D26F /* DemoView.swift */; };
+		7C160D89426DFB5885187605 /* DemoTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68CF998175459AC18CA562C7 /* DemoTheme.swift */; };
+		9D9CEE1E688FBBC97E70522A /* DemoComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9E3ECE625E04EABBD605A31 /* DemoComponents.swift */; };
+		6202A2FD7AC961D7286A8709 /* DemoCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA84BA936092E9375D52027A /* DemoCore.swift */; };
+		FECDCFDF0BE5FA1716C12DC2 /* DemoNetworkScenarios.swift in Sources */ = {isa = PBXBuildFile; fileRef = 642E8DA1D1D01CEDF5EAAE08 /* DemoNetworkScenarios.swift */; };
+		1C5F186DE66DDF074B47408C /* DemoMockScenarios.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48C8E1F39D10A31AD35FD862 /* DemoMockScenarios.swift */; };
+		A69B036B93906FA3501EEACC /* DemoAdvancedScenarios.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C5BF5EF67C3DDE68325FA77 /* DemoAdvancedScenarios.swift */; };
+		8D2136B191F835729445BA38 /* DemoWebSocket.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84F95148782DC6330873CC09 /* DemoWebSocket.swift */; };
+		ADA7C48873BC4883495A1239 /* DemoGzip.swift in Sources */ = {isa = PBXBuildFile; fileRef = E87F3ED72F17D13014E57A0A /* DemoGzip.swift */; };
+		B1A0PALETTE0001GEN000100 /* DemoPalette.generated.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A0PALETTE0001GEN000100 /* DemoPalette.generated.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -18,6 +27,15 @@
 		4E375CF19449631E35EE838A /* HakkaDemoApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = HakkaDemoApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		87FB1B2F90A485040C05DB5A /* HakkaDemoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HakkaDemoApp.swift; sourceTree = "<group>"; };
 		A79366BD6EED089E469C2BD7 /* hakka-ios */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "hakka-ios"; path = ..; sourceTree = SOURCE_ROOT; };
+		68CF998175459AC18CA562C7 /* DemoTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoTheme.swift; sourceTree = "<group>"; };
+		A9E3ECE625E04EABBD605A31 /* DemoComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoComponents.swift; sourceTree = "<group>"; };
+		AA84BA936092E9375D52027A /* DemoCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoCore.swift; sourceTree = "<group>"; };
+		642E8DA1D1D01CEDF5EAAE08 /* DemoNetworkScenarios.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoNetworkScenarios.swift; sourceTree = "<group>"; };
+		48C8E1F39D10A31AD35FD862 /* DemoMockScenarios.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoMockScenarios.swift; sourceTree = "<group>"; };
+		4C5BF5EF67C3DDE68325FA77 /* DemoAdvancedScenarios.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoAdvancedScenarios.swift; sourceTree = "<group>"; };
+		84F95148782DC6330873CC09 /* DemoWebSocket.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoWebSocket.swift; sourceTree = "<group>"; };
+		E87F3ED72F17D13014E57A0A /* DemoGzip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoGzip.swift; sourceTree = "<group>"; };
+		F1A0PALETTE0001GEN000100 /* DemoPalette.generated.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoPalette.generated.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -55,6 +73,15 @@
 			children = (
 				27FD45121E928B482713D26F /* DemoView.swift */,
 				87FB1B2F90A485040C05DB5A /* HakkaDemoApp.swift */,
+				68CF998175459AC18CA562C7 /* DemoTheme.swift */,
+				A9E3ECE625E04EABBD605A31 /* DemoComponents.swift */,
+				AA84BA936092E9375D52027A /* DemoCore.swift */,
+				642E8DA1D1D01CEDF5EAAE08 /* DemoNetworkScenarios.swift */,
+				48C8E1F39D10A31AD35FD862 /* DemoMockScenarios.swift */,
+				4C5BF5EF67C3DDE68325FA77 /* DemoAdvancedScenarios.swift */,
+				84F95148782DC6330873CC09 /* DemoWebSocket.swift */,
+				E87F3ED72F17D13014E57A0A /* DemoGzip.swift */,
+				F1A0PALETTE0001GEN000100 /* DemoPalette.generated.swift */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -130,6 +157,15 @@
 			files = (
 				A142DC7FD94809BF1655CCB6 /* DemoView.swift in Sources */,
 				486E31D100DABFB306EFF57B /* HakkaDemoApp.swift in Sources */,
+				7C160D89426DFB5885187605 /* DemoTheme.swift in Sources */,
+				9D9CEE1E688FBBC97E70522A /* DemoComponents.swift in Sources */,
+				6202A2FD7AC961D7286A8709 /* DemoCore.swift in Sources */,
+				FECDCFDF0BE5FA1716C12DC2 /* DemoNetworkScenarios.swift in Sources */,
+				1C5F186DE66DDF074B47408C /* DemoMockScenarios.swift in Sources */,
+				A69B036B93906FA3501EEACC /* DemoAdvancedScenarios.swift in Sources */,
+				8D2136B191F835729445BA38 /* DemoWebSocket.swift in Sources */,
+				ADA7C48873BC4883495A1239 /* DemoGzip.swift in Sources */,
+				B1A0PALETTE0001GEN000100 /* DemoPalette.generated.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

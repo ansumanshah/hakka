@@ -2,6 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Required at runtime on API 33+ for the auto-launcher notification, requested
+         in DemoActivity.onCreate() via requestNotificationPermissionIfNeeded(). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:label="Hakka Demo"

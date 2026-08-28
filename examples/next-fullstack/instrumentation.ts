@@ -67,9 +67,45 @@
  * `register()` avoids exactly this by doing the same dynamic-import-behind-
  * `NEXT_RUNTIME` dance internally — this file just has to do it too for the
  * one extra Node-only symbol it needs directly.
+ *
+ * `sink: relayEdgeCapture` / `ignorePatterns` below wire up `app/api/demo/
+ * edge/route.ts`, the one route in this example that runs on the Edge
+ * runtime. Edge capture (`hakka-node/next`'s Edge branch, see `edgeCapture.ts`'s
+ * module doc) has no embedded bridge of its own — the Edge sandbox can't use
+ * `ws`/`node:crypto` — so without a sink, every Edge-tagged record is
+ * captured then silently discarded and the README's "isolate client /
+ * server / edge" runtime-filter claim would be a lie. `relayEdgeCapture`
+ * forwards each one, same-origin, to `app/api/__hakka/edge-relay/route.ts`,
+ * a plain Node-runtime route that hands it to the embedded hub. This
+ * function runs on BOTH runtimes (Next calls `register()` once per runtime
+ * it boots), so it guards on `req.runtime === 'edge'` — the nodejs branch's
+ * own 'server' records already reach the hub directly and would otherwise
+ * get relayed a second time.
  */
 import { registerOTel } from '@vercel/otel'
 import { register as hakkaRegister } from 'hakka-node/next'
+import type { NetworkRequest } from 'hakka-node/next'
+
+/**
+ * A caller-supplied `ignorePatterns` REPLACES (not extends) hakka-node's own
+ * `*telemetry.nextjs.org*` default (see `next/serverCapture.ts`'s
+ * `DEFAULT_IGNORE_PATTERNS` doc comment) — both patterns have to live in the
+ * one array passed to `hakkaRegister` below, or the telemetry noise filter
+ * silently disappears. The second entry stops `relayEdgeCapture`'s own POST
+ * from being captured and relayed right back to itself.
+ */
+const IGNORE_PATTERNS = ['*telemetry.nextjs.org*', '*/api/__hakka/edge-relay*']
+
+function relayEdgeCapture(req: NetworkRequest): void {
+  if (req.runtime !== 'edge') return
+  // Dev-only file, same localhost assumption `DEFAULT_BRIDGE_URL`
+  // (`ws://localhost:8989`) already makes.
+  void fetch('http://localhost:3000/api/__hakka/edge-relay', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(req),
+  }).catch(() => {})
+}
 
 export async function register(): Promise<void> {
   const spanProcessors =
@@ -80,6 +116,8 @@ export async function register(): Promise<void> {
     traceSpans: true,
     // See the `HAKKA_DESKTOP` doc comment above.
     embedBridge: process.env.HAKKA_DESKTOP !== '1',
+    ignorePatterns: IGNORE_PATTERNS,
+    sink: relayEdgeCapture,
   })
 
   if (

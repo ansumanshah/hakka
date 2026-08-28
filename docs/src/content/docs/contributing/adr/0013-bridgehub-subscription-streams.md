@@ -20,7 +20,7 @@ guard so a later `start()` isn't permanently blocked.
 That defer fixed the guard, not the bug. `AsyncStream.Iterator.next()`
 suspends its calling task until a value is yielded or the continuation
 finishes; cancelling that task while it's suspended there does not just
-abandon the iterator — it finishes the stream's *storage*, which is shared
+abandon the iterator — it finishes the stream's _storage_, which is shared
 by every iterator ever drawn from that same `AsyncStream` value. `requests`,
 `spans`, etc. are each one `AsyncStream` value for the hub's entire
 lifetime. So the first window close finished all six channels for good: a
@@ -36,7 +36,7 @@ silently, forever.
 Proof: the fixer's strengthened `TrafficModelRestartTests.swift` drives the
 full cycle — `start()`, a real loopback client connects and is captured,
 cancel the driving task (simulating a window close), `start()` again, and a
-*second* real loopback client connects. Run against the pre-fix `BridgeHub`,
+_second_ real loopback client connects. Run against the pre-fix `BridgeHub`,
 it reliably failed both `isRunning` ever ticking `true` for the second run
 and the second client's request ever reaching `TrafficModel.requests`. Run
 against the fix below, it passes.
@@ -60,7 +60,7 @@ before a reopened window's `start()` runs `reset()` — any frame ingested
 between the old streams finishing (window close) and `reset()` completing
 (next window's `start()`) yields into continuations that are about to be
 discarded, and is lost with no way to detect the loss. It also does not
-generalize: a *second* concurrent consumer of the same channel (not
+generalize: a _second_ concurrent consumer of the same channel (not
 speculative — `hub.spans` and `TrafficModel.consumeRequests` are both
 plausible independent long-lived consumers once a feature needs one) would
 still only ever get one, because `reset()` still assumes exactly one
@@ -109,7 +109,7 @@ Every consumer in `apps/hakka` (`TrafficModel.swift`'s four consumers,
 `for await x in await hub.subscribeX()`. `Tests/CoreTests/ServerTests.swift`
 and `Tests/CoreTests/BridgeSocketTests.swift` moved the same way, with one
 behavioral consequence tests had to account for: a fresh per-subscription
-stream only sees values yielded *after* the subscription exists, unlike the
+stream only sees values yielded _after_ the subscription exists, unlike the
 old stored stream, whose buffer held a value regardless of whether anyone
 was actively awaiting `next()` at yield time. Every test that used to
 `ingest` (or send over a socket) before subscribing now subscribes first;

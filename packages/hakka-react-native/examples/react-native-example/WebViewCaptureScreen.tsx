@@ -9,8 +9,11 @@
  *
  * Prerequisite: `bun run copy:hakka-browser` (see package.json + scripts/copy-hakka-browser.js)
  * must have been run at least once — it copies packages/hakka-browser/dist/hakka-browser.global.js
- * into ./assets/ (gitignored, regenerate after every hakka-browser build). Without it,
- * the import below won't resolve.
+ * into ./assets/ (gitignored, regenerate after every hakka-browser build). Without it, the import
+ * below resolves to a stub written by scripts/ensure-webview-asset.js (a `preios`/`preandroid`/
+ * `prestart` hook — see package.json) instead of the real bundle, which is what keeps Metro able
+ * to bundle this app on a fresh clone. `hakkaWebBundle.placeholder` below is how this screen tells
+ * the two apart.
  */
 import React, { useCallback, useMemo, useState } from 'react'
 import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
@@ -22,7 +25,14 @@ import WebView, { type WebViewMessageEvent } from 'react-native-webview'
 // touches `window`/`document` at module scope, which would throw immediately
 // if Metro ever executed it inside the RN JS engine (Hermes) instead of a
 // WebView's DOM. See scripts/copy-hakka-browser.js for how this file is produced.
-import hakkaWebBundle from './assets/hakka-browser.global.json'
+import hakkaWebBundleJson from './assets/hakka-browser.global.json'
+
+// The real file (copy-hakka-browser.js) only ever has `code`; `placeholder` only
+// appears on the stub scripts/ensure-webview-asset.js writes when the real one
+// is missing. Widening the JSON-inferred type here (instead of just accessing
+// `.placeholder` on it directly) keeps this working whichever variant Metro
+// happens to have bundled, since TS otherwise infers the exact on-disk shape.
+const hakkaWebBundle = hakkaWebBundleJson as { code: string; placeholder?: boolean }
 
 const BRIDGE_PORT = 8989
 
@@ -142,6 +152,34 @@ export interface WebViewCaptureScreenProps {
 }
 
 export function WebViewCaptureScreen({ onClose }: WebViewCaptureScreenProps) {
+  if (hakkaWebBundle.placeholder) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Pressable accessibilityRole="button" onPress={onClose} hitSlop={8}>
+            <Text style={styles.back}>‹ Back</Text>
+          </Pressable>
+          <Text style={styles.title}>WebView capture</Text>
+          <View style={styles.headerSpacer} />
+        </View>
+        <View style={styles.placeholderBox}>
+          <Text style={styles.placeholderText}>
+            hakka-browser hasn't been built yet, so this screen has nothing real to inject into the WebView. From the
+            repo root, run:
+          </Text>
+          <Text style={styles.placeholderCode}>
+            bun run --cwd packages/hakka-browser build{'\n'}bun run copy:hakka-browser
+          </Text>
+          <Text style={styles.placeholderText}>then reload the app.</Text>
+        </View>
+      </View>
+    )
+  }
+
+  return <WebViewCaptureScreenReady onClose={onClose} />
+}
+
+function WebViewCaptureScreenReady({ onClose }: WebViewCaptureScreenProps) {
   // `bridgeHost` is the *committed* value the WebView page is built from —
   // it only changes when Reload is pressed. `bridgeHostDraft` is the live
   // TextInput value. Keeping them separate means typing a new host doesn't
@@ -322,6 +360,30 @@ const styles = StyleSheet.create({
     color: '#f8fafc',
     fontSize: 13,
     fontWeight: '700',
+  },
+  placeholderBox: {
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderColor: 'rgba(255,255,255,0.13)',
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    gap: 10,
+    marginHorizontal: 20,
+    marginTop: 8,
+    padding: 18,
+  },
+  placeholderText: {
+    color: 'rgba(248,250,252,0.72)',
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 20,
+  },
+  placeholderCode: {
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    borderRadius: 8,
+    color: '#c7d2fe',
+    fontFamily: 'Menlo',
+    fontSize: 12,
+    padding: 10,
   },
   webview: {
     flex: 1,

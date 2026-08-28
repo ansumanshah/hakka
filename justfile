@@ -34,7 +34,7 @@ build:
 
 # Build all Android SDK modules
 build-android:
-    cd android && ./gradlew :hakka-common:build :hakka-network:build :hakka-network-noop:build :hakka-performance:build :hakka-performance-noop:build :hakka-ui:build
+    cd android && ./gradlew :hakka-common:build :hakka-network:build :hakka-network-noop:build :hakka-performance:build :hakka-performance-noop:build :hakka-ui:build :example:assembleDebug
 
 # Build iOS Swift SDK
 build-ios:
@@ -280,6 +280,12 @@ docs-preview:
 
 # ── Dev ───────────────────────────────────────────────────────────────────────
 
+# Build hakka-browser and serve the package root so packages/hakka-browser/demo/
+# can load /dist/* (same serving convention playwright.config.ts uses for test:e2e).
+demo-browser: build-browser
+    @echo "Serving http://localhost:4173/demo/index.html (Ctrl-C to stop)"
+    python3 -m http.server 4173 --directory packages/hakka-browser
+
 # Start iOS Simulator preview via serve-sim at localhost:3200
 sim *args:
     scripts/serve_sim.sh {{args}}
@@ -307,6 +313,11 @@ xcode-core:
 # Open core Android modules in Android Studio
 studio-core:
     open -a 'Android Studio' android/
+
+# Run the Next.js full-stack example (npm, not bun — see its README) for the
+# examples/claude-code MCP walkthrough: http://localhost:3000, bridge on :8989
+demo-claude-code:
+    cd examples/next-fullstack && npm install && npm run dev
 
 # ── Release ───────────────────────────────────────────────────────────────────
 

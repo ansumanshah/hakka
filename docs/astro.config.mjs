@@ -119,7 +119,7 @@ export default defineConfig({
       sidebar: [
         {
           label: 'Start',
-          items: ['getting-started/overview', 'getting-started/install'],
+          items: ['getting-started/overview', 'getting-started/install', 'examples/overview'],
         },
         {
           label: 'React Native',

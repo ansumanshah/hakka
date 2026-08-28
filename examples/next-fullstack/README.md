@@ -25,7 +25,7 @@ on the page itself).
 
 ### Generate traffic
 
-Eleven buttons, split into two groups.
+Sixteen buttons, split into two groups.
 
 **Core flow**, the shape you'll actually build:
 
@@ -37,26 +37,45 @@ Eleven buttons, split into two groups.
 
 **Push it further**, the edges the core flow doesn't reach:
 
-| Button           | Call                                     | Shows                                                                                |
-| ---------------- | ---------------------------------------- | ------------------------------------------------------------------------------------ |
-| Fail request     | `GET /api/demo/fail`                     | Always 500, the chili severity stripe.                                               |
-| Not found        | `GET /api/demo/missing`                  | Always 404, the turmeric stripe.                                                     |
-| Slow request     | `GET /api/demo/slow`                     | About 2.5 seconds. Open it while it runs and read the timing waterfall.              |
-| POST with a body | `POST /api/demo/echo`                    | A small JSON payload, echoed back with a server timestamp.                           |
-| Delete           | `DELETE /api/demo/echo`                  | Same URL as the POST above, a different method chip on the same row.                 |
-| Large response   | `GET /api/demo/large`                    | About 100KB of JSON, 1,250 rows. Worth opening as a tree.                            |
-| Burst            | 8 requests at once, `Promise.allSettled` | A mix of GET, POST, DELETE, a 404, and a 500, fired together. Good fodder for Stats. |
-| Emit logs        | `console.log` / `warn` / `error`         | One line at each level so the Logs tab has real content to filter.                   |
+| Button           | Call                                       | Shows                                                                                |
+| ---------------- | ------------------------------------------ | ------------------------------------------------------------------------------------ |
+| Fail request     | `GET /api/demo/fail`                       | Always 500, the chili severity stripe.                                               |
+| Not found        | `GET /api/demo/missing`                    | Always 404, the turmeric stripe.                                                     |
+| Slow request     | `GET /api/demo/slow`                       | About 2.5 seconds. Open it while it runs and read the timing waterfall.              |
+| POST with a body | `POST /api/demo/echo`                      | A small JSON payload, echoed back with a server timestamp.                           |
+| Delete           | `DELETE /api/demo/echo`                    | Same URL as the POST above, a different method chip on the same row.                 |
+| Large response   | `GET /api/demo/large`                      | About 100KB of JSON, 1,250 rows. Worth opening as a tree.                            |
+| Burst            | 8 requests at once, `Promise.allSettled`   | A mix of GET, POST, DELETE, a 404, and a 500, fired together. Good fodder for Stats. |
+| Emit logs        | `console.log` / `warn` / `error`           | One line at each level so the Logs tab has real content to filter.                   |
+| Edge runtime     | `GET /api/demo/edge`                       | Runs on the Edge runtime, not Node — tagged `runtime: edge`. See below for how.      |
+| GraphQL query    | `POST /api/graphql`                        | A GraphQL-shaped body (`operationName`, `query`). Opens the Detail > GraphQL tab.    |
+| WebSocket echo   | `wss://ws.postman-echo.com/raw`            | A real WebSocket: one frame sent, one received, then closed.                         |
+| Redacted headers | `GET /api/demo/secure`                     | Sends `Authorization`. The captured value shows `[REDACTED]` in Detail > Request.    |
+| Write to storage | `localStorage` / `sessionStorage` / cookie | No network call. Populates the Storage tab's Local, Session, and Cookies sections.   |
 
 ### Work through the checklist
 
-The page ends with an eight-step checklist. Each step uses something you just generated
-and names the real affordance: open Filters, then Runtime, to isolate server from client
-calls; run **Slow request** and read the timing waterfall; tap **Mock this** in the Detail
-action bar and re-run the same button to see the mock take over; open **Rules > Throttle >
-Slow 3G** and watch a duration climb; add a **Rules > Breakpoints** rule for `/api/demo`;
-run **Emit logs** and check the **Logs** tab; finish by tapping **Copy as agent context** on
-a request and pasting the bundle into an AI coding agent.
+The page ends with a checklist that walks the whole surface, one step per affordance:
+open Filters, then Runtime, to isolate server, client, and edge traffic; run **Slow
+request** and read the timing waterfall; tap **Mock this** in the Detail action bar and
+re-run the same button to see the mock take over; open **Rules > Throttle > Slow 3G** and
+watch a duration climb; add a **Rules > Breakpoints** rule for `/api/demo`; run **Burst**
+and check **Stats** for the rate/latency/status-class breakdown it produced; run
+**GraphQL query** and check the **GraphQL** detail tab; run **WebSocket echo** and look at
+its frame list; run **Redacted headers** and confirm **Detail > Request** shows the value
+redacted; run **Write to storage** and check the **Storage** tab; run **Emit logs** and
+check the **Logs** tab; try the **Copy as** menu (cURL, fetch, axios, HTTPie, Python, MSW,
+Playwright) or **Copy as agent context**; finish with the toolbar's **Export** menu — HAR,
+Postman, or OpenTelemetry JSON.
+
+### The rest of the export surface
+
+Every captured request — not just the ones above — carries the full **Copy as** menu
+(cURL, fetch, axios, HTTPie, Python, an MSW handler, a Playwright route), plus Share,
+Replay, and Mock this (`DetailActionBar.tsx`). The toolbar's **Export** menu turns the
+whole filtered session into a HAR 1.2 file, a Postman Collection v2.1, or OpenTelemetry
+JSON, and **Save/Load** handles a full `.hakka` session file (`InspectorToolbar.tsx`).
+None of this needs anything special from the app — any captured request already has it.
 
 ## The whole integration (two lines)
 
@@ -73,7 +92,24 @@ import 'hakka-node/next/client'
 Open http://localhost:3000, then the overlay via the round button (bottom-right). You'll see the **server**-rendered
 GitHub fetch (`runtime: server`); click **Fetch products** and you'll see the browser's call to
 `/api/products` (`runtime: client`) **and** that route handler's downstream call (`runtime: server`).
-Use the **runtime filter** to isolate client / server / edge.
+Use the **runtime filter** to isolate client / server / edge — click **Edge runtime** in
+the traffic panel and the third option isn't a placeholder, it's `app/api/demo/edge/route.ts`
+(`export const runtime = 'edge'`), a real route that actually runs there.
+
+### Edge routes: getting captures out of the sandbox
+
+Edge capture (`hakka-node/next`'s Edge branch, `packages/hakka-node/src/next/edgeCapture.ts`)
+has no embedded bridge of its own — the Edge sandbox can't use `ws` or `node:crypto`, the
+two things the embedded hub needs. Without a `sink`, every `runtime: 'edge'` record is
+captured then silently discarded, which is exactly why the README used to make a claim the
+app couldn't back up.
+
+This example's fix: `instrumentation.ts` passes a `sink` that POSTs each Edge-tagged record,
+same-origin, to `app/api/__hakka/edge-relay/route.ts` — a plain Node-runtime route that hands
+it to the same bridge hub the server capture already streams into, via its own send-only
+bridge client. One extra peer on the same hub, nothing more. If your own app has Edge routes
+and you want their captures live in the overlay too, copy this pattern: a `sink` on the Edge
+branch, and a tiny Node-runtime relay route on the other end.
 
 This example ships **both** wirings. `instrumentation-client.ts` is the canonical Next 15.3+
 path shown above and starts the overlay on its own (an earlier `sideEffects` packaging bug made

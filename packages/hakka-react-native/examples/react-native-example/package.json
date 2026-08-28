@@ -3,8 +3,11 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
+    "preandroid": "node scripts/ensure-webview-asset.js",
     "android": "react-native run-android",
+    "preios": "node scripts/ensure-webview-asset.js",
     "ios": "react-native run-ios",
+    "prestart": "node scripts/ensure-webview-asset.js",
     "start": "react-native start",
     "test": "jest",
     "typecheck": "tsc --noEmit",

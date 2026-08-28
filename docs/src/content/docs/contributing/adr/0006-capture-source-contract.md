@@ -60,7 +60,7 @@ fail-open error handling, teardown that undoes every side effect, and either
 | 6   | Browser Worker relay (fetch/XHR/WS inside a Worker) | `packages/hakka-browser/src/workerCapture.ts`                                                  |
 | 7   | Node `http`/`https` + `fetch` server capture        | `packages/hakka-node/src/httpInterceptor.ts` + `serverCapture.ts`                              |
 | 8   | Node OTel span bridge                               | `packages/hakka-node/src/spanProcessor.ts`                                                     |
-| 9   | CDP (DevTools Protocol) capture                     | `packages/hakka-cli/src/cdp/capture.ts` + `attach.ts`                                              |
+| 9   | CDP (DevTools Protocol) capture                     | `packages/hakka-cli/src/cdp/capture.ts` + `attach.ts`                                          |
 
 (ADR 0009's own text lists "fetch/XHR/WS/ResourceTiming/http/undici/OTel-spans/CDP"
 — eight names. Mechanism 6, the Worker relay, isn't a distinct ninth

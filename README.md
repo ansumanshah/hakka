@@ -47,11 +47,11 @@ Alpha: both native SDKs work from source in this repo today. `android/` isn't on
 
 ### Tooling & Embedding
 
-| Package                                       | What it is                                                                                                                                                                                                                                                |
-| --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`hakka-bridge`](./packages/hakka-bridge)     | WebSocket hub that relays captured requests between the web/Next/Node/RN/MCP peers.                                                                                                                                                                       |
-| [`hakka-rozenite`](./packages/hakka-rozenite) | **EXPERIMENTAL.** Hakka as a React Native DevTools panel via Rozenite, built on `hakka-browser`'s `/elements` and `/react` subpaths.                                                                                                                      |
-| [`hakka-cli`](./packages/hakka-cli)                   | `npx hakka-cli init` — framework-aware setup. Also `hakka diagnose` and `hakka assert` for saved captures, and `hakka mcp` (+ `hakka-cli/mcp` subpath) / `hakka cdp` (+ `hakka-cli/cdp` subpath) — the MCP server for AI agents and Chrome DevTools Protocol capture. |
+| Package                                       | What it is                                                                                                                                                                                                                                                            |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`hakka-bridge`](./packages/hakka-bridge)     | WebSocket hub that relays captured requests between the web/Next/Node/RN/MCP peers.                                                                                                                                                                                   |
+| [`hakka-rozenite`](./packages/hakka-rozenite) | **EXPERIMENTAL.** Hakka as a React Native DevTools panel via Rozenite, built on `hakka-browser`'s `/elements` and `/react` subpaths.                                                                                                                                  |
+| [`hakka-cli`](./packages/hakka-cli)           | `npx hakka-cli init` — framework-aware setup. Also `hakka diagnose` and `hakka assert` for saved captures, and `hakka mcp` (+ `hakka-cli/mcp` subpath) / `hakka cdp` (+ `hakka-cli/cdp` subpath) — the MCP server for AI agents and Chrome DevTools Protocol capture. |
 
 ## Highlights
 
@@ -195,6 +195,24 @@ import HakkaNetwork
 
 HakkaInterceptor().start()
 ```
+
+## Examples
+
+Seven runnable examples, one per integration surface. Each has its own README with a guided
+walkthrough.
+
+| Example                                                                                                                    | Surface                 | Run it                                                         |
+| -------------------------------------------------------------------------------------------------------------------------- | ----------------------- | -------------------------------------------------------------- |
+| [`examples/next-fullstack`](./examples/next-fullstack)                                                                     | Next.js server + client | `just demo-claude-code` (or `npm run dev` there)               |
+| [`examples/claude-code`](./examples/claude-code)                                                                           | MCP / AI agents         | `claude mcp add hakka -- npx -y hakka-cli mcp`                 |
+| [`packages/hakka-browser/demo`](./packages/hakka-browser/demo)                                                             | Plain web               | `just demo-browser`                                            |
+| [`packages/hakka-react-native/examples/react-native-example`](./packages/hakka-react-native/examples/react-native-example) | React Native            | `just dev-ios` / `just dev-android`                            |
+| [`ios/Example`](./ios/Example)                                                                                             | iOS (Swift)             | `just build-ios-demo`, then run in Xcode                       |
+| [`android/example`](./android/example)                                                                                     | Android (Kotlin)        | `cd android && ./gradlew :example:installDebug`                |
+| [`packages/hakka-node/examples/ci-gate`](./packages/hakka-node/examples/ci-gate)                                           | Node CI gate            | `bun test packages/hakka-node/examples/ci-gate/ciGate.test.ts` |
+
+The Next.js one is the most complete: server and client capture in one inspector, an eight-step
+guided checklist, desktop-mode bridging, and production cohort capture.
 
 ## Docs
 

@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 /**
- * Mobile-viewport E2E. The demo calls `Hakka.start({ overlay: true })`, ingests 8 sample
+ * Mobile-viewport E2E. The demo calls `Hakka.start({ overlay: true })`, ingests 4 sample
  * requests (including a 500 and a GraphQL op), and fires live fetch/XHR/worker traffic. We
  * verify on a Pixel 5 profile that the overlay renders, captures show, search narrows the
  * list, the new duration/size range filter works, and the panel fills the small screen.

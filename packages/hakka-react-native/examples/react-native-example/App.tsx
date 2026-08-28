@@ -1,18 +1,26 @@
-import { Hakka, useNetworkLogs } from 'hakka-react-native'
+import {
+  Hakka,
+  enableJsCapture,
+  enableNativeCapture,
+  mockEngine,
+  ThrottleEngine,
+  useNetworkLogs,
+} from 'hakka-react-native'
 import { HakkaInspector } from 'hakka-react-native/ui'
 import React, { useState } from 'react'
 import { Alert, Pressable, ScrollView, StatusBar, StyleSheet, Text, View, useColorScheme } from 'react-native'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 
 import { WebViewCaptureScreen } from './WebViewCaptureScreen'
+import { WrapperModesScreen } from './WrapperModesScreen'
 
 Hakka.start()
 console.log('[RN Demo] Hakka active:', Hakka.isActive)
 
-type ScenarioGroup = 'Traffic' | 'States' | 'Tools'
+type ScenarioGroup = 'Traffic' | 'States' | 'Tools' | 'SDK'
 type Tone = 'get' | 'post' | 'put' | 'delete' | 'success' | 'warning' | 'danger' | 'info' | 'neutral'
 
-const groups: ScenarioGroup[] = ['Traffic', 'States', 'Tools']
+const groups: ScenarioGroup[] = ['Traffic', 'States', 'Tools', 'SDK']
 
 function fire(url: string, options?: RequestInit) {
   fetch(url, options).catch(() => {
@@ -65,8 +73,18 @@ function App() {
   const isDarkMode = useColorScheme() === 'dark'
   const [selectedGroup, setSelectedGroup] = useState<ScenarioGroup>('Traffic')
   const [showWebViewCapture, setShowWebViewCapture] = useState(false)
+  const [showWrapperModes, setShowWrapperModes] = useState(false)
   const { logs, totalCount } = useNetworkLogs({ limit: 5 })
   const latestLog = logs.find((log) => !log.url.includes('localhost')) ?? logs[0]
+
+  if (showWrapperModes) {
+    return (
+      <SafeAreaProvider>
+        <StatusBar barStyle="light-content" />
+        <WrapperModesScreen onClose={() => setShowWrapperModes(false)} />
+      </SafeAreaProvider>
+    )
+  }
 
   if (showWebViewCapture) {
     return (
@@ -80,7 +98,7 @@ function App() {
   return (
     <SafeAreaProvider>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <HakkaInspector.Wrapper mode="bubble" bubble={{ showOnInit: true }}>
+      <HakkaInspector.Wrapper mode="bubble" bubble={{ showOnInit: true }} showExportButton>
         <View style={styles.container}>
           <ScrollView
             contentContainerStyle={styles.content}
@@ -127,8 +145,12 @@ function App() {
             {selectedGroup === 'Traffic' ? <TrafficCommands /> : null}
             {selectedGroup === 'States' ? <StateCommands /> : null}
             {selectedGroup === 'Tools' ? (
-              <ToolCommands onOpenWebViewCapture={() => setShowWebViewCapture(true)} />
+              <ToolCommands
+                onOpenWebViewCapture={() => setShowWebViewCapture(true)}
+                onOpenWrapperModes={() => setShowWrapperModes(true)}
+              />
             ) : null}
+            {selectedGroup === 'SDK' ? <SdkCommands /> : null}
           </ScrollView>
         </View>
       </HakkaInspector.Wrapper>
@@ -208,7 +230,13 @@ function StateCommands() {
   )
 }
 
-function ToolCommands({ onOpenWebViewCapture }: { onOpenWebViewCapture: () => void }) {
+function ToolCommands({
+  onOpenWebViewCapture,
+  onOpenWrapperModes,
+}: {
+  onOpenWebViewCapture: () => void
+  onOpenWrapperModes: () => void
+}) {
   return (
     <>
       <Section title="Edge cases" subtitle="Failures and unusual paths">
@@ -224,6 +252,122 @@ function ToolCommands({ onOpenWebViewCapture }: { onOpenWebViewCapture: () => vo
 
       <Section title="WebView" subtitle="Capture traffic inside an embedded WebView">
         <DemoButton label="Open WebView capture" tone="neutral" onPress={onOpenWebViewCapture} />
+      </Section>
+
+      <Section title="Display modes" subtitle="HakkaInspector.Wrapper's bubble, invisible, and fullscreen modes">
+        <DemoButton label="Open inspector modes" tone="neutral" onPress={onOpenWrapperModes} />
+      </Section>
+    </>
+  )
+}
+
+function SdkCommands() {
+  // Local, not read from Hakka on every render — `Hakka.getConfig()`/`isActive`
+  // aren't reactive, so this mirrors what the buttons below actually did rather
+  // than polling. Seeded once from real state so the label is right on first
+  // mount even if a previous screen already changed it.
+  const [captureMode, setCaptureMode] = useState<string>(() => Hakka.getConfig().mode ?? 'auto')
+  const [captureActive, setCaptureActive] = useState(() => Hakka.isActive)
+
+  const setAutoCapture = () => {
+    Hakka.stop()
+    Hakka.start({ mode: 'auto' })
+    setCaptureMode('auto')
+    setCaptureActive(Hakka.isActive)
+  }
+
+  const setJsOnlyCapture = () => {
+    enableJsCapture()
+    setCaptureMode('js')
+    setCaptureActive(Hakka.isActive)
+  }
+
+  // This example never links the native Hakka module (see README "What it
+  // doesn't cover"), so `enableNativeCapture()` throws here — same real
+  // failure `HakkaFacade.start({mode:'native'})` throws for any app that
+  // hasn't linked it. It already called `Hakka.stop()` before throwing, so
+  // capture would be left dark without the recovery restart below.
+  const setNativeOnlyCapture = () => {
+    try {
+      enableNativeCapture()
+      setCaptureMode('native')
+    } catch (e: unknown) {
+      Hakka.start({ mode: 'auto' })
+      setCaptureMode('auto')
+      const message = e instanceof Error ? e.message : String(e)
+      Alert.alert(
+        'Native module unavailable',
+        `${message}\n\nThis example doesn't link the native Hakka module, so "native" mode has nothing to capture with. Capture mode was restored to "auto".`,
+      )
+    }
+    setCaptureActive(Hakka.isActive)
+  }
+
+  const togglePause = () => {
+    if (Hakka.isActive) {
+      Hakka.stop()
+    } else {
+      Hakka.start()
+    }
+    setCaptureActive(Hakka.isActive)
+  }
+
+  const seedMockAndFire = () => {
+    mockEngine.addRule({
+      id: 'demo-mock-rule',
+      pattern: 'httpbin.org/mock-demo',
+      enabled: true,
+      response: {
+        status: 200,
+        body: { mocked: true, source: 'react-native-example' },
+      },
+    })
+    // Never reaches httpbin.org — the mock engine intercepts it first. Open
+    // Rules > Mocks to see the rule; open the request in Network to see it
+    // marked mocked.
+    fire('https://httpbin.org/mock-demo')
+  }
+
+  const openWebSocket = () => {
+    const socket = new WebSocket('wss://ws.postman-echo.com/raw')
+    socket.onopen = () => socket.send('hello from react-native-example')
+    socket.onmessage = () => socket.close()
+    socket.onerror = () => {
+      // Captured as a failed request either way — nothing else to do here.
+    }
+  }
+
+  const fireGraphQL = () => {
+    fire('https://countries.trevorblades.com/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: 'query Countries { countries(filter: { code: { eq: "IN" } }) { code name } }',
+      }),
+    })
+  }
+
+  return (
+    <>
+      <Section title="Capture mode" subtitle={`Currently: ${captureMode}${captureActive ? '' : ' (paused)'}`}>
+        <DemoButton label="Auto" tone="neutral" onPress={setAutoCapture} />
+        <DemoButton label="JS only" tone="info" onPress={setJsOnlyCapture} />
+        <DemoButton label="Native only" tone="danger" onPress={setNativeOnlyCapture} />
+        <DemoButton label={captureActive ? 'Pause' : 'Resume'} tone="warning" onPress={togglePause} />
+      </Section>
+
+      <Section
+        title="Rules"
+        subtitle="Seed a mock rule and a throttle profile — breakpoints are configured live in the Rules tab"
+      >
+        <DemoButton label="Seed mock + fire" tone="info" onPress={seedMockAndFire} />
+        <DemoButton label="Slow 3G" tone="warning" onPress={() => ThrottleEngine.setProfile('slow-3g')} />
+        <DemoButton label="Reset speed" tone="neutral" onPress={() => ThrottleEngine.setProfile('none')} />
+      </Section>
+
+      <Section title="Protocols" subtitle="WebSocket frames and GraphQL operation detection">
+        <DemoButton label="WS echo" tone="info" onPress={openWebSocket} />
+        <DemoButton label="GraphQL query" tone="post" onPress={fireGraphQL} />
       </Section>
     </>
   )

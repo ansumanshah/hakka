@@ -1,0 +1,16 @@
+{
+  "package": "hakka-browser",
+  "tabs": ["Network", "Stats", "Logs", "Rules", "Storage"],
+  "sampleUser": {
+    "id": 42,
+    "name": "Ada Lovelace",
+    "roles": ["admin", "user"]
+  },
+  "nested": {
+    "level1": {
+      "level2": {
+        "level3": "search for me in the body search box"
+      }
+    }
+  }
+}

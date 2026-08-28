@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "hakka": {
+      "command": "npx",
+      "args": ["-y", "hakka-cli", "mcp"]
+    }
+  }
+}

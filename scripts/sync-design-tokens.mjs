@@ -195,6 +195,37 @@ ${group('Code', t.codeDark)}
   )
 }
 
+function emitSwiftDemoPalette() {
+  const color = (hex) => {
+    const r = parseInt(hex.slice(0, 2), 16) / 255
+    const g = parseInt(hex.slice(2, 4), 16) / 255
+    const b = parseInt(hex.slice(4, 6), 16) / 255
+    return `Color(red: ${r.toFixed(4)}, green: ${g.toFixed(4)}, blue: ${b.toFixed(4)})`
+  }
+  const body = Object.entries(t.dark)
+    .map(([k, v]) => `    static let ${k} = ${color(v)}`)
+    .join('\n')
+  return (
+    banner('// Run `just sync-tokens` after editing design-tokens.json.') +
+    `import SwiftUI
+
+/// The demo app's own chrome palette, generated from \`design-tokens.json\`'s
+/// \`dark.*\` entries so it cannot drift from the SDK it demonstrates.
+///
+/// This is generated rather than referenced because \`HakkaTokens\`
+/// (\`ios/Sources/UI/ThemeTokens.generated.swift\`) is \`internal\` to the HakkaUI
+/// module and deliberately not public SDK surface. The Example app is a separate
+/// module consuming HakkaUI/HakkaNetwork/HakkaCommon as plain SPM products, so it
+/// cannot see those symbols. Generating from the same source keeps the values
+/// honest without widening the SDK's public API, and \`just sync-tokens-check\`
+/// fails CI if this file falls out of sync.
+enum DemoPalette {
+${body}
+}
+`
+  )
+}
+
 function emitCSS() {
   const cssKey = (k) => (k === 'background' ? 'bg' : k.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase())
   const vars = (group, o) =>
@@ -290,6 +321,7 @@ const targets = [
   ['android/hakka-ui/src/main/kotlin/com/noodleapps/hakka/ui/GeneratedTokens.kt', emitKotlin()],
   ['packages/hakka-browser/src/ui/tokens.css', emitCSS()],
   ['apps/hakka/Sources/App/Shared/ThemeTokens.generated.swift', emitSwiftDesktop()],
+  ['ios/Example/Sources/DemoPalette.generated.swift', emitSwiftDemoPalette()],
 ]
 
 const check = process.argv.includes('--check')

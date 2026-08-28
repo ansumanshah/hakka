@@ -152,6 +152,11 @@ jobs:
           restore-keys: gradle-${{ runner.os }}-
       - run: ./gradlew :hakka-common:build :hakka-network:build :hakka-network-noop:build :hakka-performance:build :hakka-performance-noop:build :hakka-ui:build
       - run: ./gradlew :hakka-common:test :hakka-network:test :hakka-network-noop:test :hakka-performance:test :hakka-performance-noop:test :hakka-ui:test
+      # Drift catcher, the Android mirror of the ios-demo-app job below. The demo
+      # consumes the modules as a real app target, so it catches what :hakka-ui:build
+      # cannot: a public API that compiles inside the module but is unreachable from
+      # a consumer. Without this, android/example was built by nothing at all.
+      - run: ./gradlew :example:assembleDebug
       - run: ../scripts/android-size-gate.sh
 
   desktop-app:
@@ -286,3 +291,38 @@ jobs:
       - name: Assemble debug APK (compiles the RN bridge Kotlin)
         working-directory: packages/hakka-react-native/examples/react-native-example/android
         run: ./gradlew assembleDebug
+
+  next-fullstack-example:
+    name: Next.js Example (build + ci-gate example test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+      - run: bun install --frozen-lockfile
+      # examples/next-fullstack consumes hakka-node and hakka-browser through
+      # `file:` deps that point at their dist/ output, so those must exist first.
+      - run: bun run --cwd packages/hakka-core build
+      - run: bun run --cwd packages/hakka-bridge build
+      - run: bun run --cwd packages/hakka-node build
+      - run: bun run --cwd packages/hakka-browser build
+      # The ci-gate example is not picked up by `bun test` in packages/hakka-node
+      # (it lives under examples/), so nothing ran it before this step.
+      - name: Run the ci-gate example's test
+        run: bun test packages/hakka-node/examples/ci-gate/ciGate.test.ts
+      # npm, not bun: bun lays `file:` deps out as per-file symlinks and Turbopack
+      # rejects a symlinked package.json. See the example's own README.
+      - name: Install the example as a real consumer
+        working-directory: examples/next-fullstack
+        run: npm install
+      - name: Build it
+        working-directory: examples/next-fullstack
+        run: npm run build

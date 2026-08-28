@@ -1,9 +1,13 @@
-// A tiny "app under test" server for the CI-gate worked example. Two
-// endpoints, one of which optionally grows a new field to demonstrate a
-// FAIL — see README.md.
+// A tiny "app under test" backend for the CI-gate worked example: two
+// endpoints that `ciGate.test.ts`'s `exerciseApp` calls. Deliberately
+// passive — the FAIL scenario this feature demonstrates is a CLIENT sending
+// a new REQUEST-body field it never sent before (requirement #4 in the repo
+// prompt, verbatim), and `diffBaseline` only ever looks at request bodies
+// (see `hakka-node/src/ci/normalize.ts`), never responses. So the toggle
+// that produces it lives on the caller's side, in `exerciseApp`, not here.
 import http from 'node:http'
 
-export function createServer({ addNewField = false } = {}) {
+export function createServer() {
   return http.createServer((req, res) => {
     let body = ''
     req.on('data', (chunk) => (body += chunk))
@@ -14,10 +18,8 @@ export function createServer({ addNewField = false } = {}) {
         return
       }
       if (req.method === 'POST' && req.url === '/orders') {
-        const payload = { item: 'widget', quantity: 3 }
-        if (addNewField) payload.discountCode = 'NEWFIELD' // simulates an unreviewed new field
         res.writeHead(201, { 'Content-Type': 'application/json' })
-        res.end(JSON.stringify({ orderId: 'ord_123', ...payload }))
+        res.end(JSON.stringify({ orderId: 'ord_123', item: 'widget', quantity: 3 }))
         return
       }
       res.writeHead(404)

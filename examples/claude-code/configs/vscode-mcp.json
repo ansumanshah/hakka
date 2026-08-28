@@ -1,0 +1,9 @@
+{
+  "servers": {
+    "hakka": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "hakka-cli", "mcp"]
+    }
+  }
+}

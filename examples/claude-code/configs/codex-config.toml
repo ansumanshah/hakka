@@ -1,0 +1,6 @@
+# Append to ~/.codex/config.toml, or run:
+#   codex mcp add hakka -- npx -y hakka-cli mcp
+
+[mcp_servers.hakka]
+command = "npx"
+args = ["-y", "hakka-cli", "mcp"]

@@ -332,6 +332,12 @@ body {
 .demo-method-console {
   color: var(--demo-text-tertiary);
 }
+.demo-method-ws {
+  color: var(--demo-turmeric);
+}
+.demo-method-storage {
+  color: var(--demo-text-tertiary);
+}
 
 .demo-path {
   overflow-wrap: anywhere;

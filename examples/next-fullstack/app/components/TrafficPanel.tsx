@@ -2,21 +2,29 @@
 
 import { BurstCard } from './traffic/BurstCard'
 import { DemoCard } from './traffic/DemoCard'
+import { EdgeCard } from './traffic/EdgeCard'
 import { EmitLogsCard } from './traffic/EmitLogsCard'
 import { FetchCachedCard } from './traffic/FetchCachedCard'
 import { FetchProductsCard } from './traffic/FetchProductsCard'
+import { GraphQLCard } from './traffic/GraphQLCard'
 import { RunButton } from './traffic/RunButton'
+import { SecureCard } from './traffic/SecureCard'
 import { ServerActionCard } from './traffic/ServerActionCard'
+import { StorageCard } from './traffic/StorageCard'
+import { WebSocketCard } from './traffic/WebSocketCard'
 
 /**
  * "Generate traffic" — every button here fires a real request through the
- * dev server. Client component: several cards close over browser `fetch`
- * calls, and a Server Component can't hand a function like that down to a
- * Client Component as a prop, so the whole panel has to live on this side of
- * the boundary. `Core flow` is the original three calls (client -> route ->
- * upstream, a hand-stamped cache badge, a Server Action); `Push it further`
- * exercises severity stripes, the timing waterfall, method chips, a large
- * response tree, Stats, and Logs.
+ * dev server (Storage is the one exception — it writes to the browser
+ * directly, no network call). Client component: several cards close over
+ * browser `fetch`/`WebSocket` calls, and a Server Component can't hand a
+ * function like that down to a Client Component as a prop, so the whole
+ * panel has to live on this side of the boundary. `Core flow` is the
+ * original three calls (client -> route -> upstream, a hand-stamped cache
+ * badge, a Server Action); `Push it further` exercises severity stripes, the
+ * timing waterfall, method chips, a large response tree, Stats, Logs, the
+ * Edge runtime, GraphQL, WebSocket frames, redacted headers + cookies, and
+ * the Storage tab.
  */
 export function TrafficPanel() {
   return (
@@ -147,6 +155,11 @@ export function TrafficPanel() {
 
         <BurstCard />
         <EmitLogsCard />
+        <EdgeCard />
+        <GraphQLCard />
+        <WebSocketCard />
+        <SecureCard />
+        <StorageCard />
       </div>
     </section>
   )

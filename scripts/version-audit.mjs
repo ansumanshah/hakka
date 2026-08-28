@@ -11,7 +11,11 @@ const failures = []
 checkFileVersion('ios/Hakka.podspec', /s\.version\s*=\s*"([^"]+)"/, 'iOS podspec')
 // Hardcoded source constants — misreport themselves in health reports if they
 // drift from the released version.
-checkFileVersion('packages/hakka-cli/src/cdp/index.ts', /HAKKA_CDP_VERSION\s*=\s*'([^']+)'/, 'HAKKA_CDP_VERSION constant')
+checkFileVersion(
+  'packages/hakka-cli/src/cdp/index.ts',
+  /HAKKA_CDP_VERSION\s*=\s*'([^']+)'/,
+  'HAKKA_CDP_VERSION constant',
+)
 checkFileVersion(
   'packages/hakka-core/src/index.ts',
   /HAKKA_CORE_VERSION\s*=\s*'([^']+)'/,
