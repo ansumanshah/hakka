@@ -1,18 +1,18 @@
 ---
 title: CLI
-description: npx hakka init detects your framework and wires up Hakka with zero dependencies.
+description: npx hakka-cli init detects your framework and wires up Hakka with zero dependencies.
 ---
 
-`npx hakka init` reads your project's `package.json` and config files, detects the
+`npx hakka-cli init` reads your project's `package.json` and config files, detects the
 framework, and either creates the required files for you or prints the exact snippet
 to paste. No installs needed to run it.
 
 ```bash
-npx hakka init
+npx hakka-cli init
 ```
 
 The CLI has no runtime dependencies — it ships as a single ESM file built from
-`packages/hakka/src/cli.ts`. `mcp` and `cdp` are dynamically imported inside their own
+`packages/hakka-cli/src/cli.ts`. `mcp` and `cdp` are dynamically imported inside their own
 command branches, so a plain `hakka init` never loads `@modelcontextprotocol/sdk`,
 `zod`, or `ws`.
 
@@ -46,7 +46,7 @@ Expo is checked before React Native because an Expo project has both `expo` and
 
 Requires Next.js 15.3 or later (instrumentation-client hooks).
 
-`npx hakka init` prints the install command and creates two files:
+`npx hakka-cli init` prints the install command and creates two files:
 
 ```
 instrumentation.ts          ← server-side capture + embedded bridge
@@ -81,7 +81,7 @@ in one UI. See [/web/overview/](/web/overview/) for overlay options.
 
 ## Vite
 
-`npx hakka init` prints the install command and the plugin snippet to add to
+`npx hakka-cli init` prints the install command and the plugin snippet to add to
 `vite.config`:
 
 ```bash
@@ -97,7 +97,7 @@ The plugin auto-injects the overlay in dev builds only. No files are created on 
 
 ## Expo
 
-`npx hakka init` prints the install and usage snippet:
+`npx hakka-cli init` prints the install and usage snippet:
 
 ```bash
 npm i hakka-react-native
@@ -158,6 +158,6 @@ Or via script tag with no build step:
 
 For Next.js (the only framework where the CLI writes files), `init` checks each target
 path before writing. If the file already exists it is left untouched and the CLI prints
-a notice. Re-running `npx hakka init` is always safe.
+a notice. Re-running `npx hakka-cli init` is always safe.
 
 For all other frameworks the CLI only prints instructions — it never touches your files.

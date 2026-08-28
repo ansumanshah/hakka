@@ -49,7 +49,7 @@ Hakka ships this loop as a ready-made command. Drop [`/hakka-debug`](https://git
 2. **Register `hakka mcp` with your agent**
 
    ```bash title="Terminal"
-   claude mcp add hakka -- npx -y hakka mcp
+   claude mcp add hakka -- npx -y hakka-cli mcp
    ```
 
    Or add it by hand to `.mcp.json` (project) or `claude_desktop_config.json` (desktop app):
@@ -59,7 +59,7 @@ Hakka ships this loop as a ready-made command. Drop [`/hakka-debug`](https://git
      "mcpServers": {
        "hakka": {
          "command": "npx",
-         "args": ["-y", "hakka", "mcp"]
+         "args": ["-y", "hakka-cli", "mcp"]
        }
      }
    }
@@ -75,7 +75,7 @@ Hakka ships this loop as a ready-made command. Drop [`/hakka-debug`](https://git
 
 ### Dead-simple mode
 
-By default `hakka mcp` hosts a bridge hub in-process, so a single `npx hakka mcp` is enough — there's no separate `hakka-bridge` process to run. If a hub is already running on the target port (`hakka-node` embeds one, or you started `npx hakka-bridge` yourself), `hakka mcp` detects the taken port and connects to that hub as a client instead. Either way your app points its bridge at `ws://localhost:8989`.
+By default `hakka mcp` hosts a bridge hub in-process, so a single `npx hakka-cli mcp` is enough — there's no separate `hakka-bridge` process to run. If a hub is already running on the target port (`hakka-node` embeds one, or you started `npx hakka-bridge` yourself), `hakka mcp` detects the taken port and connects to that hub as a client instead. Either way your app points its bridge at `ws://localhost:8989`.
 
 ```bash
 hakka mcp                      # host a hub on :8989 if free, else connect to it

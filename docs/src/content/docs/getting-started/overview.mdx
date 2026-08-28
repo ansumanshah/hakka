@@ -61,7 +61,7 @@ Set up Hakka (local-first network inspector, https://github.com/ansumanshah/hakk
    - State exactly which check passed. If none did, report the real error, don't guess.
 ```
 
-No agent handy? Run `npx hakka init`, same framework detection, same files, no prose. It detects Next.js, Vite, Expo, React Native, or plain web, creates whatever's missing, and prints the install command. It never edits or overwrites a file that already exists.
+No agent handy? Run `npx hakka-cli init`, same framework detection, same files, no prose. It detects Next.js, Vite, Expo, React Native, or plain web, creates whatever's missing, and prints the install command. It never edits or overwrites a file that already exists.
 
 Want this as a reusable, installable skill instead of a paste? Once this repo is public: `npx skills add ansumanshah/hakka@hakka-setup`.
 
@@ -117,7 +117,7 @@ packages/
                         + /next, /next/server, /next/client subpaths — full-stack Next.js capture
   hakka-bridge/         hakka-bridge — desktop WebSocket hub
   hakka-rozenite/       hakka-rozenite — EXPERIMENTAL React Native DevTools panel via Rozenite
-  hakka/                hakka — `npx hakka init` setup
+  hakka-cli/                hakka-cli — `npx hakka-cli init` setup
                         + /mcp subpath, `hakka mcp` — MCP server for AI agents
                         + /cdp subpath, `hakka cdp` — Chrome DevTools Protocol capture
   hakka-bench/          internal capture-overhead bench (private, never published)

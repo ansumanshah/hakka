@@ -120,7 +120,7 @@ actual audience there, not only an agent parsing structured data.
   applied before trace/diagnosis/mocks are derived
 - `packages/hakka-core/src/export/__tests__/agentEvidence.test.ts` — the preamble's visible scrub
   notice
-- `packages/hakka/src/mcp/__tests__/evidenceScrubbing.test.ts` — all five MCP surfaces
+- `packages/hakka-cli/src/mcp/__tests__/evidenceScrubbing.test.ts` — all five MCP surfaces
   (`get_request`, `list_requests`, `search_requests`, `export_evidence`, `generate_repro`)
   through the real MCP protocol, including the `generate_repro` test-file leak this pass closed
 - `packages/hakka-browser/src/ui/__tests__/agentEvidenceAction.test.ts` — the clipboard action

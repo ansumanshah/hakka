@@ -60,7 +60,7 @@ fail-open error handling, teardown that undoes every side effect, and either
 | 6   | Browser Worker relay (fetch/XHR/WS inside a Worker) | `packages/hakka-browser/src/workerCapture.ts`                                                  |
 | 7   | Node `http`/`https` + `fetch` server capture        | `packages/hakka-node/src/httpInterceptor.ts` + `serverCapture.ts`                              |
 | 8   | Node OTel span bridge                               | `packages/hakka-node/src/spanProcessor.ts`                                                     |
-| 9   | CDP (DevTools Protocol) capture                     | `packages/hakka/src/cdp/capture.ts` + `attach.ts`                                              |
+| 9   | CDP (DevTools Protocol) capture                     | `packages/hakka-cli/src/cdp/capture.ts` + `attach.ts`                                              |
 
 (ADR 0009's own text lists "fetch/XHR/WS/ResourceTiming/http/undici/OTel-spans/CDP"
 — eight names. Mechanism 6, the Worker relay, isn't a distinct ninth
@@ -160,7 +160,7 @@ safe no-op, and a `stop()` that's equally safe to call before any `start()`
 or a second time after one. `enableFetchInterceptor`/`enableXHRInterceptor`/
 `enableWebSocketInterceptor` all open with `if (<flag>) return () =>
 disable()`; `hakka-node`'s `startCapture` opens with `if (active) return
-active`; `createCdpCapture` (`packages/hakka/src/cdp/capture.ts:82-101`)
+active`; `createCdpCapture` (`packages/hakka-cli/src/cdp/capture.ts:82-101`)
 uses explicit `started`/`stopped` booleans and documents `stop()` as "never
 throws — a transport that's already closed is a normal way for `stop()` to
 be called." `CaptureSource`'s lifecycle contract names this convention once,

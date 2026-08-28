@@ -108,7 +108,7 @@ build-core:
 build-bridge:
     bun run --cwd packages/hakka-bridge build
 
-# Build the Node CLI/CI library (emits dist that packages/hakka's ciBaseline
+# Build the Node CLI/CI library (emits dist that packages/hakka-cli's ciBaseline
 # tests import via the "hakka-node/ci" subpath)
 build-node: build-core build-bridge
     bun run --cwd packages/hakka-node build
@@ -127,7 +127,7 @@ test-web: build-core build-bridge build-node build-browser
     bun run --cwd packages/hakka-core test
     bun run --cwd packages/hakka-bridge test
     bun run --cwd packages/hakka-browser test
-    bun run --cwd packages/hakka test
+    bun run --cwd packages/hakka-cli test
     bun run --cwd packages/hakka-node test
     bun run --cwd packages/hakka-rozenite test
 
@@ -138,7 +138,7 @@ test-web-prebuilt:
     bun run --cwd packages/hakka-core test
     bun run --cwd packages/hakka-bridge test
     bun run --cwd packages/hakka-browser test
-    bun run --cwd packages/hakka test
+    bun run --cwd packages/hakka-cli test
     bun run --cwd packages/hakka-node test
     bun run --cwd packages/hakka-rozenite test
 

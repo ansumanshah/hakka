@@ -107,7 +107,7 @@ function readPackageDirs() {
 
 // One check per publishable package, plus subpath-export checks for
 // capabilities that live as subpaths of a consolidated package (e.g.
-// `hakka:cdp` -> `hakka/cdp`). A subpath check's key is `${dir}:${label}` —
+// `hakka:cdp` -> `hakka-cli/cdp`). A subpath check's key is `${dir}:${label}` —
 // `dirOf()` below strips the label back off to find the owning package dir.
 // Every builder is still keyed off (or resolves back to) a package DIR
 // (stable across package-name renames, unlike the npm name), and every
@@ -147,9 +147,9 @@ await server.close()
 console.log('PASS ${n['hakka-bridge']}: main entry — startBridgeServer() start, hub.ingest(), clean close() (hub start/stop)')
 `,
 
-  'hakka:cdp': (n) => `
+  'hakka-cli:cdp': (n) => `
 import assert from 'node:assert/strict'
-import { createCdpMapper } from ${JSON.stringify(n['hakka'] + '/cdp')}
+import { createCdpMapper } from ${JSON.stringify(n['hakka-cli'] + '/cdp')}
 
 const records = []
 const mapper = createCdpMapper({ onRequest: (r) => records.push(r), captureBody: false })
@@ -164,7 +164,7 @@ await mapper.handleEvent('Network.requestWillBeSent', {
 assert.equal(records.length, 1, \`expected 1 mapped record from one synthetic event, got \${records.length}\`)
 assert.equal(records[0].url, 'https://api.example.com/smoke-cdp')
 assert.equal(records[0].method, 'GET')
-console.log('PASS ${n['hakka']}/cdp: subpath export — createCdpMapper().handleEvent() on a synthetic Network.requestWillBeSent event (formerly the standalone hakka-cdp package)')
+console.log('PASS ${n['hakka-cli']}/cdp: subpath export — createCdpMapper().handleEvent() on a synthetic Network.requestWillBeSent event (formerly the standalone hakka-cdp package)')
 `,
 
   'hakka-node': (n) => `
@@ -329,12 +329,12 @@ import { execFileSync } from 'node:child_process'
 import { createRequire } from 'node:module'
 
 const require = createRequire(import.meta.url)
-const pkgJsonPath = require.resolve(${JSON.stringify(n['hakka'] + '/package.json')})
+const pkgJsonPath = require.resolve(${JSON.stringify(n['hakka-cli'] + '/package.json')})
 const binPath = pkgJsonPath.replace(/package\\.json$/, 'dist/cli.mjs')
 const stdout = execFileSync(process.execPath, [binPath, 'init', '--no-install'], { encoding: 'utf8', timeout: 15_000 })
 assert.match(stdout, /Hakka/i, 'expected the banner in hakka init output')
 assert.match(stdout, /Install:/, 'expected the (skipped) install instructions to be printed')
-console.log('PASS ${n['hakka']} (bin): "hakka init --no-install" runs end-to-end (no framework detected -> drop-in web setup)')
+console.log('PASS ${n['hakka-cli']} (bin): "hakka init --no-install" runs end-to-end (no framework detected -> drop-in web setup)')
 `,
 
   'hakka:mcp': (n) => `
@@ -343,7 +343,7 @@ import { spawn } from 'node:child_process'
 import { createRequire } from 'node:module'
 
 const require = createRequire(import.meta.url)
-const pkgJsonPath = require.resolve(${JSON.stringify(n['hakka'] + '/package.json')})
+const pkgJsonPath = require.resolve(${JSON.stringify(n['hakka-cli'] + '/package.json')})
 const binPath = pkgJsonPath.replace(/package\\.json$/, 'dist/cli.mjs')
 
 const child = spawn(process.execPath, [binPath, 'mcp'], {
@@ -373,7 +373,7 @@ await new Promise((resolve, reject) => {
 child.kill('SIGTERM')
 const exitCode = await new Promise((resolve) => child.on('exit', (code) => resolve(code)))
 assert.ok(stderr.includes('shutting down'), 'expected a graceful-shutdown log line after SIGTERM')
-console.log(\`PASS ${n['hakka']} mcp (bin): "hakka mcp" subcommand starts, prints ready, shuts down cleanly on SIGTERM (exit \${exitCode}) (formerly the standalone hakka-mcp package's own bin)\`)
+console.log(\`PASS ${n['hakka-cli']} mcp (bin): "hakka mcp" subcommand starts, prints ready, shuts down cleanly on SIGTERM (exit \${exitCode}) (formerly the standalone hakka-mcp package's own bin)\`)
 `,
 }
 
@@ -396,7 +396,7 @@ const CHECK_ORDER = [
   'hakka-bridge',
   'hakka-node',
   'hakka-node:next',
-  'hakka:cdp',
+  'hakka-cli:cdp',
   'hakka-react-native',
   'hakka',
   'hakka:mcp',

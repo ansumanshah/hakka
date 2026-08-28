@@ -37,7 +37,7 @@ run_leg() {
 
 # ── Pre-build shared dist (sequential, BEFORE any leg starts) ───────────────
 # core+bridge+node+browser dist is read by the typecheck leg and by every JS
-# test leg (packages/hakka's ciBaseline tests import the "hakka-node/ci"
+# test leg (packages/hakka-cli's ciBaseline tests import the "hakka-node/ci"
 # subpath; hakka-rozenite's tests import "hakka-browser/elements/*").
 # Building it inside the parallel phase (test-web's build-core/build-bridge/
 # build-node dep recipes) wipes dist mid-typecheck, producing nondeterministic

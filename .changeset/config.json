@@ -3,7 +3,7 @@
   "changelog": false,
   "commit": false,
   "fixed": [
-    ["hakka-core", "hakka-browser", "hakka-bridge", "hakka-react-native", "hakka-node", "hakka", "hakka-rozenite"]
+    ["hakka-core", "hakka-browser", "hakka-bridge", "hakka-react-native", "hakka-node", "hakka-cli", "hakka-rozenite"]
   ],
   "linked": [],
   "access": "public",

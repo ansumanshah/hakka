@@ -222,7 +222,7 @@ export function startBridgeServer(options: BridgeServerOptions = {}): Promise<Br
       // Bind failed (e.g. EADDRINUSE) — `close()` below, which clears this,
       // is never constructed on this path since we're about to reject instead
       // of resolve. Without this, every caller that falls back on a bind
-      // failure (packages/hakka/src/mcp/server.ts, hakka-node's
+      // failure (packages/hakka-cli/src/mcp/server.ts, hakka-node's
       // serverCapture.ts) leaks this timer for the life of the process.
       clearInterval(heartbeat)
       reject(err)

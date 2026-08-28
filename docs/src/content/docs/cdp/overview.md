@@ -3,7 +3,7 @@ title: CDP Capture
 description: Chrome DevTools Protocol Network-domain capture for Hakka, over any transport shaped like a CDP session.
 ---
 
-`hakka/cdp` maps Chrome DevTools Protocol (CDP) `Network` domain events —
+`hakka-cli/cdp` maps Chrome DevTools Protocol (CDP) `Network` domain events —
 `Network.requestWillBeSent` / `responseReceived` / `loadingFinished` / `loadingFailed` /
 `dataReceived` (plus the `*ExtraInfo` header events) — to canonical Hakka `NetworkRequest`
 records, the same shape `hakka-core`'s fetch/XHR interceptors and `hakka-node`'s server capture
@@ -33,7 +33,7 @@ npm install hakka
 ## Setup — Playwright
 
 ```ts
-import { createCdpCapture } from 'hakka/cdp'
+import { createCdpCapture } from 'hakka-cli/cdp'
 
 const cdpSession = await page.context().newCDPSession(page)
 
@@ -52,7 +52,7 @@ await capture.stop()
 Puppeteer's `Page` and `CDPSession` satisfy `CdpTransport` the same way:
 
 ```ts
-import { createCdpCapture } from 'hakka/cdp'
+import { createCdpCapture } from 'hakka-cli/cdp'
 
 const client = await page.createCDPSession()
 
@@ -74,7 +74,7 @@ No browser-automation library at all — a WebSocket connected to a target's
 frames:
 
 ```ts
-import { createCdpCapture, type CdpTransport } from 'hakka/cdp'
+import { createCdpCapture, type CdpTransport } from 'hakka-cli/cdp'
 import WebSocket from 'ws'
 
 function createRawCdpTransport(webSocketDebuggerUrl: string): CdpTransport {
@@ -178,7 +178,7 @@ under a capture is a normal way for `stop()` to get called.
 ## Streaming to a bridge hub
 
 ```ts
-import { createCdpCapture, bridge } from 'hakka/cdp'
+import { createCdpCapture, bridge } from 'hakka-cli/cdp'
 
 const capture = createCdpCapture({
   transport: cdpSession,
@@ -198,9 +198,9 @@ See [Bridge overview](/bridge/overview/) for how the hub relays and replays fram
 
 ## Production safety
 
-`hakka/cdp` has **no built-in dev/production gate** — no `NODE_ENV` check, no `force` flag. It's
+`hakka-cli/cdp` has **no built-in dev/production gate** — no `NODE_ENV` check, no `force` flag. It's
 driven entirely by when you call `capture.start()`/`capture.stop()`, which is the caller's
-responsibility. This is by design: `hakka/cdp` is meant for driver code — test harnesses,
+responsibility. This is by design: `hakka-cli/cdp` is meant for driver code — test harnesses,
 browser-automation scripts, an Electron main process — not something embedded in application
 runtime code the way `hakka-node`'s `register()` is. If you wire it into a long-running service,
 gate the `start()` call yourself the same way you'd gate any other debug-only instrumentation.

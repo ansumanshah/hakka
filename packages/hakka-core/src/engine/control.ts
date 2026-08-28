@@ -99,7 +99,7 @@ export type ControlCommand =
  * `breakpoint.paused` is the one command kind that travels device -> host;
  * every other kind travels host -> device. This is the single source of
  * truth for that split — the host-side send seam (`dispatch()` in
- * `packages/hakka/src/mcp/tools/controlDispatch.ts`) refuses to transmit a
+ * `packages/hakka-cli/src/mcp/tools/controlDispatch.ts`) refuses to transmit a
  * command this returns `true` for.
  */
 export function isDeviceToHostCommand(cmd: ControlCommand): boolean {

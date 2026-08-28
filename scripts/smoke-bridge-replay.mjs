@@ -3,7 +3,7 @@
  * Fixture-replay smoke test for the bridge -> MCP pipeline.
  *
  * Replays fixtures/hakka-records/v1/network-request.json through the real
- * bridge frame parser (packages/hakka/src/mcp/bridgeListener.ts
+ * bridge frame parser (packages/hakka-cli/src/mcp/bridgeListener.ts
  * `parseBridgeFrame`) into a real RequestStore, then calls every MCP tool
  * (list_requests, get_request, search_requests, stats, clear) through the
  * real MCP protocol (InMemoryTransport) and asserts response shapes + exact
@@ -34,7 +34,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-// Re-exec under bun — packages/hakka/src/mcp/tools/index.ts uses `.js`-suffixed
+// Re-exec under bun — packages/hakka-cli/src/mcp/tools/index.ts uses `.js`-suffixed
 // TS-style specifiers that plain node's type-stripping resolver rejects.
 // Same pattern as smoke-control-roundtrip.mjs; process.versions.bun only
 // exists inside bun.
@@ -52,9 +52,9 @@ if (!process.versions.bun) {
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.resolve(__dirname, '..')
 const fixturesDir = path.join(repoRoot, 'fixtures', 'hakka-records', 'v1')
-const mcpPkgDir = path.join(repoRoot, 'packages', 'hakka')
+const mcpPkgDir = path.join(repoRoot, 'packages', 'hakka-cli')
 const mcpSrcDir = path.join(mcpPkgDir, 'src', 'mcp')
-// bun workspaces keep this SDK un-hoisted in packages/hakka/node_modules
+// bun workspaces keep this SDK un-hoisted in packages/hakka-cli/node_modules
 // (see scripts/smoke-mcp-handshake.mjs) — resolve via explicit path rather
 // than relying on hoisting.
 const sdkDir = path.join(mcpPkgDir, 'node_modules', '@modelcontextprotocol', 'sdk')

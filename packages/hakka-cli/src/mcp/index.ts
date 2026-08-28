@@ -1,7 +1,7 @@
 /**
- * `hakka/mcp` — programmatic entry point for the MCP stdio server.
+ * `hakka-cli/mcp` — programmatic entry point for the MCP stdio server.
  *
- *   import { main } from 'hakka/mcp'
+ *   import { main } from 'hakka-cli/mcp'
  *   await main()
  *
  * IMPORTANT: `main()` connects an MCP stdio transport — once called, stdout

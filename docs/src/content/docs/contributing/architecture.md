@@ -49,7 +49,7 @@ hakka/
                              + /next, /next/server, /next/client — full-stack Next.js capture
     hakka-bridge/            hakka-bridge — desktop WebSocket hub
     hakka-rozenite/          EXPERIMENTAL React Native DevTools panel via Rozenite
-    hakka/                   hakka — `npx hakka init` setup
+    hakka-cli/                   hakka-cli — `npx hakka-cli init` setup
                              + /mcp, `hakka mcp` — MCP server for AI agents
                              + /cdp, `hakka cdp` — Chrome DevTools Protocol capture
 

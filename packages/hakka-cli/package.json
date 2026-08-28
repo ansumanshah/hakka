@@ -1,7 +1,7 @@
 {
-  "name": "hakka",
+  "name": "hakka-cli",
   "version": "0.1.0",
-  "description": "Hakka CLI — `npx hakka init` detects your framework (Next.js, Vite, Expo, React Native) and wires up the Hakka network inspector; `hakka diagnose`/`hakka assert` analyze a saved .hakka session or .har capture; `hakka mcp` starts an MCP stdio server exposing live traffic to AI agents; `hakka cdp` streams Chrome DevTools Protocol captures to a bridge hub.",
+  "description": "Hakka CLI — `npx hakka-cli init` detects your framework (Next.js, Vite, Expo, React Native) and wires up the Hakka network inspector; `hakka diagnose`/`hakka assert` analyze a saved .hakka session or .har capture; `hakka mcp` starts an MCP stdio server exposing live traffic to AI agents; `hakka cdp` streams Chrome DevTools Protocol captures to a bridge hub.",
   "keywords": [
     "ai",
     "cdp",
@@ -24,7 +24,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/ansumanshah/hakka.git",
-    "directory": "packages/hakka"
+    "directory": "packages/hakka-cli"
   },
   "bin": {
     "hakka": "./dist/cli.mjs"

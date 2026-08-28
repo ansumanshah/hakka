@@ -11,7 +11,7 @@ const failures = []
 checkFileVersion('ios/Hakka.podspec', /s\.version\s*=\s*"([^"]+)"/, 'iOS podspec')
 // Hardcoded source constants — misreport themselves in health reports if they
 // drift from the released version.
-checkFileVersion('packages/hakka/src/cdp/index.ts', /HAKKA_CDP_VERSION\s*=\s*'([^']+)'/, 'HAKKA_CDP_VERSION constant')
+checkFileVersion('packages/hakka-cli/src/cdp/index.ts', /HAKKA_CDP_VERSION\s*=\s*'([^']+)'/, 'HAKKA_CDP_VERSION constant')
 checkFileVersion(
   'packages/hakka-core/src/index.ts',
   /HAKKA_CORE_VERSION\s*=\s*'([^']+)'/,
@@ -52,7 +52,7 @@ for (const file of [
   'packages/hakka-bridge/package.json',
   'packages/hakka-node/package.json',
   'packages/hakka-react-native/package.json',
-  'packages/hakka/package.json',
+  'packages/hakka-cli/package.json',
   'packages/hakka-rozenite/package.json',
 ]) {
   checkFileVersion(file, /"version":\s*"([^"]+)"/, `${file} version`)
@@ -68,8 +68,8 @@ for (const { file, dep } of [
   { file: 'packages/hakka-rozenite/package.json', dep: 'hakka-core' },
   { file: 'packages/hakka-rozenite/package.json', dep: 'hakka-browser' },
   { file: 'packages/hakka-rozenite/package.json', dep: 'hakka-react-native' },
-  { file: 'packages/hakka/package.json', dep: 'hakka-core' },
-  { file: 'packages/hakka/package.json', dep: 'hakka-bridge' },
+  { file: 'packages/hakka-cli/package.json', dep: 'hakka-core' },
+  { file: 'packages/hakka-cli/package.json', dep: 'hakka-bridge' },
 ]) {
   checkFileVersion(file, new RegExp(`"${dep}":\\s*"([^"]+)"`), `${file} pin on ${dep}`)
 }

@@ -142,7 +142,7 @@ the user it worked:
 
 ## No-agent alternative
 
-`npx hakka init` does steps 1 through 4 without the prose: same framework detection, same
+`npx hakka-cli init` does steps 1 through 4 without the prose: same framework detection, same
 files created, install command printed at the end. It's safe to run even if this skill
 already ran; it only creates files that don't exist yet, never edits or overwrites yours.
 

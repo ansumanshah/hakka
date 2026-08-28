@@ -51,14 +51,14 @@ Alpha: both native SDKs work from source in this repo today. `android/` isn't on
 | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [`hakka-bridge`](./packages/hakka-bridge)     | WebSocket hub that relays captured requests between the web/Next/Node/RN/MCP peers.                                                                                                                                                                       |
 | [`hakka-rozenite`](./packages/hakka-rozenite) | **EXPERIMENTAL.** Hakka as a React Native DevTools panel via Rozenite, built on `hakka-browser`'s `/elements` and `/react` subpaths.                                                                                                                      |
-| [`hakka`](./packages/hakka)                   | `npx hakka init` — framework-aware setup. Also `hakka diagnose` and `hakka assert` for saved captures, and `hakka mcp` (+ `hakka/mcp` subpath) / `hakka cdp` (+ `hakka/cdp` subpath) — the MCP server for AI agents and Chrome DevTools Protocol capture. |
+| [`hakka-cli`](./packages/hakka-cli)                   | `npx hakka-cli init` — framework-aware setup. Also `hakka diagnose` and `hakka assert` for saved captures, and `hakka mcp` (+ `hakka-cli/mcp` subpath) / `hakka cdp` (+ `hakka-cli/cdp` subpath) — the MCP server for AI agents and Chrome DevTools Protocol capture. |
 
 ## Highlights
 
-- **Dead-simple setup** — `npx hakka init` detects your framework and wires it, or one line does it: `OkHttpClient.Builder().installHakka(context)` on Android, `Hakka.start()` on RN, one `<script>` on the web.
+- **Dead-simple setup** — `npx hakka-cli init` detects your framework and wires it, or one line does it: `OkHttpClient.Builder().installHakka(context)` on Android, `Hakka.start()` on RN, one `<script>` on the web.
 - **Native capture on both mobile platforms** — OkHttp interceptor (Android), URLProtocol (iOS); JS fetch/XHR/WebSocket fallback where native can't see traffic.
 - **Change traffic, don't just watch it** — pause-and-edit breakpoints, mocking, block, Map Remote redirect, rewrite, and network-condition throttling, all in-process with no proxy or cert. See [Breakpoints](https://hakka.noodleapps.com/features/breakpoints) and [Mocking](https://hakka.noodleapps.com/features/mocking).
-- **Agent-native** — one command wires it up: `claude mcp add hakka -- npx -y hakka mcp`. The MCP server gives Claude Code and other AI agents read tools, a one-call `diagnose` ("why did checkout 500?"), and write tools (mock, breakpoint, throttle). An agent can find the failure, fix it, then package a repro. See [MCP server](https://hakka.noodleapps.com/mcp/overview).
+- **Agent-native** — one command wires it up: `claude mcp add hakka -- npx -y hakka-cli mcp`. The MCP server gives Claude Code and other AI agents read tools, a one-call `diagnose` ("why did checkout 500?"), and write tools (mock, breakpoint, throttle). An agent can find the failure, fix it, then package a repro. See [MCP server](https://hakka.noodleapps.com/mcp/overview).
 - **Structured logging and performance** — write app logs that land in the inspector's Logs tab (Timber, os_log, or console), plus FPS, slow and frozen frames, memory, and CPU.
 - **Exports, including OpenTelemetry** — HAR, Postman, shell-safe cURL, and OTel JSON (requests as spans, performance as metrics, health as logs) on every platform. The JS packages (`hakka-core`, `hakka-browser`, `hakka-react-native`) add a **live OTLP/HTTP push** to any collector — Grafana, Honeycomb, an OTel Collector.
 - **Reproduce bundle** — one `.hakka-repro` file with a failing request, the mocks that replay it, and a generated test.
@@ -66,9 +66,9 @@ Alpha: both native SDKs work from source in this repo today. `android/` isn't on
 
 ## Install
 
-Full guide: [hakka.noodleapps.com/getting-started/install](https://hakka.noodleapps.com/getting-started/install). Or run `npx hakka init` to detect your framework and wire it up.
+Full guide: [hakka.noodleapps.com/getting-started/install](https://hakka.noodleapps.com/getting-started/install). Or run `npx hakka-cli init` to detect your framework and wire it up.
 
-Working with an AI coding agent? Paste [the setup prompt](https://hakka.noodleapps.com/getting-started/overview) into it and it does the framework detection and file writes itself, same result as `npx hakka init` with no manual steps. Once this repo is public, the same flow installs as a reusable skill: `npx skills add ansumanshah/hakka@hakka-setup`.
+Working with an AI coding agent? Paste [the setup prompt](https://hakka.noodleapps.com/getting-started/overview) into it and it does the framework detection and file writes itself, same result as `npx hakka-cli init` with no manual steps. Once this repo is public, the same flow installs as a reusable skill: `npx skills add ansumanshah/hakka@hakka-setup`.
 
 ### React Native
 

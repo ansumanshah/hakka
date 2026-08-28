@@ -71,7 +71,7 @@ Hakka is maintained by one person. You can expect:
   `-noop` counterparts, `hakka-common`)
 - The iOS SDK (`HakkaNetwork`, `HakkaPerformance`, `HakkaUI`, `HakkaCommon`)
 - The desktop bridge protocol and hub (`packages/hakka-bridge`)
-- The MCP server and the tools it exposes to AI agents (`packages/hakka/src/mcp`)
+- The MCP server and the tools it exposes to AI agents (`packages/hakka-cli/src/mcp`)
 
 **Out of scope:**
 

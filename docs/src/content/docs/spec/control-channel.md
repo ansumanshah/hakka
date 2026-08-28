@@ -94,7 +94,7 @@ applying them as `mock.add` commands).
 - `packages/hakka-core/src/engine/__tests__/control.test.ts`
 - `scripts/smoke-control-roundtrip.mjs`
 - `scripts/smoke-mcp-handshake.mjs`
-- `packages/hakka/src/mcp/__tests__/server.test.ts`
+- `packages/hakka-cli/src/mcp/__tests__/server.test.ts`
 
 ## Limits & non-goals
 

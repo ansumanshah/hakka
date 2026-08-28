@@ -2,7 +2,7 @@
 /**
  * Live process-level smoke test of the `hakka mcp` server subcommand.
  *
- * Unlike packages/hakka/src/mcp/server.test.ts (in-process over
+ * Unlike packages/hakka-cli/src/mcp/server.test.ts (in-process over
  * InMemoryTransport), this spawns the built dist/cli.mjs as a child process
  * (`hakka mcp`) and speaks MCP over real stdio pipes via the SDK's Client +
  * StdioClientTransport — what a real MCP client (Claude Code, Cursor, ...)
@@ -15,7 +15,7 @@
  *
  * @modelcontextprotocol/sdk isn't hoisted to the repo root under bun
  * workspaces — imported via an explicit path into
- * packages/hakka/node_modules/@modelcontextprotocol/sdk so resolution doesn't
+ * packages/hakka-cli/node_modules/@modelcontextprotocol/sdk so resolution doesn't
  * depend on hoisting layout.
  *
  * Usage:
@@ -32,7 +32,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.resolve(__dirname, '..')
-const mcpPkgDir = path.join(repoRoot, 'packages', 'hakka')
+const mcpPkgDir = path.join(repoRoot, 'packages', 'hakka-cli')
 const serverBin = path.join(mcpPkgDir, 'dist', 'cli.mjs')
 const serverArgs = ['mcp']
 const sdkDir = path.join(mcpPkgDir, 'node_modules', '@modelcontextprotocol', 'sdk')
@@ -83,7 +83,7 @@ async function loadSdk() {
 
 async function buildServer() {
   if (!existsSync(mcpPkgDir)) {
-    fail('build', `packages/hakka not found at ${mcpPkgDir}`)
+    fail('build', `packages/hakka-cli not found at ${mcpPkgDir}`)
   }
   try {
     execFileSync('bun', ['run', 'build'], {

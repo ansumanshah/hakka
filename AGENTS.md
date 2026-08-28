@@ -21,7 +21,7 @@ packages/
                          + /next, /next/server, /next/client subpaths — full-stack Next.js capture
   bridge/               hakka-bridge — desktop WebSocket hub for cross-runtime capture
   hakka-rozenite/       hakka-rozenite — EXPERIMENTAL React Native DevTools panel via Rozenite
-  cli/                  hakka — `npx hakka init` framework-aware setup
+  cli/                  hakka-cli — `npx hakka-cli init` framework-aware setup
                          + /mcp subpath, `hakka mcp` — MCP server exposing live traffic to AI agents
                          + /cdp subpath, `hakka cdp` — Chrome DevTools Protocol capture (Playwright/Puppeteer/raw CDP)
 android/                Kotlin SDK modules (Gradle) — see Android Notes

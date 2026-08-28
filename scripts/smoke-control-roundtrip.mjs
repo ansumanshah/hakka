@@ -57,11 +57,11 @@ if (!process.versions.bun) {
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.resolve(__dirname, '..')
 const bridgeSrcDir = path.join(repoRoot, 'packages', 'hakka-bridge', 'src')
-const mcpPkgDir = path.join(repoRoot, 'packages', 'hakka')
+const mcpPkgDir = path.join(repoRoot, 'packages', 'hakka-cli')
 const mcpSrcDir = path.join(mcpPkgDir, 'src', 'mcp')
 const coreSrcDir = path.join(repoRoot, 'packages', 'hakka-core', 'src')
 // SDK resolved via explicit path (bun keeps it un-hoisted under
-// packages/hakka/node_modules). `ws` must NOT be resolved this way — an
+// packages/hakka-cli/node_modules). `ws` must NOT be resolved this way — an
 // explicit path would load a second `ws` instance from the one
 // packages/hakka-bridge/src/server.ts uses, causing a misleading "Unexpected
 // server response: 101" handshake failure.
@@ -122,7 +122,7 @@ async function main() {
     ;({ registerTools } = await import(path.join(mcpSrcDir, 'tools/index.ts')))
     ;({ registerResources } = await import(path.join(mcpSrcDir, 'resources.ts')))
   } catch (err) {
-    fail('import-mcp', `failed to import packages/hakka/src/mcp as TypeScript (use bun): ${describeErr(err)}`)
+    fail('import-mcp', `failed to import packages/hakka-cli/src/mcp as TypeScript (use bun): ${describeErr(err)}`)
   }
 
   try {

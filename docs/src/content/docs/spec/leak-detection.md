@@ -106,7 +106,7 @@ wiring it into a desktop surface is still UI work.
 - `packages/hakka-core/src/analyze/__tests__/leakDetection.test.ts` — every detector's true
   positive and at least one near-miss that must stay silent, plus allowlist inference (majority
   host, insufficient sample, tie), field-baseline persistence across calls, and result ranking
-- `packages/hakka/src/mcp/__tests__/server.test.ts` — `detect_leaks` present in the MCP tool list
+- `packages/hakka-cli/src/mcp/__tests__/server.test.ts` — `detect_leaks` present in the MCP tool list
 
 ## Limits & non-goals
 

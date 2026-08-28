@@ -1,13 +1,13 @@
 # hakka (CLI)
 
-Five commands: `init` wires the [Hakka](https://github.com/ansumanshah/hakka) network inspector into your app, `diagnose` prints a ranked diagnosis of a saved capture, `assert` gates CI on it, `mcp` exposes live captured traffic to AI agents over the Model Context Protocol, and `cdp` streams Chrome DevTools Protocol captures to a bridge hub. `mcp`/`cdp` are also importable directly as `hakka/mcp` and `hakka/cdp` for embedding.
+Five commands: `init` wires the [Hakka](https://github.com/ansumanshah/hakka) network inspector into your app, `diagnose` prints a ranked diagnosis of a saved capture, `assert` gates CI on it, `mcp` exposes live captured traffic to AI agents over the Model Context Protocol, and `cdp` streams Chrome DevTools Protocol captures to a bridge hub. `mcp`/`cdp` are also importable directly as `hakka-cli/mcp` and `hakka-cli/cdp` for embedding.
 
 ## `hakka init`
 
 Detects your framework and does the setup.
 
 ```bash
-npx hakka init
+npx hakka-cli init
 ```
 
 - **Next.js** — creates `instrumentation.ts` + `instrumentation-client.ts` (server + client capture, embedded bridge) and prints the install command.
@@ -52,10 +52,10 @@ Exit codes: `0` pass, `1` fail (a threshold was violated), `2` bad input (missin
 A stdio [Model Context Protocol](https://modelcontextprotocol.io) server exposing your app's **live captured network traffic** to AI coding agents (Claude Code, Cursor, etc.). It connects to a running [Hakka bridge hub](https://github.com/ansumanshah/hakka/tree/main/packages/hakka-bridge) — every request the hub relays (from `hakka-browser`, `hakka-node`'s Next.js capture, or a React Native app) flows into an in-process store an agent can query, then act on: mock an endpoint, throttle the connection, set a breakpoint.
 
 ```bash
-npx hakka mcp                        # host a hub on :8989 if free, else connect to it
-npx hakka mcp --url ws://host:8989   # explicit bridge URL
-npx hakka mcp --port 9000            # shorthand for ws://localhost:9000
-npx hakka mcp --no-serve             # never host a hub; only connect as a client
+npx hakka-cli mcp                        # host a hub on :8989 if free, else connect to it
+npx hakka-cli mcp --url ws://host:8989   # explicit bridge URL
+npx hakka-cli mcp --port 9000            # shorthand for ws://localhost:9000
+npx hakka-cli mcp --no-serve             # never host a hub; only connect as a client
 ```
 
 Wire it into an MCP client config (Claude Code `.claude/settings.json`, Claude Desktop `claude_desktop_config.json`, Cursor, ...):
@@ -65,7 +65,7 @@ Wire it into an MCP client config (Claude Code `.claude/settings.json`, Claude D
   "mcpServers": {
     "hakka": {
       "command": "npx",
-      "args": ["-y", "hakka", "mcp"]
+      "args": ["-y", "hakka-cli", "mcp"]
     }
   }
 }
@@ -83,17 +83,17 @@ Read tools: `list_requests`, `get_request`, `search_requests` (see the query DSL
 
 `search_requests`'s `query` param: `url:`/`header:`/`body:` scopes, `/regex/`, `*glob*`, `-negation`, `dur>100`/`size>1kb` ranges, space-separated tokens ANDed.
 
-Also importable directly: `import { main, RequestStore, registerTools } from 'hakka/mcp'`.
+Also importable directly: `import { main, RequestStore, registerTools } from 'hakka-cli/mcp'`.
 
 ## `hakka cdp`
 
 Attaches to a live Chrome/Chromium instance over its DevTools Protocol debugging port and streams `Network` captures to a bridge hub — no Playwright or Puppeteer required.
 
 ```bash
-npx hakka cdp                                   # attach to :9222, first page target
-npx hakka cdp --port 9223 --target checkout     # pick a target by URL/title substring
-npx hakka cdp --url ws://127.0.0.1:9222/devtools/page/ABC123
-npx hakka cdp --bridge-url ws://host:8989       # stream to a non-default bridge
+npx hakka-cli cdp                                   # attach to :9222, first page target
+npx hakka-cli cdp --port 9223 --target checkout     # pick a target by URL/title substring
+npx hakka-cli cdp --url ws://127.0.0.1:9222/devtools/page/ABC123
+npx hakka-cli cdp --bridge-url ws://host:8989       # stream to a non-default bridge
 ```
 
 Requires Chrome running with `--remote-debugging-port=<port>` (default `9222`). Runs until Ctrl+C.
@@ -107,7 +107,7 @@ Requires Chrome running with `--remote-debugging-port=<port>` (default `9222`). 
 | `--no-body`           | Skip fetching decoded response bodies.                        |
 | `--max-body-size <n>` | Cap on captured (non-base64) response body size, bytes.       |
 
-For embedding in a Playwright/Puppeteer script instead, use the library directly: `import { createCdpCapture, bridge } from 'hakka/cdp'` — `createCdpCapture` accepts any transport shaped like `{ send(method, params), on(event, cb) }`, so a `CDPSession` from either library plugs in without an adapter.
+For embedding in a Playwright/Puppeteer script instead, use the library directly: `import { createCdpCapture, bridge } from 'hakka-cli/cdp'` — `createCdpCapture` accepts any transport shaped like `{ send(method, params), on(event, cb) }`, so a `CDPSession` from either library plugs in without an adapter.
 
 ## License
 

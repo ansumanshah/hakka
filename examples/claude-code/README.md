@@ -9,7 +9,7 @@ test.
 1. Wire up the MCP server (once per project):
 
    ```bash
-   claude mcp add hakka -- npx -y hakka mcp
+   claude mcp add hakka -- npx -y hakka-cli mcp
    ```
 
    `hakka mcp` hosts its own bridge hub, so no separate `hakka-bridge` process is needed. Point

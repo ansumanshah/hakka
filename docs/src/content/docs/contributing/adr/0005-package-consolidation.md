@@ -31,7 +31,7 @@ after launch would break every consumer's imports.
 **Seven published packages.**
 
 ```
-hakka                  CLI — npx hakka init / mcp / cdp
+hakka-cli                  CLI — npx hakka-cli init / mcp / cdp
 hakka-core             + /test
 hakka-browser          + /elements/*  + /react
 hakka-node             + /next  + /next/server  + /next/client
@@ -53,7 +53,7 @@ Specifically:
 - **`hakka-components` and `hakka-react` → `hakka-browser`.** Both are the
   same Solid source and the same DOM runtime. See the supersession note below.
 - **`hakka-mcp` and `hakka-cdp` → `hakka`.** Both are operator tools invoked
-  from a terminal, and the CLI already owns a `bin`. `npx hakka mcp` also reads
+  from a terminal, and the CLI already owns a `bin`. `npx hakka-cli mcp` also reads
   better in an MCP client config than a second package name.
 - **`hakka-test` → `hakka-core/test`.** It depended on nothing but the core
   engine. As a separate entry point it stays out of production bundles.

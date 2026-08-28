@@ -140,7 +140,7 @@ nothing when the app runs under `bun` instead of `node`.
 By default `startCapture`/`register` open a WebSocket client to the bridge hub
 (`ws://localhost:8989`) and send one JSON frame per captured request:
 `{ type: 'request', payload: NetworkRequest }` — the same wire shape the browser overlay's
-`desktopBridge` and `hakka/cdp` use, so one hub relays server, browser, and CDP captures to every
+`desktopBridge` and `hakka-cli/cdp` use, so one hub relays server, browser, and CDP captures to every
 connected peer. With `embedBridge: true` (the default), this process **hosts** the hub itself —
 no separate `hakka-bridge` process to run. The bridge client auto-reconnects with exponential
 backoff and queues records (capped at 1000 records / 5 MB serialized) while offline, so a

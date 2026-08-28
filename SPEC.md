@@ -294,8 +294,8 @@ support — that product does not exist today.
   wrappers, Next.js capture, MCP server, and test helpers that previously
   published as their own packages (`hakka-cdp`, `hakka-components`,
   `hakka-react`, `hakka-next`, `hakka-mcp`, `hakka-test`) now ship as subpaths
-  of the 7: `hakka/cdp`, `hakka-browser/elements/*`, `hakka-browser/react`,
-  `hakka-node/next`, `hakka/mcp`, `hakka-core/test`. The Vite/webpack/rspack
+  of the 7: `hakka-cli/cdp`, `hakka-browser/elements/*`, `hakka-browser/react`,
+  `hakka-node/next`, `hakka-cli/mcp`, `hakka-core/test`. The Vite/webpack/rspack
   plugins ship as `hakka-browser` subpaths (`hakka-browser/vite`, `/webpack`,
   `/rspack`) the same way, not a separate package.
 - **1.1** — first-class sessions and the iOS live-stats notification inbox.
