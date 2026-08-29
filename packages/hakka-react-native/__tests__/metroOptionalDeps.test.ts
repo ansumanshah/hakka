@@ -20,6 +20,7 @@
  * did not, which is the failure mode it now covers: a promise of coverage is
  * not coverage.
  */
+import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -30,8 +31,6 @@ const { withHakka, OPTIONAL_MODULES } = require('../metro') as {
   }
   OPTIONAL_MODULES: Set<string>
 }
-
-const SRC = join(__dirname, '..', 'src')
 
 /**
  * `react-native` itself is required in a few of the same guarded blocks, but it
@@ -60,7 +59,6 @@ function execFileList(): string[] {
   // `git ls-files` rather than a glob walk: it respects .gitignore, so build
   // output under lib/ can never leak in and make this test pass or fail for
   // reasons unrelated to source.
-  const { execFileSync } = require('node:child_process') as typeof import('node:child_process')
   const out = execFileSync('git', ['ls-files', 'src'], { cwd: join(__dirname, '..'), encoding: 'utf8' })
   return out
     .split('\n')
