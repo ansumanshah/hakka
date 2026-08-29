@@ -302,9 +302,9 @@ jobs:
         run: bun run bundle
 
   next-fullstack-example:
-    name: Next.js Example (build + ci-gate example test)
+    name: Next.js Example (build + ci-gate test + Playwright E2E)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -335,3 +335,26 @@ jobs:
       - name: Build it
         working-directory: examples/next-fullstack
         run: npm run build
+
+      # AFTER the npm install above, deliberately: `webServer` starts a real `next dev`,
+      # and Turbopack rejects the symlinked package.json that bun's `file:` dep layout
+      # produces, so running this against the bun install would fail on the install
+      # shape rather than on anything the tests assert.
+      #
+      # This is the only coverage anywhere in this repo that a real click produces the
+      # client + server rows the README claims, in a real browser. Unit tests cannot see
+      # it: three bugs shipped past a green suite this cycle because they asserted on an
+      # intermediate artifact instead of observable behaviour.
+      - name: Install Playwright Chromium
+        working-directory: examples/next-fullstack
+        run: npx playwright install --with-deps chromium
+      - name: Run the example's E2E suite
+        working-directory: examples/next-fullstack
+        run: npm run test:e2e
+      - name: Upload Playwright traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: next-fullstack-playwright-traces
+          path: examples/next-fullstack/test-results/
+          retention-days: 7

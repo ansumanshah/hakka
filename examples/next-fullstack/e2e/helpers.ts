@@ -43,9 +43,49 @@ export async function reopenInspector(page: Page): Promise<void> {
   await expect(page.locator('.hakka-panel.open')).toBeVisible({ timeout: 15_000 })
 }
 
+/**
+ * Clears the captured request list via the toolbar's real "Clear" control (`InspectorToolbar.tsx`).
+ *
+ * Every test in this suite needs this, and the reason is specific to how this example works: the
+ * overlay does not hold the only copy of the traffic. `hakka-node`'s embedded bridge hub buffers
+ * captures server-side and replays them to each overlay that connects, so a fresh Playwright
+ * browser context does NOT give a fresh request list — rows from earlier tests in the same run
+ * arrive over the bridge the moment this test's overlay mounts. Without clearing, locators that
+ * matched one row when written match several later in the run, and Playwright fails them on strict
+ * mode rather than on anything the product did wrong.
+ *
+ * "Clear" is rendered twice (inline in the wide header, and again inside the `⋮` kebab menu for
+ * narrow widths) and exactly one of the two is visible at any width, so this filters on visibility
+ * instead of picking `.first()`, which would pick the hidden one at narrow viewports.
+ */
+export async function clearRequests(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Clear', exact: true }).filter({ visible: true }).click()
+  await expect(requestList(page).locator('.hakka-row')).toHaveCount(0)
+}
+
+/**
+ * The request list itself (`.hakka-list`). Every row locator below is scoped through this, and
+ * that scoping is load-bearing, not tidiness: `.hakka-row` is also rendered by the DETAIL pane
+ * (under `.hakka-detail-rowback`, as the correlated back-reference to the request being viewed).
+ * An unscoped `.hakka-row` therefore matches list rows AND detail-pane rows, which produces two
+ * failures that both look like product bugs and are not:
+ *   - a path present in both places resolves to 2 elements and fails Playwright's strict mode;
+ *   - a runtime filter appears "leaky", because the detail pane still shows the correlated server
+ *     hop while the list beside it is correctly filtered down to client rows only.
+ * Both were observed here before this scoping existed.
+ */
+export function requestList(page: Page) {
+  return page.locator('.hakka-list')
+}
+
 /** One row in the request list, keyed by the path text `.hakka-row-path` shows. */
 export function rowByPath(page: Page, path: string) {
-  return page.locator('.hakka-row', { has: page.locator('.hakka-row-path', { hasText: path }) })
+  return requestList(page).locator('.hakka-row', { has: page.locator('.hakka-row-path', { hasText: path }) })
+}
+
+/** One row in the request list, keyed by the host text `.hakka-row-host` shows. */
+export function rowByHost(page: Page, host: string) {
+  return requestList(page).locator('.hakka-row', { has: page.locator('.hakka-row-host', { hasText: host }) })
 }
 
 /**

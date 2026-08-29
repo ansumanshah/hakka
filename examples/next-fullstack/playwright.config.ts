@@ -5,13 +5,15 @@ import { defineConfig, devices } from '@playwright/test'
  * repo cannot cover: does the real overlay mount in a real browser, and does a real click produce
  * the client + server tagged rows the README claims? `webServer` builds nothing itself — the
  * example's `hakka-browser`/`hakka-node` deps are `file:` links to `packages/*`, so
- * `just build-core build-bridge build-node build-browser` must run first (see e2e/README or the
- * repo root README) or `next dev` boots against stale/missing dist output.
+ * `just build-core build-bridge build-node build-browser` must run first (see e2e/README.md), or
+ * `next dev` boots against stale/missing dist output.
  */
 const PORT = 3000
 
 export default defineConfig({
   testDir: './e2e',
+  // Compiles the routes once, outside any test's timeout — see e2e/global-setup.ts.
+  globalSetup: './e2e/global-setup.ts',
   // Serial, not fullyParallel: every test shares the one `next dev` instance `webServer`
   // starts below. Concurrent first-hits to different routes raced Turbopack's on-demand
   // compilation badly enough to produce a transient "Module not found: hakka-node/next/client"

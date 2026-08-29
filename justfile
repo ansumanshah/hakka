@@ -238,6 +238,20 @@ test-e2e: build-core build-bridge
 bench-e2e: build-core build-bridge
     bun run --cwd packages/hakka-browser bench:e2e
 
+# Functional Playwright E2E for the Next.js full-stack example: the client + server
+# capture claim, the runtime filter, mocking, and that the overlay actually mounts.
+# Separate from `test-e2e` because it drives a real `next dev` rather than the web
+# overlay's own static fixtures, and needs hakka-node built as well. The example
+# consumes hakka-browser/hakka-node through `file:` deps pointing at their dist/,
+# so all four builds must run first. See examples/next-fullstack/e2e/README.md.
+#
+# npm, not bun, for the install and the run: this example is deliberately NOT a bun
+# workspace member, because bun lays `file:` deps out as per-file symlinks and
+# Turbopack rejects the symlinked package.json that produces. CI installs it the same
+# way for the same reason. `npm install` is a no-op when already satisfied.
+test-e2e-next: build-core build-bridge build-node build-browser
+    cd examples/next-fullstack && npm install && npx playwright install chromium && npm run test:e2e
+
 # Install the Playwright browser (Chromium) for `just test-e2e` / `just bench-e2e`.
 e2e-install:
     bun run --cwd packages/hakka-browser test:e2e:install

@@ -1,6 +1,16 @@
 import { expect, test } from '@playwright/test'
 
-import { expectCleanConsole, openInspector, rowByPath, setRuntimeFilter, trackConsoleIssues } from './helpers'
+import {
+  clearRequests,
+  closeInspector,
+  expectCleanConsole,
+  openInspector,
+  reopenInspector,
+  rowByHost,
+  rowByPath,
+  setRuntimeFilter,
+  trackConsoleIssues,
+} from './helpers'
 
 /**
  * Hakka's headline claim, and the one thing this repo has no e2e coverage of anywhere: a single
@@ -18,12 +28,21 @@ test('clicking "Fetch products" tags one row client and the other server — the
   const tracked = trackConsoleIssues(page)
 
   await page.goto('/')
+  // Open only to clear, then close again before the click. The bridge hub replays earlier tests'
+  // traffic to this overlay the moment it connects (see `clearRequests`), so starting from an
+  // empty list is what makes "one client row, one server row" a real assertion rather than one
+  // that happens to hold on the first test to run. Closing again preserves this test's actual
+  // point: capture works with nothing covering the page and the panel shut.
+  await openInspector(page)
+  await clearRequests(page)
+  await closeInspector(page)
+
   await page.getByTestId('fetch-products').click()
   // Real names from the demo's own upstream (jsonplaceholder.typicode.com/users) — confirms the
   // button's own client-side effect landed before we go looking for it in the inspector.
   await expect(page.locator('.demo-list li').first()).toBeVisible()
 
-  await openInspector(page)
+  await reopenInspector(page)
 
   const clientRow = rowByPath(page, '/api/products')
   await expect(clientRow).toBeVisible()
@@ -31,9 +50,7 @@ test('clicking "Fetch products" tags one row client and the other server — the
   // `runtime !== 'client'`, so its absence here IS the client tag, not a missing assertion.
   await expect(clientRow.locator('.hakka-rt-tag')).toHaveCount(0)
 
-  const serverRow = page.locator('.hakka-row', {
-    has: page.locator('.hakka-row-host', { hasText: 'jsonplaceholder.typicode.com' }),
-  })
+  const serverRow = rowByHost(page, 'jsonplaceholder.typicode.com')
   await expect(serverRow.first()).toBeVisible()
   await expect(serverRow.first().locator('.hakka-rt-tag')).toHaveText('server')
 
@@ -49,14 +66,16 @@ test('clicking "Fetch products" tags one row client and the other server — the
  */
 test('the runtime filter isolates server traffic from client traffic', async ({ page }) => {
   await page.goto('/')
+  await openInspector(page)
+  await clearRequests(page)
+  await closeInspector(page)
+
   await page.getByTestId('fetch-products').click()
   await expect(page.locator('.demo-list li').first()).toBeVisible()
-  await openInspector(page)
+  await reopenInspector(page)
 
   const clientRow = rowByPath(page, '/api/products')
-  const serverRow = page.locator('.hakka-row', {
-    has: page.locator('.hakka-row-host', { hasText: 'jsonplaceholder.typicode.com' }),
-  })
+  const serverRow = rowByHost(page, 'jsonplaceholder.typicode.com')
   // Sanity: both rows are there, unfiltered, before touching the runtime filter.
   await expect(clientRow).toBeVisible()
   await expect(serverRow.first()).toBeVisible()

@@ -1,6 +1,14 @@
 import { expect, test } from '@playwright/test'
 
-import { closeInspector, expectCleanConsole, openInspector, rowByPath, trackConsoleIssues } from './helpers'
+import {
+  clearRequests,
+  closeInspector,
+  expectCleanConsole,
+  openInspector,
+  reopenInspector,
+  rowByPath,
+  trackConsoleIssues,
+} from './helpers'
 
 /**
  * The mock loop, driven the way a developer actually drives it: open Rules > Mock (the default
@@ -17,6 +25,9 @@ test('a mock rule added in the UI changes what "Fetch products" returns on the n
 
   await page.goto('/')
   await openInspector(page)
+  // Start from an empty list so the `.last()` row asserted at the end is unambiguously the one
+  // this test's own click produced — see `clearRequests` for why a fresh context isn't enough.
+  await clearRequests(page)
   await page.getByRole('tab', { name: 'Rules' }).click()
 
   await page.getByLabel('URL pattern').fill('/api/products')
@@ -40,7 +51,15 @@ test('a mock rule added in the UI changes what "Fetch products" returns on the n
   await expect(page.locator('.demo-list li')).toHaveCount(1)
 
   // Secondary, inspector-side confirmation: the new request row is tagged as served by the mock.
-  await openInspector(page)
+  // `reopenInspector`, NOT `openInspector`: `closeInspector` above removed the one-shot bootstrap
+  // launcher for good (`hakka-browser` calls `launcherEl?.remove()`), so the button
+  // `openInspector` clicks no longer exists by this point and waiting for it can only time out.
+  await reopenInspector(page)
+  // Back to Network first: the panel reopens on whatever tab it was left on, and this test left it
+  // on Rules to add the rule. Without this the request list is not rendered at all, so the row
+  // assertion below fails with "element not found" and reads as "the mock tag is missing" when in
+  // fact the whole list is simply on another tab.
+  await page.getByRole('tab', { name: 'Network' }).click()
   const mockedRow = rowByPath(page, '/api/products').last()
   await expect(mockedRow.locator('.hakka-mocked-tag')).toHaveText('mock')
 

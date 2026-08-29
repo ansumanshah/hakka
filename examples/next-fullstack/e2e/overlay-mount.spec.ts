@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-import { expectCleanConsole, openInspector, trackConsoleIssues } from './helpers'
+import { expectCleanConsole, openInspector, rowByHost, trackConsoleIssues } from './helpers'
 
 /**
  * The example's two-line integration (`instrumentation.ts` + `instrumentation-client.ts`, see
@@ -48,9 +48,7 @@ test("the page's own server-side fetch is already captured, tagged server, befor
   await page.goto('/')
   await openInspector(page)
 
-  const githubRow = page.locator('.hakka-row', {
-    has: page.locator('.hakka-row-host', { hasText: 'api.github.com' }),
-  })
+  const githubRow = rowByHost(page, 'api.github.com')
   await expect(githubRow.first()).toBeVisible()
   await expect(githubRow.first().locator('.hakka-rt-tag')).toHaveText('server')
 })
