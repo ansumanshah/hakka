@@ -51,6 +51,12 @@ const TOTAL = 100
 const ERROR_EVERY = 10 // ids synth-0, synth-10, ... synth-90 => 10 rows with status 500
 
 test.describe('standalone components (no overlay)', () => {
+  // Serial: fullyParallel would run this file's two tests in separate worker
+  // processes, and `beforeAll` above races on the shared filesystem state
+  // (rmSync + rebuild of fixtures/components-dist/) between them — each worker
+  // stomping the other's in-flight rebuild, intermittent ENOTEMPTY/404s.
+  test.describe.configure({ mode: 'serial' })
+
   test('<hakka-request-list> renders, filters via <hakka-filter-bar>, and fires hakka:select', async ({ page }) => {
     await page.goto('/e2e/fixtures/components-standalone.html')
     await page.waitForFunction(() => (window as unknown as { __fixtureReady?: boolean }).__fixtureReady === true)

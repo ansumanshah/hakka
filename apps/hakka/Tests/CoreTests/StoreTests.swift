@@ -625,4 +625,71 @@ struct EnvironmentStoreTests {
         let migratedLoaded = try await store.load(forCollectionAt: dir)
         #expect(migratedLoaded.first?.variables.first?.value == secretValue)
     }
+
+    /// Regression: before this fix, a `keychain.save` failure partway
+    /// through a multi-environment batch left every environment *before*
+    /// the failure fully rewritten on disk (files + Keychain, fully
+    /// migrated) while the failing environment's file stayed stale and
+    /// every environment after it — plus both cleanup passes — never even
+    /// ran. `EnvironmentStore.save` now computes the full write plan
+    /// (every Keychain save) before writing a single `.hakka` file, so a
+    /// failure anywhere in that plan leaves the directory completely
+    /// untouched rather than partially reconciled.
+    @Test func keychainFailureMidBatchLeavesTheDirectoryUntouched() async throws {
+        let dir = tempDirectory()
+        defer { try? FileManager.default.removeItem(at: dir.deletingLastPathComponent()) }
+
+        let prodKey = EnvironmentVariable(name: "apiKey", value: "sk-prod-atomic", secret: true)
+        let prod = RequestEnvironment(name: "Prod", variables: [prodKey])
+        let stagingKey = EnvironmentVariable(name: "apiKey", value: "sk-staging-atomic", secret: true)
+        let staging = RequestEnvironment(name: "Staging", variables: [stagingKey])
+
+        // Fails on the second `save` call, i.e. Prod's secret succeeds and
+        // Staging's fails — "environment N throws partway through the
+        // batch" from the bug report.
+        let failingKeychain = FailingKeychainStore(failOnSaveCall: 2)
+        let store = EnvironmentStore(keychain: failingKeychain)
+
+        await #expect(throws: (any Error).self) {
+            try await store.save([prod, staging], forCollectionAt: dir)
+        }
+
+        // Nothing was reconciled — not even Prod's file, whose own
+        // Keychain save succeeded before Staging's failed.
+        let envDir = EnvironmentStore.environmentsDirectory(forCollectionAt: dir)
+        let entries = (try? FileManager.default.contentsOfDirectory(at: envDir, includingPropertiesForKeys: nil)) ?? []
+        #expect(entries.filter { $0.pathExtension == CollectionFileFormat.requestExtension }.isEmpty)
+    }
+}
+
+/// A `SecretKeychainStoring` double that throws on a chosen `save` call.
+/// Real `SecItem` calls can't be made to fail deterministically (there is
+/// no portable way to lock the Keychain from a test process), so this is
+/// the only way to reproduce a Keychain write failing partway through
+/// `EnvironmentStore.save`'s multi-environment batch. `read`/`delete`
+/// delegate to a real store so the rest of the round trip stays honest.
+private actor FailingKeychainStore: SecretKeychainStoring {
+    private let real = SecretKeychainStore()
+    private let failOnSaveCall: Int
+    private var saveCallCount = 0
+
+    init(failOnSaveCall: Int) {
+        self.failOnSaveCall = failOnSaveCall
+    }
+
+    func save(_ value: String, collection: URL, environmentID: String, variableID: String) async throws {
+        saveCallCount += 1
+        if saveCallCount == failOnSaveCall {
+            throw SecretKeychainError.unexpectedStatus(-1)
+        }
+        try await real.save(value, collection: collection, environmentID: environmentID, variableID: variableID)
+    }
+
+    func read(collection: URL, environmentID: String, variableID: String) async throws -> String {
+        try await real.read(collection: collection, environmentID: environmentID, variableID: variableID)
+    }
+
+    func delete(collection: URL, environmentID: String, variableID: String) async throws {
+        try await real.delete(collection: collection, environmentID: environmentID, variableID: variableID)
+    }
 }

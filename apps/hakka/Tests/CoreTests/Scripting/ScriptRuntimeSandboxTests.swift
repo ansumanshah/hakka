@@ -20,7 +20,15 @@ struct ScriptRuntimeSandboxTests {
         // background and just gives up waiting) would still return quickly
         // here, so this alone isn't the whole proof — see
         // `aSecondScriptRunsPromptlyAfterATimeout` for the other half.
-        #expect(elapsed < 2, "took \(elapsed)s to report a 0.25s timeout")
+        //
+        // Budget note: the two outcomes are far apart, not close. A working
+        // timeout returns in about 0.25s; a broken one never returns at all.
+        // The bound only has to sit somewhere in that gulf, so it is set wide
+        // rather than snug. It was 2s, which a loaded machine tripped at 2.19s
+        // inside the parallel `just verify` gate, reporting a sandbox failure
+        // that did not exist. A wall-clock assertion that only CPU contention
+        // can trip is worse than none: it trains you to ignore the gate.
+        #expect(elapsed < 15, "took \(elapsed)s to report a 0.25s timeout")
     }
 
     @Test("after a timeout, a second script runs promptly — the first one is not still holding a thread")
@@ -33,7 +41,11 @@ struct ScriptRuntimeSandboxTests {
         let output = try await runtime.run(ScriptInput(source: "log('still alive');", timeout: 5))
         let elapsed = Date().timeIntervalSince(started)
         #expect(output.logs == ["still alive"])
-        #expect(elapsed < 1, "second script took \(elapsed)s to start — first one may still be running")
+        // Same budget reasoning as `runawayLoopStopsAtTheTimeout` above: if the
+        // first script were still holding the thread, this would block for its
+        // full duration or forever, not for a second and a bit. Wide bound so
+        // only that real failure can trip it, never gate contention.
+        #expect(elapsed < 10, "second script took \(elapsed)s to start — first one may still be running")
     }
 
     @Test("a script that throws surfaces the message, not a swallowed success")

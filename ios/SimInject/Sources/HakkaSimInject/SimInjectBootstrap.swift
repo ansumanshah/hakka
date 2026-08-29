@@ -8,8 +8,9 @@ import HakkaNetwork
 ///
 /// This is the SDK's normal capture path (`HakkaInterceptor` +
 /// `HakkaBridgeClient`, unmodified) started from outside the host app instead
-/// of from inside it. See `.claude/strategy/simulator-capture-2026-08.md` for
-/// the full writeup, scope, and failure modes — including two load-bearing
+/// of from inside it. See ADR 0014
+/// (`docs/src/content/docs/contributing/adr/0014-simulator-injection-capture.md`)
+/// for the full writeup, scope, and failure modes — including two load-bearing
 /// findings from testing this against a real app: `URLSession.shared` never
 /// goes through the `.default`/`.ephemeral` swizzle this relies on (an
 /// existing SDK characteristic, not introduced here), and a process boundary

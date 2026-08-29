@@ -413,7 +413,7 @@ private final class CapturedMessagesBox: @unchecked Sendable {
     }
 }
 
-// MARK: - HakkaWebSocketMonitor self-exclusion (bridge / opted-out sessions)
+// MARK: - HakkaWebSocketMonitor self-exclusion (marked bridge session only)
 
 // `.serialized`: exercises the real `URLSession.webSocketTask(with:)` swizzle
 // and `HakkaWebSocketMonitor.globalInterceptor` — process-wide statics that
@@ -423,12 +423,34 @@ private final class CapturedMessagesBox: @unchecked Sendable {
 struct HakkaWebSocketMonitorSelfExclusionTests {
 
     /// Reproduces exactly what `HakkaBridgeClient.openConnection()` builds:
-    /// `URLSessionConfiguration.default` with `protocolClasses` explicitly
-    /// set to `[]` — the self-exclusion that already protects the bridge's
-    /// own HTTP capture. Before the fix, `wrapIfNeeded` had no equivalent
-    /// check, so Hakka's own outbound WebSocket connection to the desktop
-    /// bridge got wrapped and tracked like any app traffic.
-    @Test func sessionOptedOutOfProtocolHandlingIsNeverWrapped() {
+    /// a session marked via `HakkaInternalSocketMarker.mark(_:)` before any
+    /// task exists on it. Before the original fix, `wrapIfNeeded` had no
+    /// equivalent check at all, so Hakka's own outbound WebSocket connection
+    /// to the desktop bridge got wrapped and tracked like any app traffic.
+    @Test func markedSessionIsNeverWrapped() {
+        let interceptor = HakkaInterceptor()
+        interceptor.start()
+        interceptor.enableNativeWebSocket()
+        defer { interceptor.stop() }
+
+        let session = URLSession(configuration: .default)
+        HakkaInternalSocketMarker.mark(session)
+        let task = session.webSocketTask(with: URL(string: "ws://127.0.0.1:9999")!)
+        defer { task.cancel(with: .goingAway, reason: nil) }
+
+        #expect(debugHasWSTracker(task) == false)
+    }
+
+    /// Regression for the false-positive the original `protocolClasses ==
+    /// []` heuristic had: a host-app session that independently opts out of
+    /// custom protocol handling — for reasons that have nothing to do with
+    /// Hakka — used to be indistinguishable from the bridge's own session,
+    /// so its native WebSocket traffic silently vanished from the inspector.
+    /// An *unmarked* session built exactly like `HakkaBridgeClient`'s (same
+    /// `protocolClasses = []`) must now be captured normally, since object
+    /// identity — not that coincidental config value — is what excludes a
+    /// session.
+    @Test func unmarkedSessionThatOptedOutOfProtocolHandlingIsStillWrapped() {
         let interceptor = HakkaInterceptor()
         interceptor.start()
         interceptor.enableNativeWebSocket()
@@ -437,16 +459,17 @@ struct HakkaWebSocketMonitorSelfExclusionTests {
         let config = URLSessionConfiguration.default
         config.protocolClasses = []
         let session = URLSession(configuration: config)
-        let task = session.webSocketTask(with: URL(string: "ws://127.0.0.1:9999")!)
+        let task = session.webSocketTask(with: URL(string: "ws://127.0.0.1:9998")!)
         defer { task.cancel(with: .goingAway, reason: nil) }
 
-        #expect(debugHasWSTracker(task) == false)
+        #expect(debugHasWSTracker(task) == true)
     }
 
     /// A session with `protocolClasses == nil` (the ordinary case for an app
-    /// that never touched `protocolClasses` itself) is untouched by the new
-    /// check and still gets wrapped normally — proves the fix is scoped to
-    /// the explicit opt-out, not a regression on ordinary WebSocket capture.
+    /// that never touched `protocolClasses` itself) is untouched by the
+    /// marker check and still gets wrapped normally — proves the exclusion
+    /// stays scoped to sessions Hakka itself marks, not a regression on
+    /// ordinary WebSocket capture.
     @Test func ordinarySessionIsStillWrapped() {
         let interceptor = HakkaInterceptor()
         interceptor.start()
@@ -468,7 +491,7 @@ struct HakkaWebSocketMonitorSelfExclusionTests {
     /// exclusion (the tracker attached to the bridge's own task isn't
     /// reachable from a test — `HakkaBridgeClient.task` is private, and
     /// `HakkaWSTracker.flush()` only fires on close, which a still-open
-    /// bridge connection never reaches); `sessionOptedOutOfProtocolHandlingIsNeverWrapped`
+    /// bridge connection never reaches); `markedSessionIsNeverWrapped`
     /// above is what actually catches the regression, deterministically.
     @Test func aRunningBridgeConnectionDeliversCapturesNormally() async throws {
         let server = try MiniWebSocketServer()

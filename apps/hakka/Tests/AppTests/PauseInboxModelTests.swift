@@ -149,7 +149,14 @@ struct PauseInboxModelResolveTests {
         // Let the rescheduled watchdog's own auto-abort succeed so its
         // effect (removal + "Timed out" note) is observable.
         channel.sendResult = .success(1)
-        try await Task.sleep(for: .milliseconds(80))
+        // Same reason as the sibling test: wait for the rescheduled watchdog to
+        // land its second abort rather than betting a fixed 80ms on it.
+        try await waitUntil {
+            channel.sentCommands.filter { command in
+                if case .breakpointAbort(pauseId: "pause-1") = command { return true }
+                return false
+            }.count >= 2
+        }
         observeTask.cancel()
 
         let abortsSent = channel.sentCommands.filter { command in
@@ -186,6 +193,36 @@ struct PauseInboxModelResolveTests {
     }
 }
 
+/// Poll for a condition instead of sleeping a fixed span and hoping.
+///
+/// These tests inject a millisecond-scale `autoAbortTimeout` and used to
+/// `Task.sleep` a fixed 80ms for the watchdog to fire. That is a wall-clock
+/// bet: it holds on an idle machine and loses under load, because the
+/// watchdog Task simply is not scheduled in time. It failed inside the
+/// parallel `just verify` gate while passing three times standalone, which
+/// is the worst shape of flake, since a gate that cries wolf trains you to
+/// ignore it, and one "contention flake" this session turned out to be a
+/// real bug hiding behind that assumption.
+///
+/// Polling keeps the fast path fast (returns as soon as it is true) and
+/// gives a loaded machine room, so the only way to reach the deadline is
+/// the behavior genuinely never happening.
+/// `@MainActor` so the condition closure stays on the same actor as the model
+/// and channel state it reads. A nonisolated helper would force that closure
+/// across an isolation boundary, which the compiler correctly rejects as a
+/// data race rather than something to silence with `@unchecked Sendable`.
+@MainActor
+private func waitUntil(
+    _ deadline: Duration = .seconds(5),
+    _ condition: () -> Bool
+) async throws {
+    let start = ContinuousClock.now
+    while ContinuousClock.now - start < deadline {
+        if condition() { return }
+        try await Task.sleep(for: .milliseconds(5))
+    }
+}
+
 /// DECISION 1 coverage: an unanswered pause resolves itself. The real
 /// default is 5 minutes; these inject a millisecond-scale timeout so the
 /// test doesn't wait on it.
@@ -201,7 +238,13 @@ struct PauseInboxModelTimeoutTests {
         // schedule the watchdog before the timeout would otherwise fire.
         try await Task.sleep(for: .milliseconds(10))
 
-        try await Task.sleep(for: .milliseconds(80))
+        // Wait for the watchdog to actually fire rather than betting 80ms on it.
+        try await waitUntil {
+            channel.sentCommands.contains { command in
+                if case .breakpointAbort(pauseId: "pause-1") = command { return true }
+                return false
+            }
+        }
         observeTask.cancel()
 
         let aborted = channel.sentCommands.contains { command in
@@ -231,13 +274,24 @@ struct PauseInboxModelTimeoutTests {
         // Vanish the pause outside `resolve` — the watchdog's own guard
         // (`entries.first(where:)`) will find nothing when it fires.
         await channel.pauses.remove(pauseId: "pause-1")
-        // Let the now-stale watchdog fire and (pre-fix) skip cleanup.
-        try await Task.sleep(for: .milliseconds(60))
+        // Wait for the now-stale watchdog to actually FIRE and clear its own
+        // slot before re-ingesting. A fixed sleep here raced: under load the
+        // stale watchdog woke after the re-ingest, found the NEW pause in
+        // `entries`, and aborted it, so the test saw 2 aborts and read a
+        // correct implementation as a leak. The cleared slot is the only
+        // observable that watchdog leaves, since its whole job on this path is
+        // to do nothing visible.
+        try await waitUntil { !model.debugHasTimeoutSlotForTest("pause-1") }
 
         // Re-ingest the same pauseId — a leaked slot silently blocks the
         // new watchdog from ever being scheduled for it.
         await channel.pauses.ingest(requestPause())
-        try await Task.sleep(for: .milliseconds(80))
+        try await waitUntil {
+            channel.sentCommands.contains { command in
+                if case .breakpointAbort(pauseId: "pause-1") = command { return true }
+                return false
+            }
+        }
         observeTask.cancel()
 
         let abortsForPause1 = channel.sentCommands.filter { command in

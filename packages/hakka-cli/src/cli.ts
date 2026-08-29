@@ -11,7 +11,7 @@ import { ciBaselineCommand } from './ciBaseline'
 import { detectFramework, readPkg } from './detectFramework'
 import { diagnose } from './diagnose'
 import { detectPackageManager, installCommand, type PackageManager } from './packageManager'
-import { runSimAttach, simUsage, type SimAttachOptions } from './sim'
+import { parseSimAttachArgs, runSimAttach, simUsage } from './sim'
 
 const cwd = process.cwd()
 
@@ -210,31 +210,6 @@ async function runCdp(rest: string[]): Promise<void> {
   await runCdpAttach(parseCdpArgs(rest))
 }
 
-/** `hakka sim attach <bundle-id> [--device ...] [--dylib ...] [--bridge-url ...]` */
-function parseSimAttachArgs(rest: string[]): SimAttachOptions | undefined {
-  const valuedFlags = new Set(['--device', '--dylib', '--bridge-url'])
-  let bundleId: string | undefined
-  for (let i = 0; i < rest.length; i++) {
-    const arg = rest[i]
-    if (arg?.startsWith('--')) {
-      if (valuedFlags.has(arg)) i++ // skip its value operand too
-      continue
-    }
-    bundleId = arg
-    break
-  }
-  if (!bundleId) return undefined
-  const opts: SimAttachOptions = { bundleId }
-  for (let i = 0; i < rest.length; i++) {
-    const arg = rest[i]
-    const next = (): string | undefined => rest[++i]
-    if (arg === '--device') opts.device = next()
-    else if (arg === '--dylib') opts.dylibPath = next()
-    else if (arg === '--bridge-url') opts.bridgeUrl = next()
-  }
-  return opts
-}
-
 async function main(): Promise<void> {
   const [, , cmd, ...rest] = process.argv
   switch (cmd ?? 'init') {
@@ -295,7 +270,7 @@ async function main(): Promise<void> {
         process.exitCode = 1
         break
       }
-      process.exitCode = runSimAttach(opts)
+      process.exitCode = await runSimAttach(opts)
       break
     }
     default:

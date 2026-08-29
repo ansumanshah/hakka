@@ -77,11 +77,22 @@ struct RequestMethodURLBar: View {
     }
 
     /// A cheap prefix check, not a parse attempt: the real parsing (and its
-    /// failure modes) belongs to `CurlImporter` alone. Requires "curl" as the
-    /// first word so stray text that merely mentions curl doesn't misfire.
-    private static func looksLikeCurlCommand(_ pasted: String) -> Bool {
+    /// failure modes) belongs to `CurlImporter` alone. Matches `CurlImporter`'s
+    /// own tolerance — "curl" anywhere in the whitespace-split tokens, not
+    /// only as the first one — so a leading shell prompt (`$ curl …`), `sudo
+    /// curl …`, or an env-var prefix that `CurlImporter.parse` would happily
+    /// import never gets shunted into the raw-text fallback below.
+    ///
+    /// `nonisolated` deliberately: `RequestMethodURLBar` is a `View`, which
+    /// makes every member implicitly `@MainActor`-isolated by default — but
+    /// this is a pure string function touching no actor-isolated state, and
+    /// leaving it implicitly isolated made calling it from a non-MainActor
+    /// context (any plain synchronous test) trap at runtime instead of
+    /// failing to compile, since this project's concurrency checking treats
+    /// the mismatch as a warning, not an error.
+    nonisolated static func looksLikeCurlCommand(_ pasted: String) -> Bool {
         let trimmed = pasted.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let firstToken = trimmed.split(whereSeparator: \.isWhitespace).first else { return false }
-        return firstToken.caseInsensitiveCompare("curl") == .orderedSame
+        return trimmed.split(whereSeparator: \.isWhitespace)
+            .contains { $0.caseInsensitiveCompare("curl") == .orderedSame }
     }
 }

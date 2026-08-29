@@ -3,6 +3,42 @@
 
 import Foundation
 
+// MARK: - HakkaInternalSocketMarker
+
+/// Marks a `URLSession` as one of Hakka's own internal sockets — today,
+/// exactly `HakkaBridgeClient`'s outbound connection to the desktop bridge
+/// — so `HakkaWebSocketMonitor` (in the `HakkaNetwork` module, which depends
+/// on this one, never the reverse) can recognize and skip capturing it by
+/// object identity.
+///
+/// This replaced an earlier heuristic that inferred "this is our own
+/// connection" from `configuration.protocolClasses` being explicitly `[]` —
+/// the same value `openConnection()` below sets to keep its own handshake
+/// from being replayed as a plain HTTP request (see that method's doc
+/// comment). The heuristic was over-broad: any host-app session that
+/// independently set `protocolClasses = []` for its own unrelated reasons
+/// was indistinguishable from the bridge's own socket, so its native
+/// WebSocket traffic silently vanished from the inspector with no warning
+/// and no way to tell why. Marking the exact session this client builds,
+/// rather than pattern-matching a config value any session could carry, has
+/// no such false-positive: only a session this file itself hands to
+/// `mark(_:)` is ever excluded.
+public enum HakkaInternalSocketMarker {
+    nonisolated(unsafe) private static var key: UInt8 = 0
+
+    /// Call once, right after building the session and before creating any
+    /// task on it — `HakkaWebSocketMonitor`'s swizzle runs synchronously
+    /// inside `URLSession.webSocketTask(with:)`, so the marker must already
+    /// be in place before that call, not after.
+    public static func mark(_ session: URLSession) {
+        objc_setAssociatedObject(session, &key, true, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+    }
+
+    public static func isMarked(_ session: URLSession) -> Bool {
+        (objc_getAssociatedObject(session, &key) as? Bool) ?? false
+    }
+}
+
 // MARK: - HakkaBridgeClient
 
 /// Streams finished captures to the Hakka desktop bridge hub over WebSocket.
@@ -144,6 +180,12 @@ public final class HakkaBridgeClient: @unchecked Sendable {
         // `nil`, which defers to whatever is registered.
         config.protocolClasses = []
         let session = URLSession(configuration: config)
+        // Marks this exact session as Hakka's own before any task exists on
+        // it — `HakkaWebSocketMonitor`'s native-WebSocket self-exclusion
+        // (in `HakkaNetwork`) keys off this instead of `protocolClasses`,
+        // which a host app could independently set to `[]` for reasons that
+        // have nothing to do with Hakka. See `HakkaInternalSocketMarker`.
+        HakkaInternalSocketMarker.mark(session)
         let task = session.webSocketTask(with: url)
         lock.lock()
         self.session = session

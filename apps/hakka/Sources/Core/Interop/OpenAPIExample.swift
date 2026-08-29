@@ -21,18 +21,18 @@ enum OpenAPIExample {
         let preferredKeys = ["application/json"] + content.keys.sorted()
         guard let contentType = preferredKeys.first(where: { content[$0] != nil }),
               let media = content[contentType] as? [String: Any] else { return .none }
-        return .raw(text: Self.bodyText(media, resolver: resolver), contentType: contentType)
+        return .raw(text: Self.bodyText(media, contentType: contentType, resolver: resolver), contentType: contentType)
     }
 
-    private static func bodyText(_ media: [String: Any], resolver: OpenAPIRefResolver) -> String {
+    private static func bodyText(_ media: [String: Any], contentType: String, resolver: OpenAPIRefResolver) -> String {
         if let example = media["example"] {
-            return Self.serialize(example)
+            return Self.serialize(example, contentType: contentType)
         }
         if let examples = media.dict("examples"), let first = examples.values.first as? [String: Any], let value = first["value"] {
-            return Self.serialize(value)
+            return Self.serialize(value, contentType: contentType)
         }
         if let schema = media.dict("schema") {
-            return Self.serialize(Self.exampleFromSchema(schema, resolver: resolver, seen: []))
+            return Self.serialize(Self.exampleFromSchema(schema, resolver: resolver, seen: []), contentType: contentType)
         }
         return "{}"
     }
@@ -97,7 +97,22 @@ enum OpenAPIExample {
         }
     }
 
-    private static func serialize(_ value: Any) -> String {
+    /// `example`/`examples`/`schema` all hand back a value already parsed
+    /// out of the surrounding OpenAPI JSON document — for a JSON body that
+    /// value is data still needing re-encoding into JSON *source text* (a
+    /// `String` there is a JSON string scalar, so it goes back out quoted).
+    /// For a non-JSON body (`text/plain`, form-encoded, a raw file path,
+    /// …) a `String` example is already the literal body text: that's how
+    /// OpenAPI represents arbitrary text inside JSON in the first place, so
+    /// `JSONSerialization` has already stripped the one layer of quoting
+    /// that belongs to it by the time it reaches here. Re-quoting it, as
+    /// this used to do unconditionally, corrupted every non-JSON body's
+    /// `example` on import — `"hello"` came back as the four-character
+    /// string `"hello"`, quote marks included.
+    private static func serialize(_ value: Any, contentType: String) -> String {
+        if let string = value as? String, !contentType.lowercased().contains("json") {
+            return string
+        }
         if let string = value as? String {
             return "\"\(LanguageEscaping.escapeForQuotedString(string, quote: "\""))\""
         }

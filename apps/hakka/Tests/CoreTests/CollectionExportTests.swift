@@ -74,6 +74,77 @@ struct OpenAPICollectionExportTests {
         #expect(spec.url == "https://api.example.com/health")
         #expect(spec.method == .get)
     }
+
+    /// Regression: a non-JSON `.raw` body's example used to come back
+    /// wrapped in one extra layer of literal quote characters — `hello
+    /// plain` became `"hello plain"`, quote marks and all — because the
+    /// importer treated every `example` string as JSON source needing
+    /// re-encoding, when for a non-JSON content type it is already the
+    /// literal body text.
+    @Test("a non-JSON raw body round-trips without extra quoting")
+    func nonJSONRawBodyRoundTripsWithoutExtraQuoting() throws {
+        let spec = RequestSpec(
+            name: "Plain",
+            method: .post,
+            url: "https://api.example.com/plain",
+            body: .raw(text: "hello plain", contentType: "text/plain"),
+        )
+        let collection = Collection(name: "Plain API", nodes: [.request(spec)])
+
+        let reimported = try OpenAPIImporter.parse(OpenAPIExporter.export(collection))
+
+        guard case let .request(result) = reimported.nodes.first, case let .raw(text, contentType) = result.body else {
+            Issue.record("expected a raw body")
+            return
+        }
+        #expect(contentType == "text/plain")
+        #expect(text == "hello plain")
+    }
+
+    /// Same corruption, different `BodySpec` case: a form body's
+    /// `key=value&...` example string used to come back as
+    /// `"a=1&b=2"` (quoted) instead of `a=1&b=2`.
+    @Test("a form body round-trips without extra quoting")
+    func formBodyRoundTripsWithoutExtraQuoting() throws {
+        let spec = RequestSpec(
+            name: "Form",
+            method: .post,
+            url: "https://api.example.com/form",
+            body: .form([HeaderPair(name: "a", value: "1"), HeaderPair(name: "b", value: "2")]),
+        )
+        let collection = Collection(name: "Form API", nodes: [.request(spec)])
+
+        let reimported = try OpenAPIImporter.parse(OpenAPIExporter.export(collection))
+
+        guard case let .request(result) = reimported.nodes.first, case let .raw(text, contentType) = result.body else {
+            Issue.record("expected a raw (form-encoded) body")
+            return
+        }
+        #expect(contentType == "application/x-www-form-urlencoded")
+        #expect(text == "a=1&b=2")
+    }
+
+    /// Same corruption again for `.file`: the file path used to come back
+    /// wrapped in quotes since its content type is never JSON.
+    @Test("a file body's path round-trips without extra quoting")
+    func fileBodyRoundTripsWithoutExtraQuoting() throws {
+        let spec = RequestSpec(
+            name: "Blob",
+            method: .post,
+            url: "https://api.example.com/blob",
+            body: .file(path: "/tmp/upload.bin", contentType: "application/octet-stream"),
+        )
+        let collection = Collection(name: "Blob API", nodes: [.request(spec)])
+
+        let reimported = try OpenAPIImporter.parse(OpenAPIExporter.export(collection))
+
+        guard case let .request(result) = reimported.nodes.first, case let .raw(text, contentType) = result.body else {
+            Issue.record("expected a raw body")
+            return
+        }
+        #expect(contentType == "application/octet-stream")
+        #expect(text == "/tmp/upload.bin")
+    }
 }
 
 @Suite("Postman collection export")

@@ -114,10 +114,18 @@ public final class HakkaURLProtocol: URLProtocol, @unchecked Sendable {
     // `background(withIdentifier:)` factory method CAN do is detect that the
     // app created one, so this reports it as a warning instead of a silent gap.
 
-    /// Background session identifiers already warned about, so a host app
-    /// that calls `.background(withIdentifier:)` repeatedly for the same
-    /// identifier (the normal re-attach-after-relaunch pattern) doesn't flood
-    /// the log store with duplicate warnings.
+    /// Background session identifiers a warning was actually *delivered*
+    /// for, so a host app that calls `.background(withIdentifier:)`
+    /// repeatedly for the same identifier (the normal re-attach-after-
+    /// relaunch pattern) doesn't flood the log store with duplicate
+    /// warnings. Deliberately only recorded once `interceptor` is non-nil
+    /// and `logWarn` is actually called — an identifier seen while no
+    /// interceptor is attached (stopped via `HakkaInterceptor.stop()`, or a
+    /// background session created before a later `start()` re-attaches one)
+    /// must NOT be marked warned, or the very next time that identifier is
+    /// seen — the normal re-attach case this dedup exists for — the warning
+    /// is skipped as "already warned" despite never once reaching the log
+    /// store, defeating the one job this feature has.
     private static let backgroundWarningLock = NSLock()
     private nonisolated(unsafe) static var warnedBackgroundIdentifiers = Set<String>()
 
@@ -125,15 +133,20 @@ public final class HakkaURLProtocol: URLProtocol, @unchecked Sendable {
     /// whenever the host app creates a background session configuration.
     /// Routes through the same structured-log pipeline the Logs inspector
     /// panel and bridge console already surface (`HakkaInterceptor.logWarn`),
-    /// once per distinct identifier.
+    /// once per distinct identifier that has actually received a warning.
     static func reportBackgroundSessionDetected(identifier: String) {
+        // No interceptor to deliver a warning to right now — skip entirely,
+        // without touching `warnedBackgroundIdentifiers`, so this identifier
+        // is still eligible for a real warning once one attaches.
+        guard let interceptor else { return }
+
         backgroundWarningLock.lock()
         let alreadyWarned = warnedBackgroundIdentifiers.contains(identifier)
-        warnedBackgroundIdentifiers.insert(identifier)
+        if !alreadyWarned { warnedBackgroundIdentifiers.insert(identifier) }
         backgroundWarningLock.unlock()
         guard !alreadyWarned else { return }
 
-        interceptor?.logWarn(
+        interceptor.logWarn(
             "Background URLSession '\(identifier)' will not be captured. iOS hands its uploads and downloads to a system daemon that runs out of process, so Hakka's URLProtocol interception never sees them. Nothing about this session will appear in the inspector.",
             category: "capture"
         )

@@ -1,10 +1,22 @@
 /**
  * Shared, bundler-agnostic injection logic for the Hakka build-tool plugins.
  *
- * Every bundler adapter (Vite, webpack, …) reuses this: the overlay is started
- * by injecting a tiny module script that imports and calls `hakka-browser`'s
- * `start()`. Keeping the snippet + HTML insertion here means each bundler hook
- * stays a thin adapter and the behaviour is identical across tools.
+ * Two distinct strategies live here, because Vite and webpack/rspack differ
+ * in a way that isn't cosmetic:
+ *
+ *  - Vite (`buildInjectSnippet`): an inline `<script type="module">` that
+ *    `import`s `hakka-browser` by bare specifier. Safe ONLY because Vite's
+ *    `devHtmlHook` rewrites that specifier into a proxied, resolvable URL
+ *    before the browser sees it — see `factory.ts`'s `order: 'pre'` comment.
+ *  - webpack/rspack (`buildStartCall` + `injectExternalScriptsIntoHtml`):
+ *    CLASSIC (non-module) scripts with no `import` at all. Neither bundler
+ *    has an equivalent HTML-transform-time rewrite, so an ESM bare specifier
+ *    here reaches the browser unresolved and throws — confirmed with a real
+ *    build, see `factory.ts`'s `installHtmlHook` doc. The fix is to sidestep
+ *    module resolution entirely by reusing the pre-built, self-contained
+ *    global bundle this package already ships for the framework-free
+ *    `<script>`-tag path (`dist/hakka-browser.global.js`, exposes
+ *    `window.Hakka`), loaded as a real emitted asset.
  */
 
 export interface HakkaPluginOptions {
@@ -45,19 +57,30 @@ export interface HakkaPluginOptions {
 /** Marker so the injected tag is recognisable and de-duplicatable. */
 export const HAKKA_INJECT_ATTR = 'data-hakka'
 
-/** The module source that imports and starts the overlay. `hakka-browser` must be resolvable in the app. */
+/** Vite only. The inline ESM module source that imports and starts the overlay. Relies on `devHtmlHook` — see the file doc above. */
 export function buildInjectSnippet(start: Record<string, unknown> = {}): string {
   return `/* hakka: injected inspector overlay (dev only) */\nimport { start } from 'hakka-browser'\nstart(${JSON.stringify(start)})`
 }
 
+/** webpack/rspack only. The classic (non-module) call that starts the overlay once `window.Hakka` exists — see the file doc above. */
+export function buildStartCall(start: Record<string, unknown> = {}): string {
+  return `Hakka.start(${JSON.stringify(start)})`
+}
+
 /**
- * Insert the overlay `<script>` before `</body>` (or append it when there is no
- * body). Skips if a Hakka tag is already present, so re-running is a no-op.
- * `nonce`, when given, is attached as-is — see `HakkaPluginOptions.nonce`.
+ * webpack/rspack only. Insert two classic `<script>` tags before `</body>`
+ * (or append when there is no body): one `src`-loads the pre-built global
+ * Hakka bundle at `src` (defines `window.Hakka`), one inline runs `startCall`.
+ * Classic (non-module, non-async, non-defer) scripts execute synchronously in
+ * source order, so the loader is guaranteed to finish — and `window.Hakka` to
+ * exist — before the starter runs; nothing here needs a module resolver.
+ * Skips if a Hakka tag is already present, so re-running is a no-op.
  */
-export function injectIntoHtml(html: string, snippet: string, nonce?: string): string {
+export function injectExternalScriptsIntoHtml(html: string, src: string, startCall: string, nonce?: string): string {
   if (html.includes(HAKKA_INJECT_ATTR)) return html
   const nonceAttr = nonce ? ` nonce="${nonce.replace(/"/g, '&quot;')}"` : ''
-  const tag = `<script type="module" ${HAKKA_INJECT_ATTR}${nonceAttr}>${snippet}</script>`
-  return html.includes('</body>') ? html.replace('</body>', `${tag}\n</body>`) : html + tag
+  const tags =
+    `<script ${HAKKA_INJECT_ATTR}="true" src="${src}"${nonceAttr}></script>\n` +
+    `<script ${HAKKA_INJECT_ATTR}-start="true"${nonceAttr}>${startCall}</script>`
+  return html.includes('</body>') ? html.replace('</body>', `${tags}\n</body>`) : html + tags
 }

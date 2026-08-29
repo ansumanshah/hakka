@@ -123,21 +123,30 @@ extension URLSession {
     private func wrapIfNeeded(_ task: URLSessionWebSocketTask, urlString: String) {
         guard let interceptor = HakkaWebSocketMonitor.globalInterceptor, interceptor.isRunning else { return }
 
-        // A session that has opted out of custom protocol handling entirely
-        // (`protocolClasses` explicitly `[]`, not `nil`) is exactly the
-        // self-exclusion `HakkaBridgeClient.openConnection()` sets up for its
-        // own HTTP capture, so its WebSocket handshake can never be replayed
-        // as a plain HTTP request by `HakkaURLProtocol` (see that method's
-        // doc comment in `BridgeClient.swift`). Mirror it here: without this
-        // check, Hakka's own outbound connection to the desktop bridge — a
-        // `URLSessionWebSocketTask` like any other — gets wrapped and
-        // tracked like app traffic, and since that connection is expected to
+        // Hakka's own outbound connection to the desktop bridge — a
+        // `URLSessionWebSocketTask` like any other — must never be wrapped
+        // and tracked like app traffic: since that connection is expected to
         // stay open for the whole dev session, every request Hakka streams
-        // to the bridge would accumulate as a "frame" on itself. This covers
-        // the bridge connection regardless of whether `bridgeURL` was
-        // configured explicitly or found via LAN auto-discovery, since both
-        // paths build their session the same way.
-        if let protocolClasses = self.configuration.protocolClasses, protocolClasses.isEmpty {
+        // to the bridge would otherwise accumulate as a "frame" on itself.
+        // This covers the bridge connection regardless of whether
+        // `bridgeURL` was configured explicitly or found via LAN
+        // auto-discovery, since both paths build their session the same way
+        // (`HakkaBridgeClient.openConnection()`), and the same way marks it.
+        //
+        // Identified by `HakkaInternalSocketMarker`, set on that exact
+        // session object — NOT by `configuration.protocolClasses` being
+        // explicitly `[]`, which an earlier version of this check used as a
+        // proxy (that value is also what `openConnection()` sets to keep its
+        // own handshake from being replayed as a plain HTTP request, so it
+        // was a real signal for the bridge's own session, just not a unique
+        // one). A host app is free to set `protocolClasses = []` on a
+        // session of its own for reasons that have nothing to do with
+        // Hakka; keying off that value made such a session indistinguishable
+        // from the bridge's, so its WebSocket traffic silently vanished from
+        // the inspector with no warning and no way to tell why. Object
+        // identity has no such false positive: only the one session
+        // `openConnection()` marks is ever excluded here.
+        if HakkaInternalSocketMarker.isMarked(self) {
             return
         }
 

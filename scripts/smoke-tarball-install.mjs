@@ -107,8 +107,9 @@ function readPackageDirs() {
 
 // One check per publishable package, plus subpath-export checks for
 // capabilities that live as subpaths of a consolidated package (e.g.
-// `hakka:cdp` -> `hakka-cli/cdp`). A subpath check's key is `${dir}:${label}` —
-// `dirOf()` below strips the label back off to find the owning package dir.
+// `hakka-cli:cdp` -> `hakka-cli/cdp`). A subpath check's key is
+// `${dir}:${label}`; `dirOf()` below strips the label back off to find the
+// owning package dir.
 // Every builder is still keyed off (or resolves back to) a package DIR
 // (stable across package-name renames, unlike the npm name), and every
 // builder takes `names` (dir -> resolved npm package name, read live from
@@ -323,7 +324,7 @@ if (!reactNativeItselfWorks) {
 }
 `,
 
-  hakka: (n) => `
+  'hakka-cli': (n) => `
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { createRequire } from 'node:module'
@@ -337,7 +338,7 @@ assert.match(stdout, /Install:/, 'expected the (skipped) install instructions to
 console.log('PASS ${n['hakka-cli']} (bin): "hakka init --no-install" runs end-to-end (no framework detected -> drop-in web setup)')
 `,
 
-  'hakka:mcp': (n) => `
+  'hakka-cli:mcp': (n) => `
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { createRequire } from 'node:module'
@@ -398,8 +399,8 @@ const CHECK_ORDER = [
   'hakka-node:next',
   'hakka-cli:cdp',
   'hakka-react-native',
-  'hakka',
-  'hakka:mcp',
+  'hakka-cli',
+  'hakka-cli:mcp',
   'hakka-browser',
   'hakka-browser:elements',
   'hakka-browser:react',

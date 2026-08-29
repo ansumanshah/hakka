@@ -2,7 +2,10 @@
 import PackageDescription
 
 /// Injectable dylib that puts Hakka's existing SDK inside a simulator process
-/// it was not built with — see `.claude/strategy/simulator-capture-2026-08.md`.
+/// it was not built with — see ADR 0014
+/// (`docs/src/content/docs/contributing/adr/0014-simulator-injection-capture.md`)
+/// for scope, what it can and cannot see, and how the build is produced
+/// (`just build-siminject`).
 ///
 /// Kept as its own package (not folded into `../Package.swift`) so the
 /// dynamic-library product doesn't change linkage for HakkaNetwork/HakkaCommon

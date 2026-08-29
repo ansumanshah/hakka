@@ -136,21 +136,41 @@ struct DetailPaneView: View {
 
     /// What `trafficDetail` is showing — a diff, a selected request, or
     /// nothing — coarse enough to drive its crossfade without re-triggering
-    /// while `visibleRequests` itself churns on the traffic hot path.
-    private enum TrafficDetailState: Equatable {
+    /// while `visibleRequests` itself churns on the traffic hot path, AND
+    /// (deliberately, unlike `RequestDetailState.result(_:)` above) without
+    /// re-triggering on every row-to-row selection change. Clicking through
+    /// captured requests is the single most frequent interaction in this
+    /// pane, not a bounded "moment" the way a `Send` outcome is — so unlike
+    /// `RequestDetailState`, this case carries no request id: browsing from
+    /// one already-populated request to another must not crossfade, only
+    /// the genuine empty↔populated (or ↔comparison) pane-mode switch should.
+    enum TrafficDetailState: Equatable {
         case comparison
-        case request(String)
+        case request
         case empty
+
+        /// Pure decision logic, pulled out of `trafficDetailState` below so
+        /// it's directly testable without standing up `AppModel`/the SwiftUI
+        /// environment — this is the exact `Equatable` value
+        /// `.animation(value:)` diffs to decide whether to crossfade, so a
+        /// test asserting it stays `.request` across two different selected
+        /// ids is asserting the real mechanism, not an incidental byproduct.
+        static func current(comparisonActive: Bool, hasSelectedRequest: Bool) -> TrafficDetailState {
+            if comparisonActive {
+                .comparison
+            } else if hasSelectedRequest {
+                .request
+            } else {
+                .empty
+            }
+        }
     }
 
     private var trafficDetailState: TrafficDetailState {
-        if model.traffic.comparison != nil {
-            .comparison
-        } else if let id = model.traffic.selectedRequestID, model.traffic.request(id: id) != nil {
-            .request(id)
-        } else {
-            .empty
-        }
+        .current(
+            comparisonActive: model.traffic.comparison != nil,
+            hasSelectedRequest: model.traffic.selectedRequestID.flatMap { model.traffic.request(id: $0) } != nil,
+        )
     }
 
     @ViewBuilder

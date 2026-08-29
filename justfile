@@ -62,6 +62,21 @@ build-ios-sim:
 build-desktop:
     cd apps/hakka && swift build
 
+# Build the `hakka sim attach` injectable dylib (ios/SimInject, ADR 0014).
+# Xcode's build system wraps an SPM dynamic-library product in a
+# .framework — the actual Mach-O binary DYLD_INSERT_LIBRARIES needs is at
+# PackageFrameworks/HakkaSimInject.framework/HakkaSimInject inside SYMROOT.
+# `hakka sim attach` looks for it at exactly this path by default; keep this
+# recipe's flags in sync with `defaultDylibPath()` in
+# packages/hakka-cli/src/sim.ts if either changes.
+# Not part of `build-all` — it depends on ios/ by local path and its own
+# framework dependencies, and only matters to someone using `hakka sim
+# attach`, so it stays opt-in rather than a tax on every contributor's build.
+build-siminject:
+    cd ios/SimInject && xcodebuild build -scheme HakkaSimInject \
+        -destination 'generic/platform=iOS Simulator' -sdk iphonesimulator \
+        SYMROOT="$(pwd)/.build/xcode-sim" -quiet
+
 # Build all platforms
 build-all: build build-android build-ios build-ios-sim build-ios-demo build-desktop
 
@@ -95,6 +110,13 @@ test-ios-nobench:
 # Run the macOS desktop app's test suite (apps/hakka)
 test-desktop:
     cd apps/hakka && swift test
+
+# Run ios/SimInject's unit tests (bridge-URL resolution only — injection
+# itself needs a live simulator process, see ADR 0014's verification plan).
+# Not wired into `just verify`: it is one more package-local Swift suite,
+# not yet folded into the tiered gate the other legs live in.
+test-siminject:
+    cd ios/SimInject && swift test
 
 # Run ONLY the iOS perf benchmarks, on an otherwise idle machine
 bench-ios:
@@ -202,11 +224,21 @@ bundle-report: build-core build-bridge
     bun run --cwd packages/hakka-browser build
     node scripts/web-size-gate.mjs
 
-# Mobile-viewport Playwright E2E for the web overlay (run `just e2e-install` once first).
+# Functional Playwright E2E for the web overlay: standalone components, the mobile
+# demo, and the plain-<script>-tag overlay mount (run `just e2e-install` once first).
+# Wall-clock-budget specs (scale-10k, render-bench, overlay-open-latency) are NOT
+# part of this gate — they go flaky under CPU contention; see `just bench-e2e`.
 test-e2e: build-core build-bridge
     bun run --cwd packages/hakka-browser test:e2e
 
-# Install the Playwright browser (Chromium) for `just test-e2e`.
+# Perf-budget Playwright E2E for the web overlay (scale-10k, render-bench,
+# overlay-open-latency): wall-clock assertions calibrated on consistent local
+# hardware. Advisory, like the other perf suites — run solo, off CI's shared
+# runners; see each spec's file header for its re-baseline procedure.
+bench-e2e: build-core build-bridge
+    bun run --cwd packages/hakka-browser bench:e2e
+
+# Install the Playwright browser (Chromium) for `just test-e2e` / `just bench-e2e`.
 e2e-install:
     bun run --cwd packages/hakka-browser test:e2e:install
 

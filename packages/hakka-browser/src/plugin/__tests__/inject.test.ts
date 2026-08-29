@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { buildInjectSnippet, HAKKA_INJECT_ATTR, injectIntoHtml } from '../inject'
+import { buildInjectSnippet, buildStartCall, HAKKA_INJECT_ATTR, injectExternalScriptsIntoHtml } from '../inject'
 import hakkaVite from '../vite'
 import hakkaWebpack from '../webpack'
 
@@ -35,36 +35,58 @@ describe('buildInjectSnippet', () => {
   })
 })
 
-describe('injectIntoHtml', () => {
-  it('inserts a module script before </body>', () => {
-    const out = injectIntoHtml('<html><body><div id="app"></div></body></html>', 'START')
-    expect(out).toContain(`<script type="module" ${HAKKA_INJECT_ATTR}>START</script>`)
+describe('buildStartCall', () => {
+  it('calls the classic global Hakka.start(...) — no import, so no module specifier to resolve', () => {
+    const s = buildStartCall({ overlay: true })
+    expect(s).toBe('Hakka.start({"overlay":true})')
+    expect(s).not.toContain('import')
+  })
+
+  it('defaults to empty options', () => {
+    expect(buildStartCall()).toBe('Hakka.start({})')
+  })
+})
+
+describe('injectExternalScriptsIntoHtml', () => {
+  it('inserts a loader <script src> and a starter <script> before </body>, in that order', () => {
+    const out = injectExternalScriptsIntoHtml(
+      '<html><body><div id="app"></div></body></html>',
+      'hakka-inject.js',
+      'Hakka.start({})',
+    )
+    expect(out).toContain(`<script ${HAKKA_INJECT_ATTR}="true" src="hakka-inject.js"></script>`)
+    expect(out).toContain('Hakka.start({})')
+    // Order matters: classic scripts run synchronously in source order, so the
+    // loader (defines window.Hakka) must appear before the starter (calls it).
+    expect(out.indexOf('src="hakka-inject.js"')).toBeLessThan(out.indexOf('Hakka.start({})'))
+    // Neither tag is a module — that's the entire point of this path (see file doc).
+    expect(out).not.toContain('type="module"')
     expect(out.indexOf(HAKKA_INJECT_ATTR)).toBeLessThan(out.indexOf('</body>'))
   })
 
   it('appends when there is no </body>', () => {
-    expect(injectIntoHtml('<div></div>', 'S')).toContain(HAKKA_INJECT_ATTR)
+    expect(injectExternalScriptsIntoHtml('<div></div>', 'a.js', 'S')).toContain(HAKKA_INJECT_ATTR)
   })
 
   it('is idempotent — never double-injects', () => {
-    const once = injectIntoHtml('<body></body>', 'S')
-    expect(injectIntoHtml(once, 'S')).toBe(once)
+    const once = injectExternalScriptsIntoHtml('<body></body>', 'a.js', 'S')
+    expect(injectExternalScriptsIntoHtml(once, 'a.js', 'S')).toBe(once)
   })
 })
 
 describe('nonce (CSP)', () => {
-  it('injectIntoHtml attaches the nonce to the tag when given', () => {
-    const out = injectIntoHtml('<body></body>', 'S', 'abc123')
-    expect(out).toContain('nonce="abc123"')
+  it('injectExternalScriptsIntoHtml attaches the nonce to BOTH tags when given — a strict script-src needs it on each', () => {
+    const out = injectExternalScriptsIntoHtml('<body></body>', 'a.js', 'S', 'abc123')
+    expect(out.match(/nonce="abc123"/g)).toHaveLength(2)
   })
 
-  it('injectIntoHtml omits the nonce attribute entirely when not given', () => {
-    const out = injectIntoHtml('<body></body>', 'S')
+  it('injectExternalScriptsIntoHtml omits the nonce attribute entirely when not given', () => {
+    const out = injectExternalScriptsIntoHtml('<body></body>', 'a.js', 'S')
     expect(out).not.toContain('nonce=')
   })
 
-  it('injectIntoHtml escapes a stray quote in the nonce rather than breaking the attribute', () => {
-    const out = injectIntoHtml('<body></body>', 'S', 'weird"nonce')
+  it('injectExternalScriptsIntoHtml escapes a stray quote in the nonce rather than breaking the attribute', () => {
+    const out = injectExternalScriptsIntoHtml('<body></body>', 'a.js', 'S', 'weird"nonce')
     expect(out).toContain('nonce="weird&quot;nonce"')
   })
 

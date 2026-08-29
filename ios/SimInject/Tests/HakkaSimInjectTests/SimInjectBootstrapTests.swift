@@ -5,9 +5,9 @@ import Testing
 /// Covers the one piece of `HakkaSimInjectBootstrap` that is unit-testable
 /// without a real dyld injection: bridge URL resolution from the
 /// environment. `+load` itself, and the `HakkaInterceptor` it starts, need a
-/// live simulator process to observe — see
-/// `.claude/strategy/simulator-capture-2026-08.md` for how that was verified
-/// manually against MobileSafari.
+/// live simulator process to observe — see ADR 0014
+/// (`docs/src/content/docs/contributing/adr/0014-simulator-injection-capture.md`)
+/// for how that was verified manually against MobileSafari and Maps.app.
 @Suite("Bridge URL resolution")
 struct SimInjectBootstrapTests {
 

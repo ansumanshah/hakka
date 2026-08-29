@@ -641,6 +641,30 @@ struct URLProtocolEdgeTests {
         #expect(config.identifier == identifier)
     }
 
+    /// Regression: an identifier seen while no interceptor is attached used
+    /// to still get marked "already warned", so the very next sighting of
+    /// that SAME identifier — the normal re-attach-after-relaunch pattern
+    /// this dedup exists to tolerate — was silently skipped, and the
+    /// developer never saw a warning for it at all. Before the fix this
+    /// failed with `warnings.count == 0`, not `1`.
+    @Test func backgroundSessionSeenWithoutAnInterceptorStillWarnsOnceOneAttaches() throws {
+        HakkaURLProtocol.interceptor = nil
+
+        let identifier = "com.hakka.test.background.\(UUID().uuidString)"
+        _ = URLSessionConfiguration.background(withIdentifier: identifier)
+
+        let interceptor = HakkaInterceptor()
+        HakkaURLProtocol.interceptor = interceptor
+        defer { HakkaURLProtocol.interceptor = nil }
+
+        _ = URLSessionConfiguration.background(withIdentifier: identifier)
+
+        let warnings = interceptor.logStore.getEntries().filter {
+            $0.level == .warn && $0.message.contains(identifier)
+        }
+        #expect(warnings.count == 1)
+    }
+
     // MARK: - Rewrite path (block / redirectTo / modify)
     //
     // Mirrors `packages/hakka-core/src/capture/fetch.ts`'s block/rewrite semantics —

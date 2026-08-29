@@ -81,16 +81,33 @@ describe('matchesIgnoredPattern', () => {
     expect(matchesIgnoredPattern('https://example.com/t', [pattern])).toBe(false)
   })
 
-  test('completes within reasonable time for a potentially expensive pattern (ReDoS mitigation)', () => {
-    // Pattern with nested quantifiers — would be catastrophic without input bounding
-    const pattern = '(a+)+$'
-    const longInput = 'a'.repeat(30) + 'b'
-    const start = Date.now()
-    matchesIgnoredPattern(longInput, [pattern])
-    const elapsed = Date.now() - start
-    // Must complete within 5 seconds (generous — should be <5ms in practice)
-    expect(elapsed).toBeLessThan(5000)
-  })
+  // Budget note: the two outcomes here are orders of magnitude apart, not close
+  // together. With input bounding this returns in about 5ms; WITHOUT it,
+  // `(a+)+$` against 30 a's is ~2^30 backtracks, which is effectively forever,
+  // not "a bit slow". So the threshold only has to sit somewhere in that gulf.
+  //
+  // It used to be 5000ms, with bun's default per-test timeout also at 5000ms,
+  // which left no headroom at all: on a loaded machine (the parallel `just
+  // verify` gate) this measured 5357ms and failed, reporting a ReDoS
+  // regression that did not exist. A wall-clock assertion that can only be
+  // tripped by CPU contention is worse than none, because it teaches you to
+  // ignore the gate. Widened to 30s, with the test timeout raised past it, so
+  // the only thing that can fail this is genuine catastrophic backtracking.
+  const REDOS_BUDGET_MS = 30_000
+
+  test(
+    'completes within reasonable time for a potentially expensive pattern (ReDoS mitigation)',
+    () => {
+      // Pattern with nested quantifiers — would be catastrophic without input bounding
+      const pattern = '(a+)+$'
+      const longInput = 'a'.repeat(30) + 'b'
+      const start = Date.now()
+      matchesIgnoredPattern(longInput, [pattern])
+      const elapsed = Date.now() - start
+      expect(elapsed).toBeLessThan(REDOS_BUDGET_MS)
+    },
+    REDOS_BUDGET_MS + 5_000,
+  )
 
   test('returns false when patterns array is empty', () => {
     expect(matchesIgnoredPattern('https://example.com', [])).toBe(false)

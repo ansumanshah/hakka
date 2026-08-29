@@ -35,6 +35,17 @@ public enum SecretKeychainError: Error, Sendable, Equatable, LocalizedError {
     }
 }
 
+/// What `EnvironmentStore` needs from a secret-value store — extracted so
+/// tests can substitute a double that fails on demand (real `SecItem` calls
+/// can't be made to fail deterministically), proving `EnvironmentStore.save`
+/// stays atomic when a Keychain write fails partway through a multi-
+/// environment batch.
+public protocol SecretKeychainStoring: Sendable {
+    func save(_ value: String, collection: URL, environmentID: String, variableID: String) async throws
+    func read(collection: URL, environmentID: String, variableID: String) async throws -> String
+    func delete(collection: URL, environmentID: String, variableID: String) async throws
+}
+
 /// SecItem-backed storage for one `EnvironmentVariable.value` where
 /// `secret == true`. `EnvironmentStore` is the only caller: it writes a
 /// reference token to the `.hakka` file in place of a secret's real value
@@ -48,7 +59,7 @@ public enum SecretKeychainError: Error, Sendable, Equatable, LocalizedError {
 /// `kSecAttrService` to this app. No `kSecAttrAccessGroup` is set, so items
 /// are private to this app's Keychain access group — never shared with
 /// another app, never a step towards one.
-public actor SecretKeychainStore {
+public actor SecretKeychainStore: SecretKeychainStoring {
     public init() {}
 
     /// Creates the item if absent, overwrites it in place if present. Never

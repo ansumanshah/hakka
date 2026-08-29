@@ -84,16 +84,26 @@ back, click a few, then reopen the panel to watch the results land.
 
 ## Testing
 
-`e2e/inspector.mobile.spec.ts` drives this page on a Pixel 5 profile and asserts on the seed data
-specifically: the `/users/42` row (145ms, under the 300ms range-filter threshold) and the
-`/auth/login` row (320ms, over it). If you touch the seed block in `index.html`, keep those two
-shapes or update the spec alongside it. Run just that spec:
+Two specs exercise this page directly:
+
+- `e2e/inspector.mobile.spec.ts` drives it on a Pixel 5 profile and asserts on the seed data
+  specifically: the `/users/42` row (145ms, under the 300ms range-filter threshold) and the
+  `/auth/login` row (320ms, over it). If you touch the seed block in `index.html`, keep those two
+  shapes or update the spec alongside it.
+- `e2e/overlay-mount.spec.ts` proves the built overlay actually mounts on the plain-`<script>`-tag
+  path: `<hakka-inspector>` is a real, upgraded custom element (a shadow root with a rendered
+  panel inside it, not just markup) and mounting it produced no console errors/warnings or
+  uncaught page errors.
+
+`just test-e2e` (from the repo root) runs both of these plus `components-standalone.spec.ts` —
+the full **functional** e2e suite, all behavioral assertions, none of them wall-clock budgets.
+Run just one spec from `packages/hakka-browser`:
 
 ```bash
 bunx playwright test e2e/inspector.mobile.spec.ts
 ```
 
-Run it from `packages/hakka-browser`. Scope it to that one file rather than reaching for
-`just test-e2e`: that recipe runs the whole suite, including `scale-10k.spec.ts`,
-`render-bench.spec.ts`, and `overlay-open-latency.spec.ts`, which assert on wall-clock budgets
-and go flaky under CPU contention. A failure there tells you nothing about this page.
+`scale-10k.spec.ts`, `render-bench.spec.ts`, and `overlay-open-latency.spec.ts` assert on
+wall-clock budgets and go flaky under CPU contention, so they live behind `just bench-e2e`
+instead — a separate, advisory recipe, never part of `just test-e2e`. A failure there tells you
+nothing about this page.

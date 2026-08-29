@@ -1,6 +1,6 @@
 PODS:
   - FBLazyVector (0.85.3)
-  - Hakka (0.1.0):
+  - Hakka (0.0.1):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2390,7 +2390,7 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   FBLazyVector: 24e62c765683b8d89006a88a2c8f5cf019f0074d
-  Hakka: 30b6e9539bfe63ce4bd7ab56ce2f60dc1b8b171c
+  Hakka: c9b84a258796d66ad6145344f4a6771bd73eee71
   hermes-engine: dd60bf68b1aff23cf1cc7816da69d5dcef283cf8
   RCTDeprecation: a4c521821fab57cbb125b36effe84d897d0dfa12
   RCTRequired: 9f3a7e5645d4bc3f551593de7550bb66ab6e42bc
@@ -2462,14 +2462,14 @@ SPEC CHECKSUMS:
   React-utils: ccc01da318979af773259c4f6cdb1876f6f86f1a
   React-webperformancenativemodule: f8b97c2cb6cfa94e92a503c09ad6d491c50a1390
   ReactAppDependencyProvider: 25c9c516839be2c5e3d3344f95dc7da5f7e63fc2
-  ReactCodegen: f497536233369c703bd04199b8642b23a1d3f3af
+  ReactCodegen: 2e1b14e8673753747b90de727259bf7bbe902c80
   ReactCommon: 7dfc3250793bf36cf221096ff59e1179e13eef7f
   ReactNativeDependencies: 02913a9debbef71f345b1326d31d03eeb5c364f9
   RNCClipboard: 715fa7c6c8366f17d00f05a439ee7488f390fa5f
   RNGestureHandler: ed28fea435eee1ea629ed8372c2e98138a73a472
-  RNReanimated: f3fd8b28d98a9030b505f9c05ba185fdfcaeda37
+  RNReanimated: f6fb8d8a1451eb88bea25dca9ad1be6dae3435fa
   RNSVG: 0e52210d4d43165e7e2cf9c890a9848b27e513ac
-  RNWorklets: f6dcba75f7e6dffec3de4f0c18e4d30886e0a9e8
+  RNWorklets: 1c71cf6b04bff189360a7c11593f80bbe444da21
   Yoga: 77dfa8673de2874e1855002ae59c68b8be9b007b
 
 PODFILE CHECKSUM: 4358587eb471e98a09a37582d9e0219d60de7b01

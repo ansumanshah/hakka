@@ -15,9 +15,9 @@ import Foundation
 /// `VariableScope`, the request runner) keeps seeing a plain, already-usable
 /// `String` and needs no awareness that the value came from two places.
 public actor EnvironmentStore {
-    private let keychain: SecretKeychainStore
+    private let keychain: any SecretKeychainStoring
 
-    public init(keychain: SecretKeychainStore = SecretKeychainStore()) {
+    public init(keychain: any SecretKeychainStoring = SecretKeychainStore()) {
         self.keychain = keychain
     }
 
@@ -82,8 +82,17 @@ public actor EnvironmentStore {
         // that doesn't even touch it.
         let previousSecretIdentities = Self.secretIdentities(scanning: dir)
 
-        var used = Set<String>()
-        var keptPaths = Set<String>()
+        // Phase 1: write every secret value to the Keychain and build the
+        // full set of environments this call would persist — *before*
+        // touching the filesystem. If `keychain.save` throws partway
+        // through (a locked/unavailable Keychain, any other `SecItem`
+        // failure), it throws from here with not one `.hakka` file
+        // rewritten yet, so the directory is left exactly as it was rather
+        // than reconciling environments 0..<N and silently stranding
+        // environment N onward at a stale, pre-save state (with the
+        // cleanup passes below never even running for them).
+        var toWriteEnvironments: [RequestEnvironment] = []
+        toWriteEnvironments.reserveCapacity(environments.count)
         var currentSecretIdentities: Set<SecretIdentity> = []
 
         for environment in environments {
@@ -99,7 +108,14 @@ public actor EnvironmentStore {
                 )
                 toWrite.variables[index].value = SecretReference.token
             }
+            toWriteEnvironments.append(toWrite)
+        }
 
+        // Phase 2: every Keychain write above succeeded, so it's now safe
+        // to reconcile the directory's files and orphaned Keychain items.
+        var used = Set<String>()
+        var keptPaths = Set<String>()
+        for toWrite in toWriteEnvironments {
             let slug = CollectionFileNaming.uniqueSlug(for: toWrite.name, used: &used)
             let url = dir.appendingPathComponent("\(slug).\(CollectionFileFormat.requestExtension)")
             let data = try CollectionFileFormat.encode(toWrite)

@@ -184,6 +184,20 @@ final class PauseInboxModel {
         timeouts.removeValue(forKey: pauseId)?.cancel()
     }
 
+    /// Test seam: does a watchdog slot currently exist for this pauseId?
+    ///
+    /// `timeouts` is private, and a watchdog that fires for an already-vanished
+    /// pause does its work SILENTLY (clears its own slot and returns without
+    /// sending anything), so a test has no other way to know it has run.
+    /// `PauseInboxModelTests` needs exactly that: it must wait for a stale
+    /// watchdog to finish before re-ingesting the same pauseId, or the stale
+    /// watchdog wakes after the re-ingest, finds the NEW pause in `entries`,
+    /// and aborts it, producing a second abort the test then reads as a leak.
+    /// Sleeping a fixed span instead made the suite flaky under load.
+    func debugHasTimeoutSlotForTest(_ pauseId: String) -> Bool {
+        timeouts[pauseId] != nil
+    }
+
     private func note(_ delivered: Int, reason: String? = nil) {
         let outcome = delivered == 0
             ? "No devices connected — the request may still be paused on the device"
