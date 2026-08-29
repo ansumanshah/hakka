@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name         = "Hakka"
-  s.version      = "0.1.0"
+  s.version      = "0.0.1"
   s.summary      = "Local-first network inspector SDK for iOS"
   s.description  = "Swift network capture, redaction, performance, and optional UI modules for Hakka."
   s.homepage     = "https://github.com/ansumanshah/hakka"

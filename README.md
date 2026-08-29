@@ -18,7 +18,7 @@ One engine ([`hakka-core`](./packages/hakka-core)) powers every target, so the c
 
 ## Packages
 
-7 npm packages, all `0.1.0`, plus native SDKs for Android and iOS.
+7 npm packages, all `0.0.1`, plus native SDKs for Android and iOS.
 
 ### Engine
 
@@ -164,13 +164,13 @@ Server and client requests show up in one overlay. Requires Next 15.3+.
 
 ```kotlin
 dependencies {
-    debugImplementation("com.noodleapps.hakka:hakka-network:0.1.0")
-    debugImplementation("com.noodleapps.hakka:hakka-ui:0.1.0")
-    releaseImplementation("com.noodleapps.hakka:hakka-network-noop:0.1.0")
+    debugImplementation("com.noodleapps.hakka:hakka-network:0.0.1")
+    debugImplementation("com.noodleapps.hakka:hakka-ui:0.0.1")
+    releaseImplementation("com.noodleapps.hakka:hakka-network-noop:0.0.1")
 
     // optional performance collectors
-    debugImplementation("com.noodleapps.hakka:hakka-performance:0.1.0")
-    releaseImplementation("com.noodleapps.hakka:hakka-performance-noop:0.1.0")
+    debugImplementation("com.noodleapps.hakka:hakka-performance:0.0.1")
+    releaseImplementation("com.noodleapps.hakka:hakka-performance-noop:0.0.1")
 }
 ```
 

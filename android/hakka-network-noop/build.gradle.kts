@@ -9,7 +9,7 @@ repositories {
 }
 
 group = "com.noodleapps.hakka"
-version = "0.1.0"
+version = "0.0.1"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
@@ -38,7 +38,7 @@ tasks.test {
 mavenPublishing {
     publishToMavenCentral()
     signAllPublications()
-    coordinates("com.noodleapps.hakka", "hakka-network-noop", "0.1.0")
+    coordinates("com.noodleapps.hakka", "hakka-network-noop", "0.0.1")
     pom {
         name.set("Hakka Network Noop")
         description.set("No-op implementation of hakka-network — safe release build opt-out")

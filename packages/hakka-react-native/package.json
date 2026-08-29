@@ -1,6 +1,6 @@
 {
   "name": "hakka-react-native",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "React Native network inspector — capture fetch/XHR/WebSocket requests, mock responses, export HAR, shake-to-open overlay",
   "keywords": [
     "debugging",
@@ -92,7 +92,7 @@
   "dependencies": {
     "@gorhom/bottom-sheet": "5.2.14",
     "@shopify/flash-list": "2.3.2",
-    "hakka-core": "0.1.0"
+    "hakka-core": "0.0.1"
   },
   "devDependencies": {
     "@babel/preset-env": "7.29.7",

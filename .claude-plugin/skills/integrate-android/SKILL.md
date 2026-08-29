@@ -21,16 +21,16 @@ Add Hakka network and performance monitoring to a native Android project — con
 
    ```kotlin
    dependencies {
-     debugImplementation("com.noodleapps.hakka:hakka-network:0.1.0")
-     releaseImplementation("com.noodleapps.hakka:hakka-network-noop:0.1.0")
+     debugImplementation("com.noodleapps.hakka:hakka-network:0.0.1")
+     releaseImplementation("com.noodleapps.hakka:hakka-network-noop:0.0.1")
    }
    ```
 
    Optionally add performance monitoring:
 
    ```kotlin
-   debugImplementation("com.noodleapps.hakka:hakka-performance:0.1.0")
-   releaseImplementation("com.noodleapps.hakka:hakka-performance-noop:0.1.0")
+   debugImplementation("com.noodleapps.hakka:hakka-performance:0.0.1")
+   releaseImplementation("com.noodleapps.hakka:hakka-performance-noop:0.0.1")
    ```
 
 3. Sync Gradle: `./gradlew :app:assembleDebug`

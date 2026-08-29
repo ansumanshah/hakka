@@ -40,4 +40,4 @@ export type {
 
 export type { NetworkRequest, RequestRuntime } from 'hakka-core'
 
-export const HAKKA_CDP_VERSION = '0.1.0'
+export const HAKKA_CDP_VERSION = '0.0.1'

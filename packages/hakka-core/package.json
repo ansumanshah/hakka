@@ -1,6 +1,6 @@
 {
   "name": "hakka-core",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "Platform-neutral network-capture engine for Hakka — fetch/XHR/WebSocket interceptors, bounded ring buffer, mock engine, throttling, HAR + OpenTelemetry export. Framework-agnostic, one runtime dependency (fflate).",
   "keywords": [
     "devtools",

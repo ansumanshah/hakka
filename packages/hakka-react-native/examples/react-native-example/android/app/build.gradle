@@ -110,12 +110,12 @@ android {
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
-    debugImplementation("com.noodleapps.hakka:hakka-network:0.1.0")
-    debugImplementation("com.noodleapps.hakka:hakka-performance:0.1.0")
+    debugImplementation("com.noodleapps.hakka:hakka-network:0.0.1")
+    debugImplementation("com.noodleapps.hakka:hakka-performance:0.0.1")
     // Native inspector UI — enables Hakka.showUI() (bubble/sheet/fullscreen) from JS.
-    debugImplementation("com.noodleapps.hakka:hakka-ui:0.1.0")
-    releaseImplementation("com.noodleapps.hakka:hakka-network-noop:0.1.0")
-    releaseImplementation("com.noodleapps.hakka:hakka-performance-noop:0.1.0")
+    debugImplementation("com.noodleapps.hakka:hakka-ui:0.0.1")
+    releaseImplementation("com.noodleapps.hakka:hakka-network-noop:0.0.1")
+    releaseImplementation("com.noodleapps.hakka:hakka-performance-noop:0.0.1")
 
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")

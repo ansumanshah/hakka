@@ -80,16 +80,16 @@ dependencies {
 
   // hakka-network — compileOnly; the consuming app adds hakka-network directly.
   // Until published to Maven Central, apps include hakka-network as a local module.
-  // After publishing: implementation("com.noodleapps.hakka:hakka-network:0.1.0")
-  compileOnly "com.noodleapps.hakka:hakka-network:0.1.0"
-  compileOnly "com.noodleapps.hakka:hakka-performance:0.1.0"
+  // After publishing: implementation("com.noodleapps.hakka:hakka-network:0.0.1")
+  compileOnly "com.noodleapps.hakka:hakka-network:0.0.1"
+  compileOnly "com.noodleapps.hakka:hakka-performance:0.0.1"
 
   testImplementation "junit:junit:4.13.2"
   // `compileOnly` (above) doesn't propagate to the test compile classpath, but
   // NativeConsoleStorageRelayTest needs hakka-common's LogEntry/StorageSnapshot/LogLevel
   // (reached transitively via hakka-network's `api project(":hakka-common")`) to assert
   // the exact wire shape the relay mirrors.
-  testImplementation "com.noodleapps.hakka:hakka-network:0.1.0"
+  testImplementation "com.noodleapps.hakka:hakka-network:0.0.1"
   // `LogEntry.toJson()`/`StorageSnapshot.toJson()` use org.json — compileOnly has no real
   // implementation off-device; JVM unit tests need the real jar, same as hakka-common's
   // own test config.

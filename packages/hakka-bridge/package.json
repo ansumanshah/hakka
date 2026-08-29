@@ -1,6 +1,6 @@
 {
   "name": "hakka-bridge",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "Desktop bridge server for Hakka — receives captured requests from hakka-browser over WebSocket and relays them to connected viewers.",
   "keywords": [
     "bridge",
@@ -63,7 +63,7 @@
   "devDependencies": {
     "@types/node": "^26.1.1",
     "@types/ws": "^8.18.1",
-    "hakka-core": "0.1.0",
+    "hakka-core": "0.0.1",
     "tsdown": "^0.22.12",
     "typescript": "^7.0.2"
   }

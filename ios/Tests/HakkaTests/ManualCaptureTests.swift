@@ -85,7 +85,16 @@ import HakkaCommon
             startTime: 0,
             config: HakkaConfig(sensitiveBodyFields: ["password"])
         )
-        #expect(request.requestBody == #"{"user":{"password":"██","name":"a"}}"#)
+        // Compare parsed structure, never the serialized string. Redaction
+        // round-trips the body through JSONSerialization, and Swift's Dictionary
+        // iteration order is randomized per process, so the emitted key order
+        // varies run to run. Asserting on the string made this test pass or fail
+        // on the hash seed: it was caught failing in the parallel `just verify`
+        // gate while passing standalone minutes earlier.
+        let parsed = try? JSONSerialization.jsonObject(with: Data((request.requestBody ?? "").utf8))
+        let user = (parsed as? [String: Any])?["user"] as? [String: String]
+        #expect(user?["password"] == "\u{2588}\u{2588}")
+        #expect(user?["name"] == "a")
     }
 
     @Test func bodyFieldRedactionSkippedForNonJsonContentType() {

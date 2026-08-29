@@ -29,8 +29,8 @@ runs the `hakka-react-native` plugin from `app.json`'s `plugins` array
 to the generated `android/app/build.gradle`:
 
 ```
-debugImplementation("com.noodleapps.hakka:hakka-network:0.1.0")
-releaseImplementation("com.noodleapps.hakka:hakka-network-noop:0.1.0")
+debugImplementation("com.noodleapps.hakka:hakka-network:0.0.1")
+releaseImplementation("com.noodleapps.hakka:hakka-network-noop:0.0.1")
 ```
 
 iOS gets its native dependency through React Native autolinking and CocoaPods, no plugin work

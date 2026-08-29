@@ -1,6 +1,6 @@
 {
   "name": "hakka-rozenite",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "EXPERIMENTAL — Hakka network inspector as a React Native DevTools panel via Rozenite. Renders hakka-browser/elements' <hakka-request-list>/<hakka-request-detail>/<hakka-filter-bar> (through hakka-browser/react) inside the panel, fed live from hakka-react-native's capture stream over Rozenite's own plugin messaging bridge.",
   "keywords": [
     "debugging",
@@ -71,14 +71,14 @@
   },
   "dependencies": {
     "@rozenite/plugin-bridge": "^1.13.0",
-    "hakka-browser": "0.1.0",
-    "hakka-core": "0.1.0"
+    "hakka-browser": "0.0.1",
+    "hakka-core": "0.0.1"
   },
   "devDependencies": {
     "@rozenite/vite-plugin": "^1.13.0",
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
-    "hakka-react-native": "0.1.0",
+    "hakka-react-native": "0.0.1",
     "happy-dom": "^20.11.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -89,7 +89,7 @@
     "vitest": "^4.1.10"
   },
   "peerDependencies": {
-    "hakka-react-native": "0.1.0",
+    "hakka-react-native": "0.0.1",
     "react": ">=19.2.3"
   }
 }

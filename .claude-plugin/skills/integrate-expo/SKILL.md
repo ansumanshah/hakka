@@ -38,7 +38,7 @@ Add Hakka to an Expo managed-workflow app using the config plugin — requires a
    }
    ```
 
-   The plugin injects `debugImplementation("com.noodleapps.hakka:hakka-network:0.1.0")` and `releaseImplementation("com.noodleapps.hakka:hakka-network-noop:0.1.0")` into the Android Gradle dependencies. iOS is handled by autolinking and CocoaPods with no extra config.
+   The plugin injects `debugImplementation("com.noodleapps.hakka:hakka-network:0.0.1")` and `releaseImplementation("com.noodleapps.hakka:hakka-network-noop:0.0.1")` into the Android Gradle dependencies. iOS is handled by autolinking and CocoaPods with no extra config.
 
 4. Add `react-native-worklets/plugin` as the **last** plugin in `babel.config.js`:
 

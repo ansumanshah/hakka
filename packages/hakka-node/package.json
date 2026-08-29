@@ -1,6 +1,6 @@
 {
   "name": "hakka-node",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "Framework-agnostic server-side network capture for Node backends — instruments fetch + Node http/https in any Express/Fastify/Hono/raw-http server and streams captures into the Hakka inspector, with W3C traceparent-compatible trace correlation. Includes a `./next` entry for Next.js instrumentation. No proxy, no CA cert.",
   "keywords": [
     "devtools",
@@ -89,21 +89,21 @@
     "bench:check": "bun bench/run.mjs --check"
   },
   "dependencies": {
-    "hakka-bridge": "0.1.0",
-    "hakka-core": "0.1.0",
+    "hakka-bridge": "0.0.1",
+    "hakka-core": "0.0.1",
     "ws": "^8.21.1"
   },
   "devDependencies": {
     "@opentelemetry/api": "^1.9.1",
     "@types/node": "^26.1.1",
     "@types/ws": "^8.18.1",
-    "hakka-browser": "0.1.0",
+    "hakka-browser": "0.0.1",
     "tsdown": "^0.22.12",
     "typescript": "^7.0.2"
   },
   "peerDependencies": {
     "@opentelemetry/api": ">=1.0.0",
-    "hakka-browser": ">=0.1.0"
+    "hakka-browser": ">=0.0.1"
   },
   "peerDependenciesMeta": {
     "@opentelemetry/api": {

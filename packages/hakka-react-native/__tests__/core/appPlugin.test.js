@@ -27,32 +27,32 @@ dependencies {
 
   it('adds Android network dependencies for debug and release builds', () => {
     const contents = addHakkaAndroidDependencies(appBuildGradle, {
-      version: '0.1.0',
+      version: '0.0.1',
       performance: false,
     })
 
-    expect(contents).toContain('debugImplementation("com.noodleapps.hakka:hakka-network:0.1.0")')
-    expect(contents).toContain('releaseImplementation("com.noodleapps.hakka:hakka-network-noop:0.1.0")')
-    expect(contents).not.toContain('hakka-performance:0.1.0')
+    expect(contents).toContain('debugImplementation("com.noodleapps.hakka:hakka-network:0.0.1")')
+    expect(contents).toContain('releaseImplementation("com.noodleapps.hakka:hakka-network-noop:0.0.1")')
+    expect(contents).not.toContain('hakka-performance:0.0.1')
   })
 
   it('adds optional performance dependencies when requested', () => {
     const contents = addHakkaAndroidDependencies(appBuildGradle, {
-      version: '0.1.0',
+      version: '0.0.1',
       performance: true,
     })
 
-    expect(contents).toContain('debugImplementation("com.noodleapps.hakka:hakka-performance:0.1.0")')
-    expect(contents).toContain('releaseImplementation("com.noodleapps.hakka:hakka-performance-noop:0.1.0")')
+    expect(contents).toContain('debugImplementation("com.noodleapps.hakka:hakka-performance:0.0.1")')
+    expect(contents).toContain('releaseImplementation("com.noodleapps.hakka:hakka-performance-noop:0.0.1")')
   })
 
   it('does not duplicate existing Hakka dependencies', () => {
     const once = addHakkaAndroidDependencies(appBuildGradle, {
-      version: '0.1.0',
+      version: '0.0.1',
       performance: false,
     })
     const twice = addHakkaAndroidDependencies(once, {
-      version: '0.1.0',
+      version: '0.0.1',
       performance: false,
     })
 
@@ -66,6 +66,6 @@ dependencies {
       },
     })
 
-    expect(result.modResults.contents).toContain('debugImplementation("com.noodleapps.hakka:hakka-network:0.1.0")')
+    expect(result.modResults.contents).toContain('debugImplementation("com.noodleapps.hakka:hakka-network:0.0.1")')
   })
 })

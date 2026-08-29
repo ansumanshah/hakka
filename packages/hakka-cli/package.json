@@ -1,6 +1,6 @@
 {
   "name": "hakka-cli",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "Hakka CLI — `npx hakka-cli init` detects your framework (Next.js, Vite, Expo, React Native) and wires up the Hakka network inspector; `hakka diagnose`/`hakka assert` analyze a saved .hakka session or .har capture; `hakka mcp` starts an MCP stdio server exposing live traffic to AI agents; `hakka cdp` streams Chrome DevTools Protocol captures to a bridge hub.",
   "keywords": [
     "ai",
@@ -65,9 +65,9 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "hakka-bridge": "0.1.0",
-    "hakka-core": "0.1.0",
-    "hakka-node": "0.1.0",
+    "hakka-bridge": "0.0.1",
+    "hakka-core": "0.0.1",
+    "hakka-node": "0.0.1",
     "ws": "^8.21.1",
     "zod": "^4.4.3"
   },

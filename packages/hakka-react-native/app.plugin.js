@@ -24,7 +24,7 @@ function withHakka(config, options = {}) {
   })
 }
 
-const DEFAULT_ANDROID_MAVEN_VERSION = '0.1.0'
+const DEFAULT_ANDROID_MAVEN_VERSION = '0.0.1'
 
 function normalizeAndroidOptions(options) {
   const android = isObject(options.android) ? options.android : {}
