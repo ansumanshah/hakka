@@ -147,6 +147,21 @@ shake gesture, a floating bubble, a device's own UA/platform info) are `⊘` or
 section for the different, unrelated question of which platforms the capture
 SDK itself builds and ships for — do not conflate the two tables.
 
+Mac-column audit 2026-08-30: Postman export, status-code chips, cookie inspector
+and GraphQL detail were each marked missing here while already shipping. They
+landed in `5e08798f`, after this table's previous 2026-08-22 sweep, and nothing
+re-read the table afterwards. Each of the four was re-verified reachable from the
+UI before the mark was changed, not merely present as a file:
+`AppCommands.swift`'s Postman export action, `TrafficFilterChipsView`'s
+`statusClasses`, and `NetworkRequestDetailView`'s dispatch to
+`DetailCookiesTabView` / `DetailGraphQLTabView`.
+
+Worth stating plainly, because this table is what anyone plans the next sprint
+from: `spec-drift-check` does not validate these marks, only the documented
+symbols and links elsewhere in this file. A stale `—` reads as "still to build"
+and nearly caused four already-shipped features to be scoped again. Re-sweep the
+Mac column whenever desktop work lands.
+
 | Capability                        | RN      | iOS | Android | Web | Mac app |
 | --------------------------------- | ------- | --- | ------- | --- | ------- |
 | Native capture                    | ●       | ●   | ●       | —   | —       |
@@ -154,15 +169,15 @@ SDK itself builds and ships for — do not conflate the two tables.
 | WebSocket frames¹⁷ ²⁰             | ●       | ●   | ●       | ●   | ●       |
 | Timing waterfall                  | ●       | ●   | ●       | ●   | ●       |
 | HAR / OTel / cURL¹ ²¹             | ●⁴      | ●   | ●       | ●   | ◐       |
-| Postman export                    | ●       | ●   | ●       | ●   | —       |
+| Postman export                    | ●       | ●   | ●       | ●   | ●       |
 | Mocking / throttle²²              | ●       | ●⁵  | ●⁶      | ●   | ●       |
 | Breakpoints³ ²³                   | ●       | ●   | ●       | ●   | ●       |
 | Pause/resume²                     | ●       | ●   | ●       | ●   | ●       |
-| Status-code chips²⁴               | ●       | ●   | ●       | ●   | —       |
+| Status-code chips²⁴               | ●       | ●   | ●       | ●   | ●       |
 | Group-by / sort-by⁷ ²⁵            | ●       | ●   | ●       | ●   | ◐       |
-| Cookie inspector                  | ●       | ●   | ●       | ●   | —       |
+| Cookie inspector                  | ●       | ●   | ●       | ●   | ●       |
 | Body search                       | ●       | ●   | ●       | ●   | ●       |
-| GraphQL detail                    | ●       | ●   | ●       | ●   | —       |
+| GraphQL detail                    | ●       | ●   | ●       | ●   | ●       |
 | Trace correlation⁹                | ●       | ●   | ●       | ●   | ●       |
 | Console panel²⁶                   | ●       | ●   | ●       | ●   | ●       |
 | Storage panel²⁶                   | ●       | ●   | ●       | ●   | ●       |
