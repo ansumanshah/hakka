@@ -38,6 +38,7 @@ const ALLOWLIST = new Map([
     'its `firstValue` extension is also defined in Network/RequestBuilder.swift; in a single module keeping both is a duplicate-symbol error',
   ],
   ['Common/OtelExport.swift', 'unused by the RN surface; keeps the bridge lean'],
+  ['Common/ManualCapture.swift', 'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)'],
   ['Common/CookieParser.swift', 'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)'],
   ['Common/GraphQLBodyParser.swift', 'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)'],
   ['Common/HakkaConsole.swift', 'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)'],

@@ -30,9 +30,17 @@ import java.util.concurrent.atomic.AtomicReference
  * )
  * // Register the wrapping listener with OkHttp.
  * val rawWs: WebSocket = client.newWebSocket(request, capture.listener)
- * // Use capture.webSocket instead of rawWs for all send() calls.
+ * // capture.webSocket instead of rawWs for calls made right here:
  * capture.webSocket.send("hello")
  * ```
+ *
+ * ### The `WebSocket` your delegate receives is already the capturing one
+ * The common OkHttp idiom is to cache the `webSocket` argument handed to
+ * [WebSocketListener.onOpen]/`onMessage` and send replies through that reference later,
+ * rather than through `newWebSocket()`'s return value. This wrapper's internal listener
+ * passes [Prepared.webSocket] — never the raw connection — to every delegate callback, so
+ * that idiom captures outbound frames with no call-site change required. Only `rawWs` above
+ * (the `newWebSocket()` return value itself) bypasses capture if sent through directly.
  *
  * ### Frame capture contract
  * - Text frames: stored verbatim.
@@ -217,36 +225,40 @@ class HakkaWebSocketWrapper private constructor(
         ): Prepared {
             val wrapper = HakkaWebSocketWrapper(url, System.currentTimeMillis(), logStore)
 
+            // Every delegate callback below is handed `wrapper`, not the raw `webSocket`
+            // OkHttp gives us — see the class doc's "already the capturing one" section.
+            // The raw reference is still used for the internal onOpen()/recordXxx() calls,
+            // which need the real connection to forward sends onto.
             val listener = object : WebSocketListener() {
                 override fun onOpen(webSocket: WebSocket, response: Response) {
                     val proto = response.header("Sec-WebSocket-Protocol")
                         ?.trim()?.takeIf { it.isNotEmpty() }
                     wrapper.onOpen(webSocket, proto)
-                    delegate?.onOpen(webSocket, response)
+                    delegate?.onOpen(wrapper, response)
                 }
 
                 override fun onMessage(webSocket: WebSocket, text: String) {
                     wrapper.recordReceived(text)
-                    delegate?.onMessage(webSocket, text)
+                    delegate?.onMessage(wrapper, text)
                 }
 
                 override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
                     wrapper.recordReceivedBytes(bytes)
-                    delegate?.onMessage(webSocket, bytes)
+                    delegate?.onMessage(wrapper, bytes)
                 }
 
                 override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-                    delegate?.onClosing(webSocket, code, reason)
+                    delegate?.onClosing(wrapper, code, reason)
                 }
 
                 override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                     wrapper.emit(code, null)
-                    delegate?.onClosed(webSocket, code, reason)
+                    delegate?.onClosed(wrapper, code, reason)
                 }
 
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                     wrapper.emit(1006 /* abnormal closure per RFC 6455 */, t.message)
-                    delegate?.onFailure(webSocket, t, response)
+                    delegate?.onFailure(wrapper, t, response)
                 }
             }
 

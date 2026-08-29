@@ -12,6 +12,18 @@ import HakkaCommon
 /// Not `private` so `buildWsMessage`'s cap boundary is directly testable.
 let wsBinaryCap = 32 * 1024  // 32KB
 
+/// Per-connection cap on retained frames in `HakkaWSTracker.frames` — past
+/// this, the oldest frame is dropped on every new append rather than growing
+/// without bound. `frames` is only drained on `flush()` (at connection
+/// close), so a long-lived, high-traffic socket (chat, a live feed, or
+/// Hakka's own bridge connection, which is expected to stay open for the
+/// whole dev session) would otherwise retain every frame's payload in memory
+/// for the life of the connection. Matches Android's
+/// `HakkaWebSocketWrapper.MAX_FRAMES` exactly so both platforms bound WS
+/// frame retention the same way. Not `private` so tests can assert against
+/// it directly rather than hardcoding the number.
+let wsMaxFrames = 2_000
+
 // MARK: - HakkaWebSocketMonitor
 
 /// Intercepts native `URLSessionWebSocketTask` connections and emits a
@@ -112,7 +124,33 @@ extension URLSession {
     }
 
     private func wrapIfNeeded(_ task: URLSessionWebSocketTask, urlString: String) {
-        guard HakkaWebSocketMonitor.globalInterceptor?.isRunning == true else { return }
+        guard let interceptor = HakkaWebSocketMonitor.globalInterceptor, interceptor.isRunning else { return }
+
+        // A session that has opted out of custom protocol handling entirely
+        // (`protocolClasses` explicitly `[]`, not `nil`) is exactly the
+        // self-exclusion `HakkaBridgeClient.openConnection()` sets up for its
+        // own HTTP capture, so its WebSocket handshake can never be replayed
+        // as a plain HTTP request by `HakkaURLProtocol` (see that method's
+        // doc comment in `BridgeClient.swift`). Mirror it here: without this
+        // check, Hakka's own outbound connection to the desktop bridge — a
+        // `URLSessionWebSocketTask` like any other — gets wrapped and
+        // tracked like app traffic, and since that connection is expected to
+        // stay open for the whole dev session, every request Hakka streams
+        // to the bridge would accumulate as a "frame" on itself. This covers
+        // the bridge connection regardless of whether `bridgeURL` was
+        // configured explicitly or found via LAN auto-discovery, since both
+        // paths build their session the same way.
+        if let protocolClasses = self.configuration.protocolClasses, protocolClasses.isEmpty {
+            return
+        }
+
+        // Host-app-configured ignore list — the same check
+        // `HakkaURLProtocol.canInit` applies to HTTP requests — so a
+        // WebSocket host can be opted out by URL/host pattern the same way
+        // HTTP requests already can be.
+        if let url = URL(string: urlString), interceptor.shouldIgnore(url: url) {
+            return
+        }
 
         // Prevent double-wrap
         let alreadyWrapped = objc_getAssociatedObject(task, &URLSession.hakkaWrappedKey) as? Bool ?? false
@@ -299,6 +337,18 @@ extension URLSessionWebSocketTask {
     }
 }
 
+// MARK: - Test seam
+
+/// Whether `task` currently has a `HakkaWSTracker` attached. Internal (not
+/// `private`) so `@testable import` tests can assert wrap/no-wrap behavior
+/// directly — `hakkaWSTrackerKey` below is file-scoped and can't be reached
+/// from a test file otherwise. Mirrors the `debugHasBridgeClientForTest`
+/// test-seam idiom in `Interceptor.swift`.
+@available(iOS 13.0, macOS 10.15, *)
+func debugHasWSTracker(_ task: URLSessionWebSocketTask) -> Bool {
+    objc_getAssociatedObject(task, &hakkaWSTrackerKey) != nil
+}
+
 // MARK: - Tracker
 
 nonisolated(unsafe) private var hakkaWSTrackerKey: UInt8 = 0
@@ -312,6 +362,7 @@ final class HakkaWSTracker: @unchecked Sendable {
     private let lock = NSLock()
     private var messageCount: Int = 0
     private var frames: [WsMessage] = []
+    private var framesDropped = false
     private var negotiatedProtocol: String?
     private var closeCode: Int?
     private var emitted = false
@@ -327,11 +378,12 @@ final class HakkaWSTracker: @unchecked Sendable {
         let wsMsg = buildWsMessage(message: message, direction: .received, timestamp: ts)
         lock.lock()
         messageCount += 1
-        frames.append(wsMsg)
+        let startedDropping = recordFrame(wsMsg)
         if self.negotiatedProtocol == nil, let p = negotiatedProtocol, !p.isEmpty {
             self.negotiatedProtocol = p
         }
         lock.unlock()
+        if startedDropping { logFramesDropped() }
     }
 
     func frameSent(message: URLSessionWebSocketTask.Message) {
@@ -339,8 +391,39 @@ final class HakkaWSTracker: @unchecked Sendable {
         let wsMsg = buildWsMessage(message: message, direction: .sent, timestamp: ts)
         lock.lock()
         messageCount += 1
-        frames.append(wsMsg)
+        let startedDropping = recordFrame(wsMsg)
         lock.unlock()
+        if startedDropping { logFramesDropped() }
+    }
+
+    /// Appends `frame` to `frames`, evicting the oldest one once `wsMaxFrames`
+    /// is crossed. `messageCount` (above) is incremented unconditionally
+    /// before this runs, so it keeps reflecting the TRUE total even once
+    /// eviction starts — the emitted request's `wsMessageCount` exceeding
+    /// `messages?.count` is what makes a capped connection detectable rather
+    /// than silently indistinguishable from a short one. Must be called with
+    /// `lock` already held.
+    /// - Returns: `true` the first time eviction starts for this connection,
+    ///   so the caller can log a one-time warning outside the lock.
+    private func recordFrame(_ frame: WsMessage) -> Bool {
+        frames.append(frame)
+        guard frames.count > wsMaxFrames else { return false }
+        frames.removeFirst()
+        guard !framesDropped else { return false }
+        framesDropped = true
+        return true
+    }
+
+    /// Logged once per connection, the moment the cap is first crossed —
+    /// visible in Console/`log stream` and the Logs inspector panel rather
+    /// than a silent drop, so a developer watching a long-lived socket (or
+    /// Hakka's own bridge connection) can see why older frames stopped
+    /// showing up.
+    private func logFramesDropped() {
+        HakkaOSLogBridge.shared.warn(
+            "WebSocket capture for \(url) exceeded \(wsMaxFrames) frames; oldest frames are being dropped to bound memory. wsMessageCount on the captured request still reflects the true total.",
+            category: "network"
+        )
     }
 
     func emitClose(closeCode: Int, reason: String?) {

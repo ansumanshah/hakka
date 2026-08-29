@@ -582,6 +582,65 @@ struct URLProtocolEdgeTests {
         _ = client
     }
 
+    // MARK: - Background session detection
+    //
+    // `URLSessionConfiguration.background(withIdentifier:)` cannot be captured
+    // (see the doc comment on `HakkaURLProtocol.reportBackgroundSessionDetected`)
+    // — these tests cover the honest fallback: detect it and warn, instead of
+    // missing the traffic with no trace anywhere. Each test uses a unique
+    // identifier (never reused across the suite) since the warned-identifier
+    // set is process-global and never reset, matching the existing
+    // `.default`/`.ephemeral` swizzle's own one-time-per-process install.
+
+    @Test func backgroundSessionConfigurationLogsWarningOnce() throws {
+        let interceptor = HakkaInterceptor()
+        HakkaURLProtocol.interceptor = interceptor
+        defer { HakkaURLProtocol.interceptor = nil }
+
+        let identifier = "com.hakka.test.background.\(UUID().uuidString)"
+
+        let first = URLSessionConfiguration.background(withIdentifier: identifier)
+        let second = URLSessionConfiguration.background(withIdentifier: identifier)
+
+        // The swizzle must still hand back a working background configuration —
+        // detection is additive, it must never break the real factory method.
+        #expect(first.identifier == identifier)
+        #expect(second.identifier == identifier)
+
+        let warnings = interceptor.logStore.getEntries().filter {
+            $0.level == .warn && $0.message.contains(identifier)
+        }
+        // Exactly one warning for two calls with the same identifier — the
+        // common re-attach-after-relaunch pattern must not flood the log.
+        #expect(warnings.count == 1)
+        #expect(warnings.first?.category == "capture")
+    }
+
+    @Test func backgroundSessionConfigurationWarnsSeparatelyPerIdentifier() throws {
+        let interceptor = HakkaInterceptor()
+        HakkaURLProtocol.interceptor = interceptor
+        defer { HakkaURLProtocol.interceptor = nil }
+
+        let firstIdentifier = "com.hakka.test.background.\(UUID().uuidString)"
+        let secondIdentifier = "com.hakka.test.background.\(UUID().uuidString)"
+
+        _ = URLSessionConfiguration.background(withIdentifier: firstIdentifier)
+        _ = URLSessionConfiguration.background(withIdentifier: secondIdentifier)
+
+        let entries = interceptor.logStore.getEntries()
+        #expect(entries.contains { $0.level == .warn && $0.message.contains(firstIdentifier) })
+        #expect(entries.contains { $0.level == .warn && $0.message.contains(secondIdentifier) })
+    }
+
+    @Test func backgroundSessionConfigurationDoesNotCrashWithoutAnInterceptor() throws {
+        HakkaURLProtocol.interceptor = nil
+
+        let identifier = "com.hakka.test.background.\(UUID().uuidString)"
+        let config = URLSessionConfiguration.background(withIdentifier: identifier)
+
+        #expect(config.identifier == identifier)
+    }
+
     // MARK: - Rewrite path (block / redirectTo / modify)
     //
     // Mirrors `packages/hakka-core/src/capture/fetch.ts`'s block/rewrite semantics —

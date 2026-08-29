@@ -58,7 +58,10 @@ enum RequestBuilder {
         let resBody = interceptor.redactBodyFields(rawResBody, contentType: responseContentType)
         let resBodySize = max(receivedBodySize ?? 0, capturedResBodySize)
 
-        // Extract per-phase timing and TLS/protocol from URLSessionTaskMetrics
+        // Extract per-phase timing and TLS/protocol from URLSessionTaskMetrics.
+        // Apple hands back one transaction per redirect hop; extractPhases sums
+        // DNS/TCP/TLS setup time across all of them rather than reporting only
+        // the last hop's numbers as if they described the whole chain.
         var timing = TimingData()
 
         if let metrics = taskMetrics {
@@ -67,9 +70,7 @@ enum RequestBuilder {
             if timing.redirectCount > 0 {
                 timing.redirectUrls = transactions.dropLast().compactMap { $0.request.url?.absoluteString }
             }
-            if let tx = transactions.last {
-                timing.extractPhases(from: tx)
-            }
+            timing.extractPhases(from: transactions.map { HopTiming($0) })
         }
 
         let graphqlOperationName = HakkaInterceptor.extractGraphQLOperationName(
@@ -190,10 +191,79 @@ extension RequestBuilder {
     }
 }
 
+// MARK: - HopTiming
+
+/// The subset of a single `URLSessionTaskTransactionMetrics` that timing
+/// aggregation needs, copied into a plain struct.
+///
+/// Foundation gives `URLSessionTaskTransactionMetrics` no public initializer,
+/// so tests can't build one to exercise multi-hop aggregation directly. This
+/// type exists so `TimingData.extractPhases` can be driven by real
+/// transactions in production and by synthetic dates in tests. Not `private`:
+/// `TimingData`'s tests construct it directly (`@testable import`).
+struct HopTiming {
+    let domainLookupStart: Date?
+    let domainLookupEnd: Date?
+    let connectStart: Date?
+    let connectEnd: Date?
+    let secureConnectionStart: Date?
+    let secureConnectionEnd: Date?
+    let requestEnd: Date?
+    let responseStart: Date?
+    let responseEnd: Date?
+    let networkProtocolName: String?
+    let negotiatedTLSProtocolVersion: tls_protocol_version_t?
+    let negotiatedTLSCipherSuite: tls_ciphersuite_t?
+
+    init(_ tx: URLSessionTaskTransactionMetrics) {
+        domainLookupStart = tx.domainLookupStartDate
+        domainLookupEnd = tx.domainLookupEndDate
+        connectStart = tx.connectStartDate
+        connectEnd = tx.connectEndDate
+        secureConnectionStart = tx.secureConnectionStartDate
+        secureConnectionEnd = tx.secureConnectionEndDate
+        requestEnd = tx.requestEndDate
+        responseStart = tx.responseStartDate
+        responseEnd = tx.responseEndDate
+        networkProtocolName = tx.networkProtocolName
+        negotiatedTLSProtocolVersion = tx.negotiatedTLSProtocolVersion
+        negotiatedTLSCipherSuite = tx.negotiatedTLSCipherSuite
+    }
+
+    init(
+        domainLookupStart: Date? = nil,
+        domainLookupEnd: Date? = nil,
+        connectStart: Date? = nil,
+        connectEnd: Date? = nil,
+        secureConnectionStart: Date? = nil,
+        secureConnectionEnd: Date? = nil,
+        requestEnd: Date? = nil,
+        responseStart: Date? = nil,
+        responseEnd: Date? = nil,
+        networkProtocolName: String? = nil,
+        negotiatedTLSProtocolVersion: tls_protocol_version_t? = nil,
+        negotiatedTLSCipherSuite: tls_ciphersuite_t? = nil
+    ) {
+        self.domainLookupStart = domainLookupStart
+        self.domainLookupEnd = domainLookupEnd
+        self.connectStart = connectStart
+        self.connectEnd = connectEnd
+        self.secureConnectionStart = secureConnectionStart
+        self.secureConnectionEnd = secureConnectionEnd
+        self.requestEnd = requestEnd
+        self.responseStart = responseStart
+        self.responseEnd = responseEnd
+        self.networkProtocolName = networkProtocolName
+        self.negotiatedTLSProtocolVersion = negotiatedTLSProtocolVersion
+        self.negotiatedTLSCipherSuite = negotiatedTLSCipherSuite
+    }
+}
+
 // MARK: - TimingData
 
 /// Mutable container for timing phases extracted from `URLSessionTaskMetrics`.
-private struct TimingData {
+/// Not `private`: tests construct it directly to exercise `extractPhases`.
+struct TimingData {
     var dnsMs: Int64?
     var tlsMs: Int64?
     var connectMs: Int64?
@@ -205,26 +275,50 @@ private struct TimingData {
     var cipherSuite: String?
     var networkProtocol: String?
 
-    mutating func extractPhases(from tx: URLSessionTaskTransactionMetrics) {
-        if let s = tx.domainLookupStartDate, let e = tx.domainLookupEndDate {
-            dnsMs = Int64(e.timeIntervalSince(s) * 1000)
-        }
-        if let s = tx.secureConnectionStartDate, let e = tx.secureConnectionEndDate {
-            tlsMs = Int64(e.timeIntervalSince(s) * 1000)
-        }
-        if let s = tx.connectStartDate, let e = tx.connectEndDate {
-            connectMs = Int64(e.timeIntervalSince(s) * 1000)
-        }
-        if let reqEnd = tx.requestEndDate, let respStart = tx.responseStartDate {
+    /// Extracts timing across every hop of a redirect chain.
+    /// `URLSessionTaskMetrics` hands back one `URLSessionTaskTransactionMetrics`
+    /// per hop (Apple's own per-transaction API, richer here than what OkHttp's
+    /// EventListener exposes on Android) — so DNS/TCP/TLS setup time is summed
+    /// across every hop instead of reporting only the last hop's numbers as if
+    /// they covered the whole chain. Waiting time, download time, and the
+    /// negotiated TLS/protocol identity come from the final hop only, since
+    /// that is the response actually delivered to the caller.
+    mutating func extractPhases(from hops: [HopTiming]) {
+        guard let last = hops.last else { return }
+
+        dnsMs = Self.sumDuration(hops, start: \.domainLookupStart, end: \.domainLookupEnd)
+        connectMs = Self.sumDuration(hops, start: \.connectStart, end: \.connectEnd)
+        tlsMs = Self.sumDuration(hops, start: \.secureConnectionStart, end: \.secureConnectionEnd)
+
+        if let reqEnd = last.requestEnd, let respStart = last.responseStart {
             ttfbMs = Int64(respStart.timeIntervalSince(reqEnd) * 1000)
         }
-        if let s = tx.responseStartDate, let e = tx.responseEndDate {
+        if let s = last.responseStart, let e = last.responseEnd {
             downloadMs = Int64(e.timeIntervalSince(s) * 1000)
         }
 
-        networkProtocol = tx.networkProtocolName
-        tlsVersion = tx.negotiatedTLSProtocolVersion.map { RequestBuilder.tlsVersionName($0) }
-        cipherSuite = tx.negotiatedTLSCipherSuite.map { RequestBuilder.cipherSuiteName($0) }
+        networkProtocol = last.networkProtocolName
+        tlsVersion = last.negotiatedTLSProtocolVersion.map { RequestBuilder.tlsVersionName($0) }
+        cipherSuite = last.negotiatedTLSCipherSuite.map { RequestBuilder.cipherSuiteName($0) }
+    }
+
+    /// Sums a duration across every hop that reports both endpoints for it, so
+    /// a hop missing that phase (a plain-HTTP hop ahead of the final HTTPS hop,
+    /// for instance) is skipped rather than zeroing out hops that have it.
+    private static func sumDuration(
+        _ hops: [HopTiming],
+        start: KeyPath<HopTiming, Date?>,
+        end: KeyPath<HopTiming, Date?>
+    ) -> Int64? {
+        var total: Int64 = 0
+        var any = false
+        for hop in hops {
+            if let s = hop[keyPath: start], let e = hop[keyPath: end] {
+                total += Int64(e.timeIntervalSince(s) * 1000)
+                any = true
+            }
+        }
+        return any ? total : nil
     }
 }
 

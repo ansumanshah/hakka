@@ -25,10 +25,34 @@ import HakkaCommon
 /// ```swift
 /// HakkaInterceptor.shared.start()
 /// ```
+///
+/// ## Known gap: background sessions
+/// `URLSessionConfiguration.background(withIdentifier:)` is not, and cannot
+/// be, covered by this class. iOS hands background transfers to the
+/// `nsurlsessiond` system daemon, which runs out-of-process and never
+/// consults `URLProtocol.protocolClasses` — this holds even before the app
+/// suspends, not only after. Hakka swizzles `background(withIdentifier:)`
+/// to detect that the app created one and logs a warning (see
+/// `reportBackgroundSessionDetected(identifier:)`) rather than missing the
+/// traffic silently, but the traffic itself is not captured.
 public final class HakkaURLProtocol: URLProtocol, @unchecked Sendable {
 
     /// Reference to the owning interceptor, set by `HakkaInterceptor.start()`.
-    nonisolated(unsafe) static weak var interceptor: HakkaInterceptor?
+    /// Setting this to a non-nil value also installs the background-session
+    /// detection swizzle (see `installBackgroundSessionDetectionIfNeeded()`
+    /// below) — piggybacking on this assignment, the first line of `start()`,
+    /// means the detection swizzle goes live wherever `.default`/`.ephemeral`
+    /// swizzling already does, with no separate call site needed.
+    static var interceptor: HakkaInterceptor? {
+        get { interceptorStorage }
+        set {
+            interceptorStorage = newValue
+            if newValue != nil {
+                installBackgroundSessionDetectionIfNeeded()
+            }
+        }
+    }
+    nonisolated(unsafe) private static weak var interceptorStorage: HakkaInterceptor?
 
     /// Tag key used to mark requests that have already been intercepted,
     /// preventing recursive interception through the inner session.
@@ -81,6 +105,42 @@ public final class HakkaURLProtocol: URLProtocol, @unchecked Sendable {
     /// Request/response header that carries the per-request trace correlation id.
     /// Matches the canonical header name defined in `packages/hakka-core/src/engine/trace.ts`.
     private static let traceHeaderName = "x-hakka-trace"
+
+    // MARK: - Background session detection
+    //
+    // Background `URLSessionConfiguration`s are structurally invisible to this
+    // file's interception: their transfers are handed to Apple's `nsurlsessiond`
+    // system daemon and run out-of-process, which never consults
+    // `URLProtocol.protocolClasses` — true even while the host app is in the
+    // foreground, not only after it suspends. There is no fix for that from a
+    // `URLProtocol` subclass. What `URLSessionSwizzle.swift`'s swizzle of the
+    // `background(withIdentifier:)` factory method CAN do is detect that the
+    // app created one, so this reports it as a warning instead of a silent gap.
+
+    /// Background session identifiers already warned about, so a host app
+    /// that calls `.background(withIdentifier:)` repeatedly for the same
+    /// identifier (the normal re-attach-after-relaunch pattern) doesn't flood
+    /// the log store with duplicate warnings.
+    private static let backgroundWarningLock = NSLock()
+    private nonisolated(unsafe) static var warnedBackgroundIdentifiers = Set<String>()
+
+    /// Called from the swizzled `URLSessionConfiguration.background(withIdentifier:)`
+    /// whenever the host app creates a background session configuration.
+    /// Routes through the same structured-log pipeline the Logs inspector
+    /// panel and bridge console already surface (`HakkaInterceptor.logWarn`),
+    /// once per distinct identifier.
+    static func reportBackgroundSessionDetected(identifier: String) {
+        backgroundWarningLock.lock()
+        let alreadyWarned = warnedBackgroundIdentifiers.contains(identifier)
+        warnedBackgroundIdentifiers.insert(identifier)
+        backgroundWarningLock.unlock()
+        guard !alreadyWarned else { return }
+
+        interceptor?.logWarn(
+            "Background URLSession '\(identifier)' will not be captured. iOS hands its uploads and downloads to a system daemon that runs out of process, so Hakka's URLProtocol interception never sees them. Nothing about this session will appear in the inspector.",
+            category: "capture"
+        )
+    }
 
     /// Shared inner session strips HakkaURLProtocol from the config to prevent recursive interception.
     private static let innerSession: URLSession = {

@@ -321,4 +321,176 @@ struct HakkaWSTrackerTests {
             Issue.record("Expected base64 text payload at the exact cap boundary")
         }
     }
+
+    // MARK: - Frame cap (drop-oldest, no eviction ceiling before this)
+
+    /// Mirrors Android's `HakkaWebSocketWrapperTest`'s
+    /// "frames are capped at MAX_FRAMES, dropping oldest first" — a
+    /// long-lived, high-traffic connection (chat, a live feed, or Hakka's own
+    /// bridge connection) must not retain every frame's payload in memory for
+    /// the life of the connection.
+    @Test func framesAreCappedAtMaxFramesDroppingOldestFirst() {
+        let interceptor = HakkaInterceptor()
+        let tracker = HakkaWSTracker(taskId: "t12", url: "wss://x.com", startTime: 1000)
+        let overflow = 5
+        for i in 0..<(wsMaxFrames + overflow) {
+            tracker.frameReceived(message: .string("frame-\(i)"), negotiatedProtocol: nil)
+        }
+        tracker.emitClose(closeCode: 1000, reason: nil)
+        flushAndSync(tracker: tracker, interceptor: interceptor)
+
+        let request = interceptor.store.requests.first
+        let frames = request?.messages
+        #expect(
+            frames?.count == wsMaxFrames,
+            "Frame count should be capped at wsMaxFrames instead of growing without bound"
+        )
+        if case .text(let first) = frames?.first?.data {
+            #expect(first == "frame-\(overflow)", "Oldest frames should have been evicted")
+        } else {
+            Issue.record("Expected text payload")
+        }
+        if case .text(let last) = frames?.last?.data {
+            #expect(last == "frame-\(wsMaxFrames + overflow - 1)", "Newest frame should be retained")
+        } else {
+            Issue.record("Expected text payload")
+        }
+        // `wsMessageCount` is incremented before eviction runs, so it keeps
+        // reflecting the TRUE total even once `messages` is capped — this
+        // mismatch is what makes a capped connection detectable instead of
+        // silently looking like a short one.
+        #expect(request?.wsMessageCount == wsMaxFrames + overflow)
+    }
+
+    /// The cap crossing must be visible (Console/`log stream` + the Logs
+    /// inspector panel), not a silent drop — and logged exactly once per
+    /// connection, not once per subsequently-dropped frame. Subscribes
+    /// directly to `HakkaInterceptor.shared.logStore` (the sink
+    /// `HakkaOSLogBridge` forwards to) and filters by a unique marker
+    /// embedded in the tracker's URL so this stays safe to run alongside
+    /// other tests touching the same process-wide singleton.
+    @Test func exceedingCapLogsAVisibleWarningExactlyOnce() {
+        let marker = "cap-warn-\(UUID().uuidString)"
+        let box = CapturedMessagesBox()
+        let subscription = HakkaInterceptor.shared.logStore.subscribe { entry in
+            box.append(entry.message)
+        }
+        defer { subscription.unsubscribe() }
+
+        let interceptor = HakkaInterceptor()
+        let tracker = HakkaWSTracker(taskId: "t13", url: "wss://\(marker)", startTime: 1000)
+        for _ in 0..<(wsMaxFrames + 3) {
+            tracker.frameReceived(message: .string("x"), negotiatedProtocol: nil)
+        }
+        tracker.emitClose(closeCode: 1000, reason: nil)
+        flushAndSync(tracker: tracker, interceptor: interceptor)
+
+        let matches = box.snapshot().filter { $0.contains(marker) }
+        #expect(
+            matches.count == 1,
+            "Exactly one warning should be logged the first time the cap is crossed, not once per dropped frame after"
+        )
+    }
+}
+
+/// Thread-safe accumulator for a `HakkaLogStore.subscribe` listener, which
+/// runs in `@Sendable` closure context — plain captured `var`s aren't legal
+/// there.
+private final class CapturedMessagesBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var messages: [String] = []
+
+    func append(_ message: String) {
+        lock.lock()
+        messages.append(message)
+        lock.unlock()
+    }
+
+    func snapshot() -> [String] {
+        lock.lock()
+        defer { lock.unlock() }
+        return messages
+    }
+}
+
+// MARK: - HakkaWebSocketMonitor self-exclusion (bridge / opted-out sessions)
+
+// `.serialized`: exercises the real `URLSession.webSocketTask(with:)` swizzle
+// and `HakkaWebSocketMonitor.globalInterceptor` — process-wide statics that
+// must not race against another suite's `interceptor.start()`/`stop()`, the
+// same reasoning `URLProtocolEdgeTests` documents for the HTTP-side swizzle.
+@Suite("HakkaWebSocketMonitor self-exclusion", .serialized)
+struct HakkaWebSocketMonitorSelfExclusionTests {
+
+    /// Reproduces exactly what `HakkaBridgeClient.openConnection()` builds:
+    /// `URLSessionConfiguration.default` with `protocolClasses` explicitly
+    /// set to `[]` — the self-exclusion that already protects the bridge's
+    /// own HTTP capture. Before the fix, `wrapIfNeeded` had no equivalent
+    /// check, so Hakka's own outbound WebSocket connection to the desktop
+    /// bridge got wrapped and tracked like any app traffic.
+    @Test func sessionOptedOutOfProtocolHandlingIsNeverWrapped() {
+        let interceptor = HakkaInterceptor()
+        interceptor.start()
+        interceptor.enableNativeWebSocket()
+        defer { interceptor.stop() }
+
+        let config = URLSessionConfiguration.default
+        config.protocolClasses = []
+        let session = URLSession(configuration: config)
+        let task = session.webSocketTask(with: URL(string: "ws://127.0.0.1:9999")!)
+        defer { task.cancel(with: .goingAway, reason: nil) }
+
+        #expect(debugHasWSTracker(task) == false)
+    }
+
+    /// A session with `protocolClasses == nil` (the ordinary case for an app
+    /// that never touched `protocolClasses` itself) is untouched by the new
+    /// check and still gets wrapped normally — proves the fix is scoped to
+    /// the explicit opt-out, not a regression on ordinary WebSocket capture.
+    @Test func ordinarySessionIsStillWrapped() {
+        let interceptor = HakkaInterceptor()
+        interceptor.start()
+        interceptor.enableNativeWebSocket()
+        defer { interceptor.stop() }
+
+        let session = URLSession(configuration: .default)
+        let task = session.webSocketTask(with: URL(string: "wss://example.com/socket")!)
+        defer { task.cancel(with: .goingAway, reason: nil) }
+
+        #expect(debugHasWSTracker(task) == true)
+    }
+
+    /// A `HakkaBridgeClient` started through a real running `HakkaInterceptor`
+    /// (not a hand-built stand-in) builds its session exactly the way
+    /// `openConnection()` does — confirms the two unit tests above generalize
+    /// to the actual production code path, over a real loopback socket, not
+    /// just a manually reconstructed session. This does not by itself prove
+    /// exclusion (the tracker attached to the bridge's own task isn't
+    /// reachable from a test — `HakkaBridgeClient.task` is private, and
+    /// `HakkaWSTracker.flush()` only fires on close, which a still-open
+    /// bridge connection never reaches); `sessionOptedOutOfProtocolHandlingIsNeverWrapped`
+    /// above is what actually catches the regression, deterministically.
+    @Test func aRunningBridgeConnectionDeliversCapturesNormally() async throws {
+        let server = try MiniWebSocketServer()
+        let port = try server.start()
+        defer { server.stop() }
+
+        let interceptor = HakkaInterceptor(
+            config: HakkaConfig(captureNativeWebSocket: true, bridgeURL: URL(string: "ws://127.0.0.1:\(port)")!)
+        )
+        interceptor.start()
+        defer { interceptor.stop() }
+
+        interceptor.didCapture(
+            NetworkRequest(
+                id: "self-capture-0", url: "https://api.example.com/0", method: .get,
+                status: 200, startTime: Int64(Date().timeIntervalSince1970 * 1000), duration: 1,
+                source: .urlSession
+            )
+        )
+        interceptor.flushCaptureProcessing()
+
+        let frames = await server.waitForFrames(count: 1)
+        #expect(frames.first?.contains("self-capture-0") == true)
+    }
 }

@@ -189,6 +189,60 @@ class HakkaWebSocketWrapperTest {
     }
 
     @Test
+    fun `delegate receives the instrumented wrapper — sends from inside a callback are captured`() {
+        // Common OkHttp idiom: cache the WebSocket handed to onOpen/onMessage and reply
+        // through that reference later, instead of through newWebSocket()'s return value.
+        // If the delegate is ever handed the raw connection instead of the wrapper, this
+        // send is silently invisible to Hakka.
+        server.enqueue(MockResponse().withWebSocketUpgrade(object : WebSocketListener() {
+            override fun onMessage(webSocket: WebSocket, text: String) {
+                webSocket.close(1000, "done")
+            }
+        }))
+
+        val closed = CountDownLatch(1)
+        var socketSeenByDelegate: WebSocket? = null
+        val delegate = object : WebSocketListener() {
+            override fun onOpen(webSocket: WebSocket, response: Response) {
+                socketSeenByDelegate = webSocket
+                webSocket.send("reply-from-delegate")
+            }
+            override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                webSocket.close(code, reason)
+            }
+            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                closed.countDown()
+            }
+            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                closed.countDown()
+            }
+        }
+
+        val prepared = HakkaWebSocketWrapper.prepare(
+            url = wsUrl(),
+            delegate = delegate,
+            logStore = logStore,
+        )
+        client.newWebSocket(Request.Builder().url(wsUrl()).build(), prepared.listener)
+
+        assertTrue(closed.await(5, TimeUnit.SECONDS), "Connection did not close in time")
+
+        assertSame(
+            prepared.webSocket,
+            socketSeenByDelegate,
+            "Delegate should be handed the instrumented wrapper, not the raw OkHttp WebSocket",
+        )
+
+        val record = logStore.all().firstOrNull()
+        assertNotNull(record)
+        val sentFrame = record!!.wsMessages.firstOrNull { it.sent && it.data == "reply-from-delegate" }
+        assertNotNull(
+            sentFrame,
+            "A frame sent through the WebSocket handed to the delegate callback must be captured",
+        )
+    }
+
+    @Test
     fun `prepare is isolated per connection — no cross-contamination`() {
         repeat(2) { enqueueClosingServer() }
 

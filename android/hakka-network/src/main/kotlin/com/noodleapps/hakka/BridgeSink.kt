@@ -30,6 +30,15 @@ import java.util.concurrent.atomic.AtomicReference
  * - Reconnects with exponential backoff (1 s → 2 s → 4 s … capped at [MAX_BACKOFF_MS]).
  * - Only [NetworkRecord] records are forwarded; other [ContractRecord] subtypes are ignored.
  * - [close] stops reconnection and closes the active WebSocket.
+ * - Frames are compressed on the wire via permessage-deflate (RFC 7692), with
+ *   nothing to configure here: [httpClient]'s OkHttp `RealWebSocket` has sent a
+ *   `permessage-deflate` extension offer on every WebSocket handshake by
+ *   default since 4.5.0 (2020), with no builder flag to disable it — only
+ *   `OkHttpClient.Builder.minWebSocketMessageToCompress()` to tune the size
+ *   threshold below which OkHttp skips compressing outbound frames (defaults
+ *   to 1 KiB). The desktop hub (`packages/hakka-bridge/src/server.ts`) is
+ *   what decides whether the offer gets accepted; this sink has nothing to
+ *   opt into or maintain.
  *
  * Inbound control frames: the hub also relays `{ "type": "control", "payload": ControlCommand }`
  * frames peer-to-peer (e.g. hakka mcp's `create_mock` / `set_throttle` write tools). Every

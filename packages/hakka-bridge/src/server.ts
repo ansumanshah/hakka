@@ -136,6 +136,45 @@ export function startBridgeServer(options: BridgeServerOptions = {}): Promise<Br
     port: requestedPort,
     host: requestedHost,
     maxPayload,
+    // permessage-deflate (RFC 7692), negotiated in the WebSocket handshake
+    // itself — transparent to the frame contract, so ADR 0011 (additive wire
+    // evolution) doesn't apply here: a peer that never offers the extension
+    // just doesn't get it, no version bump, no decoder that has to learn
+    // anything new. `ws` disables this on the server by default. Both mobile
+    // SDKs' underlying WebSocket stacks already offer it unconditionally on
+    // every handshake with no public way to turn it off — OkHttp since 4.5.0
+    // (`RealWebSocket` always sends a `permessage-deflate` extension offer),
+    // and `URLSessionWebSocketTask` the same way (confirmed via Apple
+    // Developer Forums threads 654362/678730: the framework negotiates it
+    // itself, and Apple's own DTS engineers point to an unfiled enhancement
+    // request for a way to disable it, i.e. there isn't one). So this one
+    // flip is the whole fix on the transport a device actually talks
+    // over — `BridgeClient.swift`/`BridgeSink.kt` need no changes.
+    //
+    // `serverNoContextTakeover`/`clientNoContextTakeover` reset each side's
+    // zlib window after every message instead of holding it for the
+    // connection's lifetime. Bridge connections live for a whole dev
+    // session, and Node's zlib has documented memory-fragmentation problems
+    // under concurrent compression (see `ws`'s README, linking
+    // nodejs/node#8871) — not a real risk at this hub's peer counts (a
+    // handful of SDKs/viewers per session, not a production fleet), but
+    // resetting context per message is the same correctness-over-ratio
+    // trade this codebase already makes elsewhere, costs little against a
+    // single JSON body, and also bounds the retained memory on the phone
+    // side of the connection, not just this process.
+    //
+    // Known gap, same shape as `maxPayload`'s above: `ws`'s zlib-backed
+    // negotiation silently no-ops under bun (confirmed directly — the
+    // client's offer arrives, `PerMessageDeflate.accept()` never completes,
+    // the connection proceeds uncompressed, no error). Harmless when this
+    // hub runs under `node` (its shipped `cli.mjs` shebang), but a process
+    // embedding `startBridgeServer` under bun gets no compression from this
+    // option, silently. See `server.test.ts`'s "permessage-deflate" suite,
+    // which documents and skips the assertion that only holds under `node`.
+    perMessageDeflate: {
+      serverNoContextTakeover: true,
+      clientNoContextTakeover: true,
+    },
   })
 
   // Ping every connected peer each tick; terminate whichever missed the

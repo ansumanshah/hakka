@@ -623,3 +623,71 @@ describe('startBridgeServer (heartbeat / dead-peer detection)', () => {
     clearIntervalSpy.mockRestore()
   })
 })
+
+// `ws`'s zlib-backed `PerMessageDeflate` negotiation doesn't work under bun
+// — the server's own `accept()` step silently fails and the connection
+// falls back to uncompressed, confirmed by running the exact same
+// negotiation directly against real Node (`node`, not `bun`), where it
+// succeeds: `peer.extensions` comes back `'permessage-deflate'` and the
+// wire-visible response carries `Sec-WebSocket-Extensions: permessage-deflate;
+// server_no_context_takeover; client_no_context_takeover`, matching what's
+// configured in `server.ts`. This mirrors the already-documented
+// `maxPayload`-under-bun gap in `server.ts` (`ws` silently no-ops the option
+// under bun too) — a real bun/`ws` limitation, not a bug in this fix. This
+// suite runs under `bun test` (see `package.json`), so the negotiation
+// itself can only be asserted for real under Node; skip rather than assert
+// a false pass here.
+const IS_BUN = typeof Bun !== 'undefined'
+
+describe('startBridgeServer (permessage-deflate)', () => {
+  test.skipIf(IS_BUN)('negotiates permessage-deflate with a peer that offers it', async () => {
+    server = await startBridgeServer({ port: 0 })
+    // `ws`'s own client offers `permessage-deflate` by default — the exact
+    // case the server previously always declined, since `ws` disables the
+    // extension on the server side unless explicitly turned on. A passing
+    // negotiation here is the regression this guards: before this change,
+    // `peer.extensions` would be `''` regardless of what the peer offered.
+    const peer = await open(`ws://localhost:${server.port}`)
+    expect(peer.extensions).toBe('permessage-deflate')
+    peer.close()
+  })
+
+  test('still accepts a peer that never offers the extension, uncompressed', async () => {
+    server = await startBridgeServer({ port: 0 })
+    const peer = new WebSocket(`ws://localhost:${server.port}`, { perMessageDeflate: false })
+    await new Promise<void>((resolve, reject) => {
+      peer.on('open', () => resolve())
+      peer.on('error', reject)
+    })
+    expect(peer.extensions).toBe('')
+    peer.close()
+  })
+
+  test('a large, highly-compressible request frame round-trips byte-for-byte through relay', async () => {
+    server = await startBridgeServer({ port: 0 })
+    const url = `ws://localhost:${server.port}`
+    const sender = await open(url)
+    const viewer = await open(url)
+    const relayed = nextMessage(viewer)
+
+    // Repetitive text compresses extremely well and, at 50 KB, comfortably
+    // clears `ws`'s default 1 KB compression threshold — unlike every other
+    // test's tiny fixed frames, this actually exercises the deflate/inflate
+    // path on both legs (sender -> hub, hub -> viewer) rather than merely
+    // negotiating the extension and never touching zlib.
+    const bigBody = 'x'.repeat(50_000)
+    const frame = JSON.stringify({
+      type: 'request',
+      payload: { id: 'big', url: 'https://x', method: 'GET', responseBody: bigBody },
+    })
+    sender.send(frame)
+
+    const got = await relayed
+    const parsed = JSON.parse(got)
+    expect(parsed.payload.responseBody).toBe(bigBody)
+    expect(parsed.payload.responseBody.length).toBe(50_000)
+
+    sender.close()
+    viewer.close()
+  })
+})

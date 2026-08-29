@@ -21,6 +21,14 @@ import Foundation
 /// - Uses `URLSessionWebSocketTask` (Foundation, no extra deps, iOS 13+ / macOS 10.15+).
 /// - Reconnects with exponential back-off: 250 ms → 30 s.
 /// - In-memory queue (capped at `maxQueueSize`) while disconnected.
+/// - Frames are compressed on the wire via permessage-deflate (RFC 7692),
+///   with nothing to configure here: `URLSessionWebSocketTask` sends a
+///   `permessage-deflate` extension offer on every handshake unconditionally
+///   and exposes no API to disable it (confirmed against Apple Developer
+///   Forums threads 654362/678730 — Apple's own DTS engineers point to an
+///   unfiled enhancement request for a way to turn it off). The desktop hub
+///   (`packages/hakka-bridge/src/server.ts`) is what decides whether the
+///   offer gets accepted; this client has nothing to opt into or maintain.
 ///
 /// ## Receiving control frames
 ///
