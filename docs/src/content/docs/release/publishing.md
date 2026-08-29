@@ -30,7 +30,7 @@ the file list is right, not that a fresh consumer can actually `import`/`require
 the package. Last real run:
 
 ```
-Result matrix (package[:subpath check] | bun | node)
+==> Result matrix (package[:subpath check] | bun | node)
   hakka-core                       bun=PASS  node=PASS
   hakka-core (test)                bun=PASS  node=PASS
   hakka-bridge                     bun=PASS  node=PASS
@@ -38,6 +38,8 @@ Result matrix (package[:subpath check] | bun | node)
   hakka-node (next)                bun=PASS  node=PASS
   hakka-cli (cdp)                  bun=PASS  node=PASS
   hakka-react-native               bun=SKIP  node=SKIP
+  hakka-cli                        bun=PASS  node=PASS
+  hakka-cli (mcp)                  bun=PASS  node=PASS
   hakka-browser                    bun=PASS  node=PASS
   hakka-browser (elements)         bun=PASS  node=PASS
   hakka-browser (react)            bun=PASS  node=PASS
@@ -45,6 +47,14 @@ Result matrix (package[:subpath check] | bun | node)
 
 smoke-tarball-install: PASS
 ```
+
+Expect 13 rows. If you see 11, with only `hakka-cli (cdp)` and no bare
+`hakka-cli` or `hakka-cli (mcp)` row, the script's check keys have drifted from
+the real directory names again: they were keyed `hakka` after the directory was
+renamed `packages/hakka-cli`, so `dirOf('hakka')` matched nothing and both CLI
+bin checks were dropped from `covered` silently, while the matrix still printed
+a clean PASS. A shrinking matrix is the only symptom, which is why the expected
+row count is written down here.
 
 The two `hakka-react-native SKIP` rows are expected, not a gap: its main entry
 imports the real `react-native` package at module scope, and `react-native`
