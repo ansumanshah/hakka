@@ -1,5 +1,10 @@
 const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config')
 const path = require('node:path')
+// Makes Hakka's optional peer deps genuinely optional. This app installs none
+// of them, so without this wrapper Metro fails to resolve `react-native-mmkv`
+// (and seven siblings) at bundle time, before the try/catch guards around them
+// ever run. See packages/hakka-react-native/metro.js.
+const { withHakka } = require('hakka-react-native/metro')
 
 const workspaceRoot = path.resolve(__dirname, '../../../..')
 
@@ -22,4 +27,4 @@ const config = {
   },
 }
 
-module.exports = mergeConfig(getDefaultConfig(__dirname), config)
+module.exports = withHakka(mergeConfig(getDefaultConfig(__dirname), config))

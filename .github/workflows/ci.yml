@@ -291,6 +291,15 @@ jobs:
       - name: Assemble debug APK (compiles the RN bridge Kotlin)
         working-directory: packages/hakka-react-native/examples/react-native-example/android
         run: ./gradlew assembleDebug
+      # Drift catcher. assembleDebug and the iOS job both skip JS bundling, so
+      # neither can see a Metro resolution failure. Hakka's optional peer deps
+      # are require()d behind try/catch, which guards runtime but NOT Metro's
+      # static bundle-time resolution: with none of them installed (as here),
+      # the bundle failed on `react-native-mmkv` and no CI job noticed.
+      # hakka-react-native/metro's withHakka() is what makes it pass.
+      - name: Metro bundle (optional peers absent on purpose)
+        working-directory: packages/hakka-react-native/examples/react-native-example
+        run: bun run bundle
 
   next-fullstack-example:
     name: Next.js Example (build + ci-gate example test)

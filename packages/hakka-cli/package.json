@@ -61,7 +61,7 @@
     "prepublishOnly": "npm run build",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
-    "test": "bun test"
+    "test": "bun test src"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
