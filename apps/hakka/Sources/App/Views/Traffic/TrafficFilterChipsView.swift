@@ -17,6 +17,7 @@ import SwiftUI
 /// (`FiltersMethodChips.tsx`, `ios/Sources/UI/List/FilterBar.swift`).
 struct TrafficFilterChipsView: View {
     @Binding var searchText: String
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         // Parsed once per render rather than once per chip — nine tokens'
@@ -44,6 +45,13 @@ struct TrafficFilterChipsView: View {
     /// DESIGN.md's "Method chips" grammar: outlined mono tints — colored
     /// text, ~40% border, ~10% background tint, never a filled pill. Fixed
     /// `minWidth` so "GET" and "DELETE" sit in same-width boxes.
+    ///
+    /// The active/inactive crossfade uses `swiftui-patterns.md`'s list-
+    /// insertion spring — a chip tap is a single, bounded state flip, not a
+    /// high-volume event, so it is exactly the "subtle and fast" case that
+    /// curve documents. Scoped to this chip's own label rather than wrapping
+    /// the `searchText` mutation, so toggling a chip never puts the traffic
+    /// list's row diffing inside an animation transaction.
     private func chip(_ label: String, isActive: Bool, tone: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(label)
@@ -57,6 +65,7 @@ struct TrafficFilterChipsView: View {
                     RoundedRectangle(cornerRadius: Radius.md)
                         .stroke(isActive ? tone.opacity(0.4) : Color.secondary.opacity(0.25), lineWidth: 1)
                 )
+                .animation(reduceMotion ? nil : .spring(response: 0.25, dampingFraction: 0.9), value: isActive)
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(isActive ? .isSelected : [])

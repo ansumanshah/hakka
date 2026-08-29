@@ -250,7 +250,7 @@ export default defineConfig({
         {
           label: 'Release',
           collapsed: true,
-          items: ['release/checklist'],
+          items: ['release/checklist', 'release/publishing'],
         },
       ],
     }),

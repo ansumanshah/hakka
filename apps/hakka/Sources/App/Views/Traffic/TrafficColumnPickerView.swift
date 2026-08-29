@@ -29,6 +29,8 @@ struct TrafficColumnPickerView: View {
     @AppStorage(Self.sortFieldKey) private var sortFieldRaw = ""
     @AppStorage(Self.sortOrderKey) private var sortOrderRaw = TrafficSortOrder.desc.rawValue
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             groupAndSortControls
@@ -84,12 +86,20 @@ struct TrafficColumnPickerView: View {
                 Button {
                     sortOrderRaw = (sortOrder == .asc ? TrafficSortOrder.desc : .asc).rawValue
                 } label: {
-                    Image(systemName: sortOrder == .asc ? "arrow.up" : "arrow.down")
+                    // One glyph, flipped by rotation rather than swapped between
+                    // "arrow.up"/"arrow.down" — a 180° rotation of the up arrow
+                    // reads as the down arrow, so this is the same visual with a
+                    // real interpolatable property `.animation(value:)` can
+                    // actually tween, matching the toggle grammar the method/
+                    // status chips use.
+                    Image(systemName: "arrow.up")
+                        .rotationEffect(.degrees(sortOrder == .asc ? 0 : 180))
                 }
                 .buttonStyle(.plain)
                 .disabled(sortFieldRaw.isEmpty)
                 .help(sortOrder == .asc ? "Ascending" : "Descending")
                 .accessibilityLabel(sortOrder == .asc ? "Sort ascending" : "Sort descending")
+                .animation(reduceMotion ? nil : .spring(response: 0.25, dampingFraction: 0.9), value: sortOrder)
             }
         }
         .padding(.horizontal, Spacing.lg)

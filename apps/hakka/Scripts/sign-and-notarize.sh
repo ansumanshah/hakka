@@ -27,22 +27,25 @@ if [[ -z "${APP_IDENTITY:-}" ]]; then
     | sed -n 's/.*"\(Developer ID Application: [^"]*\)".*/\1/p' | head -1)
 fi
 if [[ -z "${APP_IDENTITY}" ]]; then
-  echo "No 'Developer ID Application' identity in the keychain — see the setup" >&2
+  echo "No 'Developer ID Application' identity in the keychain. See the setup" >&2
   echo "comment at the top of this script (Apple Development certs cannot" >&2
   echo "notarize; Gatekeeper only trusts Developer ID for direct distribution)." >&2
   exit 1
 fi
 
 if ! xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" >/dev/null 2>&1; then
-  echo "notarytool profile '$NOTARY_PROFILE' missing or invalid — run the" >&2
+  echo "notarytool profile '$NOTARY_PROFILE' missing or invalid. Run the" >&2
   echo "store-credentials command in the setup comment at the top of this script." >&2
   exit 1
 fi
 
 echo "==> Building universal release + packaging"
 # package_app.sh builds per-arch, lipos, assembles the bundle, and signs every
-# nested binary/framework inside-out with the same identity.
-SIGNING_MODE=identity APP_IDENTITY="$APP_IDENTITY" ARCHES="${ARCHES:-arm64}" \
+# nested binary/framework inside-out with the same identity. Default is both
+# arches so a downloaded build launches on Intel Macs too, not just Apple
+# Silicon (verified: `swift build --arch x86_64` cross-compiles cleanly from
+# an arm64 host). Override with ARCHES="arm64" for a faster single-arch build.
+SIGNING_MODE=identity APP_IDENTITY="$APP_IDENTITY" ARCHES="${ARCHES:-arm64 x86_64}" \
   "$ROOT/Scripts/package_app.sh" release
 
 echo "==> Signing app bundle (hardened runtime)"

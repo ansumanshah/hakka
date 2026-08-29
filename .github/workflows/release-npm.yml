@@ -84,7 +84,7 @@ jobs:
             hakka-node \
             hakka-react-native \
             hakka-rozenite \
-            hakka
+            hakka-cli
           do
             echo "::group::Publishing $pkg"
             (cd "packages/$pkg" && npm publish --access public --provenance)

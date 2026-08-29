@@ -1,0 +1,18 @@
+{
+  "name": "hakka-node-prod-cohort-example",
+  "version": "0.0.0",
+  "private": true,
+  "description": "hakka-node/prod (ADR 0002) wired into a plain node:http app: startProdCapture gated by a per-request cohort header AND a URL allowlist, pulled through createPullHandler behind a bearer token. Proves the three safety properties in the run itself: no cohort header, no capture; wrong token, 401; bodies redacted by default.",
+  "type": "module",
+  "scripts": {
+    "demo": "node demo.mjs"
+  },
+  "dependencies": {
+    "hakka-node": "file:../.."
+  },
+  "overrides": {
+    "hakka-bridge": "file:../../../hakka-bridge",
+    "hakka-core": "file:../../../hakka-core"
+  },
+  "//overrides": "The hakka-* packages aren't published yet, so hakka-node uses a file: dep and the transitive pair it depends on (hakka-core, hakka-bridge) is overridden to the same directories, same pattern as examples/framework-servers and examples/next-fullstack. This example lives outside the root workspace on purpose (packages/* only matches direct children of packages/, not this nested examples/ dir), so it resolves hakka-node the way a real npm consumer would. Install with npm, not bun: bun lays file: deps out as per-file symlinks, which breaks this pattern; see framework-servers' README for the fuller explanation."
+}

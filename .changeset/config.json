@@ -9,5 +9,5 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": ["@hakka/docs", "react-native-example"]
+  "ignore": ["@hakka/docs", "react-native-example", "expo-example"]
 }

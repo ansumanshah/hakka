@@ -34,6 +34,10 @@
     "!src/**/*.test.ts",
     "!src/**/*.test.tsx",
     "!src/**/__tests__",
+    "!src/test-setup.ts",
+    "!src/**/testHarness.ts",
+    "!dist/types/test-setup.d.ts",
+    "!dist/types/**/testHarness.d.ts",
     "LICENSE",
     "README.md"
   ],

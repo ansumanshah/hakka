@@ -1,0 +1,19 @@
+{
+  "expo": {
+    "name": "Hakka Expo Example",
+    "slug": "hakka-expo-example",
+    "scheme": "hakkaexpoexample",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.noodleapps.hakkaexpoexample"
+    },
+    "android": {
+      "package": "com.noodleapps.hakkaexpoexample"
+    },
+    "plugins": [["hakka-react-native", {}]]
+  }
+}

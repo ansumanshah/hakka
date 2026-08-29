@@ -16,7 +16,7 @@ Use this checklist before publishing Hakka packages.
 ## Package Contents
 
 - Every npm package (`hakka-core`, `hakka-browser`, `hakka-bridge`,
-  `hakka-rozenite`, `hakka-react-native`, `hakka-node`, `hakka`) ships its own
+  `hakka-rozenite`, `hakka-react-native`, `hakka-node`, `hakka-cli`) ships its own
   `LICENSE` and `README.md` and a clean `files` array.
 - `hakka-react-native` also includes `app.plugin.js` and `docs/EXPO.md`.
 - Each package's `dist/` was rebuilt after the final source change (run
@@ -96,5 +96,5 @@ Publish in dependency order so each package's pinned deps resolve:
 4. `hakka-bridge` → npm
 5. the leaf packages, after the above resolve: `hakka-react-native` (after Maven
    coordinates resolve), `hakka-node` (needs `hakka-bridge`), `hakka-rozenite`,
-   and `hakka` (CLI, needs `hakka-bridge` for its `/mcp` subpath)
+   and `hakka-cli` (CLI, needs `hakka-bridge` for its `/mcp` subpath)
 6. publish docs website

@@ -7,6 +7,7 @@ import SwiftUI
 /// collection promotion this app exists for.
 struct LiveTrafficListView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// So arrow keys move the selection the moment this pane appears,
     /// rather than only after the user clicks a row once to give the list
     /// keyboard focus — reading traffic is a keyboard-first scan loop.
@@ -29,8 +30,10 @@ struct LiveTrafficListView: View {
                         title: "Waiting for traffic",
                         message: "Requests captured from a connected Hakka SDK appear here as they arrive.",
                     )
+                    .transition(.opacity)
                 } else {
                     FirstRunEmptyView()
+                        .transition(.opacity)
                 }
             } else if model.traffic.visibleRequests.isEmpty {
                 EmptyStateView(
@@ -38,8 +41,10 @@ struct LiveTrafficListView: View {
                     title: "No matching requests",
                     message: emptyMessage,
                 )
+                .transition(.opacity)
             } else if model.traffic.displayMode == .table, #available(macOS 14.4, *) {
                 LiveTrafficTableView()
+                    .transition(.opacity)
             } else {
                 // Table mode's `TableColumnForEach` needs macOS 14.4; the
                 // package floor stays 14.0 (a deployment-target bump is a
@@ -49,8 +54,34 @@ struct LiveTrafficListView: View {
                 // newer machine — falls back here instead of losing the
                 // pane. List mode is the default and loses nothing.
                 listView
+                    .transition(.opacity)
             }
         }
+        .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.85), value: listRevealKey)
+    }
+
+    /// Crossfade trigger for the branch above — empty, no-match, or the
+    /// populated list/table — deliberately never keyed on `visibleRequests`
+    /// itself. That array's contents churn continuously as traffic streams
+    /// in; animating on every element change would be exactly the per-row
+    /// hot-path case `swiftui-patterns.md` rules out. This only flips when a
+    /// request count crosses the empty/populated boundary, a search narrows
+    /// to zero matches, or the display mode changes — bounded, user-driven
+    /// moments, not live traffic.
+    private struct ListRevealKey: Equatable {
+        let hasRequests: Bool
+        let hasEverReceivedTraffic: Bool
+        let hasVisibleRequests: Bool
+        let displayMode: TrafficDisplayMode
+    }
+
+    private var listRevealKey: ListRevealKey {
+        ListRevealKey(
+            hasRequests: !model.traffic.requests.isEmpty,
+            hasEverReceivedTraffic: model.traffic.hasEverReceivedTraffic,
+            hasVisibleRequests: !model.traffic.visibleRequests.isEmpty,
+            displayMode: model.traffic.displayMode,
+        )
     }
 
     private var listView: some View {

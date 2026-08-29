@@ -10,7 +10,11 @@ APP_NAME=${APP_NAME:-Hakka}
 # Kept as its own knob so the bundle name and the build product can differ.
 EXEC_NAME=${EXEC_NAME:-Hakka}
 BUNDLE_ID=${BUNDLE_ID:-com.noodleapps.hakka}
-MACOS_MIN_VERSION=${MACOS_MIN_VERSION:-14.0}
+# Must track Package.swift's `platforms: [.macOS(.vNN)]` floor, not trail it —
+# GRPCCore's use of the Synchronization module (Mutex) needs macOS 15+ (ADR
+# 0012), so a lower LSMinimumSystemVersion here would let the app *launch* on
+# an OS it cannot actually run on instead of refusing with a clear message.
+MACOS_MIN_VERSION=${MACOS_MIN_VERSION:-15.0}
 MENU_BAR_APP=${MENU_BAR_APP:-0}
 SIGNING_MODE=${SIGNING_MODE:-}
 APP_IDENTITY=${APP_IDENTITY:-}

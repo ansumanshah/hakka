@@ -11,6 +11,7 @@ import SwiftUI
 /// full field on tap.
 struct LiveTrafficHeader: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var presetStore = FilterPresetStore()
     @State private var columnPickerPresented = false
     @State private var statsPresented = false
@@ -42,8 +43,10 @@ struct LiveTrafficHeader: View {
                 .foregroundStyle(.secondary)
             if collapsedSearch, !searchExpanded {
                 collapsedSearchButton
+                    .transition(.opacity)
             } else {
                 searchField
+                    .transition(.opacity)
             }
             NoiseScopePill(
                 scope: model.traffic.noiseScope,
@@ -58,6 +61,10 @@ struct LiveTrafficHeader: View {
                 .buttonStyle(.plain)
                 .disabled(model.traffic.requests.isEmpty)
         }
+        // The collapsed-icon/full-field swap is a genuine reveal, not a
+        // quick flip — the expandable-section curve, matching how the
+        // detail pane's own sections grow open.
+        .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.85), value: searchExpanded)
     }
 
     private var statusIndicator: some View {
@@ -143,9 +150,11 @@ struct LiveTrafficHeader: View {
                     .popover(isPresented: $columnPickerPresented) {
                         TrafficColumnPickerView(store: model.traffic.columnConfig)
                     }
+                    .transition(.opacity)
                 }
             }
             .font(.caption)
+            .animation(reduceMotion ? nil : .spring(response: 0.25, dampingFraction: 0.9), value: model.traffic.displayMode)
         }
     }
 
@@ -155,6 +164,7 @@ struct LiveTrafficHeader: View {
         } label: {
             Image(systemName: systemImage)
                 .foregroundStyle(model.traffic.displayMode == mode ? Color.accentColor : .secondary)
+                .animation(reduceMotion ? nil : .spring(response: 0.25, dampingFraction: 0.9), value: model.traffic.displayMode)
         }
         .buttonStyle(.plain)
         .help(mode == .list ? "List" : "Table")

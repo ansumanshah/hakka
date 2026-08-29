@@ -28,20 +28,41 @@ struct TrafficStatsPanelView: View {
                 .padding(.horizontal, Spacing.lg)
                 .padding(.top, Spacing.ml)
             VStack(spacing: Spacing.sm) {
-                row("Requests", content.requestCount)
-                row("Errors", content.errorSummary, valueColor: stats.errorCount > 0 ? ThemeTokens.Status.error : nil)
+                row("Requests", content.requestCount, index: 0)
+                row("Errors", content.errorSummary, valueColor: stats.errorCount > 0 ? ThemeTokens.Status.error : nil, index: 1)
                 Divider()
-                row("p50 duration", content.p50Duration)
-                row("p95 duration", content.p95Duration)
+                row("p50 duration", content.p50Duration, index: 2)
+                row("p95 duration", content.p95Duration, index: 3)
                 Divider()
-                row("Total bytes", content.totalBytes)
+                row("Total bytes", content.totalBytes, index: 4)
             }
             .padding(Spacing.lg)
         }
         .frame(width: 220)
     }
 
-    private func row(_ label: String, _ value: String, valueColor: Color? = nil) -> some View {
+    /// `index` staggers this row's reveal the same way `DetailTimingSection`
+    /// staggers its waterfall bars — the panel is a fresh view each time the
+    /// toolbar's stats button opens the popover, so the reveal replays on
+    /// every open rather than firing once and never again. The values
+    /// themselves (`content`, refreshed live from `TrafficStatsAccumulator`
+    /// on every captured request) are never wrapped in animation — that data
+    /// updates on the traffic hot path and must snap, not tween.
+    private func row(_ label: String, _ value: String, valueColor: Color? = nil, index: Int) -> some View {
+        TrafficStatRow(label: label, value: value, valueColor: valueColor, index: index)
+    }
+}
+
+private struct TrafficStatRow: View {
+    let label: String
+    let value: String
+    let valueColor: Color?
+    let index: Int
+
+    @State private var isVisible = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
         HStack {
             Text(label)
                 .font(.caption)
@@ -50,6 +71,17 @@ struct TrafficStatsPanelView: View {
             Text(value)
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(valueColor ?? .primary)
+        }
+        .opacity(isVisible ? 1 : 0)
+        .offset(y: isVisible ? 0 : 4)
+        .onAppear {
+            guard !reduceMotion else {
+                isVisible = true
+                return
+            }
+            withAnimation(.easeOut(duration: 0.4).delay(Double(index) * 0.05)) {
+                isVisible = true
+            }
         }
     }
 }

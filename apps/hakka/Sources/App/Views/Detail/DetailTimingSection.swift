@@ -101,6 +101,7 @@ private struct TimingBarRow: View {
     let index: Int
 
     @State private var isVisible = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: Spacing.md) {
@@ -124,6 +125,10 @@ private struct TimingBarRow: View {
         }
         .padding(.vertical, 1)
         .onAppear {
+            guard !reduceMotion else {
+                isVisible = true
+                return
+            }
             withAnimation(.easeOut(duration: 0.4).delay(Double(index) * 0.05)) {
                 isVisible = true
             }

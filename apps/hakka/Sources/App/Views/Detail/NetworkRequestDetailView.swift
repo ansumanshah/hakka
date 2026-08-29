@@ -14,6 +14,7 @@ struct NetworkRequestDetailView: View {
     let deviceLabel: String?
 
     @State private var activeTab: DetailTab = .overview
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Decoded once per view construction (per record selection), not per
     /// body evaluation — gzip bodies must not re-decompress on every render.
@@ -38,9 +39,21 @@ struct NetworkRequestDetailView: View {
         VStack(alignment: .leading, spacing: 0) {
             DetailIdentityHeader(record: record)
             DetailTabStrip(activeTab: $activeTab, tabs: tabs)
+            // `.id(activeTab)` gives each tab its own view identity, so
+            // switching tabs is a real insertion/removal `.transition`
+            // rather than one view's content silently changing underneath
+            // — and it lets a tab's own reveal (Timing's staggered bars)
+            // replay every time you switch back to it, not just on first
+            // mount. `.animation(value:)` here observes `activeTab`
+            // directly, so `DetailTabStrip`'s tap and the Cmd-1…9 shortcuts
+            // both pick it up without either call site wrapping its own
+            // mutation in `withAnimation`.
             tabContent
+                .id(activeTab)
+                .transition(.opacity)
                 .padding(Spacing.xl)
         }
+        .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.85), value: activeTab)
         .background(tabShortcuts(tabs))
     }
 

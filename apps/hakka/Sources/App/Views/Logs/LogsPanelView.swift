@@ -9,6 +9,7 @@ import SwiftUI
 /// single-consumer stream.
 struct LogsPanelView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Whether the bottom sentinel row is on screen — the "at the newest
     /// entry" signal a new batch checks before auto-scrolling. Starts true
     /// so the very first render (nothing to scroll yet) doesn't read as
@@ -91,7 +92,7 @@ struct LogsPanelView: View {
                 }
                 .onChange(of: model.logs.filteredEntries.count) { _, _ in
                     guard isAtBottom else { return }
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.9)) {
+                    withAnimation(reduceMotion ? nil : .spring(response: 0.25, dampingFraction: 0.9)) {
                         proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
                     }
                 }
@@ -104,7 +105,7 @@ struct LogsPanelView: View {
 
     private func jumpToLatestButton(proxy: ScrollViewProxy) -> some View {
         Button {
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.9)) {
+            withAnimation(reduceMotion ? nil : .spring(response: 0.25, dampingFraction: 0.9)) {
                 proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
             }
             isAtBottom = true
