@@ -31,9 +31,23 @@
  */
 
 /**
- * Every module Hakka `require()`s behind a try/catch. Keep in sync with the
- * optional requires in src/ — `just verify` has no gate for this, so the test
- * at src/__tests__/metroOptionalDeps.test.ts asserts the two stay aligned.
+ * Every module Hakka `require()`s behind a try/catch, and therefore every
+ * module Metro must be told it may stub.
+ *
+ * This list must match the bare `require()` call sites in `src/` EXACTLY, in
+ * both directions, and `__tests__/metroOptionalDeps.test.ts` asserts that it
+ * does. A missing entry silently reintroduces the P0 this file exists to fix
+ * (an absent optional peer failing the whole bundle); a surplus entry claims
+ * coverage the package does not need.
+ *
+ * `react-native` is required inside some of the same guarded blocks but is
+ * deliberately absent: it is a core peer present in every RN app, and stubbing
+ * it would be actively wrong.
+ *
+ * `@tanstack/react-query` is likewise absent even though it IS a declared
+ * optional peer, because nothing here ever `require()`s it. The React Query
+ * integration takes a `QueryClient` as a parameter instead of importing the
+ * package, so Metro never resolves it and has nothing to stub.
  */
 const OPTIONAL_MODULES = new Set([
   '@react-native-async-storage/async-storage',
@@ -44,7 +58,6 @@ const OPTIONAL_MODULES = new Set([
   'react-native-safe-area-context',
   'react-native-device-info',
   '@react-native-community/netinfo',
-  '@tanstack/react-query',
 ])
 
 /**

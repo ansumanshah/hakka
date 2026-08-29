@@ -60,23 +60,25 @@ private example workspace shows up in that list, `.changeset/config.json`'s
 `ignore` array is missing its `name` field. Add it there, not by touching the
 example itself.
 
-## Step 1: decide the version
+## Step 1: confirm the version
 
-The tree currently sits at `0.1.0` with **no unconsumed changeset that changes
-that number for a first release**: `.changeset/publish-ready-tarballs.md`
-(added alongside this page) is a `patch` covering a tarball-contents fix in
-`hakka-browser`, which the fixed group carries to all 7 packages.
+The tree sits at `0.0.1`, set across every package and native artifact by
+commit `f131a773`. `just version-audit` checks that the 7 publishable JS
+packages, `ios/Hakka.podspec` and the Android artifacts all agree, and it
+passes at `0.0.1` today. Run it before you do anything else here.
 
-This is a real fork, not a formality: pick one:
+One changeset is pending and unconsumed: `.changeset/publish-ready-tarballs.md`
+is a `patch` covering a tarball-contents fix in `hakka-browser`, which the
+fixed group would carry to all 7 packages. You do not have to consume it to
+ship. Pick one:
 
-- **Ship `0.1.0` as the first release, defer the changeset.** Simplest: the
-  version already in every `package.json` is what publishes. Do this if you
-  want the very first tag to be a round number. The changeset stays pending
-  and rolls into whatever the _next_ release is.
-- **Consume the changeset first, ship `0.1.1`.** Run `bun run version-packages`
-  before Step 2; it bumps all 7 `package.json` files + internal pins to
-  `0.1.1` and deletes the changeset file. Do this if you'd rather the first
-  published version already include the tarball-contents fix.
+- **Ship `0.0.1` as the first release, defer the changeset.** The version
+  already in every `package.json` is what publishes. The changeset stays
+  pending and rolls into whatever the _next_ release is.
+- **Consume the changeset first, ship `0.0.2`.** Run `bun run version-packages`
+  before Step 2; it bumps all 7 `package.json` files + internal pins and
+  deletes the changeset file. Do this if you'd rather the first published
+  version already include the tarball-contents fix.
 
 Either is safe; nothing below depends on which you pick. If you bump, re-run
 `just version-audit` afterward: the native versions (`android/**/build.gradle.kts`,
@@ -106,7 +108,7 @@ a package whose smoke check didn't run at the exact version you're about to tag.
 ## Step 4: publish, in dependency order
 
 Publish order matters because each package's `dependencies` pin an **exact**
-internal version (`"hakka-core": "0.1.0"`, not a range): a dependent published
+internal version (`"hakka-core": "0.0.1"`, not a range): a dependent published
 before its dependency exists on the registry will resolve to nothing for
 anyone who installs it in that window.
 
@@ -144,46 +146,34 @@ publishes faster than you can read the output).
 
 `--provenance` requires publishing from CI with OIDC (GitHub Actions'
 `id-token: write` permission), not a local machine. Omit it for a manual
-publish from your laptop, or use the GitHub Action once it's fixed (see below).
+publish from your laptop, or use the GitHub Action (see below), which runs in CI.
 
-### The GitHub Action needs a one-line fix first
+### The GitHub Action path
 
 `.github/workflows/release-npm.yml` is the intended "single command" path
-(`gh workflow run release-npm.yml -f version=0.1.0`) and does everything Steps
+(`gh workflow run release-npm.yml -f version=0.0.1`) and does everything Steps
 2–4 do, plus the Android Maven-artifact-published check and `--provenance`.
-**As committed right now it will fail on the last package**: its publish loop
-still lists the directory as `hakka`,
 
-```yaml
-for pkg in \
-hakka-core \
-hakka-bridge \
-hakka-browser \
-hakka-node \
-hakka-react-native \
-hakka-rozenite \
-hakka # <- stale; the directory is packages/hakka-cli
-```
-
-left over from before the CLI package's directory was renamed
-`packages/hakka` → `packages/hakka-cli` (the bare `hakka` name is
-permanently blocked on npm, see below, so the package itself is
-`hakka-cli`, only its `bin` is still `hakka`). `cd packages/hakka` will error
-with no such directory. Fix that one line to `hakka-cli` before dispatching
-this workflow; this file wasn't in scope for this pass to edit directly.
+Its publish loop walks the 7 package directories in dependency order and ends
+at `hakka-cli`. That last entry read `hakka` for a while, left over from before
+the CLI package's directory was renamed `packages/hakka` → `packages/hakka-cli`
+(the bare `hakka` name is permanently blocked on npm, see below, so the package
+is `hakka-cli` and only its `bin` is still `hakka`). `cd packages/hakka` would
+have errored with no such directory. That was corrected in commit `2bd45fc1`;
+the workflow is right as committed and needs no edit before you dispatch it.
 
 ## Rolling back a bad publish
 
 **Use `npm deprecate`, never `npm unpublish`.**
 
 ```bash
-npm deprecate hakka-node@0.1.0 "Broken next/server export, use 0.1.1"
+npm deprecate hakka-node@0.0.1 "Broken next/server export, use 0.0.2"
 ```
 
-This leaves `0.1.0` installable (so nobody's lockfile breaks) but prints a
+This leaves `0.0.1` installable (so nobody's lockfile breaks) but prints a
 warning on every install and in `npm audit`/`npm outdated` output, steering
 people to the fixed version you publish right after. Cut the fix as a normal
-new version through Steps 1–4: `0.1.1`, not a republish of `0.1.0`.
+new version through Steps 1–4: `0.0.2`, not a republish of `0.0.1`.
 
 `npm unpublish` doesn't just remove your release: it forfeits the name's
 history. A later attempt to reuse that name is treated as a brand-new claim,
