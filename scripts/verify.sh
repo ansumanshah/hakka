@@ -61,6 +61,10 @@ run_leg "ui-token-check" just ui-token-check
 # catch drift before a push rather than in CI.
 run_leg "spec-drift-check" just spec-drift-check
 run_leg "spec-api-check" just spec-api-check
+# Cross-package dependency-declaration gate. Runs after the pre-build above, so
+# it sees dist/ for the packages that pre-build covers and names the ones it
+# could not scan rather than passing silently on them.
+run_leg "dep-declaration-check" just dep-declaration-check
 run_leg "rn-jest" just test
 run_leg "core-test" bun run --cwd packages/hakka-core test
 run_leg "web-jsside" just test-web-prebuilt

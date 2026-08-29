@@ -181,6 +181,16 @@ spec-drift-check:
 spec-api-check:
     node scripts/spec-api-check.mjs
 
+# Fail if a publishable package's PUBLISHED .d.ts imports another workspace
+# package it doesn't declare as a dependency. That defect shipped twice
+# (hakka-browser, then hakka-bridge) and is invisible to every other gate: the
+# type import is erased at build time so no smoke check fails, and the in-repo
+# typecheck resolves from source regardless of what package.json claims. It only
+# breaks for someone installing that package alone and running tsc. Needs a
+# build first; it reports which packages it could not cover.
+dep-declaration-check:
+    node scripts/dep-declaration-check.mjs
+
 # Fail on hardcoded geometry in the RN inspector's styles — every height, gutter,
 # radius and type size must come from a design token or a shared primitive.
 ui-token-check:

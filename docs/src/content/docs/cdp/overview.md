@@ -27,7 +27,7 @@ satisfy this without an adapter.
 ## Install
 
 ```bash
-npm install hakka
+npm install hakka-cli
 ```
 
 ## Setup — Playwright

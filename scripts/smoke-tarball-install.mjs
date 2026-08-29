@@ -201,6 +201,32 @@ assert.equal(result, undefined, 'register() should no-op (return undefined) outs
 console.log('PASS ${n['hakka-node']}/next: subpath export — register() is edge-safe (no-ops outside Next.js\\'s node runtime) (formerly the standalone hakka-next package)')
 `,
 
+  // `./metro` is the one hakka-react-native entry point that CAN be checked here.
+  // The main entry imports the real `react-native` package at module scope, which
+  // node/bun cannot parse (Flow syntax), hence the SKIP rows for it. `metro.js` is
+  // plain CommonJS with no react-native import, so a consumer really can require it
+  // straight out of the tarball, which is exactly what an app's metro.config.js does.
+  // Worth covering precisely because it is load-bearing: without it Metro fails the
+  // whole bundle on any optional peer the app did not install.
+  'hakka-react-native:metro': (n) => `
+import assert from 'node:assert/strict'
+import { createRequire } from 'node:module'
+const require = createRequire(import.meta.url)
+const { withHakka, OPTIONAL_MODULES } = require(${JSON.stringify(n['hakka-react-native'] + '/metro')})
+
+assert.equal(typeof withHakka, 'function', 'metro.js must export withHakka')
+assert.ok(OPTIONAL_MODULES instanceof Set && OPTIONAL_MODULES.size > 0, 'metro.js must export a non-empty OPTIONAL_MODULES set')
+
+// The behaviour that matters: a MISSING optional peer must resolve to Metro's empty
+// stub rather than throwing, or the consumer's bundle fails to build.
+const optional = [...OPTIONAL_MODULES][0]
+const config = withHakka({})
+const context = { resolveRequest: () => { throw new Error('Unable to resolve module') } }
+assert.deepEqual(config.resolver.resolveRequest(context, optional, 'ios'), { type: 'empty' }, 'a missing optional peer must resolve to { type: "empty" }')
+assert.throws(() => config.resolver.resolveRequest(context, './not-optional', 'ios'), 'a missing NON-optional module must still throw')
+console.log('PASS ${n['hakka-react-native']}/metro: subpath export — withHakka() stubs a missing optional peer and still throws for a real miss')
+`,
+
   'hakka-core:test': (n) => `
 import assert from 'node:assert/strict'
 import { assertRequestMade, filterRequests } from ${JSON.stringify(n['hakka-core'] + '/test')}
@@ -399,6 +425,7 @@ const CHECK_ORDER = [
   'hakka-node:next',
   'hakka-cli:cdp',
   'hakka-react-native',
+  'hakka-react-native:metro',
   'hakka-cli',
   'hakka-cli:mcp',
   'hakka-browser',

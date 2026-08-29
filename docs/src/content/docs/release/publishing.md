@@ -38,6 +38,7 @@ the package. Last real run:
   hakka-node (next)                bun=PASS  node=PASS
   hakka-cli (cdp)                  bun=PASS  node=PASS
   hakka-react-native               bun=SKIP  node=SKIP
+  hakka-react-native (metro)       bun=PASS  node=PASS
   hakka-cli                        bun=PASS  node=PASS
   hakka-cli (mcp)                  bun=PASS  node=PASS
   hakka-browser                    bun=PASS  node=PASS
@@ -48,7 +49,7 @@ the package. Last real run:
 smoke-tarball-install: PASS
 ```
 
-Expect 13 rows. If you see 11, with only `hakka-cli (cdp)` and no bare
+Expect 14 rows. If you see fewer, with only `hakka-cli (cdp)` and no bare
 `hakka-cli` or `hakka-cli (mcp)` row, the script's check keys have drifted from
 the real directory names again: they were keyed `hakka` after the directory was
 renamed `packages/hakka-cli`, so `dirOf('hakka')` matched nothing and both CLI
