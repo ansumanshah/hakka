@@ -319,6 +319,34 @@ studio-core:
 demo-claude-code:
     cd examples/next-fullstack && npm install && npm run dev
 
+# Run the hakka-node framework-servers example — Express/Fastify/Hono/raw
+# node:http, each proving x-hakka-trace correlation to stdout, no inspector
+# UI needed. npm, not bun — see its README.
+demo-node-servers: build-core build-bridge build-node
+    cd packages/hakka-node/examples/framework-servers && npm install && npm run demo
+
+# Run the hakka-cli/cdp + Playwright example (npm, not bun — see its README):
+# builds hakka-cli's dist deps, then installs and runs the example's own
+# Playwright test. Run `cd packages/hakka-cli/examples/cdp-playwright &&
+# npx playwright install chromium` once first if Chromium isn't on this machine.
+example-cdp-playwright: build-core build-bridge build-node
+    bun run --cwd packages/hakka-cli build
+    cd packages/hakka-cli/examples/cdp-playwright && npm install && npm test
+
+# Run the hakka-browser/vite plugin example — one `hakka()` plugin in
+# vite.config.ts, no manual start() call anywhere in src/. npm, not bun
+# (matches the other file:-dep examples) — see its README.
+demo-vite-app: build-browser
+    cd packages/hakka-browser/examples/vite-app && npm install && npm run dev
+
+# Run the "build your own devtools" example — hakka-browser/elements' six
+# standalone custom elements (+ a hakka-browser/react variant) composed into
+# a custom devtools panel, wired to real fetch/XHR traffic via a hand-rolled
+# store — no <hakka-inspector> overlay anywhere on the page. npm, not bun
+# (matches the other file:-dep examples) — see its README.
+demo-devtools-panel: build-browser
+    cd packages/hakka-browser/examples/build-your-own-devtools && npm install && npm run dev
+
 # ── Release ───────────────────────────────────────────────────────────────────
 
 # Full pre-release gate: typecheck + build + test, all platforms

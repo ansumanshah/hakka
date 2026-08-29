@@ -31,6 +31,11 @@ already captured, over the same bridge the CLI and MCP server use.
 The trade is explicit: Hakka cannot inspect an app you do not build. If that is what
 you need, a proxy is the right tool and Proxyman is a good one.
 
+The one exception is `hakka sim attach`, a separate, narrower path that injects the
+SDK into an already-installed iOS Simulator app at process launch, still with no
+certificate; see [ADR 0014](/contributing/adr/0014-simulator-injection-capture/) for
+exactly what it reaches and where it stops.
+
 ## What it is made of
 
 The app ships as Swift packages, not just a binary, so other Swift apps can host the

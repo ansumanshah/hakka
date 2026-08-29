@@ -1,8 +1,10 @@
 /**
  * `hakka sim attach <bundle-id>` — launches an iOS Simulator app with
  * Hakka's capture SDK injected via `DYLD_INSERT_LIBRARIES`, reaching apps
- * this repo did not build or link (see `.claude/strategy/simulator-capture-2026-08.md`
- * for the full writeup, what this can and cannot see, and productionisation cost).
+ * this repo did not build or link (see ADR 0014,
+ * `docs/src/content/docs/contributing/adr/0014-simulator-injection-capture.md`,
+ * for the full writeup, exactly what this can and cannot see, and
+ * productionisation cost).
  *
  * Thin wrapper around `xcrun simctl` — no simulator SDK, no native code here.
  * Lives in this CLI rather than a standalone script because it is one more
@@ -122,5 +124,5 @@ export function runSimAttach(opts: SimAttachOptions, log: (s: string) => void = 
 export function simUsage(log: (s: string) => void = console.log): void {
   log('Usage: hakka sim attach <bundle-id> [--device <udid-or-name>] [--dylib <path>] [--bridge-url <url>]')
   log('  Injects Hakka capture into a booted iOS Simulator app via DYLD_INSERT_LIBRARIES.')
-  log('  Simulator only. See .claude/strategy/simulator-capture-2026-08.md for scope and limits.')
+  log('  Simulator only. See ADR 0014 (docs/contributing/adr/0014-simulator-injection-capture) for scope and limits.')
 }

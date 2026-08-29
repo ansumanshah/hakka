@@ -16,6 +16,9 @@ struct LiveTrafficListView: View {
         VStack(spacing: 0) {
             LiveTrafficHeader()
             Divider()
+            TrafficFilterChipsView(searchText: searchBinding)
+                .padding(.horizontal, Layout.gutter)
+                .padding(.vertical, Spacing.sm)
             if model.traffic.requests.isEmpty {
                 // First-run only (Artboard 6): once traffic has ever
                 // arrived, a later cleared list stays the generic state —
@@ -86,6 +89,10 @@ struct LiveTrafficListView: View {
 
     private var selectionBinding: Binding<String?> {
         Binding(get: { model.traffic.selectedRequestID }, set: { model.traffic.selectedRequestID = $0 })
+    }
+
+    private var searchBinding: Binding<String> {
+        Binding(get: { model.traffic.searchText }, set: { model.traffic.searchText = $0 })
     }
 
     /// Comparing needs a second, different row already selected.

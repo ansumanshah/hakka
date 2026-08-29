@@ -1,3 +1,5 @@
+import AppKit
+import HakkaCore
 import SwiftUI
 
 /// New Request / Send / Save, wired straight to `AppModel` so the same
@@ -37,6 +39,39 @@ struct AppCommands: Commands {
                 .disabled(model.traffic.requests.isEmpty)
             Divider()
             Button("Compare Sessions…") { Task { await model.sessionCompare.compare() } }
+            Divider()
+            Button("Export Collection as OpenAPI…") {
+                Self.saveCollectionExport(
+                    OpenAPIExporter.export(model.collection.collection),
+                    suggestedName: "\(model.collection.collection.name).openapi.json",
+                    model: model,
+                )
+            }
+            .disabled(model.collection.collection.nodes.isEmpty)
+            Button("Export Collection as Postman Collection…") {
+                Self.saveCollectionExport(
+                    PostmanExporter.export(model.collection.collection),
+                    suggestedName: "\(model.collection.collection.name).postman_collection.json",
+                    model: model,
+                )
+            }
+            .disabled(model.collection.collection.nodes.isEmpty)
+        }
+    }
+
+    /// Writes an exported collection to a user-chosen file. A save panel
+    /// here directly, not routed through `AppModel`, since neither exporter
+    /// needs anything else `AppModel` owns.
+    private static func saveCollectionExport(_ data: Data, suggestedName: String, model: AppModel) {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = suggestedName
+        panel.prompt = "Export"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try data.write(to: url, options: .atomic)
+            model.collection.lastError = nil
+        } catch {
+            model.collection.lastError = "Export failed: \(error.localizedDescription)"
         }
     }
 }

@@ -118,6 +118,23 @@ public final class HakkaBridgeClient: @unchecked Sendable {
 
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 10
+        // `HakkaInterceptor.start()` swizzles `URLSessionConfiguration.default`/
+        // `.ephemeral` to inject `HakkaURLProtocol` into every session built from
+        // them, and separately registers it process-wide via
+        // `URLProtocol.registerClass(_:)` — the normal, intended state once a
+        // host app captures its own traffic AND streams to the bridge. Without
+        // this, this client's own outbound WebSocket handshake gets caught by
+        // that same interception (`HakkaURLProtocol.canInit` accepts it — the
+        // handshake is an `http`-scheme request until it upgrades) and replayed
+        // as a plain HTTP request, which cannot preserve a WebSocket upgrade and
+        // drops the connection (`NSURLErrorNetworkConnectionLost`) — silently,
+        // since nothing here is in a position to notice its own socket is the
+        // one being intercepted. A telemetry socket must never be able to
+        // capture itself, so opt this session out of custom protocol handling
+        // entirely: a non-nil empty array excludes both the globally registered
+        // class list and anything injected into `.default`/`.ephemeral`, unlike
+        // `nil`, which defers to whatever is registered.
+        config.protocolClasses = []
         let session = URLSession(configuration: config)
         let task = session.webSocketTask(with: url)
         lock.lock()

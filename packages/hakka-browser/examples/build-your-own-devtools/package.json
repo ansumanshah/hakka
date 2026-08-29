@@ -1,0 +1,26 @@
+{
+  "name": "hakka-build-your-own-devtools-example",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A custom devtools panel built from hakka-browser/elements' six standalone custom elements (plus a hakka-browser/react variant) — real fetch/XHR traffic, no floating overlay.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "hakka-browser": "file:../..",
+    "hakka-core": "file:../../../hakka-core"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "typescript": "^7.0.2",
+    "vite": "8.2.1"
+  },
+  "//deps": "hakka-browser isn't published yet, so it's a file: dep here (see examples/next-fullstack/package.json's own //overrides note for the full pattern). hakka-core is a direct dep too, not an override — hakka-browser only carries hakka-core as a devDependency (it gets bundled into hakka-browser's own dist), so nothing else in this tree pulls a conflicting resolution for it. react/react-dom are hakka-browser's optional peers, listed here in devDependencies (not dependencies) because only react.html's entry uses them — index.html's vanilla entry never imports React. Install with npm — bun lays file: deps out as per-file symlinks that Vite's dep pre-bundling doesn't always follow the same way npm's real copy does (next-fullstack and the other file:-dep examples all standardize on npm for this reason)."
+}

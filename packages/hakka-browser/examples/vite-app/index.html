@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>hakka-browser/vite example</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <main>
+      <h1>hakka-browser/vite example</h1>
+      <p>
+        This page never calls <code>Hakka.start()</code>. <code>vite.config.ts</code> adds one plugin —
+        <code>hakka()</code> from <code>hakka-browser/vite</code> — and that's the entire integration. Run
+        <code>npm run dev</code> and the inspector overlay is already in the bottom-right corner before you read this
+        sentence.
+      </p>
+      <p class="hint">
+        Read <a href="./README.md">README.md</a> for what the plugin does and the dev-only guarantee (open it as a file
+        — GitHub renders it, or just read the source).
+      </p>
+
+      <section>
+        <h2>Fire some requests</h2>
+        <p class="hint">
+          Each button below makes a real network call. Open the overlay and watch the Network tab fill in.
+        </p>
+        <div class="row">
+          <button id="btn-fetch">fetch('/data.json')</button>
+          <button id="btn-xhr">XMLHttpRequest</button>
+          <button id="btn-post">POST /api/echo (no server here → real 404)</button>
+          <button id="btn-console">console.log/warn/error(...)</button>
+        </div>
+      </section>
+
+      <pre id="status">ready. one fetch already ran on load — check the overlay.</pre>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

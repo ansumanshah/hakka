@@ -1,0 +1,5 @@
+{
+  "message": "hello from hakka-browser/vite example",
+  "id": 42,
+  "tags": ["network-inspector", "vite-plugin", "dev-only"]
+}

@@ -29,6 +29,14 @@ import SwiftUI
 struct LiveTrafficTableView: View {
     @Environment(AppModel.self) private var model
 
+    /// Same `UserDefaults` keys `TrafficColumnPickerView`'s Group By / Sort
+    /// By controls write — see that type's doc comment for why `@AppStorage`
+    /// rather than a shared store object is what keeps this view and that
+    /// popover in sync.
+    @AppStorage(TrafficColumnPickerView.groupByKey) private var groupByRaw = TrafficGroupBy.none.rawValue
+    @AppStorage(TrafficColumnPickerView.sortFieldKey) private var sortFieldRaw = ""
+    @AppStorage(TrafficColumnPickerView.sortOrderKey) private var sortOrderRaw = TrafficSortOrder.desc.rawValue
+
     /// Native cell height only just clears `Fmt`'s caption text at default
     /// type size; `.frame(minHeight:)` on every column's content is what
     /// pins the row to DESIGN's 28pt row density, since `Table` sizes each
@@ -36,16 +44,50 @@ struct LiveTrafficTableView: View {
     private static let rowHeight: CGFloat = 28
 
     private var columnConfig: TrafficColumnConfigStore { model.traffic.columnConfig }
+    private var groupBy: TrafficGroupBy { TrafficGroupBy(rawValue: groupByRaw) ?? .none }
+
+    /// `visibleRequests` already carries whatever order the search DSL's own
+    /// `sort:`/`order:` terms produced (or newest-first by default). Leaving
+    /// the picker at "Default" (`sortFieldRaw` empty) must reproduce that
+    /// exact order — only a field the user actually picked overrides it, so
+    /// turning grouping on and off never silently resorts rows nobody asked
+    /// to resort.
+    private var sortedRequests: [NetworkRequest] {
+        guard let field = TrafficSortField(rawValue: sortFieldRaw) else { return model.traffic.visibleRequests }
+        let order = TrafficSortOrder(rawValue: sortOrderRaw) ?? .desc
+        return TrafficSort.sort(model.traffic.visibleRequests, field: field, order: order)
+    }
+
+    private var groups: [TrafficRequestGroup] {
+        TrafficQueryCompiler.group(sortedRequests, by: groupBy)
+    }
 
     var body: some View {
-        Table(model.traffic.visibleRequests, selection: selectionBinding) {
+        Table(of: NetworkRequest.self, selection: selectionBinding) {
             TableColumnForEach(columnConfig.visibleColumnsInOrder) { column in
                 TableColumn(column.title) { request in
                     cell(for: column, request: request)
                 }
                 .width(min: minWidth(for: column), ideal: idealWidth(for: column))
             }
+        } rows: {
+            if groupBy == .none {
+                ForEach(sortedRequests) { TableRow($0) }
+            } else {
+                ForEach(groups) { group in
+                    Section(sectionTitle(for: group)) {
+                        ForEach(group.items) { TableRow($0) }
+                    }
+                }
+            }
         }
+    }
+
+    /// Appends the bucket size to its label — "2xx Success · 12" — so a
+    /// session with mixed hosts or statuses reads as a real breakdown, not
+    /// just a set of labeled dividers.
+    private func sectionTitle(for group: TrafficRequestGroup) -> String {
+        "\(group.label) · \(group.items.count)"
     }
 
     /// `Table` only offers `Set<ID>` selection, no single-optional-ID

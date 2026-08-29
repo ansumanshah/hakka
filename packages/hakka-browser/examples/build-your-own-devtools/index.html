@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Build your own devtools: hakka-browser/elements</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-title">Custom DevTools</span>
+          <span class="brand-sub">built from hakka-browser/elements (vanilla)</span>
+        </div>
+
+        <div class="traffic-buttons">
+          <button id="btn-users" title="GET /api/users">Users</button>
+          <button id="btn-user" title="GET /api/users/:id (mostly 200, sometimes 404)">User</button>
+          <button id="btn-order" title="POST /api/orders">Order</button>
+          <button id="btn-summary" title="GET /api/reports/summary, always slow (~900ms)">Summary (slow)</button>
+          <button id="btn-charge" title="GET /api/payments/charge, always 500">Charge (fails)</button>
+          <button id="btn-xhr" title="XMLHttpRequest GET /api/legacy/ping">XHR ping</button>
+          <button id="btn-burst" title="Fires 4 calls concurrently, feeds the waterfall">Load dashboard</button>
+        </div>
+
+        <span id="status-line" class="brand-sub"></span>
+
+        <div class="theme-picker">
+          <label for="preset">theme</label>
+          <select id="preset"></select>
+        </div>
+
+        <nav class="mode-links">
+          <a href="./index.html" aria-current="page">vanilla</a>
+          <a href="./react.html">react</a>
+        </nav>
+      </header>
+
+      <div class="filter-row">
+        <hakka-filter-bar id="filter-bar"></hakka-filter-bar>
+      </div>
+
+      <div class="body-grid">
+        <div class="rail">
+          <div class="card">
+            <div class="card-header"><span class="card-title">Requests</span></div>
+            <!-- Filled in by panel.ts with a freshly created <hakka-request-list>,
+                 `.store` set BEFORE it's inserted here — see panel.ts's comment on
+                 why a static tag can't take an injected store this way. -->
+            <div class="card-body no-pad" id="request-list-slot"></div>
+          </div>
+        </div>
+
+        <div class="main-panel">
+          <div class="tabs" role="tablist">
+            <button class="tab-btn" id="tab-detail" role="tab" aria-selected="true">Detail</button>
+            <button class="tab-btn" id="tab-waterfall" role="tab" aria-selected="false">Waterfall</button>
+          </div>
+          <div class="tab-panels">
+            <div class="tab-panel" id="panel-detail" data-active="true">
+              <hakka-request-detail id="request-detail"></hakka-request-detail>
+            </div>
+            <div class="tab-panel" id="panel-waterfall">
+              <div class="waterfall-wrap">
+                <div class="empty-state" id="waterfall-empty">
+                  Fire some traffic. The waterfall lays every captured request on one shared timeline.
+                </div>
+                <hakka-waterfall id="waterfall" style="display: none"></hakka-waterfall>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="right-rail">
+          <div class="card">
+            <div class="card-header"><span class="card-title">Stats</span></div>
+            <!-- Same "create + set .store + insert" treatment as the request list. -->
+            <div class="card-body no-pad" id="stats-slot"></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><span class="card-title">Raw response</span></div>
+            <p class="payload-hint" id="payload-hint">Select a request to see its raw response body.</p>
+            <div class="card-body no-pad" id="json-tree-wrap" style="display: none">
+              <hakka-json-tree id="json-tree" max-depth="4"></hakka-json-tree>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/panel.ts"></script>
+  </body>
+</html>

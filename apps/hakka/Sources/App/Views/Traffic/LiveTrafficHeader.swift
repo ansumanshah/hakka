@@ -13,6 +13,7 @@ struct LiveTrafficHeader: View {
     @Environment(AppModel.self) private var model
     @State private var presetStore = FilterPresetStore()
     @State private var columnPickerPresented = false
+    @State private var statsPresented = false
     @State private var searchExpanded = false
     @FocusState private var searchFieldFocused: Bool
 
@@ -50,6 +51,7 @@ struct LiveTrafficHeader: View {
                 hiddenErrorCount: model.traffic.hiddenNoiseScopeErrorCount,
             )
             errorsOnlyToggle
+            statsButton
             displayModePicker
             Button("Clear") { Task { await model.traffic.clear() } }
                 .font(.caption)
@@ -84,6 +86,27 @@ struct LiveTrafficHeader: View {
 
     private var errorsOnlyBinding: Binding<Bool> {
         Binding(get: { model.traffic.errorsOnly }, set: { model.traffic.errorsOnly = $0 })
+    }
+
+    /// SPEC.md §2 footnote 27: `TrafficStatsAccumulator` already computes
+    /// count/error-rate/p50/p95/byte totals live, but the only consumer was
+    /// `countText` below — a single request-count line. This opens the rest
+    /// of it in a popover, the same pattern `displayModePicker`'s column
+    /// picker uses.
+    private var statsButton: some View {
+        Button {
+            statsPresented = true
+        } label: {
+            Image(systemName: "chart.bar.xaxis")
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.secondary)
+        .font(.caption)
+        .help("Traffic Stats")
+        .accessibilityLabel("Show traffic stats")
+        .popover(isPresented: $statsPresented) {
+            TrafficStatsPanelView(stats: model.traffic.stats)
+        }
     }
 
     private var collapsedSearchButton: some View {
@@ -142,7 +165,7 @@ struct LiveTrafficHeader: View {
             Image(systemName: "magnifyingglass")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            TextField("Search — try 2xx, method:POST, dur>100", text: searchBinding)
+            TextField("Search: try 2xx, method:POST, dur>100", text: searchBinding)
                 .textFieldStyle(.plain)
                 .font(.caption)
                 .focused($searchFieldFocused)

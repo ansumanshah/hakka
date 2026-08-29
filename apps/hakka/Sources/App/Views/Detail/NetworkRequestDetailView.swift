@@ -5,8 +5,8 @@ import SwiftUI
 /// Generic tabbed detail for any `NetworkRequest` — used for both a run's
 /// response (`RunResult.record`) and a selected captured traffic row, since
 /// both are the same record type. Tab grammar: Overview / Request /
-/// Response / Timing, with the SSE tab appended for event-stream responses
-/// by `DetailTab`.
+/// Response / Timing, with GraphQL, SSE, and Cookies tabs appended per
+/// `DetailTab.visible(for:)`.
 struct NetworkRequestDetailView: View {
     let record: NetworkRequest
     /// nil for a manually-sent request (no bridge peer) or an imported
@@ -85,6 +85,8 @@ struct NetworkRequestDetailView: View {
             )
         case .timing:
             DetailTimingSection(record: record)
+        case .graphql:
+            DetailGraphQLTabView(record: record)
         case .sse:
             DetailSseTabView(record: record)
         case .cookies:

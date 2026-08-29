@@ -1,0 +1,19 @@
+{
+  "name": "hakka-vite-app-example",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Minimal Vite app showing hakka-browser/vite auto-inject the inspector overlay in dev, with no manual start() call and nothing shipped to the production build.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "hakka-browser": "file:../.."
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vite": "8.2.1"
+  }
+}

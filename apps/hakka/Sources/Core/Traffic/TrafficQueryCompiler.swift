@@ -11,8 +11,9 @@ import HakkaCommon
 /// - No `runtime` filter (client/server/edge is a Next.js rendering concept
 ///   with no equivalent on a URLSession/WebSocket capture).
 /// - `host` is a filter here (substring match on the URL's host), not only a
-///   `groupRequests` key as in the TS engine — this desktop tool has no
-///   grouping UI yet, so host filtering is folded into the query instead.
+///   `groupRequests` key as in the TS engine — grouping (`TrafficGrouping.swift`,
+///   `group(_:by:)` on this same type) is a separate, additive lens over an
+///   already-filtered set, not a replacement for filtering by host.
 /// - Header text joins ALL values per header name: Swift's headers are
 ///   `[String: [String]]` (multi-value, e.g. `Set-Cookie`); the TS model
 ///   is `Record<string, string>`.

@@ -4,11 +4,16 @@ import Foundation
 ///
 /// Two rules drive the design:
 ///
-/// 1. **Secret values never enter the collection tree.** A variable marked
-///    `secret` is stored outside the collection directory (and, for the app,
-///    in the Keychain) so a committed collection can reference `{{token}}`
-///    without ever containing one. This is why `EnvironmentVariable` carries
-///    a `secret` flag instead of leaving it to naming convention.
+/// 1. **Secret values never enter the collection tree, and never sit in
+///    plaintext on disk either.** A variable marked `secret` is stored
+///    outside the collection directory (see `EnvironmentStore`), and its
+///    *value* takes one further step into the macOS Keychain
+///    (`SecretKeychainStore`) — the `.hakka` file next to it holds only a
+///    reference token, resolved back on load. A committed collection can
+///    reference `{{token}}` without the token, or even a pointer to it,
+///    ever reaching a file a user might commit. This is why
+///    `EnvironmentVariable` carries a `secret` flag instead of leaving it to
+///    naming convention.
 /// 2. **Resolution is total and reports failures.** An unresolved
 ///    `{{missing}}` is never silently sent as literal text — the runner shows
 ///    exactly which variables were missing, because a request that 404s

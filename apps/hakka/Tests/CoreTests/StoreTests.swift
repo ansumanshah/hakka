@@ -390,23 +390,31 @@ struct EnvironmentStoreTests {
 
     @Test func roundTripsVariablesIncludingSecrets() async throws {
         let dir = tempDirectory()
-        defer { try? FileManager.default.removeItem(at: dir.deletingLastPathComponent()) }
+        let apiKey = EnvironmentVariable(name: "apiKey", value: "sk-super-secret-value", secret: true)
+        let prod = RequestEnvironment(name: "Prod", variables: [
+            apiKey,
+            EnvironmentVariable(name: "host", value: "api.example.com"),
+        ])
         let environments = [
-            RequestEnvironment(name: "Prod", variables: [
-                EnvironmentVariable(name: "apiKey", value: "sk-super-secret-value", secret: true),
-                EnvironmentVariable(name: "host", value: "api.example.com"),
-            ]),
+            prod,
             RequestEnvironment(name: "Dev", variables: [
                 EnvironmentVariable(name: "host", value: "localhost"),
             ]),
         ]
         let store = EnvironmentStore()
+        defer {
+            try? FileManager.default.removeItem(at: dir.deletingLastPathComponent())
+            Task { try? await SecretKeychainStore().delete(collection: dir, environmentID: prod.id, variableID: apiKey.id) }
+        }
 
         try await store.save(environments, forCollectionAt: dir)
         let loaded = try await store.load(forCollectionAt: dir)
 
         // Environments are keyed by name on disk (one file per environment,
         // filename alphabetical), not by list position — compare by name.
+        // `load` resolves the secret's Keychain token back to
+        // `apiKey.value`, so the round trip is still equal to the
+        // in-memory original despite the on-disk value never matching it.
         #expect(loaded.sorted { $0.name < $1.name } == environments.sorted { $0.name < $1.name })
     }
 
@@ -423,10 +431,21 @@ struct EnvironmentStoreTests {
         #expect(EnvironmentStore.environmentsDirectory(forCollectionAt: dir).standardizedFileURL == expected.standardizedFileURL)
     }
 
+    /// Regression for the plaintext-JSON gap this store used to have: a
+    /// `secret` variable's value must never sit in cleartext in *any* file
+    /// this call writes — not the collection tree (the pre-existing half of
+    /// this test) and, now that secrets route through the Keychain, not the
+    /// sibling `environments/*.hakka` file either. Only a reference token
+    /// belongs there.
     @Test func secretValuesNeverAppearAnywhereUnderTheCollectionTree() async throws {
         let dir = tempDirectory()
-        defer { try? FileManager.default.removeItem(at: dir.deletingLastPathComponent()) }
         let secretValue = "sk-super-secret-value-9f2c"
+        let apiKey = EnvironmentVariable(name: "apiKey", value: secretValue, secret: true)
+        let environment = RequestEnvironment(name: "Prod", variables: [apiKey])
+        defer {
+            try? FileManager.default.removeItem(at: dir.deletingLastPathComponent())
+            Task { try? await SecretKeychainStore().delete(collection: dir, environmentID: environment.id, variableID: apiKey.id) }
+        }
 
         let request = RequestSpec(
             name: "Whoami",
@@ -434,10 +453,6 @@ struct EnvironmentStoreTests {
             headers: [HeaderPair(name: "Authorization", value: "Bearer {{apiKey}}")],
         )
         let collection = Collection(name: "Secrets", nodes: [.request(request)])
-        let environment = RequestEnvironment(
-            name: "Prod",
-            variables: [EnvironmentVariable(name: "apiKey", value: secretValue, secret: true)],
-        )
 
         let collectionStore = CollectionStore()
         let environmentStore = EnvironmentStore()
@@ -459,6 +474,155 @@ struct EnvironmentStoreTests {
 
         let envFile = EnvironmentStore.environmentsDirectory(forCollectionAt: dir).appendingPathComponent("prod.hakka")
         let envContents = try String(contentsOf: envFile, encoding: .utf8)
-        #expect(envContents.contains(secretValue))
+        #expect(!envContents.contains(secretValue))
+        #expect(envContents.contains(SecretReference.token))
+
+        // And the value actually made it into the Keychain, not nowhere —
+        // `load` must still resolve it back.
+        let loaded = try await environmentStore.load(forCollectionAt: dir)
+        #expect(loaded.first?.variables.first?.value == secretValue)
+    }
+
+    /// A variable's and an environment's `id` never change, so renaming
+    /// either — the name is the only thing a rename touches — must keep
+    /// resolving to the exact same Keychain item rather than losing it or
+    /// leaving a stale one behind under the old name.
+    @Test func renamingASecretVariableOrItsEnvironmentKeepsResolvingTheSameSecret() async throws {
+        let dir = tempDirectory()
+        let secretValue = "sk-rename-me-8b31"
+        var apiKey = EnvironmentVariable(name: "apiKey", value: secretValue, secret: true)
+        var environment = RequestEnvironment(name: "Prod", variables: [apiKey])
+        let environmentID = environment.id
+        let variableID = apiKey.id
+        let store = EnvironmentStore()
+        defer {
+            try? FileManager.default.removeItem(at: dir.deletingLastPathComponent())
+            Task { try? await SecretKeychainStore().delete(collection: dir, environmentID: environmentID, variableID: variableID) }
+        }
+
+        try await store.save([environment], forCollectionAt: dir)
+
+        apiKey.name = "api_key_v2"
+        environment.name = "Production"
+        environment.variables = [apiKey]
+        try await store.save([environment], forCollectionAt: dir)
+
+        let loaded = try await store.load(forCollectionAt: dir)
+        #expect(loaded.count == 1)
+        #expect(loaded.first?.name == "Production")
+        #expect(loaded.first?.variables.first?.name == "api_key_v2")
+        #expect(loaded.first?.variables.first?.value == secretValue)
+    }
+
+    /// Full reconciliation must not orphan a Keychain item when the thing
+    /// that used to own it disappears from the saved list — whether that is
+    /// one secret variable no longer marked `secret` (or removed outright)
+    /// within a kept environment, or the whole environment being deleted.
+    @Test func removingASecretOrItsWholeEnvironmentDeletesTheKeychainItem() async throws {
+        let dir = tempDirectory()
+        let store = EnvironmentStore()
+        let keychain = SecretKeychainStore()
+
+        let prodKey = EnvironmentVariable(name: "apiKey", value: "sk-prod-6a41", secret: true)
+        let prod = RequestEnvironment(name: "Prod", variables: [prodKey])
+        let stagingKey = EnvironmentVariable(name: "apiKey", value: "sk-staging-6a41", secret: true)
+        let staging = RequestEnvironment(name: "Staging", variables: [stagingKey])
+        defer {
+            try? FileManager.default.removeItem(at: dir.deletingLastPathComponent())
+            Task {
+                try? await keychain.delete(collection: dir, environmentID: prod.id, variableID: prodKey.id)
+                try? await keychain.delete(collection: dir, environmentID: staging.id, variableID: stagingKey.id)
+            }
+        }
+
+        try await store.save([prod, staging], forCollectionAt: dir)
+
+        // "Staging" is dropped entirely; "Prod" is kept but its secret is
+        // unmarked (still present as a variable, no longer `secret`).
+        var keptProd = prod
+        keptProd.variables[0].secret = false
+        try await store.save([keptProd], forCollectionAt: dir)
+
+        for (environmentID, variableID) in [(prod.id, prodKey.id), (staging.id, stagingKey.id)] {
+            do {
+                _ = try await keychain.read(collection: dir, environmentID: environmentID, variableID: variableID)
+                Issue.record("expected the Keychain item to have been deleted")
+            } catch SecretKeychainError.itemNotFound {
+                // expected
+            }
+        }
+
+        // The now-plain variable still round-trips its literal value.
+        let loaded = try await store.load(forCollectionAt: dir)
+        #expect(loaded.count == 1)
+        #expect(loaded.first?.variables.first?.value == "sk-prod-6a41")
+        #expect(loaded.first?.variables.first?.secret == false)
+    }
+
+    /// A reference token with no backing Keychain item — deleted outside
+    /// the app, or copied from a machine with a different Keychain — must
+    /// fail `load` loudly rather than resolve to `""`: a request that sent
+    /// that empty string as a bearer token would 401 in a way that gives no
+    /// hint the real cause is a missing Keychain item.
+    @Test func loadThrowsRatherThanResolvingToAnEmptyCredentialWhenTheKeychainItemIsMissing() async throws {
+        let dir = tempDirectory()
+        defer { try? FileManager.default.removeItem(at: dir.deletingLastPathComponent()) }
+        try FileManager.default.createDirectory(
+            at: EnvironmentStore.environmentsDirectory(forCollectionAt: dir),
+            withIntermediateDirectories: true,
+        )
+
+        // A well-formed environment file whose secret's token has no
+        // matching Keychain item — written directly, bypassing `save`, to
+        // reproduce "the item disappeared out from under the app".
+        let orphanedReference = RequestEnvironment(
+            name: "Prod",
+            variables: [EnvironmentVariable(name: "apiKey", value: SecretReference.token, secret: true)],
+        )
+        let envFile = EnvironmentStore.environmentsDirectory(forCollectionAt: dir).appendingPathComponent("prod.hakka")
+        try CollectionFileFormat.encode(orphanedReference).write(to: envFile)
+
+        let store = EnvironmentStore()
+        await #expect(throws: SecretKeychainError.itemNotFound) {
+            _ = try await store.load(forCollectionAt: dir)
+        }
+    }
+
+    /// A `.hakka` file from before this build's Keychain integration has a
+    /// raw secret value where a token now goes. `load` must hand that value
+    /// back exactly as before — no throw, no surprise Keychain write — and
+    /// the very next `save` is what silently completes the one-time
+    /// migration: the value moves into the Keychain and the file stops
+    /// holding it in plaintext, with no separate migration step required.
+    @Test func legacyPlaintextSecretLoadsAsIsAndMigratesOnNextSave() async throws {
+        let dir = tempDirectory()
+        let secretValue = "sk-legacy-plaintext-4c02"
+        let apiKey = EnvironmentVariable(name: "apiKey", value: secretValue, secret: true)
+        let environment = RequestEnvironment(name: "Prod", variables: [apiKey])
+        let store = EnvironmentStore()
+        defer {
+            try? FileManager.default.removeItem(at: dir.deletingLastPathComponent())
+            Task { try? await SecretKeychainStore().delete(collection: dir, environmentID: environment.id, variableID: apiKey.id) }
+        }
+
+        try FileManager.default.createDirectory(
+            at: EnvironmentStore.environmentsDirectory(forCollectionAt: dir),
+            withIntermediateDirectories: true,
+        )
+        let envFile = EnvironmentStore.environmentsDirectory(forCollectionAt: dir).appendingPathComponent("prod.hakka")
+        try CollectionFileFormat.encode(environment).write(to: envFile)
+
+        let legacyLoaded = try await store.load(forCollectionAt: dir)
+        #expect(legacyLoaded.first?.variables.first?.value == secretValue)
+        let rawLegacyFile = try String(contentsOf: envFile, encoding: .utf8)
+        #expect(rawLegacyFile.contains(secretValue))
+
+        try await store.save(legacyLoaded, forCollectionAt: dir)
+
+        let migratedFile = try String(contentsOf: envFile, encoding: .utf8)
+        #expect(!migratedFile.contains(secretValue))
+        #expect(migratedFile.contains(SecretReference.token))
+        let migratedLoaded = try await store.load(forCollectionAt: dir)
+        #expect(migratedLoaded.first?.variables.first?.value == secretValue)
     }
 }
