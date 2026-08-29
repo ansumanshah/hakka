@@ -76,55 +76,25 @@ word "Hakka" in a sentence of prose). No `data-hakka` script tag, no `import ...
 `apply: 'serve'` keeps `transformIndexHtml` from ever running during `vite build`, so production
 ships nothing Hakka-related. Run the two commands above yourself to reproduce.
 
-## Known issue: dev-mode auto-injection does not currently start the overlay
+## How the injection works
 
-Running `npm run dev` and opening the page in a browser throws, in the console:
+`hakka()` registers a Vite `transformIndexHtml` hook at `order: 'pre'` that appends a module
+`<script>` importing `hakka-browser` and calling `start()`. The `order` matters: Vite's dev server
+runs its HTML chain as `[...preHooks, htmlEnvHook, devHtmlHook, ...normalHooks, ...postHooks]`, and
+`devHtmlHook` is the pass that rewrites each inline `<script type="module">` into a proxied module
+URL (`?html-proxy&index=N.js`) so the browser can resolve bare specifiers inside it. At `'pre'` the
+injected tag exists before that pass and gets proxied; at `'post'` it would arrive too late and the
+browser would throw `Failed to resolve module specifier "hakka-browser"`.
 
-```
-Uncaught TypeError: Failed to resolve module specifier "hakka-browser". Relative references must
-start with either "/", "./", or "../".
-```
+That was a real bug, fixed in `packages/hakka-browser/src/plugin/factory.ts`. The regression is
+covered by `src/plugin/__tests__/viteTransform.test.ts`, which boots a real Vite dev server in
+middleware mode and asserts the injected script actually gets proxied, rather than asserting the tag
+is present in a returned string (the older tests did that, and all of them passed throughout the
+bug).
 
-The overlay never starts. This is not an example misconfiguration — it reproduces with a bare
-`hakka()` plugin against a stock Vite app, and it is not specific to this repo's `file:` dependency
-setup (a bare specifier import fails to resolve the same way regardless of how `hakka-browser`
-itself is installed).
-
-**Root cause** (traced against `vite@8.2.1`'s dev server, `packages/hakka-browser/node_modules/vite`):
-`packages/hakka-browser/src/plugin/factory.ts` registers the Vite adapter's `transformIndexHtml`
-hook with `order: 'post'`. Vite's dev server builds its HTML-transform hook chain as
-`[...preHooks, devHtmlHook, ...normalHooks, ...postHooks]` — `devHtmlHook` is Vite's own pass that
-rewrites each inline `<script type="module">` in the HTML into a proxied module URL
-(`?html-proxy&index=N.js`) so the browser's native ES module loader can resolve bare specifiers
-inside it. Because the plugin injects its script tag at `order: 'post'`, that injection happens
-_after_ `devHtmlHook` has already finished rewriting the document — the injected
-`import { start } from 'hakka-browser'` is never proxied, so the browser gets a literal bare
-specifier it cannot resolve on its own, and throws.
-
-Confirmed by two isolated tests against this exact install (not against a hypothesis):
-
-1. A **hand-authored** inline `<script type="module">import { start } from 'hakka-browser'...`
-   written directly into `index.html`'s source (not injected by any plugin) loads fine — proving
-   `devHtmlHook` does correctly proxy inline bare-specifier imports that are present when it runs.
-2. A **minimal standalone plugin** (bypassing `hakka-browser/vite`/`unplugin` entirely) that
-   injects the identical tag via `transformIndexHtml` with `order: 'pre'` instead of `'post'` also
-   loads fine — proving the fix is the `order` value, not something else in the injection
-   mechanism.
-
-**Fix**: change `order: 'post'` to `order: 'pre'` in the `vite.transformIndexHtml` hook in
-`packages/hakka-browser/src/plugin/factory.ts` (the `apply: devOnly ? 'serve' : undefined` gate
-on the same object is unaffected and still correctly keeps the plugin out of production builds —
-see the verified section above). webpack and rspack inject via a completely different mechanism
-(`html-webpack-plugin`'s `beforeEmit`, string-splicing the already-built HTML) and were not tested
-here; the same class of bug — an inline bare-specifier `import` that nothing rewrites — is worth
-checking there too once the Vite fix lands, since neither webpack's dev server nor
-`html-webpack-plugin` does Vite's `devHtmlHook`-style import rewriting on injected content either.
-
-This example is written to match the documented usage exactly (`docs/src/content/docs/web/vite.md`)
-so it will start working with zero changes once the one-line fix above lands — it is not working
-around the bug. Until then, `npm run dev` reproduces the failure above; `npm run build` and the
-dev-only guarantee work correctly today (that half doesn't touch `transformIndexHtml` timing at
-all).
+One consequence worth knowing: proxying replaces the inline `<script>…</script>` with a
+`<script src="…?html-proxy…">`, which drops the `data-hakka` marker attribute. The marker does not
+survive a dev transform, so nothing should rely on finding it in transformed dev HTML.
 
 ## Note: `tsc --noEmit` on `vite.config.ts` in this repo
 
@@ -150,8 +120,8 @@ only its shape at runtime.
 
 ## Scripts
 
-| Command           | What it does                                                                         |
-| ----------------- | ------------------------------------------------------------------------------------ |
-| `npm run dev`     | Start Vite dev server. Currently fails to start the overlay — see Known issue above. |
-| `npm run build`   | Production build. No Hakka code in the output — see The dev-only guarantee above.    |
-| `npm run preview` | Serve the production build locally.                                                  |
+| Command           | What it does                                                                       |
+| ----------------- | ---------------------------------------------------------------------------------- |
+| `npm run dev`     | Start Vite dev server. The overlay auto-injects; no `Hakka.start()` call anywhere. |
+| `npm run build`   | Production build. No Hakka code in the output — see The dev-only guarantee above.  |
+| `npm run preview` | Serve the production build locally.                                                |
