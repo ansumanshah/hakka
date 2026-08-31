@@ -1,7 +1,7 @@
 plugins {
     id("com.android.library")
     kotlin("android")
-    id("com.vanniktech.maven.publish") version "0.36.0"
+    id("com.vanniktech.maven.publish") version "0.37.0"
 }
 
 group = "com.noodleapps.hakka"
@@ -30,7 +30,7 @@ dependencies {
     implementation(project(":hakka-common"))
     implementation(project(":hakka-network"))
     implementation(project(":hakka-performance"))
-    implementation("androidx.core:core-ktx:1.16.0")
+    implementation("androidx.core:core-ktx:1.19.0")
     // Request list view recycling (HakkaActivity) — a standard, near-ubiquitous AndroidX
     // artifact (most host apps already pull it in transitively via appcompat/material),
     // not a "real" third-party dependency in the sense the "zero external deps" POM
@@ -44,8 +44,8 @@ dependencies {
     // classpath (see HakkaTimberTree.kt / Hakka.plantTimber()).
     compileOnly("com.jakewharton.timber:timber:5.0.1")
 
-    testImplementation("org.junit.jupiter:junit-jupiter:6.0.3")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher:6.0.3")
+    testImplementation("org.junit.jupiter:junit-jupiter:6.1.3")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher:6.1.3")
     testImplementation("com.squareup.okhttp3:okhttp:4.12.0")
     testImplementation("com.jakewharton.timber:timber:5.0.1")
     // Real org.json impl for JVM unit tests — Android's compileSdk stub throws "Stub!" at
