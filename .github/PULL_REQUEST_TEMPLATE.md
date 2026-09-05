@@ -23,5 +23,5 @@
 - [ ] `bun run test` passes
 - [ ] `bun run typecheck` passes
 - [ ] `bun run lint` passes
-- [ ] No `.claude`, `.codex`, `.stitch`, `.references`, secrets, or local-only notes committed
+- [ ] No `.agent`, `.claude`, `.codex`, `.stitch`, `.references`, secrets, or local-only notes committed
 - [ ] Public Hakka names used consistently (packages, products, capture modes)

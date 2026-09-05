@@ -85,26 +85,6 @@ jobs:
           key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
           restore-keys: bun-${{ runner.os }}-
       - run: bun install --frozen-lockfile
-      # Full build so the web bundle (and its hakka-core dep) are present for the demo page.
-      - run: bun run build
-      - run: bunx playwright install --with-deps chromium
-      - name: Mobile E2E (Pixel 5)
-        working-directory: packages/hakka-browser
-        run: bunx playwright test
-
-  test-e2e-just:
-    name: Web E2E (just test-e2e)
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-      - uses: actions/cache@v4
-        with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-          restore-keys: bun-${{ runner.os }}-
-      - run: bun install --frozen-lockfile
       - uses: extractions/setup-just@v4
         with:
           # Unauthenticated release lookups rate-limit on shared runners

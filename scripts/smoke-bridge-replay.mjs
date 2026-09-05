@@ -207,9 +207,27 @@ async function main() {
     assert.ok(!getFoundResult.isError, `get_request(found) returned isError: ${JSON.stringify(getFoundResult.content)}`)
     const getFoundBody = JSON.parse(getFoundResult.content[0].text)
     assert.equal(getFoundBody.id, networkRequestPayload.id, 'get_request id mismatch')
-    assert.equal(getFoundBody.url, networkRequestPayload.url, 'get_request url mismatch')
+    assert.equal(
+      getFoundBody.url,
+      'https://api.example.com/users?token=%5BREDACTED%5D',
+      'get_request must scrub the sensitive query parameter before sharing with an agent',
+    )
+    assert.equal(getFoundBody.redaction.applied, true, 'get_request must report default scrubbing')
     assert.equal(getFoundBody.method, 'POST', 'get_request method mismatch')
     assert.equal(getFoundBody.status, 201, 'get_request status mismatch')
+
+    const getUnredactedResult = await client.callTool({
+      name: 'get_request',
+      arguments: { id: networkRequestPayload.id, unredacted: true },
+    })
+    assert.ok(!getUnredactedResult.isError, 'get_request(unredacted) returned isError')
+    const getUnredactedBody = JSON.parse(getUnredactedResult.content[0].text)
+    assert.equal(
+      getUnredactedBody.url,
+      networkRequestPayload.url,
+      'explicit unredacted access must preserve captured URL',
+    )
+    assert.equal(getUnredactedBody.redaction.applied, false, 'explicit unredacted access must report skipped scrubbing')
 
     const getMissingResult = await client.callTool({ name: 'get_request', arguments: { id: 'does-not-exist' } })
     assert.equal(getMissingResult.isError, true, 'get_request(missing) should set isError')
