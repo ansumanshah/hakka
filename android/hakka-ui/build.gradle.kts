@@ -30,7 +30,7 @@ dependencies {
     implementation(project(":hakka-common"))
     implementation(project(":hakka-network"))
     implementation(project(":hakka-performance"))
-    implementation("androidx.core:core-ktx:1.16.0")
+    implementation("androidx.core:core-ktx:1.19.0")
     // Request list view recycling (HakkaActivity) — a standard, near-ubiquitous AndroidX
     // artifact (most host apps already pull it in transitively via appcompat/material),
     // not a "real" third-party dependency in the sense the "zero external deps" POM
