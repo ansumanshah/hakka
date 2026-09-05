@@ -258,7 +258,6 @@ jobs:
         with:
           path: packages/hakka-react-native/examples/react-native-example/ios/Pods
           key: pods-${{ runner.os }}-${{ hashFiles('packages/hakka-react-native/examples/react-native-example/ios/Podfile', 'packages/hakka-react-native/examples/react-native-example/ios/Podfile.lock', 'packages/hakka-react-native/examples/react-native-example/package.json', 'bun.lock') }}
-          restore-keys: pods-${{ runner.os }}-
       - name: Pod install (runs RN codegen against the vendored sources)
         working-directory: packages/hakka-react-native/examples/react-native-example/ios
         run: pod install

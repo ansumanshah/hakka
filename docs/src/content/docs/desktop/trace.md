@@ -9,7 +9,7 @@ A request from your app and the server-side work it triggers are usually two sep
 things to look at: a row in the mobile inspector, and a separate span somewhere in
 `hakka-node`'s own trace. The desktop app joins them into one waterfall keyed by
 `correlationId` on the client side and `traceId` on the server side, the same way the
-`hakka-mcp` server's `SpanStore` and `hakka-browser`'s `groupBy: 'trace'` grouping do
+`hakka mcp` server's `SpanStore` and `hakka-browser`'s `groupBy: 'trace'` grouping do
 it for their own surfaces — the desktop has neither of those, so it assembles both
 sides of the join itself.
 

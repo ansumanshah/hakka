@@ -63,12 +63,12 @@ Android uses Gradle's `debugImplementation` / `releaseImplementation` split. The
 ```kotlin title="app/build.gradle.kts"
 dependencies {
     // Network capture — real impl in debug, no-op stub in release
-    debugImplementation("com.noodleapps.hakka:hakka-network:0.1.0")
-    releaseImplementation("com.noodleapps.hakka:hakka-network-noop:0.1.0")
+    debugImplementation("com.noodleapps.hakka:hakka-network:0.0.1")
+    releaseImplementation("com.noodleapps.hakka:hakka-network-noop:0.0.1")
 
     // Optional performance collectors — same pattern
-    debugImplementation("com.noodleapps.hakka:hakka-performance:0.1.0")
-    releaseImplementation("com.noodleapps.hakka:hakka-performance-noop:0.1.0")
+    debugImplementation("com.noodleapps.hakka:hakka-performance:0.0.1")
+    releaseImplementation("com.noodleapps.hakka:hakka-performance-noop:0.0.1")
 }
 ```
 

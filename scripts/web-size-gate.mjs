@@ -65,8 +65,11 @@ const NAMED = {
     // but the IIFE is all-in-one by construction, so they land here —
     // measured 140.72 KB, budget = measured + ~1.6% headroom, same
     // arithmetic as the 2026-08-16 pass.
+    // Re-baselined 2026-09-05 (143 -> 147 KB) after acknowledged runtime
+    // control added the target receiver and protocol to the all-in-one build.
+    // Measured 144.08 KB; the eager ESM entry remains below its existing cap.
     label: 'IIFE (<script>)',
-    budget: Number(process.env.HAKKA_WEB_GLOBAL_BUDGET) || 143 * 1024,
+    budget: Number(process.env.HAKKA_WEB_GLOBAL_BUDGET) || 147 * 1024,
   },
   'worker.js': {
     // workerCapture.ts's own build (vite.config.ts's `worker` mode, `hakka-browser/worker`)
@@ -264,7 +267,10 @@ if (existsSync(COMPONENTS_DIST)) {
   if (sharedFiles.length > 0) {
     const raw = sharedFiles.reduce((sum, f) => sum + readFileSync(resolve(COMPONENTS_DIST, f)).length, 0)
     const g = sharedFiles.reduce((sum, f) => sum + gzOf(f), 0)
-    const budget = Number(process.env.HAKKA_COMPONENTS_SHARED_BUDGET) || 85 * 1024
+    // Acknowledged runtime control added 2.73 KB to this shared protocol and
+    // store bucket. Measured 87.73 KB on 2026-09-05; 90 KB preserves a narrow
+    // regression ceiling without charging the individual element entries.
+    const budget = Number(process.env.HAKKA_COMPONENTS_SHARED_BUDGET) || 90 * 1024
     const over = g > budget
     if (over) failed = true
     componentRows.push({ label: 'Shared runtime chunk', raw, gz: g, budget, over })

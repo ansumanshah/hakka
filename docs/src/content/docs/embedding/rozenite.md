@@ -28,7 +28,7 @@ bun add hakka-rozenite
 ```
 
 `hakka-react-native` is a peer dependency, and it's pinned to the exact version
-`0.1.0` (not a range) — a stricter pin than most peer dependencies in this ecosystem, worth
+`0.0.1` (not a range) — a stricter pin than most peer dependencies in this ecosystem, worth
 noting if you're used to range-based peers elsewhere.
 
 ## Setup
@@ -104,7 +104,7 @@ fallback is connecting the panel to the desktop bridge hub instead, reusing
 
 ## What's read-only today
 
-This plugin is v0.1.0 and read-only: unlike Rozenite's own official
+This plugin is v0.0.1 and read-only: unlike Rozenite's own official
 `@rozenite/network-activity-plugin`, it does not yet let you edit a response before it reaches
 the app. `hakka-core`'s `mockEngine`/`ThrottleEngine` — already used by
 `hakka-react-native`'s own Mocks/Throttle panels — are the natural next step for this panel, but
