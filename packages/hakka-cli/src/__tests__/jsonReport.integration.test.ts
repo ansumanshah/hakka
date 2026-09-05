@@ -96,6 +96,13 @@ describe('real CLI JSON reports', () => {
     expect(badCapture.stdout).not.toContain(SECRET)
   })
 
+  test('human missing-path usage remains on stdout', () => {
+    const result = spawnSync(process.execPath, [CLI_PATH, 'assert'], { encoding: 'utf8' })
+    expect(result.status).toBe(2)
+    expect(result.stdout).toContain('Usage:')
+    expect(result.stderr).toBe('')
+  })
+
   test('ci-baseline check reports pass, drift, and bad baseline inputs', () => {
     const capture = join(dir, 'capture.hakka')
     const baseline = join(dir, 'baseline.txt')
@@ -166,5 +173,13 @@ describe('real CLI JSON reports', () => {
     expect(result.status).toBe(1)
     expect(result.stdout).not.toContain(SECRET)
     expect(result.report.redaction).toEqual({ applied: true })
+  })
+
+  test('report projection removes attacker-controlled query names', () => {
+    const capture = join(dir, 'secret-query-name.hakka')
+    writeFileSync(capture, serializeSession([request({ url: `https://api.example.com/items?${SECRET}=value` })]))
+    const result = run(['assert', capture, '--json'])
+    expect(result.status).toBe(0)
+    expect(result.stdout).not.toContain(SECRET)
   })
 })

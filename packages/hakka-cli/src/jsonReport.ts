@@ -64,8 +64,8 @@ function projectUrl(url: string): { url?: string; reference: string } {
   try {
     const parsed = new URL(scrubbed)
     parsed.pathname = parsed.pathname === '/' ? '/' : '/[REDACTED]'
+    parsed.search = ''
     parsed.hash = ''
-    for (const key of parsed.searchParams.keys()) parsed.searchParams.set(key, '[REDACTED]')
     return { url: parsed.toString(), reference }
   } catch {
     return { reference }

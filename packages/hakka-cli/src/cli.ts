@@ -241,6 +241,11 @@ async function main(): Promise<void> {
     }
     case 'assert': {
       const { filePath, options } = parseAssertArgs(rest)
+      if (filePath === undefined && !options.json) {
+        assertUsage()
+        process.exitCode = 2
+        break
+      }
       assertCommand(filePath, options)
       break
     }
