@@ -64,4 +64,4 @@ export class LogStore {
 }
 
 /** Shared singleton store used by the log()/logInfo()/etc. convenience functions. */
-export const logStore: LogStore = new LogStore()
+export const logStore: LogStore = /* @__PURE__ */ new LogStore()

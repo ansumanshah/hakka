@@ -19,7 +19,7 @@
   },
   "devDependencies": {
     "@babel/core": "7.29.7",
-    "@types/react": "19.2.17",
+    "@types/react": "19.2.18",
     "babel-preset-expo": "57.0.9",
     "typescript": "7.0.2"
   },

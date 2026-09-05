@@ -125,10 +125,12 @@ const SESSION_COOKIE_NAME_RE =
   /^(sessionid|sess|connect\.sid|jsessionid|phpsessid|asp\.net_sessionid|sid|session|session_token|sessiontoken)$/i
 
 /** Query param names treated as credential-bearing, reusing share-scrub's own opinion of what a credential-shaped param looks like rather than inventing a second list. */
-const CREDENTIAL_QUERY_PARAM_NAMES = new Set(DEFAULT_SHARE_SCRUB_QUERY_PARAMS.map((n) => n.toLowerCase()))
+const CREDENTIAL_QUERY_PARAM_NAMES = /* @__PURE__ */ (() =>
+  new Set(DEFAULT_SHARE_SCRUB_QUERY_PARAMS.map((n) => n.toLowerCase())))()
 
 /** JSON body field names treated as credential-bearing when scanning a response body for detector 4b. */
-const CREDENTIAL_JSON_FIELD_NAMES = new Set(DEFAULT_SHARE_SCRUB_JSON_FIELDS.map((n) => n.toLowerCase()))
+const CREDENTIAL_JSON_FIELD_NAMES = /* @__PURE__ */ (() =>
+  new Set(DEFAULT_SHARE_SCRUB_JSON_FIELDS.map((n) => n.toLowerCase())))()
 
 /** PII-shaped field names — the "quietly started carrying an email/phone/device id" signal for detector 2. Name-based, not value-based: a value-based email/phone scan already exists for URLs (detector 3); reusing it against every body field on every request would be far too broad a surface for a name-based baseline comparison to stay precise. */
 const PII_FIELD_NAME_RE =

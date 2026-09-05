@@ -108,7 +108,7 @@ class ConsoleInterceptorImpl {
   }
 }
 
-export const ConsoleInterceptor = new ConsoleInterceptorImpl()
+export const ConsoleInterceptor = /* @__PURE__ */ new ConsoleInterceptorImpl()
 
 /**
  * `CaptureSource` (ADR 0006) wrapper around `ConsoleInterceptor`. ADR 0006's mapping table

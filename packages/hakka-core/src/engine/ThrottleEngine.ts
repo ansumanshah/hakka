@@ -131,7 +131,7 @@ class ThrottleEngineImpl {
   }
 }
 
-export const ThrottleEngine = new ThrottleEngineImpl()
+export const ThrottleEngine = /* @__PURE__ */ new ThrottleEngineImpl()
 
 /**
  * `RuleEngine` (ADR 0009) wrapper around the `ThrottleEngine` singleton.

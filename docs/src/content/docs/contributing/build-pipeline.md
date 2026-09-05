@@ -161,6 +161,8 @@ one subpath (e.g. `hakka-browser/elements/request-list`) fetches only that
 entry's small chunk plus the shared chunk(s) it needs — never another
 element's Solid tree.
 
+The inline worker also receives a final Terser compression pass before Vite embeds its source in the parent bundle. This is confined to the worker sub-build: published ESM chunks retain their PURE annotations for downstream tree-shaking.
+
 ### Shared chunk naming
 
 `scripts/web-size-gate.mjs`'s per-element budget walk needs to separate each
@@ -198,6 +200,8 @@ Solid dependency bump that `dist/elements/shared-web-*.js` and
 renaming them again, the same failure mode this section already documents
 once above).
 
+The elements build groups modules used by at least six entries into one runtime chunk. This reduces repeated module boundaries and compression overhead; the existing shared-chunk naming and size budgets still apply. Measure both the total output and each element's import closure when changing this grouping.
+
 ## CSS minifier scope
 
 `vite.config.ts` includes a small, dependency-free CSS minifier
@@ -218,7 +222,8 @@ two would silently change which elements a rule matches). Every other
 adjacency to `{ } ; , :` is unambiguous to collapse.
 
 It runs only at build time (`apply: 'build'`) against the `STYLES` template
-literal in `ui/styles.ts` — dev keeps it verbatim and readable in devtools
+literal in `ui/styles.ts` and its generated `ui/tokens.css?raw` import. The token
+loader runs before Vite's raw loader so embedded CSS receives the same treatment — dev keeps it verbatim and readable in devtools
 while iterating, and Vitest never loads this plugin at all. Before the merge
 this function was duplicated verbatim between `vite.config.ts` and
 `vite.elements.config.ts`; the merge collapsed it to one definition shared by

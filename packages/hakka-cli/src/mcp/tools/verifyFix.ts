@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { analyzeRequests } from 'hakka-core'
+import { analyzeRequests, scrubNetworkRequestForShare } from 'hakka-core'
 import { z } from 'zod'
 
 import { evaluateAssertions, evaluateOutcome } from '../../assert.js'
@@ -26,7 +26,7 @@ export function registerVerifyFixTool(server: McpServer, store: RequestStore, se
     {
       description:
         'Replay a captured request (optionally after installing a mock rule first) and check the outcome — ' +
-        'status and/or response-body-contains. The "fix this, then verify it" loop in one call. Refuses ' +
+        'status and/or response-body-contains. Returned captures are share-scrubbed. The "fix this, then verify it" loop in one call. Refuses ' +
         'websocket and server/edge-captured (Next.js) requests immediately (see replay_request).',
       inputSchema: {
         requestId: z.string().min(1).describe('The id of a previously captured request to replay and verify'),
@@ -120,18 +120,19 @@ export function registerVerifyFixTool(server: McpServer, store: RequestStore, se
         return textResult({ error: 'timeout', message: `No replay landed within ${timeoutMs}ms` }, true)
       }
 
+      const { request: scrubbed } = scrubNetworkRequestForShare(replayed)
       const violations = expect ? evaluateOutcome(replayed, expect) : []
       if (maxDurationMs !== undefined) {
         // maxFailures: Infinity so this single-request check doesn't also apply
         // evaluateAssertions' unrelated default (max-failures: 0), meant for the CLI's
         // whole-session `assert` command.
-        const diagnosis = analyzeRequests([replayed])
+        const diagnosis = analyzeRequests([scrubbed])
         violations.push(
-          ...evaluateAssertions([replayed], diagnosis, { maxDurationMs, maxFailures: Number.POSITIVE_INFINITY }),
+          ...evaluateAssertions([scrubbed], diagnosis, { maxDurationMs, maxFailures: Number.POSITIVE_INFINITY }),
         )
       }
 
-      return textResult({ replayed, violations, passed: violations.length === 0 })
+      return textResult({ replayed: scrubbed, violations, passed: violations.length === 0 })
     },
   )
 }

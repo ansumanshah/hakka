@@ -82,7 +82,7 @@ build-all: build build-android build-ios build-ios-sim build-ios-demo build-desk
 
 # ── Test ──────────────────────────────────────────────────────────────────────
 
-# Run the RN package test suite (278 tests)
+# Run the RN package test suite
 test:
     bun run --cwd packages/hakka-react-native test
 
@@ -405,8 +405,8 @@ demo-devtools-panel: build-browser
 
 # ── Release ───────────────────────────────────────────────────────────────────
 
-# Full pre-release gate: typecheck + build + test, all platforms
-preflight: typecheck build test build-android build-ios
+# Full pre-release gate across JS, native SDKs, and desktop
+preflight: verify-all
 
 # Fast preflight: skips full Gradle/Swift build, uses class-level compilation
 preflight-fast: typecheck build test
@@ -446,7 +446,7 @@ phase-verify mode="local":
 verify:
     scripts/verify.sh
 
-# End-to-end smoke gate: bridge-replay + MCP-handshake scripts (not part of
+# End-to-end smoke gate: bridge replay, MCP, control, trace (not part of
 # the fast Tier-0 gate — exercises real bridge/MCP wiring).
 verify-smoke:
     scripts/verify-smoke.sh

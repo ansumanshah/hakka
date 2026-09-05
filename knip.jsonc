@@ -1,5 +1,37 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  // Standalone examples are outside Bun's workspace graph. Their HTML, package
+  // scripts, and subprocess paths load these entrypoints; trace their imports.
+  "workspaces": {
+    ".": { "entry": ["scripts/dep-declaration-check.mjs", "scripts/feed-desktop-demo.mjs"] },
+    "packages/hakka-browser": {
+      "entry": [
+        "src/index.ts",
+        "src/ui/elements/index.ts",
+        "demo/assets/tick.js",
+        "examples/build-your-own-devtools/vite.config.ts",
+        "examples/build-your-own-devtools/src/{panel.ts,react-main.tsx}",
+        "examples/vite-app/{vite.config.ts,src/main.ts}",
+        "examples/webpack-probe/{webpack.config.js,src/index.js}",
+        "src/plugin/__tests__/fixtures/webpackEntry.js",
+      ],
+    },
+    "packages/hakka-cli": {
+      "entry": ["examples/cdp-playwright/{playwright.config.ts,fixtures/demo-server.ts,tests/*.spec.ts}"],
+    },
+    "packages/hakka-node": {
+      "entry": ["examples/framework-servers/*.mjs", "examples/otel-spans/*.mjs", "examples/prod-cohort/demo.mjs"],
+    },
+    "packages/hakka-rozenite": {
+      "entry": ["examples/fixed-dev-flow.rozenite.config.ts"],
+      // Rozenite maps react-native imports to this renderer in its web build.
+      "ignoreDependencies": ["react-native-web"],
+    },
+    "packages/hakka-react-native/examples/expo-example": {
+      // Expo's Metro pipeline loads Babel via its preset.
+      "ignoreDependencies": ["@babel/core"],
+    },
+  },
   // Public source entrypoints and React Native autolinking/codegen files.
   // Knip should still analyze them, but they are not removable "unused files".
   "ignoreFiles": [
@@ -14,11 +46,8 @@
     "scripts/device-readiness.mjs",
     "scripts/ios-runtime-summary.mjs",
     "scripts/rn-mode-benchmark.mjs",
-    // Manual capture-overhead benchmark (packages/hakka-bench, run via
-    // `bun run.mjs`; run.mjs spawns capture-overhead.mjs by string path).
+    // Benchmark runners spawn these scripts by string path.
     "packages/hakka-bench/capture-overhead.mjs",
-    // Same benchmark pair for hakka-node, driven by `just bench-node`.
-    // run.mjs builds the path as a string, so knip can't see the link.
     "packages/hakka-node/bench/capture-overhead.mjs",
     // Vendored, minified overlay bundles for the docs hero/demo + component embeds
     // (refreshed via `just sync-embed` / `just sync-embed-components`, never imported).
@@ -33,9 +62,6 @@
     "packages/hakka-browser/demo/traced-worker.js",
     // Manual docs-screenshot script, run ad hoc, never imported.
     "packages/hakka-browser/scripts/capture-next-runtime.mjs",
-    // Declared `exports["./elements"]` entrypoint — resolved by package.json exports,
-    // not an in-repo import.
-    "packages/hakka-browser/src/ui/elements/index.ts",
     // Rozenite convention-loaded: read directly by the Rozenite CLI/host, not imported.
     "packages/hakka-rozenite/react-native.ts",
     "packages/hakka-rozenite/rozenite.config.ts",
@@ -62,7 +88,6 @@
     "@react-native-async-storage/async-storage",
     "@react-native/codegen",
     "@react-native/gradle-plugin",
-    "@tanstack/react-query",
     "expo",
     "jest-environment-node",
     "react-native-builder-bob",
@@ -73,8 +98,6 @@
     // Optional peers referenced only behind runtime guards (try/catch dynamic require,
     // or an optional-native-module check) — same "referenced optional peer, not a real
     // devDependency" pattern as the RN entries above.
-    "html-webpack-plugin",
-    "webpack",
     "expo-haptics",
     // CSS @import in docs/src/styles/starlight.css, not a JS import.
     "@fontsource-variable/jetbrains-mono",
@@ -86,22 +109,7 @@
     // hakka-browser so the carried @solidjs/web patch and the RC dedupe stay
     // stable (ADR 0007) — not imported first-party.
     "@solidjs/signals",
-    // examples/next-fullstack is ignoreFiles'd, but its generated
-    // next-env.d.ts triple-slash reference still surfaces here.
-    "next",
-    // Optional runtime requires behind guards (same optional-peer pattern as
-    // the RN entries above): device info/network in SettingsViewModel,
-    // expo-clipboard as utils/clipboard.ts's fallback copy provider.
-    "react-native-device-info",
-    "@react-native-community/netinfo",
-    "expo-clipboard",
-    // Used by root smoke scripts (scripts/smoke-control-roundtrip.mjs),
-    // resolved via workspace hoisting from hakka-bridge's own dependency.
-    "ws",
   ],
-  // `swift` is invoked by package scripts (not an npm binary); run.mjs is
-  // executed by ci.yml with an explicit working-directory.
-  "ignoreBinaries": ["swift", "run.mjs"],
   "ignoreIssues": {
     // Bundler-plugin entries deliberately export the plugin BOTH as default and
     // named `hakka`, so `import hakka from` and `import { hakka } from` both work.

@@ -77,7 +77,8 @@ struct TrafficModelDevicesTests {
         )
     }
 
-    @Test func aDisconnectMarksTheDeviceWithoutLosingItsTraffic() async throws {
+    @Test(arguments: [false, true])
+    func aDisconnectMarksTheDeviceWithoutLosingItsTraffic(graceful: Bool) async throws {
         let model = TrafficModel(server: BridgeServer(options: BridgeServerOptions(port: 0, advertise: false)))
         let runTask = Task { await model.start() }
         defer { runTask.cancel() }
@@ -92,12 +93,12 @@ struct TrafficModelDevicesTests {
         #expect(labeled, "the device must be labeled before the disconnect this test drives")
         let deviceLabel = try #require(model.devices.first?.label)
 
-        // Plain `cancel()`, not `cancel(with:reason:)` — see
-        // `BridgeSocketTests.aDisconnectedClientEmitsADisconnectedEventForTheSamePeer`
-        // for why the graceful-close variant was observed taking upward of
-        // 15s to be observed server-side in this environment.
-        client.cancel()
-        let disconnected = await waitUntil(timeout: .seconds(15)) { model.devices.first?.isConnected == false }
+        if graceful {
+            client.cancel(with: .normalClosure, reason: nil)
+        } else {
+            client.cancel()
+        }
+        let disconnected = await waitUntil { model.devices.first?.isConnected == false }
 
         #expect(disconnected, "disconnecting the socket must flip the device to isConnected == false")
         #expect(model.devices.count == 1, "a disconnect must change state, not delete the device row")

@@ -1,6 +1,8 @@
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import solid from '@solidjs/vite-plugin'
+import { minify } from 'terser'
 import { defineConfig, type Plugin } from 'vite'
 
 /**
@@ -27,7 +29,14 @@ function minifyInlineStyles(): Plugin {
   const MARKER = '${TOKENS}\n'
   return {
     name: 'hakka-minify-inline-styles',
+    enforce: 'pre',
     apply: 'build',
+    load(id) {
+      if (!id.endsWith('/ui/tokens.css?raw')) return null
+      // Token CSS is also embedded verbatim; handle it before Vite's raw loader.
+      const css = readFileSync(id.slice(0, -4), 'utf8')
+      return { code: `export default ${JSON.stringify(minifyCss(css))}`, map: null }
+    },
     transform(code, id) {
       if (!id.endsWith('/ui/styles.ts')) return null
       const start = code.indexOf(MARKER)
@@ -51,7 +60,23 @@ const ELEMENTS_DIR = resolve(__dirname, 'src/ui/elements')
 // — every mode below that bundles the inline store Worker needs this too, or
 // the budget silently balloons. Why: docs/contributing/build-pipeline.md
 // § "Worker doesn't inherit minify".
-const WORKER_MINIFY_FIX = { rollupOptions: { output: { minify: true as const } } }
+const WORKER_MINIFY_FIX = {
+  rollupOptions: { output: { minify: true as const } },
+  // Compress the completed worker before Vite embeds it in the parent bundle.
+  // Parent ESM output keeps its PURE annotations for downstream tree-shaking.
+  plugins: (): Plugin[] => [
+    {
+      name: 'hakka-compress-inline-worker',
+      async generateBundle(_options, bundle) {
+        for (const output of Object.values(bundle)) {
+          if (output.type !== 'chunk') continue
+          const result = await minify(output.code, { compress: { passes: 3 } })
+          if (result.code) output.code = result.code
+        }
+      },
+    },
+  ],
+}
 
 // Off on purpose in every mode below: this package (+ hakka-rozenite) was
 // 6.2 MB of the repo's 7 MB of published .map files. hakka-core/hakka-node/
@@ -135,51 +160,13 @@ export default defineConfig(({ mode }) => {
         cssCodeSplit: false,
         rollupOptions: {
           output: {
-            // Pins the shared-runtime chunk to a stable `shared-[name]-[hash].js`
-            // name instead of relying on Rollup's auto-naming heuristic, so
-            // scripts/web-size-gate.mjs can budget it separately from each
-            // element's own weight. Full rule + why it's architectural, not
-            // cosmetic: docs/contributing/build-pipeline.md § "Shared chunk naming".
-            //
-            // Task #52: two markers were MISSING until this pass — the same
-            // class of bug the original three were written to prevent (see
-            // that doc section: "Rollup's default auto-naming heuristic for
-            // a chunk shared by every entry is an implementation detail, not
-            // a stable contract"). Solid 2.0 RC split the single `solid-js`
-            // package into `solid-js` + `@solidjs/signals` + `@solidjs/web` +
-            // `@solidjs/element`, which reshaped Rollup's default chunk
-            // graph enough that the framework runtime landed in its own
-            // `web-[hash].js` chunk instead of being folded into the
-            // `shared.ts`/`tags.ts` chunk it used to share a boundary with.
-            // Unpinned, that ~13.3 KB chunk (gzip) is statically imported by
-            // every one of the six entries, so the gate's per-element walk
-            // (which only stops recursing at an ALREADY-`shared-`-prefixed
-            // chunk) counted its full weight six times over — once inside
-            // each element's own budget row, instead of once in the shared
-            // bucket. Same story for `src/worker/` (the store client
-            // `elements/shared.ts` re-exports as `sharedStore()`, per that
-            // file's own module doc): eagerly reachable from every entry via
-            // `elements/shared.ts`, but never matched a marker, so its
-            // ~25.3 KB landed in the "Lazy component chunks" bucket instead
-            // — a real chunk this gate mischaracterized as opt-in/deferred
-            // when it is actually paid by every element on mount.
-            //
-            // These two are matched on Rollup's own auto-derived
-            // `chunkInfo.name` ('web' / 'worker'), NOT a `moduleIds` path
-            // substring like the three markers above. A path substring is
-            // wrong here: `@solidjs/signals` ships `optimistic.js`/
-            // `verdict.js` (async-resource internals) that only
-            // `Detail.tsx`'s async body memo uses — Rollup correctly folds
-            // those two files into Detail's OWN lazy chunk (nothing else
-            // reaches them), not into the six-entries-wide `web` chunk. A
-            // `moduleIds.some(id => id.includes('@solidjs/'))` check matches
-            // Detail's chunk too (it contains those 2 files) and would
-            // wrongly pin ~11 KB of genuine per-element Detail weight into
-            // the shared bucket. Matching the chunk's own resolved identity
-            // instead of its contents avoids that false positive; verify
-            // after any dependency bump by re-running this build and
-            // confirming `dist/elements/Detail-*.js` (no prefix) stays
-            // separate from `dist/elements/shared-web-*.js`.
+            // Share one compression dictionary for modules shared by at least six entries.
+            codeSplitting: { groups: [{ name: 'runtime', minShareCount: 6 }] },
+            // Keep the shared filename class stable for the size gate. The runtime
+            // group contains the common core, styles and store modules; retain the
+            // worker/web names for shared chunks emitted outside that group.
+            // Match framework chunks by name so async Detail-only internals are
+            // not mistaken for runtime code shared by every element.
             chunkFileNames: (chunkInfo) => {
               const isSharedRuntime =
                 chunkInfo.name === 'web' ||

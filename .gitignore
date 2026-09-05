@@ -48,6 +48,7 @@ node_modules
 scripts/.out/
 
 # Project
+.agent/
 .claude/
 .codex/
 .stitch/

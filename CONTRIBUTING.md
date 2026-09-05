@@ -9,7 +9,9 @@ Design principles, architecture, and SDK design decisions: [hakka.noodleapps.com
 
 ## Requirements
 
-- Bun 1.3+
+- Bun version from `package.json` (`packageManager`)
+- Node.js 22+ and `just`
+- Python 3 and Playwright Chromium (for browser E2E)
 - JDK 17+
 - Xcode 16+
 - Android Studio (for Android work)
@@ -17,7 +19,7 @@ Design principles, architecture, and SDK design decisions: [hakka.noodleapps.com
 ## Setup
 
 ```bash
-bun install
+bun install --frozen-lockfile
 bun run build
 bun run test
 ```
@@ -50,22 +52,58 @@ The fastest way to check "is this change safe to hand off" — run these from
 the repo root (`justfile`):
 
 ```bash
-just verify                # Tier-0 headless gate, 10 legs in parallel:
+just verify                # Headless gate; builds shared packages first, then runs:
                             # typecheck, lint, fmt-check, sync-ios-check,
-                            # sync-tokens-check, rn-jest, core-test,
-                            # web-jsside (= just test-web, every JS package),
-                            # android-unit, ios-swift. iOS benchmarks are
+                            # sync-tokens-check, UI/spec/dependency checks, rn-jest,
+                            # web-jsside (every remaining JS package),
+                            # android-unit, ios-swift, desktop-swift. iOS benchmarks are
                             # excluded — their thresholds flake under the
                             # gate's CPU contention; run `just bench-ios` solo.
                             # Target <5 min warm. Prints a PASS/FAIL table
-                            # per leg.
-just verify-smoke          # end-to-end smoke gate (bridge-replay + MCP-handshake)
+                            # per leg, with unique retained logs for every run.
+just verify-smoke          # end-to-end smoke gate (bridge, MCP, control, trace)
 just verify-all            # verify + verify-smoke + build-all (full release gate)
 
 bun run phase:verify:ci    # CI-safe release confidence path (delegates to `just verify`)
 bun run phase:verify       # local phase handoff confidence path (verify + verify-smoke)
 bun run phase:verify:full  # release-gate path (delegates to `just verify-all`)
 ```
+
+## Worktrees and end-to-end checks
+
+Use a separate checkout for independent changes. Install dependencies inside each
+worktree: sharing `node_modules` also shares workspace symlinks, which can silently
+load another checkout's sources or build outputs.
+
+```bash
+git worktree add .worktrees/my-change -b codex/my-change
+cd .worktrees/my-change
+bun install --frozen-lockfile
+bun run build
+just verify-smoke
+just e2e-install
+CI=1 just test-e2e
+```
+
+`CI=1` prevents Playwright from reusing a server on port 4173 from another
+checkout. Run browser E2E serially across worktrees; stop an old server before
+starting. Inspect `packages/hakka-browser/test-results/` after failures and use
+`bunx playwright show-trace <trace.zip>` from that package to inspect a trace.
+`just demo-browser` serves the same fixture bundle for interactive debugging.
+For Next.js changes, also run `just test-e2e-next`; it installs its standalone
+example with npm because Turbopack cannot use Bun's per-file workspace links.
+
+Wire-contract changes require the relevant shared `fixtures/` records and their
+TypeScript, Swift, and Kotlin consumers. `just verify` covers their unit suites;
+`just verify-smoke` verifies live MCP, bridge control, and trace correlation.
+Serialize native builds/tests across agents sharing Gradle caches or simulators.
+Run performance suites alone, after correctness checks, to avoid CPU contention.
+
+Keep private plans, evidence, and handoffs in ignored `.agent/`, shared by Claude
+and Codex. Keep tool-specific settings/hooks in `.claude/` or `.codex/`; put
+reusable instructions in tracked `AGENTS.md` and contributor documentation.
+Before removing a worktree, inspect `git status`, commit or preserve its changes,
+and confirm its commits are merged with `git branch --merged main`.
 
 ## Dev Harnesses
 

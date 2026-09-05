@@ -11,7 +11,7 @@ ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$ROOT_DIR"
 
 LOG_DIR=$(mktemp -d "${TMPDIR:-/tmp}/hakka-verify.XXXXXX")
-trap 'rm -rf "$LOG_DIR"' EXIT
+printf 'Verification logs: %s\n' "$LOG_DIR"
 
 names=""
 start=$(date +%s)
@@ -23,7 +23,6 @@ run_leg() {
     shift
     slug=$(printf '%s' "$name" | tr -c 'a-zA-Z0-9' '_')
     log="$LOG_DIR/$slug.log"
-    pidfile="$LOG_DIR/$slug.pid"
     (
         if "$@" >"$log" 2>&1; then
             echo 0 >"$LOG_DIR/$slug.status"
@@ -31,7 +30,6 @@ run_leg() {
             echo $? >"$LOG_DIR/$slug.status"
         fi
     ) &
-    echo $! >"$pidfile"
     names="$names $slug"
 }
 
@@ -66,7 +64,6 @@ run_leg "spec-api-check" just spec-api-check
 # could not scan rather than passing silently on them.
 run_leg "dep-declaration-check" just dep-declaration-check
 run_leg "rn-jest" just test
-run_leg "core-test" bun run --cwd packages/hakka-core test
 run_leg "web-jsside" just test-web-prebuilt
 run_leg "android-unit" just test-android
 # Benchmarks are excluded here (CPU contention makes their thresholds flaky
@@ -90,13 +87,11 @@ for slug in $names; do
     status_file="$LOG_DIR/$slug.status"
     status=$(cat "$status_file" 2>/dev/null || echo 1)
     log="$LOG_DIR/$slug.log"
-    saved_log="/tmp/hakka-verify-$slug.log"
-    cp "$log" "$saved_log" 2>/dev/null || true
     if [ "$status" -eq 0 ]; then
-        printf '%-20s %-6s %s\n' "$slug" "PASS" "$saved_log"
+        printf '%-20s %-6s %s\n' "$slug" "PASS" "$log"
         pass=$((pass + 1))
     else
-        printf '%-20s %-6s %s\n' "$slug" "FAIL" "$saved_log"
+        printf '%-20s %-6s %s\n' "$slug" "FAIL" "$log"
         fail=$((fail + 1))
         failed_names="$failed_names $slug"
     fi
@@ -109,8 +104,8 @@ if [ "$fail" -gt 0 ]; then
     printf '\nFailed legs:%s\n' "$failed_names"
     printf 'Tail of each failing log:\n'
     for slug in $failed_names; do
-        printf '\n==> %s (%s) <==\n' "$slug" "/tmp/hakka-verify-$slug.log"
-        tail -n 30 "/tmp/hakka-verify-$slug.log" 2>/dev/null
+        printf '\n==> %s (%s) <==\n' "$slug" "$LOG_DIR/$slug.log"
+        tail -n 30 "$LOG_DIR/$slug.log" 2>/dev/null
     done
     exit 1
 fi

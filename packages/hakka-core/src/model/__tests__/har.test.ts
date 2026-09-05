@@ -253,3 +253,39 @@ describe('HAR queryString — malformed percent-escapes', () => {
     expect(entry.request.queryString).toEqual([{ name: 'a', value: 'hello world' }])
   })
 })
+
+describe('HAR request and response fields', () => {
+  test('maps a captured exchange into HAR fields', () => {
+    const entry = requestToHarEntry(
+      makeRequest({
+        method: 'POST',
+        url: 'https://api.example.com/search?q=hello&page=1',
+        timestamp: 1700000000000,
+        duration: 250,
+        status: 200,
+        requestHeaders: { accept: 'application/json', 'content-type': 'application/json' },
+        requestBody: '{"name":"test"}',
+        responseHeaders: { 'content-type': 'application/json' },
+        responseBody: '{"data":true}',
+        timing: { dnsMs: 10, connectMs: 20, tlsMs: 30, ttfbMs: 100, downloadMs: 90 },
+      }),
+    )
+    expect(entry.startedDateTime).toBe('2023-11-14T22:13:20.000Z')
+    expect(entry.time).toBe(250)
+    expect(entry.request.method).toBe('POST')
+    expect(entry.request.url).toBe('https://api.example.com/search?q=hello&page=1')
+    expect(entry.request.queryString).toEqual([
+      { name: 'q', value: 'hello' },
+      { name: 'page', value: '1' },
+    ])
+    expect(entry.request.headers).toContainEqual({ name: 'accept', value: 'application/json' })
+    expect(entry.request.postData?.text).toBe('{"name":"test"}')
+    expect(entry.response.status).toBe(200)
+    expect(entry.response.headers).toContainEqual({ name: 'content-type', value: 'application/json' })
+    expect(entry.response.content.text).toBe('{"data":true}')
+    expect(entry.timings).toMatchObject({ dns: 10, connect: 20, ssl: 30, wait: 100, receive: 90 })
+    expect(entry.request.cookies).toEqual([])
+    expect(entry.response.cookies).toEqual([])
+    expect(entry.cache).toEqual({})
+  })
+})

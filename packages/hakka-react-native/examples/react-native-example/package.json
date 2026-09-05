@@ -12,7 +12,7 @@
     "test": "jest",
     "typecheck": "tsc --noEmit",
     "copy:hakka-browser": "node scripts/copy-hakka-browser.js",
-    "bundle": "react-native bundle --entry-file index.js --platform ios --dev true --bundle-output /tmp/hakka-rn-ci-bundle.js --assets-dest /tmp/hakka-rn-ci-assets"
+    "bundle": "node scripts/ensure-webview-asset.js && react-native bundle --entry-file index.js --platform ios --dev true --bundle-output /tmp/hakka-rn-ci-bundle.js --assets-dest /tmp/hakka-rn-ci-assets"
   },
   "dependencies": {
     "@react-native-clipboard/clipboard": "1.16.3",
@@ -40,9 +40,9 @@
     "@react-native/metro-config": "0.85.3",
     "@react-native/typescript-config": "0.85.3",
     "@types/jest": "30.0.0",
-    "@types/react": "19.2.17",
+    "@types/react": "19.2.18",
     "@types/react-test-renderer": "19.1.0",
-    "jest": "30.4.2",
+    "jest": "30.5.1",
     "react-test-renderer": "19.2.3",
     "typescript": "7.0.2"
   },
