@@ -94,13 +94,11 @@ struct RequestRowView: View {
             .padding(.vertical, Theme.rowPadV)
         }
         .frame(minHeight: Theme.rowH)
-        .background(rowBackground)
-        .overlay(
-            Rectangle()
-                .fill(Theme.border.opacity(0.7))
-                .frame(height: 0.5),  // ui-token-check-ignore: rule/rail thickness
-            alignment: .bottom
-        )
+        .background(rowBackground, in: RoundedRectangle(cornerRadius: Theme.radiusL, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: Theme.radiusL, style: .continuous)
+                .stroke(isSelected ? Theme.accent.opacity(0.45) : Theme.border.opacity(0.45), lineWidth: 0.5)
+        }
         .contentShape(Rectangle())
     }
 
@@ -168,7 +166,7 @@ struct RequestRowView: View {
         if isSelected { return Theme.accent.opacity(0.09) }
         if request.error != nil { return Theme.error.opacity(0.08) }
         if let code = request.status, code >= 400 { return Theme.error.opacity(0.08) }
-        return Theme.bg
+        return Theme.surfaceRaised
     }
 
     private var durationText: String {

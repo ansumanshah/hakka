@@ -69,6 +69,7 @@ struct DashboardView: View {
                     .foregroundStyle(Theme.textSecondary)
             }
             .buttonStyle(.plain)
+            .hakkaIconTarget()
             .accessibilityLabel("Settings")
         }
         .hakkaInspectorToolbar()
@@ -81,9 +82,9 @@ struct DashboardView: View {
                 chartSection
                 detailedMetricsSection
             }
-            .padding(Theme.s16)
+            .padding(HakkaMetrics.Layout.gutter)
         }
-        .background(Theme.bg)
+        .hakkaPageCanvas()
     }
 }
 

@@ -35,19 +35,18 @@ struct ThrottleView: View {
                 toolbar
             }
             ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    profileSection
-                    Divider().overlay(Theme.border.opacity(0.5))
-                    statusSection
-                    Divider().overlay(Theme.border.opacity(0.5))
-                    infoSection
+                VStack(alignment: .leading, spacing: Theme.s12) {
+                    profileSection.hakkaGroupedCard()
+                    statusSection.hakkaGroupedCard()
+                    infoSection.hakkaGroupedCard()
                 }
-                .padding(.horizontal, Theme.s16)
+                .padding(.horizontal, HakkaMetrics.Layout.gutter)
+                .padding(.top, Theme.s12)
                 .padding(.bottom, Theme.s20)
             }
             .scrollIndicators(.hidden)
         }
-        .background(Theme.bg)
+        .hakkaPageCanvas()
         .onAppear {
             syncFromEngine()
             unsubscribe = ThrottleEngine.shared.subscribe { [self] in
@@ -100,7 +99,6 @@ struct ThrottleView: View {
                 }
             }
         }
-        .padding(.vertical, Theme.s12)
     }
 
     private func profileRow(_ profile: ThrottleProfile) -> some View {
@@ -189,7 +187,6 @@ struct ThrottleView: View {
                 }
             }
         }
-        .padding(.vertical, Theme.s12)
     }
 
     private func statCell(label: String, value: String) -> some View {
@@ -219,7 +216,6 @@ struct ThrottleView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .italic()
         }
-        .padding(.vertical, Theme.s12)
     }
 
     // MARK: - Helpers

@@ -80,7 +80,7 @@ struct RequestListView: View {
                 }
             }
         }
-        .background(Theme.bg)
+        .hakkaPageCanvas()
         .onAppear {
             refreshRequests()
         }
@@ -121,7 +121,7 @@ struct RequestListView: View {
 
     private var requestList: some View {
         ScrollView {
-            LazyVStack(spacing: 0) {
+            LazyVStack(spacing: Theme.s6) {
                 let groups = sortedFilteredRequests.grouped(by: groupBy)
                 let showHeaders = groupBy != .none && groups.count > 1
 
@@ -153,7 +153,7 @@ struct RequestListView: View {
                     }
                 }
             }
-            .padding(.horizontal, Theme.s16)
+            .padding(.horizontal, HakkaMetrics.Layout.gutter)
             .padding(.bottom, Theme.s16)
         }
         .scrollIndicators(.hidden)

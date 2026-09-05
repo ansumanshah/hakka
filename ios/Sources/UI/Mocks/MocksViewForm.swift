@@ -10,10 +10,7 @@ extension MocksView {
 
     var addSection: some View {
         VStack(alignment: .leading, spacing: Theme.s10) {
-            Text("ADD MOCK RULE")
-                .font(.caption2.weight(.bold))
-                .foregroundStyle(Theme.textTertiary)
-                .kerning(0.5)
+            SectionHeader(title: "New mock rule")
 
             VStack(alignment: .leading, spacing: Theme.s4) {
                 Text("URL pattern (substring)")
@@ -76,30 +73,25 @@ extension MocksView {
 
             skipStopFields
 
-            HStack {
-                Spacer()
-                Button {
+            Button {
                     handleAdd()
                     Haptics.light()
                 } label: {
-                    Text("Add")
+                    Label("Add mock rule", systemImage: "plus")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(isAddEnabled ? .white : Theme.textTertiary)
-                        .padding(.horizontal, Theme.s12)
-                        .padding(.vertical, Theme.s6)
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: Theme.tapMin)
                         .background(isAddEnabled ? Theme.accent : Theme.border)
                         .clipShape(RoundedRectangle(cornerRadius: Theme.radiusM))
                 }
                 .buttonStyle(.plain)
                 .disabled(!isAddEnabled)
                 .accessibilityLabel("Add mock rule")
-            }
         }
-        .padding(.horizontal, Theme.s16)
+        .hakkaGroupedCard()
+        .padding(.horizontal, HakkaMetrics.Layout.gutter)
         .padding(.vertical, Theme.s12)
-        .overlay(alignment: .bottom) {
-            Divider().overlay(Theme.border.opacity(0.5))
-        }
     }
 
     /// Status + delay + body — fields for a straight `mock` rule.

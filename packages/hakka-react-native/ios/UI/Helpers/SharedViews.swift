@@ -162,9 +162,11 @@ struct SectionHeader: View {
 
     var body: some View {
         Text(title)
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(Theme.text)
-            .padding(.top, Theme.s4)
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(Theme.textSecondary)
+            .textCase(.uppercase)
+            .tracking(0.7)
+            .padding(.top, Theme.s6)
     }
 }
 
@@ -176,12 +178,11 @@ struct Pill: View {
 
     var body: some View {
         Text(text)
-            .font(.caption2)
+            .font(.caption2.weight(.medium))
             .foregroundStyle(Theme.textSecondary)
             .padding(.horizontal, Theme.s6)
-            .padding(.vertical, Theme.s2)
-            .background(Theme.surface)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusS))
+            .padding(.vertical, Theme.s4)
+            .background(Theme.surfaceRaised, in: Capsule())
     }
 }
 

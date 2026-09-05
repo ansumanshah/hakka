@@ -32,9 +32,12 @@ struct FilterBar: View {
                 filterContent
             }
         }
-        .padding(.horizontal, Theme.s16)
-        .padding(.bottom, Theme.s6)
-        .background(Theme.surface)
+        .padding(.horizontal, HakkaMetrics.Layout.gutter)
+        .padding(.vertical, Theme.s8)
+        .background(Theme.surfaceRaised)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(Theme.border.opacity(0.45)).frame(height: 0.5) // ui-token-check-ignore: separator rail geometry
+        }
         .sheet(isPresented: $showPresets) {
             FilterPresetsSheet(
                 currentPreset: currentPreset,
@@ -114,6 +117,7 @@ struct FilterBar: View {
             )
         }
         .buttonStyle(.plain)
+        .frame(minHeight: Theme.tapMin)
         .accessibilityLabel(Text("Filters, \(disclosureFilterCount) active"))
     }
 
@@ -185,9 +189,10 @@ struct FilterBar: View {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(Theme.textTertiary)
                         .font(.footnote)
-                }
-                .buttonStyle(.plain)
             }
+            .buttonStyle(.plain)
+            .hakkaIconTarget()
+        }
 
             // Presets button — bookmark icon. The "Filters +n" disclosure
             // trigger lives in the methods row below, not duplicated here.

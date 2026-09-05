@@ -166,13 +166,7 @@ struct OverviewCard<Content: View>: View {
             content()
                 .environment(\.hakkaKeyColumnWidth, keyColumnWidth > 0 ? keyColumnWidth : nil)
         }
-        .padding(Theme.s12)
-        .background(Theme.surface.opacity(0.72))
-        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusL))
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.radiusL)
-                .stroke(Theme.border.opacity(0.35), lineWidth: 0.5)
-        )
+        .hakkaGroupedCard()
         .onPreferenceChange(KeyColumnWidth.self) { keyColumnWidth = $0 }
     }
 }

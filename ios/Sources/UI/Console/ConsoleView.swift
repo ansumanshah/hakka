@@ -28,7 +28,7 @@ struct ConsoleView: View {
                 entryList
             }
         }
-        .background(Theme.bg)
+        .hakkaPageCanvas()
         .onAppear { refreshEntries() }
         .task {
             while !Task.isCancelled {
@@ -93,10 +93,10 @@ struct ConsoleView: View {
                     levelChip(level, label: level.label)
                 }
             }
-            .padding(.horizontal, Theme.s16)
+            .padding(.horizontal, HakkaMetrics.Layout.gutter)
             .padding(.vertical, Theme.s8)
         }
-        .background(Theme.bg)
+        .background(Theme.surfaceRaised)
     }
 
     private func levelChip(_ level: ConsoleLevel?, label: String) -> some View {
@@ -120,13 +120,13 @@ struct ConsoleView: View {
     private var entryList: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(spacing: 0) {
+                LazyVStack(spacing: Theme.s8) {
                     ForEach(filteredEntries) { entry in
                         ConsoleEntryRow(entry: entry, searchText: searchText)
                             .id(entry.id)
                     }
                 }
-                .padding(.horizontal, Theme.s16)
+                .padding(.horizontal, HakkaMetrics.Layout.gutter)
                 .padding(.bottom, Theme.s16)
             }
             .scrollIndicators(.hidden)
@@ -216,7 +216,7 @@ private struct ConsoleEntryRow: View {
                 Label("Copy with Level", systemImage: "doc.on.doc.fill")
             }
         }
-        Divider().overlay(Theme.border.opacity(0.5))
+        .hakkaGroupedCard(padding: Theme.s10, cornerRadius: Theme.radiusL)
     }
 
     private var levelBadge: some View {

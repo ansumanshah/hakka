@@ -21,17 +21,17 @@ struct StatsBar: View {
         let errors = requests.filter { ($0.status ?? 0) >= 400 || $0.error != nil }.count
 
         HStack(spacing: Theme.s6) {
-            dataText("\(total)", "req", color: errors > 0 ? Theme.warning : Theme.text)
+            dataText("\(total)", total == 1 ? "request" : "requests", color: errors > 0 ? Theme.warning : Theme.textSecondary)
 
             Text("\u{00B7}").foregroundStyle(Theme.textTertiary)
-            dataText(avgLatencyText(durations), "avg", color: durations.isEmpty ? Theme.textTertiary : Theme.info)
+            dataText(avgLatencyText(durations), "average", color: durations.isEmpty ? Theme.textTertiary : Theme.info)
 
             if errors > 0 {
                 Text("\u{00B7}").foregroundStyle(Theme.textTertiary)
-                dataText("\(errors)", "err", color: Theme.warning)
+                dataText("\(errors)", errors == 1 ? "issue" : "issues", color: Theme.warning)
             }
         }
-        .font(.footnote)
+        .font(.caption)
         // Never let a value clip mid-character: this bar reports its natural
         // width rather than being squeezed/truncated — narrow by
         // construction (3 short fields), verified at 375pt.

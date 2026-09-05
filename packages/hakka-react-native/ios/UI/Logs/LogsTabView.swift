@@ -38,7 +38,7 @@ struct LogsTabView: View {
                 LogsView(showToolbar: false)
             }
         }
-        .background(Theme.bg)
+        .hakkaPageCanvas()
     }
 
     // MARK: - Toolbar

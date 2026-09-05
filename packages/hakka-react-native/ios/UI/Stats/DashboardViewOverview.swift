@@ -46,15 +46,13 @@ extension DashboardView {
                 Spacer(minLength: 0)
             }
 
-            HStack(spacing: Theme.s8) {
+            LazyVGrid(columns: metricColumns, spacing: Theme.s8) {
                 summaryPill("Capture", captureSummary, captureSummaryColor)
                 summaryPill("Latency", latencySummary, latencySummaryColor)
                 summaryPill("UI", uiSummary, uiSummaryColor)
             }
         }
-        .padding(Theme.s14)
-        .background(Theme.surface)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusL))
+        .hakkaGroupedCard(padding: Theme.s14, cornerRadius: Theme.radiusXL)
     }
 
     func summaryPill(_ title: String, _ value: String, _ color: Color) -> some View {
@@ -75,6 +73,10 @@ extension DashboardView {
         .clipShape(RoundedRectangle(cornerRadius: Theme.radiusM))
     }
 
+    private var metricColumns: [GridItem] {
+        [GridItem(.flexible(minimum: 110)), GridItem(.flexible(minimum: 110))]
+    }
+
     // MARK: - Live HUD
 
     var liveHudSection: some View {
@@ -93,9 +95,7 @@ extension DashboardView {
                 hudLane("CPU", resources.cpuDisplay, Theme.text)
             }
         }
-        .padding(Theme.s12)
-        .background(Theme.surface)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusL))
+        .hakkaGroupedCard()
     }
 
     // MARK: - Overview

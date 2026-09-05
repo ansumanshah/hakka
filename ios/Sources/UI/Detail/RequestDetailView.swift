@@ -48,7 +48,7 @@ struct RequestDetailView: View {
                 }
             }
         }
-        .background(Theme.bg)
+        .hakkaPageCanvas()
         .sheet(isPresented: $showShareSheet) {
             ShareSheet(items: ReportHelper.buildShareItems(from: request).items)
         }
@@ -71,29 +71,52 @@ struct RequestDetailView: View {
         .padding(.horizontal, Theme.s12)
         .padding(.top, Theme.s10)
         .padding(.bottom, Theme.s8)
-        .background(Theme.bg)
+        .background(Theme.surfaceRaised)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(Theme.border.opacity(0.5)).frame(height: 0.5) // ui-token-check-ignore: separator rail geometry
+        }
     }
 
     private var compactHeader: some View {
-        HStack(spacing: Theme.s8) {
-            if let onBack {
-                Button(action: onBack) {
-                    Image(systemName: "chevron.left")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(Theme.textSecondary)
-                        .frame(width: HakkaMetrics.ControlHeight.icon, height: HakkaMetrics.ControlHeight.icon)
-                        .hakkaControlGlass(cornerRadius: 15)
+        VStack(alignment: .leading, spacing: Theme.s6) {
+            HStack(spacing: Theme.s8) {
+                if let onBack {
+                    Button(action: onBack) {
+                        Image(systemName: "chevron.left")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(Theme.textSecondary)
+                            .frame(width: HakkaMetrics.ControlHeight.icon, height: HakkaMetrics.ControlHeight.icon)
+                            .hakkaControlGlass(cornerRadius: 15)
+                    }
+                    .buttonStyle(.plain)
+                    .hakkaIconTarget()
                 }
-                .buttonStyle(.plain)
+                MethodBadge(method: request.method)
+                headerUrl.lineLimit(1)
+                Spacer(minLength: 0)
+                detailMenu
             }
-            MethodBadge(method: request.method)
-            headerUrl.lineLimit(1)
-            Spacer()
-            headerStatusDuration
-            detailMenu
+
+            HStack(spacing: Theme.s8) {
+                if let code = request.status {
+                    Pill(text: "HTTP \(code)")
+                        .foregroundStyle(Theme.statusColor(for: code))
+                } else if request.error != nil {
+                    Pill(text: "Transport error")
+                        .foregroundStyle(Theme.error)
+                }
+                if let host = URL(string: request.url)?.host, !host.isEmpty {
+                    Pill(text: host)
+                }
+                Spacer(minLength: 0)
+                if let ms = request.duration {
+                    Text(Fmt.formatDuration(ms))
+                        .font(.footnote.monospacedDigit().weight(.semibold))
+                        .foregroundStyle(Theme.textSecondary)
+                }
+            }
         }
         .padding(.horizontal, Theme.s4)
-        .frame(height: HakkaMetrics.ControlHeight.nav)
     }
 
     @ViewBuilder
@@ -211,6 +234,7 @@ struct RequestDetailView: View {
                 .hakkaControlGlass(cornerRadius: 15)
         }
         .buttonStyle(.plain)
+        .hakkaIconTarget()
         .accessibilityLabel(Text("Request actions"))
     }
 
@@ -272,6 +296,7 @@ struct RequestDetailView: View {
                     .hakkaControlGlass(cornerRadius: 14)
             }
             .buttonStyle(.plain)
+            .hakkaIconTarget()
         }
         .padding(Theme.s4)
         .hakkaGlassSurface(tint: Theme.controlTint, cornerRadius: Theme.radiusXL)

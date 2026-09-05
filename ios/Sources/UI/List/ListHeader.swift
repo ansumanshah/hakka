@@ -30,8 +30,13 @@ struct ListHeader: View {
     }
 
     private var headerContent: some View {
-        HStack(spacing: Theme.s10) {
-            StatsBar(requests: requests)
+        HStack(alignment: .center, spacing: Theme.s10) {
+            VStack(alignment: .leading, spacing: Theme.s2) {
+                Label("Network", systemImage: "antenna.radiowaves.left.and.right")
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(Theme.text)
+                StatsBar(requests: requests)
+            }
             .frame(maxWidth: .infinity, alignment: .leading)
 
             HStack(spacing: Theme.s12) {
@@ -61,6 +66,7 @@ struct ListHeader: View {
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
+        .hakkaIconTarget()
         .accessibilityLabel(isPaused ? "Resume capture" : "Pause capture")
     }
 
@@ -86,6 +92,7 @@ struct ListHeader: View {
         }
         .menuStyle(.button)
         .buttonStyle(.plain)
+        .hakkaIconTarget()
         .accessibilityLabel("More actions")
     }
 
@@ -108,6 +115,7 @@ struct ListHeader: View {
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
+        .hakkaIconTarget()
         .disabled(disabled)
         .accessibilityLabel(label)
     }

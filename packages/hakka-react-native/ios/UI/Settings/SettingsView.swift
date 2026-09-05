@@ -68,25 +68,25 @@ struct SettingsView: View {
         VStack(spacing: 0) {
             toolbar
             ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    maxRecordsRow
-                    Divider().overlay(Theme.border.opacity(0.5))
-                    retentionRow
-                    Divider().overlay(Theme.border.opacity(0.5))
-                    redactBodySection
-                    Divider().overlay(Theme.border.opacity(0.5))
-                    bridgeSection
-                    Divider().overlay(Theme.border.opacity(0.5))
-                    traceRow
-                    Divider().overlay(Theme.border.opacity(0.5))
-                    EnvironmentSection()
+                VStack(alignment: .leading, spacing: Theme.s12) {
+                    settingsSection("Capture") {
+                        maxRecordsRow
+                        Divider().overlay(Theme.border.opacity(0.45))
+                        retentionRow
+                        Divider().overlay(Theme.border.opacity(0.45))
+                        redactBodySection
+                    }
+                    settingsSection("Desktop bridge") { bridgeSection }
+                    settingsSection("Tracing") { traceRow }
+                    settingsSection("Environment") { EnvironmentSection() }
                 }
-                .padding(.horizontal, Theme.s16)
+                .padding(.horizontal, HakkaMetrics.Layout.gutter)
+                .padding(.top, Theme.s12)
                 .padding(.bottom, Theme.s20)
             }
             .scrollIndicators(.hidden)
         }
-        .background(Theme.bg)
+        .hakkaPageCanvas()
         .onAppear { loadFromInterceptor() }
     }
 
@@ -107,9 +107,21 @@ struct SettingsView: View {
                     .foregroundStyle(Theme.textSecondary)
             }
             .buttonStyle(.plain)
+            .hakkaIconTarget()
             .accessibilityLabel("Close")
         }
         .hakkaInspectorToolbar()
+    }
+
+    private func settingsSection<Content: View>(
+        _ title: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: Theme.s10) {
+            SectionHeader(title: title)
+            content()
+        }
+        .hakkaGroupedCard(padding: Theme.s12)
     }
 
     // MARK: - Max Records Row
