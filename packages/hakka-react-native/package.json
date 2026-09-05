@@ -107,7 +107,7 @@
     "jest-environment-node": "30.5.1",
     "react-native-builder-bob": "^0.43.0",
     "react-native-svg": "15.15.5",
-    "react-test-renderer": "19.2.3",
+    "react-test-renderer": "19.2.8",
     "typescript": "^7.0.2"
   },
   "peerDependencies": {
