@@ -28,6 +28,7 @@ function getNativeHakkaModule(): NativeHakkaModule | null {
 }
 
 export const rnCaptureAdapter: NativeCaptureAdapter = {
+  captureMode: 'native',
   getModule(): NativeHakkaModule | null {
     return getNativeHakkaModule()
   },

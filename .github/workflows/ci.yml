@@ -220,8 +220,8 @@ jobs:
       - run: bun install --frozen-lockfile
       - uses: actions/cache@v6
         with:
-          path: packages/hakka-react-native/examples/react-native-example/ios/Pods
-          key: pods-${{ runner.os }}-${{ hashFiles('packages/hakka-react-native/examples/react-native-example/ios/Podfile', 'packages/hakka-react-native/examples/react-native-example/ios/Podfile.lock', 'packages/hakka-react-native/examples/react-native-example/package.json', 'bun.lock') }}
+          path: examples/react-native-example/ios/Pods
+          key: pods-${{ runner.os }}-${{ hashFiles('examples/react-native-example/ios/Podfile', 'examples/react-native-example/ios/Podfile.lock', 'examples/react-native-example/package.json', 'bun.lock') }}
       - name: Install ccache and identify the Xcode toolchain
         id: rn-ios-toolchain
         run: |
@@ -232,7 +232,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/Library/Caches/ccache
-          key: rn-ios-ccache-${{ runner.os }}-${{ runner.arch }}-${{ steps.rn-ios-toolchain.outputs.xcode-version }}-${{ hashFiles('packages/hakka-react-native/examples/react-native-example/ios/Podfile', 'packages/hakka-react-native/examples/react-native-example/ios/Podfile.lock', 'packages/hakka-react-native/examples/react-native-example/package.json', 'bun.lock') }}
+          key: rn-ios-ccache-${{ runner.os }}-${{ runner.arch }}-${{ steps.rn-ios-toolchain.outputs.xcode-version }}-${{ hashFiles('examples/react-native-example/ios/Podfile', 'examples/react-native-example/ios/Podfile.lock', 'examples/react-native-example/package.json', 'bun.lock') }}
           restore-keys: rn-ios-ccache-${{ runner.os }}-${{ runner.arch }}-${{ steps.rn-ios-toolchain.outputs.xcode-version }}-
       - name: Cache precompiled Hakka native SDK
         id: rn-native-binary
@@ -249,10 +249,10 @@ jobs:
       - name: Verify precompiled Hakka native SDK
         run: node scripts/verify-rn-ios-xcframework.mjs
       - name: Pod install (native binary plus RN bridge codegen)
-        working-directory: packages/hakka-react-native/examples/react-native-example/ios
+        working-directory: examples/react-native-example/ios
         run: pod install
       - name: Build example app for iOS Simulator
-        working-directory: packages/hakka-react-native/examples/react-native-example/ios
+        working-directory: examples/react-native-example/ios
         env:
           SKIP_BUNDLING: '1'
         run: |
@@ -284,14 +284,14 @@ jobs:
         uses: actions/cache@v6
         with:
           path: |
-            packages/hakka-react-native/examples/react-native-example/android/app/.cxx
+            examples/react-native-example/android/app/.cxx
             node_modules/.bun/**/node_modules/**/android/.cxx
-          key: rn-android-cxx-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}-${{ hashFiles('packages/hakka-react-native/android/**/*.gradle', 'packages/hakka-react-native/android/**/*.properties', 'packages/hakka-react-native/android/src/**', 'packages/hakka-react-native/src/**', 'packages/hakka-react-native/examples/react-native-example/android/**/*.gradle', 'packages/hakka-react-native/examples/react-native-example/android/**/*.properties', 'packages/hakka-react-native/examples/react-native-example/android/app/src/**') }}
+          key: rn-android-cxx-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}-${{ hashFiles('packages/hakka-react-native/android/**/*.gradle', 'packages/hakka-react-native/android/**/*.properties', 'packages/hakka-react-native/android/src/**', 'packages/hakka-react-native/src/**', 'examples/react-native-example/android/**/*.gradle', 'examples/react-native-example/android/**/*.properties', 'examples/react-native-example/android/app/src/**') }}
           restore-keys: rn-android-cxx-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}-
       - name: Publish Android SDK to the local Maven repository
         run: cd android && ./gradlew publishToMavenLocal
       - name: Assemble debug APK (compiles the RN bridge Kotlin)
-        working-directory: packages/hakka-react-native/examples/react-native-example/android
+        working-directory: examples/react-native-example/android
         run: ./gradlew assembleDebug -PreactNativeArchitectures=arm64-v8a
       - name: Build Rozenite workspace dependencies
         run: |
@@ -305,10 +305,10 @@ jobs:
       # the bundle failed on `react-native-mmkv` and no CI job noticed.
       # hakka-react-native/metro's withHakka() is what makes it pass.
       - name: Metro bundle (optional peers absent on purpose)
-        working-directory: packages/hakka-react-native/examples/react-native-example
+        working-directory: examples/react-native-example
         run: bun run bundle
       - name: Assemble minified release APK (native inspector gateway)
-        working-directory: packages/hakka-react-native/examples/react-native-example/android
+        working-directory: examples/react-native-example/android
         run: ./gradlew :app:assembleRelease -PhakkaMinifyRelease=true -PreactNativeArchitectures=arm64-v8a
 
   next-fullstack-example:
@@ -336,7 +336,7 @@ jobs:
       # The ci-gate example is not picked up by `bun test` in packages/hakka-node
       # (it lives under examples/), so nothing ran it before this step.
       - name: Run the ci-gate example's test
-        run: bun test packages/hakka-node/examples/ci-gate/ciGate.test.ts
+        run: bun test examples/ci-gate/ciGate.test.ts
       # npm, not bun: bun lays `file:` deps out as per-file symlinks and Turbopack
       # rejects a symlinked package.json. See the example's own README.
       - name: Install the example as a real consumer

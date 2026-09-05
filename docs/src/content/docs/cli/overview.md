@@ -114,7 +114,7 @@ npm i hakka-react-native
 ```ts
 import { Hakka } from 'hakka-react-native'
 
-Hakka.start({ mode: 'auto' })
+Hakka.start()
 await Hakka.show({ as: 'bubble' })
 ```
 
@@ -133,12 +133,11 @@ npm i hakka-react-native
 ```ts
 import { Hakka } from 'hakka-react-native'
 
-Hakka.start({ mode: 'auto' })
+Hakka.start()
 await Hakka.show({ as: 'bubble' })
 ```
 
-No files are created on disk. Native UI requires native or auto native capture; `js`, `store`, and
-stopped modes cannot present it.
+No files are created on disk. Native capture is the only React Native mode and the default. Start it before opening the inspector.
 
 ## Web (drop-in)
 

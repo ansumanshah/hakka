@@ -120,7 +120,7 @@ through the TurboModule bridge, so the panel set stays identical while rendering
 
 ● shipped · ◐ partial · ○ roadmap · — not offered · ⊘ out of scope
 
-**Reading the RN column.** RN cells describe the native iOS and Android inspector
+**Reading the RN column.** React Native uses native-only capture by default. RN cells describe the native iOS and Android inspector
 surfaces opened through `Hakka.show()`. The removed `hakka-react-native/ui` JS
 inspector, theme, and renderer plugin surfaces are no longer part of the package. See
 [React Native package](https://hakka.noodleapps.com/react-native/package/).
@@ -164,7 +164,7 @@ Mac column whenever desktop work lands.
 | Capability                        | RN      | iOS | Android | Web | Mac app |
 | --------------------------------- | ------- | --- | ------- | --- | ------- |
 | Native capture                    | ●       | ●   | ●       | —   | —       |
-| JS capture                        | ●       | —   | —       | ●   | —       |
+| JS capture                        | —       | —   | —       | ●   | —       |
 | WebSocket frames¹⁷ ²⁰             | ●       | ●   | ●       | ●   | ●       |
 | Timing waterfall                  | ●       | ●   | ●       | ●   | ●       |
 | HAR / OTel / cURL¹ ²¹             | ●⁴      | ●   | ●       | ●   | ◐       |

@@ -13,7 +13,7 @@ Astro optimizes these automatically (hashed + resized into `dist/_astro/`).
 
 This is a real screenshot of the `hakka-browser` inspector, captured from the self-contained
 demo at `docs/public/embed/index.html` (it loads the built `hakka-browser.global.js` and seeds
-fake traffic via `Hakka.ingest`). Prefer this over `packages/hakka-browser/demo/index.html`: the embed page
+fake traffic via `Hakka.ingest`). Prefer this over `examples/browser-demo/index.html`: the embed page
 runs `overlay:false` + `Hakka.show()` so the panel fills the frame immediately at full height —
 no floating pill to click, no browser chrome to crop out afterward.
 

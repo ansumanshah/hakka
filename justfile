@@ -336,11 +336,10 @@ docs-preview:
 
 # ── Dev ───────────────────────────────────────────────────────────────────────
 
-# Build hakka-browser and serve the package root so packages/hakka-browser/demo/
-# can load /dist/* (same serving convention playwright.config.ts uses for test:e2e).
+# Build hakka-browser and serve the repository root for the browser demo.
 demo-browser: build-browser
-    @echo "Serving http://localhost:4173/demo/index.html (Ctrl-C to stop)"
-    python3 -m http.server 4173 --directory packages/hakka-browser
+    @echo "Serving http://localhost:4173/examples/browser-demo/index.html (Ctrl-C to stop)"
+    python3 -m http.server 4173
 
 # Start iOS Simulator preview via serve-sim at localhost:3200
 sim *args:
@@ -348,20 +347,20 @@ sim *args:
 
 # Run the RN example app on iOS Simulator
 dev-ios:
-    bun run --cwd packages/hakka-react-native/examples/react-native-example ios
+    bun run --cwd examples/react-native-example ios
 
 # Run the RN example app on Android
 dev-android:
     cd android && ./gradlew publishToMavenLocal
-    bun run --cwd packages/hakka-react-native/examples/react-native-example android
+    bun run --cwd examples/react-native-example android
 
 # Open RN example in Xcode
 xcode:
-    xed packages/hakka-react-native/examples/react-native-example/ios/
+    xed examples/react-native-example/ios/
 
 # Open RN example in Android Studio
 studio:
-    open -a 'Android Studio' packages/hakka-react-native/examples/react-native-example/android/
+    open -a 'Android Studio' examples/react-native-example/android/
 
 # Open core iOS Swift package in Xcode
 xcode-core:
@@ -380,21 +379,21 @@ demo-claude-code:
 # node:http, each proving x-hakka-trace correlation to stdout, no inspector
 # UI needed. npm, not bun — see its README.
 demo-node-servers: build-core build-bridge build-node
-    cd packages/hakka-node/examples/framework-servers && npm install && npm run demo
+    cd examples/framework-servers && npm install && npm run demo
 
 # Run the hakka-cli/cdp + Playwright example (npm, not bun — see its README):
 # builds hakka-cli's dist deps, then installs and runs the example's own
-# Playwright test. Run `cd packages/hakka-cli/examples/cdp-playwright &&
+# Playwright test. Run `cd examples/cdp-playwright &&
 # npx playwright install chromium` once first if Chromium isn't on this machine.
 example-cdp-playwright: build-core build-bridge build-node
     bun run --cwd packages/hakka-cli build
-    cd packages/hakka-cli/examples/cdp-playwright && npm install && npm test
+    cd examples/cdp-playwright && npm install && npm test
 
 # Run the hakka-browser/vite plugin example — one `hakka()` plugin in
 # vite.config.ts, no manual start() call anywhere in src/. npm, not bun
 # (matches the other file:-dep examples) — see its README.
 demo-vite-app: build-browser
-    cd packages/hakka-browser/examples/vite-app && npm install && npm run dev
+    cd examples/vite-app && npm install && npm run dev
 
 # Run the "build your own devtools" example — hakka-browser/elements' six
 # standalone custom elements (+ a hakka-browser/react variant) composed into
@@ -402,7 +401,7 @@ demo-vite-app: build-browser
 # store — no <hakka-inspector> overlay anywhere on the page. npm, not bun
 # (matches the other file:-dep examples) — see its README.
 demo-devtools-panel: build-browser
-    cd packages/hakka-browser/examples/build-your-own-devtools && npm install && npm run dev
+    cd examples/build-your-own-devtools && npm install && npm run dev
 
 # ── Release ───────────────────────────────────────────────────────────────────
 

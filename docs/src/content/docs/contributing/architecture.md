@@ -42,7 +42,7 @@ hakka/
   packages/
     hakka-core/              hakka-core — platform-neutral capture engine (one dep: fflate)
                              + /test — capture-assertion helpers
-    hakka-react-native/      hakka-react-native — RN SDK + native bridge + JS fallback + UI + monitors
+    hakka-react-native/      hakka-react-native — RN SDK + native-only bridge + native UI + monitors
     hakka-browser/           hakka-browser — browser overlay (Solid, Shadow DOM, Web Worker)
                              + /elements/*, /react — standalone elements + React wrappers
     hakka-node/              hakka-node — framework-agnostic Node server capture
@@ -148,13 +148,12 @@ in `Sources/Core`.
 
 - TypeScript API surface
 - TurboModule bridge to native SDKs
-- JS fallback capture for fetch, XHR, and WebSocket
 - native inspector presentation through the TurboModule bridge
 - optional monitors for React Query and storage
 
 The RN package must not define the canonical storage model, privacy model, or
-native capture behavior. It wraps native capabilities and fills gaps that native
-network APIs cannot observe, especially WebSocket frames and pure JS calls.
+native capture behavior. It wraps native capture capabilities and adds JavaScript monitors and explicit
+WebView instrumentation. It does not install JavaScript fallback interceptors.
 
 ## Local Desktop Bridge
 

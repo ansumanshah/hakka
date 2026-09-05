@@ -76,7 +76,7 @@ Hakka is maintained by one person. You can expect:
 **Out of scope:**
 
 - Example / demo apps (`examples/*`, `android/example`, `ios/Example`,
-  `packages/hakka-react-native/examples/*`) — these exist to exercise the SDK,
+  `examples/*`) — these exist to exercise the SDK,
   are not shipped to end users, and are not held to the same bar
 - The docs site (`docs/`) and marketing content, unless the issue is a
   documented security or privacy claim that's actually false — e.g. a

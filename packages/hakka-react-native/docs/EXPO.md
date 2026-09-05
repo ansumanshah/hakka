@@ -34,7 +34,7 @@ The config plugin adds the Android debug/release Hakka network, performance, and
 UI artifacts during prebuild when native SDK support is enabled. iOS dependencies,
 including the canonical native UI, are handled by React Native autolinking and
 CocoaPods. The native inspector is opened with `Hakka.show({ as: 'bubble' | 'sheet'
-| 'fullscreen' })` after native or auto native capture starts.
+| 'fullscreen' })` after native capture starts.
 
 ```json
 {
@@ -93,22 +93,18 @@ The React Native package no longer exports `hakka-react-native/ui` or bundles a
 JS inspector and its UI-only peers. Capture, hooks, monitors, clipboard sharing,
 WebView support, and Rozenite remain available programmatically.
 
-## Capture Mode Caveat
+## Native Capture
 
-Hakka defaults to `mode: 'auto'`, which prefers native capture when the Hakka
-native module is present and falls back to JS interception only when native
-capture is unavailable.
+Native is the only capture mode and the default. Start capture without a mode:
 
 ```ts
 import { Hakka } from 'hakka-react-native'
 
-Hakka.start({ mode: 'auto' })
+Hakka.start()
 ```
 
-Use `mode: 'native'` when you want a development build to fail fast if the native
-module is missing. Use `mode: 'js'` only when you intentionally want JS
-fetch/XHR/WebSocket interception; JS mode will not observe traffic made directly
-by native SDKs.
+Startup throws if the native module is missing. Rebuild the development client
+with Hakka linked; there is no JavaScript fallback. Use `Hakka.stop()` to stop capture.
 
 ## SDK 56 Native Internals
 

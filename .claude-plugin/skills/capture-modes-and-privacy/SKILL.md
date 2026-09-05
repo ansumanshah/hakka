@@ -4,22 +4,15 @@ Choose the right Hakka capture mode for your stack and configure privacy filters
 
 ## Steps
 
-1. **Choose capture mode** when calling `Hakka.start({ mode: '...' })`:
+1. React Native uses native capture only. `Hakka.start()` defaults to native and throws if the native module is missing. Rebuild the app with Hakka linked; there is no JavaScript fallback. The shared core's other modes serve browser/server integrations.
 
-   | Mode         | How it works                                                                                                                | Use when                                                         |
-   | ------------ | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-   | `'native'`   | OkHttp interceptor (Android) / URLProtocol (iOS). Sees SDK-level traffic. Fails fast if native module unavailable.          | Bare RN with native linking                                      |
-   | `'js'`       | Patches `fetch`, `XMLHttpRequest`, `WebSocket` in the JS runtime. Does NOT see native-layer traffic (e.g. image downloads). | Native module unavailable, or Expo Go (not officially supported) |
-   | `'auto'`     | Tries native first, falls back to JS.                                                                                       | Recommended default                                              |
-   | `'disabled'` | Capture off entirely.                                                                                                       | Production / opt-out flows                                       |
-
-2. Switch modes at runtime:
+2. Start and stop capture:
 
    ```ts
-   import { enableNativeCapture, enableJsCapture } from 'hakka-react-native'
+   import { Hakka } from 'hakka-react-native'
 
-   enableNativeCapture() // switch to native interceptor
-   enableJsCapture() // switch to JS-layer patching
+   Hakka.start()
+   Hakka.stop()
    ```
 
 3. **Request limits** (configure in `Hakka.start()` or `Hakka.configure()`):
@@ -35,7 +28,6 @@ Choose the right Hakka capture mode for your stack and configure privacy filters
 
    ```ts
    Hakka.start({
-     mode: 'auto',
      redactHeaders: ['authorization', 'cookie', 'set-cookie', 'x-api-key'],
    })
    ```

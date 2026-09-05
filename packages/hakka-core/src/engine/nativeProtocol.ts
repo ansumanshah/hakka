@@ -64,6 +64,8 @@ export interface NativeEventEmitterLike {
 }
 
 export interface NativeCaptureAdapter {
+  /** Restrict this platform to native capture, including its default mode. */
+  captureMode?: 'native'
   getModule(): NativeHakkaModule | null
   createEventEmitter(module: NativeHakkaModule): NativeEventEmitterLike
   /** Signal the native engine to stop buffering/recording. Optional. */

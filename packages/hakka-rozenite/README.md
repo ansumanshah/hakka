@@ -190,7 +190,7 @@ development-mode environment.
 ## Verification status
 
 Three tiers, from "runs in a test sandbox" to "runs on a real device." The
-no-device reproduction steps are in [`examples/`](./examples).
+no-device reproduction steps are in [`examples/rozenite/`](../../examples/rozenite/).
 
 ### 1. Unit-tested
 
@@ -279,7 +279,7 @@ gap.
 **Reproduction steps:**
 
 1. From the repository root, run
-   `bun run --cwd packages/hakka-react-native/examples/react-native-example start:rozenite`.
+   `bun run --cwd examples/react-native-example start:rozenite`.
 2. Build and open that example on a simulator or device.
 3. Open React Native DevTools; confirm a "Hakka" panel appears in the sidebar.
 4. Trigger some network requests in the app; confirm they appear in the

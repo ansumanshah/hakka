@@ -14,7 +14,7 @@ stream — the desktop app (or `hakka mcp`) sees WebView and RN requests interle
 ordered, no blind spot.
 
 A working example screen lives at
-`packages/hakka-react-native/examples/react-native-example/WebViewCaptureScreen.tsx`. This
+`examples/react-native-example/WebViewCaptureScreen.tsx`. This
 page is the same recipe, start to finish.
 
 ## 1. Install `react-native-webview`
@@ -43,7 +43,7 @@ raw file for inspection, and also writes a `{ "code": "<escaped source>" }` JSON
 to it, so Metro/TypeScript import it as **data** (`resolveJsonModule`) instead of source:
 
 ```bash
-bun run --cwd packages/hakka-react-native/examples/react-native-example copy:hakka-browser
+bun run --cwd examples/react-native-example copy:hakka-browser
 ```
 
 Re-run this after every `packages/hakka-browser` build. The output (`assets/hakka-browser.global.js`,

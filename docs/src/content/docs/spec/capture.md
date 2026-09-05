@@ -28,8 +28,9 @@ ConsoleInterceptor.enable()
 ConsoleInterceptor.disable()
 ```
 
-Each `enableXInterceptor` returns a teardown function. All three are wired up by
-`Hakka.start()` — direct use is for custom hosts only.
+Each `enableXInterceptor` returns a teardown function. The shared core wires these
+up for JS capture. React Native uses native capture exclusively and does not
+install them. Direct interceptor use is for custom hosts only.
 
 Body decoding pipeline (`BodyDecoder`, SPEC §5 row "BodyDecoder"):
 
@@ -44,7 +45,8 @@ Built-in decoders (registered on module load): `gzip`, `deflate`, `protobuf`, `s
 
 ## Config keys + defaults
 
-Verified against `DEFAULT_CONFIG` (`packages/hakka-core/src/model/types.ts`):
+Shared-core defaults (`packages/hakka-core/src/model/types.ts` and `HakkaFacade`):
+React Native overrides `mode` to native-only.
 
 | Key                              | Default                                                            | Description                                                                                   |
 | -------------------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
@@ -65,7 +67,7 @@ of 256 KB that the interceptors actually use.
 | Capability     | RN  | iOS | Android | Web | Mac app |
 | -------------- | --- | --- | ------- | --- | ------- |
 | Native capture | ●   | ●   | ●       | —   | —       |
-| JS capture     | ●   | —   | —       | ●   | —       |
+| JS capture     | —   | —   | —       | ●   | —       |
 | BodyDecoder    | ●   | ●   | ●       | ●   | ◐       |
 
 RN's `'auto'` mode prefers the native `HakkaMonitor` TurboModule and falls back to JS

@@ -1,0 +1,11 @@
+{
+  "name": "hakka-ci-gate-example",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "bun test ciGate.test.ts"
+  },
+  "devDependencies": {
+    "hakka-node": "workspace:*"
+  }
+}

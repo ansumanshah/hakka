@@ -35,6 +35,61 @@
         "@bruits/satteri-linux-x64-musl": "0.10.5",
       },
     },
+    "examples/ci-gate": {
+      "name": "hakka-ci-gate-example",
+      "devDependencies": {
+        "hakka-node": "workspace:*",
+      },
+    },
+    "examples/expo-example": {
+      "name": "expo-example",
+      "version": "1.0.0",
+      "dependencies": {
+        "expo": "57.0.20",
+        "hakka-react-native": "workspace:*",
+        "react": "19.2.3",
+        "react-native": "0.86.3",
+      },
+      "devDependencies": {
+        "@babel/core": "7.29.7",
+        "@types/react": "19.2.18",
+        "babel-preset-expo": "57.0.10",
+        "typescript": "~6.0.3",
+      },
+    },
+    "examples/react-native-example": {
+      "name": "react-native-example",
+      "version": "0.0.1",
+      "dependencies": {
+        "@react-native-clipboard/clipboard": "1.16.3",
+        "hakka-react-native": "workspace:*",
+        "react": "19.2.3",
+        "react-native": "0.86.3",
+        "react-native-webview": "14.0.1",
+      },
+      "devDependencies": {
+        "@babel/core": "7.29.7",
+        "@babel/preset-env": "7.29.7",
+        "@babel/runtime": "7.29.7",
+        "@react-native-community/cli": "20.2.0",
+        "@react-native-community/cli-platform-android": "20.2.0",
+        "@react-native-community/cli-platform-ios": "20.2.0",
+        "@react-native/babel-preset": "0.86.3",
+        "@react-native/codegen": "0.86.3",
+        "@react-native/gradle-plugin": "0.86.3",
+        "@react-native/jest-preset": "0.86.3",
+        "@react-native/metro-config": "0.86.3",
+        "@react-native/typescript-config": "0.86.3",
+        "@rozenite/metro": "2.4.0",
+        "@types/jest": "29.5.14",
+        "@types/react": "19.2.18",
+        "@types/react-test-renderer": "19.1.0",
+        "hakka-rozenite": "workspace:*",
+        "jest": "29.7.0",
+        "react-test-renderer": "19.2.3",
+        "typescript": "7.0.2",
+      },
+    },
     "packages/hakka-bench": {
       "name": "hakka-bench",
       "version": "0.0.0",
@@ -200,55 +255,6 @@
         "expo",
         "react-native-mmkv",
       ],
-    },
-    "packages/hakka-react-native/examples/expo-example": {
-      "name": "expo-example",
-      "version": "1.0.0",
-      "dependencies": {
-        "expo": "57.0.20",
-        "hakka-react-native": "workspace:*",
-        "react": "19.2.3",
-        "react-native": "0.86.3",
-      },
-      "devDependencies": {
-        "@babel/core": "7.29.7",
-        "@types/react": "19.2.18",
-        "babel-preset-expo": "57.0.10",
-        "typescript": "~6.0.3",
-      },
-    },
-    "packages/hakka-react-native/examples/react-native-example": {
-      "name": "react-native-example",
-      "version": "0.0.1",
-      "dependencies": {
-        "@react-native-clipboard/clipboard": "1.16.3",
-        "hakka-react-native": "workspace:*",
-        "react": "19.2.3",
-        "react-native": "0.86.3",
-        "react-native-webview": "14.0.1",
-      },
-      "devDependencies": {
-        "@babel/core": "7.29.7",
-        "@babel/preset-env": "7.29.7",
-        "@babel/runtime": "7.29.7",
-        "@react-native-community/cli": "20.2.0",
-        "@react-native-community/cli-platform-android": "20.2.0",
-        "@react-native-community/cli-platform-ios": "20.2.0",
-        "@react-native/babel-preset": "0.86.3",
-        "@react-native/codegen": "0.86.3",
-        "@react-native/gradle-plugin": "0.86.3",
-        "@react-native/jest-preset": "0.86.3",
-        "@react-native/metro-config": "0.86.3",
-        "@react-native/typescript-config": "0.86.3",
-        "@rozenite/metro": "2.4.0",
-        "@types/jest": "29.5.14",
-        "@types/react": "19.2.18",
-        "@types/react-test-renderer": "19.1.0",
-        "hakka-rozenite": "workspace:*",
-        "jest": "29.7.0",
-        "react-test-renderer": "19.2.3",
-        "typescript": "7.0.2",
-      },
     },
     "packages/hakka-rozenite": {
       "name": "hakka-rozenite",
@@ -2131,7 +2137,7 @@
 
     "expo-constants": ["expo-constants@57.0.17", "", { "dependencies": { "@expo/env": "~2.4.3" }, "peerDependencies": { "expo": "*", "react-native": "*" } }, "sha512-cPWYBKN1SEbg2lXg2f8VkePJqGZrJPLvVdQDCTfbFu9sQHO1M31Y1zILReUuGnmt/VKeUz40ze579vR00xGu/A=="],
 
-    "expo-example": ["expo-example@workspace:packages/hakka-react-native/examples/expo-example"],
+    "expo-example": ["expo-example@workspace:examples/expo-example"],
 
     "expo-file-system": ["expo-file-system@57.0.6", "", { "peerDependencies": { "expo": "*", "react-native": "*" } }, "sha512-pm8PMYEW6BnVOCBJ7df9FcDmQtE1tqImuYphlfYe1ipQRLYtdCayRczJcbKIsnB3mqEyp4gC2gWmMbsAsAOjVg=="],
 
@@ -2278,6 +2284,8 @@
     "hakka-bridge": ["hakka-bridge@workspace:packages/hakka-bridge"],
 
     "hakka-browser": ["hakka-browser@workspace:packages/hakka-browser"],
+
+    "hakka-ci-gate-example": ["hakka-ci-gate-example@workspace:examples/ci-gate"],
 
     "hakka-cli": ["hakka-cli@workspace:packages/hakka-cli"],
 
@@ -3075,7 +3083,7 @@
 
     "react-native-builder-bob": ["react-native-builder-bob@0.43.0", "", { "dependencies": { "@babel/core": "^7.29.0", "@babel/plugin-transform-flow-strip-types": "^7.27.1", "@babel/plugin-transform-strict-mode": "^7.27.1", "@babel/preset-env": "^7.29.2", "@babel/preset-react": "^7.28.5", "@babel/preset-typescript": "^7.28.5", "@jridgewell/sourcemap-codec": "^1.5.5", "arktype": "^2.2.0", "babel-plugin-syntax-hermes-parser": "^0.34.0", "browserslist": "^4.28.2", "cross-spawn": "^7.0.6", "dedent": "^1.7.2", "del": "^8.0.1", "escape-string-regexp": "^5.0.0", "fs-extra": "^11.3.4", "glob": "^13.0.6", "json5": "^2.2.3", "kleur": "^4.1.5", "prompts": "^2.4.2", "typescript": "^6.0.3", "which": "^6.0.1", "yargs": "^18.0.0" }, "bin": { "bob": "bin/bob" } }, "sha512-suE1OYf0umMQvzzQ+4Ba+5xMc8jLu60ILQi85x8SCBaBtVUSJfcaGvlv6+34xxXgy+a2PuyNzoOXr9STEweLrQ=="],
 
-    "react-native-example": ["react-native-example@workspace:packages/hakka-react-native/examples/react-native-example"],
+    "react-native-example": ["react-native-example@workspace:examples/react-native-example"],
 
     "react-native-web": ["react-native-web@0.21.2", "", { "dependencies": { "@babel/runtime": "^7.18.6", "@react-native/normalize-colors": "^0.74.1", "fbjs": "^3.0.4", "inline-style-prefixer": "^7.0.1", "memoize-one": "^6.0.0", "nullthrows": "^1.1.1", "postcss-value-parser": "^4.2.0", "styleq": "^0.1.3" }, "peerDependencies": { "react": "^18.0.0 || ^19.0.0", "react-dom": "^18.0.0 || ^19.0.0" } }, "sha512-SO2t9/17zM4iEnFvlu2DA9jqNbzNhoUP+AItkoCOyFmDMOhUnBBznBDCYN92fGdfAkfQlWzPoez6+zLxFNsZEg=="],
 

@@ -1,6 +1,8 @@
-import { Hakka, configureBodyRedaction } from 'hakka-core'
-import type { HakkaConfig } from 'hakka-core'
+import { configureBodyRedaction } from 'hakka-core'
 import { useCallback, useEffect, useRef, useState } from 'react'
+
+import { Hakka } from '../hakka'
+import type { HakkaConfig } from '../HakkaConfig'
 
 export interface UseHakkaOptions extends HakkaConfig {
   /**

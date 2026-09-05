@@ -10,7 +10,7 @@ import { expect, test } from '@playwright/test'
  * pierces open shadow roots for CSS/text locators automatically.
  */
 test.beforeEach(async ({ page }) => {
-  await page.goto('/demo/index.html')
+  await page.goto('/examples/browser-demo/index.html')
   // The Solid UI lazy-loads after start(); wait for the open panel before each assertion.
   await expect(page.locator('.hakka-panel.open')).toBeVisible({ timeout: 15_000 })
 })

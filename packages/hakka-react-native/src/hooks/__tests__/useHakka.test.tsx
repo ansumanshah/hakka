@@ -8,6 +8,7 @@
  */
 import { Hakka } from 'hakka-core'
 import React from 'react'
+import { TurboModuleRegistry } from 'react-native'
 import TestRenderer, { act } from 'react-test-renderer'
 
 import { useHakka } from '../useHakka'
@@ -24,9 +25,15 @@ function Harness({ config }: { config?: UseHakkaOptions }): null {
 }
 
 describe('useHakka — unmount only stops capture the instance itself started', () => {
+  beforeEach(() => {
+    ;(TurboModuleRegistry.get as jest.Mock).mockReturnValue({
+      initialize: jest.fn().mockResolvedValue(undefined),
+      getLogs: jest.fn().mockResolvedValue([]),
+      addListener: jest.fn(),
+      removeListeners: jest.fn(),
+    })
+  })
   afterEach(() => {
-    // 'store' mode (see below) never installs real interceptors, so a bare
-    // stop() is enough to leave the singleton clean between tests.
     act(() => {
       Hakka.stop()
     })
@@ -35,11 +42,9 @@ describe('useHakka — unmount only stops capture the instance itself started', 
   it('a second instance that finds capture already active does not stop it on unmount', () => {
     expect(Hakka.isActive).toBe(false)
 
-    // 'store' mode keeps this test to pure engine state — no XHR/fetch/WebSocket
-    // interceptors installed, matching CrashBoundary.test.tsx's approach.
     let rootA!: TestRenderer.ReactTestRenderer
     act(() => {
-      rootA = TestRenderer.create(<Harness config={{ mode: 'store' }} />)
+      rootA = TestRenderer.create(<Harness />)
     })
     expect(Hakka.isActive).toBe(true) // instance A started it
 
@@ -68,7 +73,7 @@ describe('useHakka — unmount only stops capture the instance itself started', 
 
     let root!: TestRenderer.ReactTestRenderer
     act(() => {
-      root = TestRenderer.create(<Harness config={{ mode: 'store' }} />)
+      root = TestRenderer.create(<Harness />)
     })
     expect(Hakka.isActive).toBe(true)
 

@@ -35,7 +35,7 @@ Add Hakka to an Expo app with the config plugin and a development build. Expo Go
 
    ```ts
    import { Hakka } from 'hakka-react-native'
-   Hakka.start({ mode: 'auto' })
+   Hakka.start()
    ```
 
 5. Open the native inspector from an app action or debug menu:
@@ -46,6 +46,6 @@ Add Hakka to an Expo app with the config plugin and a development build. Expo Go
    Hakka.hide()
    ```
 
-   No React wrapper is needed. Native UI requires native capture and returns `false` when unavailable, including JS-only capture.
+   No React wrapper is needed. Native UI requires native capture and returns `false` when unavailable.
 
 6. Fire a test request in the development build and verify it appears in the native inspector.

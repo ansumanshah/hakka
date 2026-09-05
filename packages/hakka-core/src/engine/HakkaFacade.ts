@@ -81,6 +81,7 @@ class HakkaImpl {
   /** Register the native adapter (called once at platform bootstrap). */
   registerNativeAdapter(adapter: NativeCaptureAdapter | null): void {
     this.nativeAdapter = adapter
+    if (adapter?.captureMode) this.configure({ mode: adapter.captureMode })
   }
 
   /** Registers a plugin. If capture is already running, sets it up immediately. */
@@ -144,7 +145,13 @@ class HakkaImpl {
   }
 
   configure(config: HakkaConfigWithExtras): void {
-    this.config = { ...this.config, ...config }
+    const requiredMode = this.nativeAdapter?.captureMode
+    if (requiredMode && config.mode !== undefined && config.mode !== requiredMode) {
+      throw new Error(
+        `[Hakka] This platform supports only "${requiredMode}" capture. Call Hakka.start() without a mode.`,
+      )
+    }
+    this.config = { ...this.config, ...config, ...(requiredMode ? { mode: requiredMode } : {}) }
 
     if (config.maxRequests !== undefined) {
       const previous = this.logs.getAll()

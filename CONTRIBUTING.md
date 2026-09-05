@@ -129,7 +129,7 @@ just studio-core          # open the standalone Android modules in Android Studi
 just docs                 # docs dev server at localhost:4321
 ```
 
-Release harness: `packages/hakka-react-native/examples/react-native-example`
+Release harness: `examples/react-native-example`
 
 ## Code Guidelines
 
