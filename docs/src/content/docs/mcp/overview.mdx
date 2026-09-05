@@ -101,6 +101,10 @@ Twenty-one tools, grouped by what they do. The see and diagnose tools only obser
 
 Use `list_requests` with `{ "summary": true, "limit": 50 }` to select requests without loading headers or bodies into agent context. Each summary includes `id`, scrubbed `url`, `method`, and available `status`, `duration`, and `runtime` fields. Pagination and redaction metadata stay the same. Omit `summary` or set it to `false` for full records, then use `get_request` with an `id` for individual details. `unredacted: true` also applies to summary URLs.
 
+For incremental reads, call `list_requests` with `{ "cursor": "", "summary": true }`, then pass its opaque `nextCursor` on each subsequent call. `hasMore` indicates another page of changes. Cursor results are ordered by arrival/update sequence, independent of capture timestamps. Unread updates to an ID coalesce into its latest record; a previously returned ID can appear again when it changes. Empty pages retain the cursor so polling can resume later.
+
+Evicting any request or clearing the store expires prior cursors with `cursor_expired`. Restart with `cursor: ""` and replace the local view; never interpret expiry as an empty, complete page. Cursors also expire when the MCP store restarts. Malformed cursors return `invalid_cursor`. A cursor cannot be combined with a nonzero `offset`; omitting it keeps existing newest-first offset pagination and full-record output unchanged.
+
 ### Diagnose
 
 | Tool           | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
