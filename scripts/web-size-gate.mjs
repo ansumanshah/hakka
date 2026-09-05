@@ -100,7 +100,11 @@ const NAMED = {
 // chunks plus one re-split shared chunk, exactly the lazy-loading shape the
 // plan mandates for this feature. Measured 150.92 KB (39 chunks); budget =
 // measured + ~2% headroom.
-const LAZY_BUDGET = Number(process.env.HAKKA_WEB_LAZY_BUDGET) || 154 * 1024
+//
+// Re-baselined 2026-09-05 (154 -> 158 KB) for the coordinated Solid 2.0
+// rc.6 runtime/compiler update. Measured 155.41 KB; the eager entry stayed
+// at 3.20 KB and the IIFE remains within its existing cap.
+const LAZY_BUDGET = Number(process.env.HAKKA_WEB_LAZY_BUDGET) || 158 * 1024
 
 const kb = (n) => `${(n / 1024).toFixed(2)} KB`
 const pad = (s, n) => String(s).padEnd(n)
@@ -268,9 +272,10 @@ if (existsSync(COMPONENTS_DIST)) {
     const raw = sharedFiles.reduce((sum, f) => sum + readFileSync(resolve(COMPONENTS_DIST, f)).length, 0)
     const g = sharedFiles.reduce((sum, f) => sum + gzOf(f), 0)
     // Acknowledged runtime control added 2.73 KB to this shared protocol and
-    // store bucket. Measured 87.73 KB on 2026-09-05; 90 KB preserves a narrow
-    // regression ceiling without charging the individual element entries.
-    const budget = Number(process.env.HAKKA_COMPONENTS_SHARED_BUDGET) || 90 * 1024
+    // store bucket. Solid 2.0 rc.6 then moved the Linux measurement from
+    // 87.73 KB to 90.03 KB; 93 KB keeps roughly 3% headroom without charging
+    // the individual element entries.
+    const budget = Number(process.env.HAKKA_COMPONENTS_SHARED_BUDGET) || 93 * 1024
     const over = g > budget
     if (over) failed = true
     componentRows.push({ label: 'Shared runtime chunk', raw, gz: g, budget, over })
