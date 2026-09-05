@@ -40,11 +40,10 @@ import java.util.concurrent.atomic.AtomicReference
  *   what decides whether the offer gets accepted; this sink has nothing to
  *   opt into or maintain.
  *
- * Inbound control frames: the hub also relays `{ "type": "control", "payload": ControlCommand }`
- * frames peer-to-peer (e.g. hakka mcp's `create_mock` / `set_throttle` write tools). Every
- * inbound text frame is parsed with [parseControlCommand] (strict, never throws) and, if
- * valid, applied with [applyControlCommand] (fail-open — an engine throw is caught and never
- * propagates). Non-control frames and malformed JSON are dropped silently.
+ * Inbound control frames: legacy `{ "type": "control", "payload": ControlCommand }` frames
+ * remain best-effort for existing peers. Acknowledged `control.request` frames are handled by
+ * [RuntimeControlHandler] only after the hub assigns this connection a `runtime.welcome`
+ * target identity. Malformed JSON and unknown frames are dropped silently.
  *
  * This class is isolated from capture logic — install it as a sink on [HakkaInterceptor]
  * or [RecordSinkHub]; it receives fully-redacted, processed records.
@@ -68,6 +67,7 @@ internal class BridgeSink(
 
     private val closed = AtomicBoolean(false)
     private val backoffMs = AtomicInteger(INITIAL_BACKOFF_MS.toInt())
+    private val runtimeControl = RuntimeControlHandler()
 
     private val scheduler: ScheduledExecutorService =
         Executors.newSingleThreadScheduledExecutor { r ->
@@ -194,7 +194,9 @@ internal class BridgeSink(
             }
             socket.set(webSocket)
             backoffMs.set(INITIAL_BACKOFF_MS.toInt())
+            runtimeControl.beginConnection()
 
+            webSocket.send(buildRuntimeHelloFrame())
             drainQueue { frame -> webSocket.send(frame) }
         }
 
@@ -217,7 +219,11 @@ internal class BridgeSink(
         }
 
         override fun onMessage(webSocket: WebSocket, text: String) {
-            handleInboundFrame(text)
+            when (val dispatch = runtimeControl.handle(text)) {
+                RuntimeControlDispatch.Unhandled -> handleInboundFrame(text)
+                RuntimeControlDispatch.Handled -> Unit
+                is RuntimeControlDispatch.Result -> webSocket.send(buildRuntimeControlResultFrame(dispatch.value))
+            }
         }
     }
 }

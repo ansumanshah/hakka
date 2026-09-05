@@ -6,6 +6,7 @@ import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import org.json.JSONObject
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -73,6 +74,44 @@ class BridgeSinkTest {
         }
         assertEquals(ThrottleProfile.SLOW_3G, ThrottleEngine.shared.config.profile)
         assertTrue(closed.await(5, TimeUnit.SECONDS), "server-side socket never closed")
+    }
+
+    @Test
+    fun `BridgeSink identifies itself then acknowledges an assigned runtime-control request`() {
+        val helloReceived = CountDownLatch(1)
+        val resultReceived = CountDownLatch(1)
+        var result: JSONObject? = null
+        server.enqueue(
+            MockResponse().withWebSocketUpgrade(
+                object : WebSocketListener() {
+                    override fun onMessage(webSocket: WebSocket, text: String) {
+                        val frame = JSONObject(text)
+                        when (frame.getString("type")) {
+                            "runtime.hello" -> {
+                                assertEquals("android", frame.getJSONObject("payload").getString("runtime"))
+                                helloReceived.countDown()
+                                webSocket.send("""{"type":"runtime.welcome","payload":{"targetId":"target-a"}}""")
+                                webSocket.send(
+                                    """{"type":"control.request","payload":{"commandId":"command-1","targetId":"target-a","command":{"kind":"throttle.set","profile":"slow-3g"},"timeoutMs":5000}}""",
+                                )
+                            }
+                            "control.result" -> {
+                                result = frame
+                                resultReceived.countDown()
+                                webSocket.close(1000, "done")
+                            }
+                        }
+                    }
+                },
+            )
+        )
+
+        sink = BridgeSink(wsUrl(), client)
+
+        assertTrue(helloReceived.await(5, TimeUnit.SECONDS), "runtime.hello was not sent")
+        assertTrue(resultReceived.await(5, TimeUnit.SECONDS), "control.result was not sent")
+        assertEquals(ThrottleProfile.SLOW_3G, ThrottleEngine.shared.config.profile)
+        assertEquals("applied", result!!.getJSONObject("payload").getString("status"))
     }
 
     @Test
