@@ -30,13 +30,13 @@ is a legitimate thing to do.
 
 ## What this means in practice
 
-| You want to | What applies |
-| --- | --- |
-| Read, fork, or modify the source | MIT. No permission needed, no licence needed. |
-| Build it yourself and use your build | MIT. Including at work. |
-| Use an official signed release at work | A paid licence. |
-| Use an official signed release for personal projects, learning, or evaluation | Free. |
-| Use the `hakka-*` npm SDKs anywhere | MIT. They are not part of the paid product and will not be. |
+| You want to                                                                   | What applies                                                |
+| ----------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Read, fork, or modify the source                                              | MIT. No permission needed, no licence needed.               |
+| Build it yourself and use your build                                          | MIT. Including at work.                                     |
+| Use an official signed release at work                                        | A paid licence.                                             |
+| Use an official signed release for personal projects, learning, or evaluation | Free.                                                       |
+| Use the `hakka-*` npm SDKs anywhere                                           | MIT. They are not part of the paid product and will not be. |
 
 ## What is not decided yet
 
