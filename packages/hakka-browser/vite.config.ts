@@ -54,7 +54,7 @@ function minifyInlineStyles(): Plugin {
   }
 }
 
-const ELEMENTS_DIR = resolve(__dirname, 'src/ui/elements')
+const ELEMENTS_DIR = resolve(import.meta.dirname, 'src/ui/elements')
 
 // Vite's separate worker sub-build does NOT inherit `build.minify: 'terser'`
 // — every mode below that bundles the inline store Worker needs this too, or
@@ -115,7 +115,7 @@ export default defineConfig(({ mode }) => {
       build: {
         target: 'es2020',
         lib: {
-          entry: resolve(__dirname, 'src/workerCapture.ts'),
+          entry: resolve(import.meta.dirname, 'src/workerCapture.ts'),
           formats: ['es'],
           fileName: () => 'worker.js',
         },
@@ -195,7 +195,7 @@ export default defineConfig(({ mode }) => {
     build: {
       target: 'es2020',
       lib: {
-        entry: resolve(__dirname, 'src/index.ts'),
+        entry: resolve(import.meta.dirname, 'src/index.ts'),
         name: 'Hakka',
         formats: ['es', 'iife'],
         fileName: (format) => (format === 'iife' ? 'hakka-browser.global.js' : 'hakka-browser.js'),

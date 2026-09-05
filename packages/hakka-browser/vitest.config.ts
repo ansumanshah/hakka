@@ -26,8 +26,8 @@ export default defineConfig({
       // mirrors `tsconfig.json`'s `paths` entry, same reason (no built dist
       // to point at mid-test-run, and no need for one: this alias is a
       // dev/test-only shortcut, never touched by the actual published dist).
-      { find: /^hakka-browser\/elements$/, replacement: resolvePath(__dirname, 'src/ui/elements/index.ts') },
-      { find: /^hakka-browser\/elements\/(.*)$/, replacement: resolvePath(__dirname, 'src/ui/elements/$1') },
+      { find: /^hakka-browser\/elements$/, replacement: resolvePath(import.meta.dirname, 'src/ui/elements/index.ts') },
+      { find: /^hakka-browser\/elements\/(.*)$/, replacement: resolvePath(import.meta.dirname, 'src/ui/elements/$1') },
     ],
   },
 })
