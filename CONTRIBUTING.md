@@ -69,6 +69,18 @@ bun run phase:verify       # local phase handoff confidence path (verify + verif
 bun run phase:verify:full  # release-gate path (delegates to `just verify-all`)
 ```
 
+## Running hosted CI
+
+CI runs only on explicit request; pushes and pull request updates do not start it.
+Use **Actions → CI → Run workflow**, selecting the branch to verify, or:
+
+```bash
+gh workflow run ci.yml --ref <branch>
+```
+
+Run CI against the final commit after collecting related changes to avoid repeated
+native builds. Local checks remain available through the commands above.
+
 ## Worktrees and end-to-end checks
 
 Use a separate checkout for independent changes. Install dependencies inside each

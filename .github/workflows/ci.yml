@@ -1,10 +1,7 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -64,7 +61,7 @@ jobs:
       # `just bench` locally. Same policy as the Android, iOS, and web perf
       # suites, which are opt-in for the identical reason.
       - name: Perf gates (advisory — see comment)
-        if: github.event_name == 'push'
+        if: github.ref == 'refs/heads/main'
         continue-on-error: true
         run: |
           bun run --cwd packages/hakka-core bench:check
