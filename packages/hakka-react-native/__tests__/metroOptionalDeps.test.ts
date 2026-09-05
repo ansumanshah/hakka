@@ -20,8 +20,7 @@
  * did not, which is the failure mode it now covers: a promise of coverage is
  * not coverage.
  */
-import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -41,7 +40,7 @@ const CORE_PEERS = new Set(['react-native'])
 
 /** Every bare (non-relative) `require('...')` literal in shipped source. */
 function bareRequiresInSource(): Set<string> {
-  const files = execFileList()
+  const files = sourceFiles()
   const found = new Set<string>()
   for (const file of files) {
     const source = readFileSync(file, 'utf8')
@@ -55,15 +54,13 @@ function bareRequiresInSource(): Set<string> {
   return found
 }
 
-function execFileList(): string[] {
-  // `git ls-files` rather than a glob walk: it respects .gitignore, so build
-  // output under lib/ can never leak in and make this test pass or fail for
-  // reasons unrelated to source.
-  const out = execFileSync('git', ['ls-files', 'src'], { cwd: join(__dirname, '..'), encoding: 'utf8' })
-  return out
-    .split('\n')
-    .filter((p) => /\.(ts|tsx)$/.test(p) && !p.includes('__tests__'))
-    .map((p) => join(__dirname, '..', p))
+function sourceFiles(): string[] {
+  const sourceDirectory = join(__dirname, '../src')
+  return readdirSync(sourceDirectory, { recursive: true })
+    .filter(
+      (path): path is string => typeof path === 'string' && /\.(ts|tsx)$/.test(path) && !path.includes('__tests__'),
+    )
+    .map((path) => join(sourceDirectory, path))
 }
 
 describe('metro.js OPTIONAL_MODULES stays in sync with src/', () => {
