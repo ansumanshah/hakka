@@ -21,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -34,6 +35,7 @@ import org.json.JSONObject
 @Composable
 internal fun DetailBody(raw: String, contentType: String?) {
     val body = remember(raw, contentType) { bodyDecoders.decode(raw, contentType, null) }
+    val context = LocalContext.current
     val json = remember(body) { body.trim().let { it.startsWith("{") || it.startsWith("[") } }
     var query by remember { mutableStateOf("") }
     var rawMode by remember { mutableStateOf(!json) }
@@ -62,7 +64,14 @@ internal fun DetailBody(raw: String, contentType: String?) {
         }
         if (json && !rawMode) JsonTree(body) else SelectionContainer {
             Text(
-                highlightedBody(body, matches, currentMatch, query.length),
+                highlightedBody(
+                    body = body,
+                    matches = matches,
+                    focused = currentMatch,
+                    queryLength = query.length,
+                    matchColor = Color(Theme.searchHighlight(context)),
+                    focusedMatchColor = Color(Theme.searchHighlightActive(context)),
+                ),
                 fontFamily = FontFamily.Monospace,
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier
@@ -89,12 +98,19 @@ private fun findMatches(body: String, query: String): List<Int> {
     return matches
 }
 
-private fun highlightedBody(body: String, matches: List<Int>, focused: Int, queryLength: Int): AnnotatedString = buildAnnotatedString {
+private fun highlightedBody(
+    body: String,
+    matches: List<Int>,
+    focused: Int,
+    queryLength: Int,
+    matchColor: Color,
+    focusedMatchColor: Color,
+): AnnotatedString = buildAnnotatedString {
     append(body)
     if (queryLength == 0) return@buildAnnotatedString
     matches.forEachIndexed { index, start ->
         val end = (start + queryLength).coerceAtMost(body.length)
-        addStyle(SpanStyle(background = if (index == focused) Color(Theme.searchHighlightActive) else Color(Theme.searchHighlight)), start, end)
+        addStyle(SpanStyle(background = if (index == focused) focusedMatchColor else matchColor), start, end)
     }
 }
 
