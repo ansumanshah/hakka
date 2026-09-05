@@ -42,8 +42,10 @@ import {
 
 ```
 hakka ci-baseline record <capture.hakka> <baseline.txt>
-hakka ci-baseline check  <capture.hakka> <baseline.txt> [--allow-host <host>]
+hakka ci-baseline check  <capture.hakka> <baseline.txt> [--allow-host <host>] [--json]
 ```
+
+`check --json` writes exactly one versioned JSON document to stdout and keeps the same `0`/`1`/`2` exit codes. The JSON projection is safe for CI artifacts: it excludes raw messages, paths, bodies, headers, and URL paths while retaining structured finding kinds, severity, scrubbed origins, and opaque references.
 
 `startCiCapture` wraps `startCapture` with CI-appropriate defaults (`bridge: false`,
 `embedBridge: false`, `force: true` — no human is watching, and CI is rarely

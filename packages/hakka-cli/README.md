@@ -35,6 +35,7 @@ Loads a saved `.hakka` session or `.har` capture and exits non-zero when configu
 ```bash
 hakka assert capture.hakka --max-failures 0 --fail-on-secrets
 hakka assert capture.har --max-duration-ms 2000 --budget-p95-ms 800
+hakka assert capture.hakka --json
 ```
 
 | Flag                    | Effect                                                                       |
@@ -44,8 +45,11 @@ hakka assert capture.har --max-duration-ms 2000 --budget-p95-ms 800
 | `--fail-on-secrets`     | Fail if any plaintext secret was found in a request body.                    |
 | `--budget-p95-ms <n>`   | Fail if the p95 request duration exceeds `n` ms.                             |
 | `--slow-ms <n>`         | Threshold (ms) for the underlying "slow request" finding.                    |
+| `--json`                | Emit one privacy-safe, versioned JSON report for CI automation.              |
 
 Exit codes: `0` pass, `1` fail (a threshold was violated), `2` bad input (missing file, unreadable, unparseable).
+
+JSON reports preserve the same decisions and exit codes while omitting raw analysis messages, file paths, bodies, headers, and user-controlled URL paths. URLs retain a scrubbed origin and an opaque reference so reports can be correlated without exposing captured secrets.
 
 ## `hakka mcp`
 
