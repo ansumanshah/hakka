@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import HakkaCore
 
-@Suite("Git literal filesystem paths", .enabled(if: GitTestEnvironment.gitIsAvailable))
+@Suite("Git literal filesystem paths", .serialized, .enabled(if: GitTestEnvironment.gitIsAvailable))
 struct GitPathTests {
     @Test(arguments: ["*.txt", ":(glob)*.txt", "café.json", "line\nbreak.txt", "quote\"name.txt", "tab\tname.txt"])
     func stageUnstageAndDiffOnlyASelectedLiteralPath(fileName: String) async throws {

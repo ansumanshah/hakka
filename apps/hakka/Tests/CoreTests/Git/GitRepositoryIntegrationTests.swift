@@ -10,7 +10,7 @@ import Testing
 ///
 /// `.enabled(if:)` reports the whole suite skipped, not failed, on a machine
 /// without git — `GitTestEnvironment.gitIsAvailable`.
-@Suite("GitRepository (real git)", .enabled(if: GitTestEnvironment.gitIsAvailable))
+@Suite("GitRepository (real git)", .serialized, .enabled(if: GitTestEnvironment.gitIsAvailable))
 struct GitRepositoryIntegrationTests {
     @Test func initializeRepositoryCreatesADotGitDirectoryGitRecognizesAsARepo() async throws {
         try await GitTestRepository.withFreshRepository { _, directory in

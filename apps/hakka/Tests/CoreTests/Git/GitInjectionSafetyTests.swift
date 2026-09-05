@@ -21,7 +21,7 @@ import Testing
 /// internal `git fetch` call *without* re-guarding it, turning
 /// `--upload-pack=evil` into a real `/bin/sh -c` invocation. See
 /// `GitRepository+Remote.swift`'s `requireNotFlagLike` for the fix.
-@Suite("GitRepository injection safety", .enabled(if: GitTestEnvironment.gitIsAvailable))
+@Suite("GitRepository injection safety", .serialized, .enabled(if: GitTestEnvironment.gitIsAvailable))
 struct GitInjectionSafetyTests {
     /// `git add`/`restore` accept the guarded string as a literal pathspec
     /// and succeed outright — this is the vector where "safe" looks like
