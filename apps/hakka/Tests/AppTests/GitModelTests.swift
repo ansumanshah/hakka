@@ -71,7 +71,7 @@ struct GitModelTests {
     1 M. N... 100644 100644 100644 0000000000000000000000000000000000000000 0000000000000000000000000000000000000000 staged.txt
     1 .M N... 100644 100644 100644 0000000000000000000000000000000000000000 0000000000000000000000000000000000000000 unstaged.txt
     ? untracked.txt
-    """
+    """.replacingOccurrences(of: "\n", with: "\0")
 
     private func scriptCleanRefresh(_ fake: FakeGitRunning, branch: String = "main", branches: [String] = ["main"]) async {
         await fake.script("status", GitProcessResult(exitCode: 0, standardOutput: Self.statusOutput, standardError: ""))

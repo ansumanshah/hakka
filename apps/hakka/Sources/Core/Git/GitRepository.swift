@@ -30,7 +30,7 @@ public actor GitRepository {
     }
 
     public func status() async throws -> GitStatus {
-        let result = try await runChecked(["status", "--porcelain=v2", "--branch"])
+        let result = try await runChecked(["status", "--porcelain=v2", "--branch", "-z"])
         return GitStatusParser.parse(result.standardOutput)
     }
 

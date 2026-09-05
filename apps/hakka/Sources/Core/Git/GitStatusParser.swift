@@ -1,23 +1,13 @@
 import Foundation
 
-/// Parses `git status --porcelain=v2 --branch` output into `GitStatus`.
-///
-/// Deliberately the line-oriented format, not `-z`: `-z` NUL-separates
-/// records (and, for renames, appends the original path as a *second*
-/// NUL-terminated token with no header of its own), which is unambiguous
-/// but means tracking "the next token belongs to the previous record"
-/// across the whole stream. The line format keeps a rename's two paths on
-/// one line (`path<TAB>origPath`), so each line parses independently. The
-/// trade-off: a path containing a literal newline is not representable
-/// here (rare in practice, and git itself C-quotes such paths in this mode
-/// rather than emitting a raw newline, so this is a correctness edge case,
-/// not a security one).
+/// Parses NUL-separated porcelain v2 records without altering filename bytes.
 enum GitStatusParser {
     static func parse(_ output: String) -> GitStatus {
         var branch: String?
         var entries: [GitStatusEntry] = []
 
-        for rawLine in output.split(separator: "\n", omittingEmptySubsequences: true) {
+        var records = output.split(separator: "\0", omittingEmptySubsequences: false).makeIterator()
+        while let rawLine = records.next() {
             let line = String(rawLine)
             guard let marker = line.first else { continue }
             switch marker {
@@ -29,7 +19,8 @@ enum GitStatusParser {
             case "1":
                 if let entry = parseOrdinary(line) { entries.append(entry) }
             case "2":
-                if let entry = parseRenamed(line) { entries.append(entry) }
+                let originalPath = records.next().map(String.init)
+                if let entry = parseRenamed(line, originalPath: originalPath) { entries.append(entry) }
             case "u":
                 if let entry = parseUnmerged(line) { entries.append(entry) }
             case "?":
@@ -50,16 +41,15 @@ enum GitStatusParser {
         return GitStatusEntry(path: String(parts[8]), indexStatus: indexStatus, worktreeStatus: worktreeStatus)
     }
 
-    /// `2 XY sub mH mI mW hH hI Xscore path<TAB>origPath` — 9 fixed fields,
-    /// then `path` and `origPath` sharing the final field, tab-separated.
-    private static func parseRenamed(_ line: String) -> GitStatusEntry? {
+    /// `2 XY sub mH mI mW hH hI Xscore path` — 9 fixed fields,
+    /// then the original path in the next NUL-separated record.
+    private static func parseRenamed(_ line: String, originalPath: String?) -> GitStatusEntry? {
         let parts = line.split(separator: " ", maxSplits: 9, omittingEmptySubsequences: true)
         guard parts.count == 10, let (indexStatus, worktreeStatus) = xy(parts[1]) else { return nil }
-        let pieces = parts[9].split(separator: "\t", maxSplits: 1, omittingEmptySubsequences: false)
-        guard pieces.count == 2 else { return nil }
+        guard let originalPath, !originalPath.isEmpty else { return nil }
         return GitStatusEntry(
-            path: String(pieces[0]),
-            originalPath: String(pieces[1]),
+            path: String(parts[9]),
+            originalPath: originalPath,
             indexStatus: indexStatus,
             worktreeStatus: worktreeStatus,
         )

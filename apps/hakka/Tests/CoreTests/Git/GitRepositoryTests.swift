@@ -198,7 +198,7 @@ struct GitRepositoryTests {
 
     @Test func statusParsesTheRunnersOutputThroughGitStatusParser() async throws {
         let runner = FakeGitRunner(results: [
-            GitProcessResult(exitCode: 0, standardOutput: "# branch.head main\n? new.txt", standardError: ""),
+            GitProcessResult(exitCode: 0, standardOutput: "# branch.head main\0? new.txt", standardError: ""),
         ])
         let repository = GitRepository(directory: directory(), runner: runner)
         let status = try await repository.status()

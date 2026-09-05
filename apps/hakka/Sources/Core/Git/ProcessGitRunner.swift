@@ -115,6 +115,11 @@ public struct ProcessGitRunner: GitRunning {
     /// from invoking `less` on output this code is about to parse.
     private static func environment() -> [String: String] {
         var env = ProcessInfo.processInfo.environment
+        // A selected filename must never expand as a glob or Git pathspec magic.
+        env["GIT_LITERAL_PATHSPECS"] = "1"
+        env.removeValue(forKey: "GIT_GLOB_PATHSPECS")
+        env.removeValue(forKey: "GIT_NOGLOB_PATHSPECS")
+        env.removeValue(forKey: "GIT_ICASE_PATHSPECS")
         env["GIT_TERMINAL_PROMPT"] = "0"
         env["GIT_PAGER"] = "cat"
         env["GIT_ASKPASS"] = "/usr/bin/true"
