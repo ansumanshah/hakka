@@ -25,7 +25,12 @@
  * thrown) — matches every other control-command receiver in the codebase.
  */
 import './wsCompat'
-import { applyControlCommand, parseControlCommand } from 'hakka-core'
+import {
+  RuntimeControlReceiver,
+  RUNTIME_CONTROL_CAPABILITIES,
+  applyControlCommand,
+  parseControlCommand,
+} from 'hakka-core'
 import type { FrameworkSpan, LogEntry, NetworkRequest, StorageSnapshot } from 'hakka-core'
 import WebSocket from 'ws'
 
@@ -203,13 +208,23 @@ export function createBridgeClient(opts: BridgeClientOptions = {}): BridgeClient
       return
     }
     ws = socket
+    const control = new RuntimeControlReceiver(
+      'server',
+      handleControl ? RUNTIME_CONTROL_CAPABILITIES.filter((kind) => kind !== 'request.replay') : [],
+      (command) => applyControlCommand(command).ok,
+      (message) => {
+        if (ws === socket && socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message))
+      },
+    )
     socket.on('open', () => {
+      control.hello()
       connected = true
       retry = 250
       opts.onStatus?.(true)
       flush()
     })
     socket.on('close', () => {
+      control.close()
       connected = false
       if (ws === socket) ws = null
       opts.onStatus?.(false)
@@ -217,7 +232,14 @@ export function createBridgeClient(opts: BridgeClientOptions = {}): BridgeClient
     })
     // 'error' is followed by 'close'; reconnect is handled there.
     socket.on('error', () => {})
-    if (handleControl) socket.on('message', handleMessage)
+    socket.on('message', (data) => {
+      try {
+        if (control.receive(JSON.parse(typeof data === 'string' ? data : data.toString('utf-8')))) return
+      } catch {
+        return
+      }
+      if (handleControl) handleMessage(data)
+    })
   }
 
   open()

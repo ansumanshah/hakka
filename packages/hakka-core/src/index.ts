@@ -356,3 +356,4 @@ export type {
   RuntimeControlResult,
   RuntimeControlMessage,
 } from './contract/runtimeControl'
+export { RuntimeControlReceiver } from './contract/RuntimeControlReceiver'

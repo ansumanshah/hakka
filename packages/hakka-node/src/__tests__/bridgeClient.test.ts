@@ -64,7 +64,7 @@ function getFreePort(): Promise<number> {
   })
 }
 
-/** Stub hub: accepts connections and records every frame it receives, in order. */
+/** Stub hub: accepts connections and records capture frames after runtime negotiation, in order. */
 function startHub(port: number): Promise<{ wss: WebSocketServer; messages: unknown[] }> {
   return new Promise((resolve, reject) => {
     const messages: unknown[] = []
@@ -73,7 +73,8 @@ function startHub(port: number): Promise<{ wss: WebSocketServer; messages: unkno
     wss.on('connection', (socket: WebSocket) => {
       socket.on('message', (data) => {
         try {
-          messages.push(JSON.parse(data.toString()))
+          const frame = JSON.parse(data.toString())
+          if (frame.type !== 'runtime.hello') messages.push(frame)
         } catch {
           // Not expected in these tests — ignore rather than fail the hub.
         }

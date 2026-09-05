@@ -3,7 +3,7 @@ import { z } from 'zod'
 
 import type { RequestStore } from '../RequestStore.js'
 import { mockRuleEntryFor, refusalReasonFor } from './capturedMockConverter.js'
-import { type ControlSender, dispatch } from './controlDispatch.js'
+import { type ControlSender, dispatchAcknowledged } from './controlDispatch.js'
 import { textResult } from './toolResult.js'
 
 export function registerPromoteCaptureToMockTool(server: McpServer, store: RequestStore, sender: ControlSender): void {
@@ -16,12 +16,16 @@ export function registerPromoteCaptureToMockTool(server: McpServer, store: Reque
         'one query string this capture happened to carry. Re-promoting the same capture replaces the same rule ' +
         'rather than duplicating it. Refuses to promote a capture that errored or never finished — mocking a ' +
         'captured failure or a still-pending request would fabricate a response that never happened. Delivery is ' +
-        'fire-and-forget over the bridge (no acknowledgment). Affects DEV builds only.',
+        'acknowledged over the bridge. Affects DEV builds only.',
       inputSchema: {
+        targetId: z
+          .string()
+          .optional()
+          .describe('Runtime target ID from list_targets; required when multiple peers are connected.'),
         id: z.string().min(1).describe('The captured request id (as returned by list_requests / search_requests)'),
       },
     },
-    (args) => {
+    async (args) => {
       const request = store.get(args.id)
       if (!request) {
         return textResult({ error: 'not_found', id: args.id }, true)
@@ -50,7 +54,7 @@ export function registerPromoteCaptureToMockTool(server: McpServer, store: Reque
       }
 
       const rule = mockRuleEntryFor(request)
-      const sent = dispatch(sender, { kind: 'mock.add', rule })
+      const sent = await dispatchAcknowledged(sender, args.targetId, { kind: 'mock.add', rule })
       if (!sent) {
         return textResult({ id: rule.id, sourceId: args.id, sent: false, error: 'bridge_disconnected' }, true)
       }

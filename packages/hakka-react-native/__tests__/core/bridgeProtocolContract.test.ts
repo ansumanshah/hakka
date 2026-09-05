@@ -1,4 +1,5 @@
 import { parseBridgeMessage } from 'hakka-bridge'
+import { parseRuntimeControlMessage } from 'hakka-core'
 /**
  * Wire-protocol contract — every frame type HakkaBridge actually puts on the
  * WebSocket must be recognised by `hakka-bridge`'s `parseBridgeMessage`.
@@ -52,7 +53,7 @@ class MockWebSocket {
   }
 }
 
-describe('every frame type HakkaBridge emits is accepted by parseBridgeMessage', () => {
+describe('every HakkaBridge frame is accepted by the capture or runtime protocol', () => {
   let origWebSocket: typeof WebSocket
   let wsInstance: MockWebSocket | null = null
 
@@ -95,7 +96,9 @@ describe('every frame type HakkaBridge emits is accepted by parseBridgeMessage',
 
     expect(ws.sent.length).toBeGreaterThan(0)
 
-    const rejected = ws.sent.filter((raw) => parseBridgeMessage(raw) === null)
+    const rejected = ws.sent.filter(
+      (raw) => parseBridgeMessage(raw) === null && parseRuntimeControlMessage(JSON.parse(raw)) === null,
+    )
     expect(rejected).toEqual([])
   })
 

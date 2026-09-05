@@ -26,6 +26,8 @@ export function createStoreMessageHandler(
   // Request echoes are only posted while the inspector UI is subscribed — the
   // always-on capture path never pays for a round-trip back to the main thread.
   let subscribed = false
+  let controlId = 0
+  const pendingControls = new Map<number, (ok: boolean) => void>()
 
   return {
     get subscribed() {
@@ -33,6 +35,12 @@ export function createStoreMessageHandler(
     },
     handle(msg: MainToWorker): void {
       switch (msg.type) {
+        case 'controlApplied': {
+          const applied = pendingControls.get(msg.rid)
+          pendingControls.delete(msg.rid)
+          applied?.(msg.ok)
+          break
+        }
         case 'init':
           engine.init(
             msg.config,
@@ -42,7 +50,22 @@ export function createStoreMessageHandler(
             (status) => post({ type: 'bridgeStatus', status }),
             // Control frames always cross back — the mock/breakpoint/throttle
             // engines they drive live with the interceptors.
-            (payload) => post({ type: 'control', payload }),
+            (payload, applied) => {
+              if (!applied) {
+                post({ type: 'control', payload })
+                return
+              }
+              const rid = ++controlId
+              const timer = setTimeout(() => {
+                pendingControls.delete(rid)
+                applied(false)
+              }, 30000)
+              pendingControls.set(rid, (ok) => {
+                clearTimeout(timer)
+                applied(ok)
+              })
+              post({ type: 'control', payload, rid })
+            },
             (span) => {
               if (subscribed) post({ type: 'span', span })
             },
@@ -95,6 +118,8 @@ export function createStoreMessageHandler(
           engine.bridgeConnect(msg.url)
           break
         case 'bridgeDisconnect':
+          for (const applied of pendingControls.values()) applied(false)
+          pendingControls.clear()
           engine.bridgeDisconnect()
           break
         case 'spansForTrace':

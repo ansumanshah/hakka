@@ -84,9 +84,9 @@ export interface StoreClientOptions {
  * hakka mcp's create_mock) to this thread's engine singletons. Validation +
  * application are both fail-open: malformed payloads are dropped silently.
  */
-function applyRemoteControl(payload: unknown): void {
+function applyRemoteControl(payload: unknown): boolean {
   const cmd = parseControlCommand(payload)
-  if (cmd) applyControlCommand(cmd)
+  return cmd ? applyControlCommand(cmd).ok : false
 }
 
 function createFanout() {
@@ -120,7 +120,10 @@ function createInProcessClient(opts: StoreClientOptions): StoreClient {
     opts.config,
     (req) => fan.emitRequest(req),
     (s) => fan.emitStatus(s),
-    (payload) => applyRemoteControl(payload),
+    (payload, applied) => {
+      const ok = applyRemoteControl(payload)
+      applied?.(ok)
+    },
     (span) => fan.emitSpan(span),
   )
   return {
@@ -223,9 +226,12 @@ export function createWorkerClient(worker: Worker, opts: StoreClientOptions): St
       case 'bridgeStatus':
         fan.emitStatus(msg.status)
         break
-      case 'control':
-        applyRemoteControl(msg.payload)
+      case 'control': {
+        const ok = applyRemoteControl(msg.payload)
+        if (msg.rid !== undefined)
+          worker.postMessage({ type: 'controlApplied', rid: msg.rid, ok } satisfies MainToWorker)
         break
+      }
       case 'result': {
         const entry = pending.get(msg.rid)
         if (entry) {

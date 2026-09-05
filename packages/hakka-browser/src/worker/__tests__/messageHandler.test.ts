@@ -298,3 +298,27 @@ describe('messageHandler — getBody / getBodies (the on-demand body RPC)', () =
     expect(results[0].value).toEqual({ requestBody: 'req-body', responseBody: 'res-body' })
   })
 })
+
+it('acknowledges a targeted control only after its matching main-thread result', () => {
+  const messages: import('../protocol').WorkerToMain[] = []
+  let control: ((payload: unknown, applied?: (ok: boolean) => void) => void) | undefined
+  const engine = {
+    ...storeEngine,
+    init: (_config: unknown, _req: unknown, _bridge: unknown, sink: typeof control) => {
+      control = sink
+    },
+  } as typeof storeEngine
+  const handler = createStoreMessageHandler((message) => messages.push(message), engine)
+  handler.handle({ type: 'init' })
+  const outcomes: boolean[] = []
+  control!({ kind: 'mock.clear' }, (ok) => outcomes.push(ok))
+  const message = messages[0]!
+  expect(message.type).toBe('control')
+  if (message.type !== 'control' || message.rid === undefined) throw new Error('missing control ID')
+  expect(outcomes).toEqual([])
+  handler.handle({ type: 'controlApplied', rid: message.rid + 1, ok: true })
+  expect(outcomes).toEqual([])
+  handler.handle({ type: 'controlApplied', rid: message.rid, ok: false })
+  handler.handle({ type: 'controlApplied', rid: message.rid, ok: true })
+  expect(outcomes).toEqual([false])
+})

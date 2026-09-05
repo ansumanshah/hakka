@@ -1,7 +1,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 
-import { type ControlSender, dispatch } from './controlDispatch.js'
+import { type ControlSender, dispatchAcknowledged } from './controlDispatch.js'
 import { buildMockRuleFromArgs } from './mockRuleArgs.js'
 import { textResult } from './toolResult.js'
 
@@ -13,8 +13,12 @@ export function registerCreateMockTool(server: McpServer, sender: ControlSender)
     {
       description:
         'Create a mock/block/redirect rule for requests matching a URL pattern. The command is applied inside ' +
-        'connected app(s); delivery is fire-and-forget over the bridge (no acknowledgment). Affects DEV builds only.',
+        'selected runtime; application is acknowledged over the bridge. Affects DEV builds only.',
       inputSchema: {
+        targetId: z
+          .string()
+          .optional()
+          .describe('Runtime target ID from list_targets; required when multiple peers are connected.'),
         pattern: z.string().min(1).describe('Substring to match against the request URL'),
         method: z.string().optional().describe('HTTP method filter (GET, POST, …). Omit to match all methods.'),
         mode: z
@@ -50,7 +54,7 @@ export function registerCreateMockTool(server: McpServer, sender: ControlSender)
           ),
       },
     },
-    (args) => {
+    async (args) => {
       const { pattern, method, mode = 'mock', status = 200, body, redirectTo, delayMs, modify } = args
 
       if (mode === 'redirect' && !redirectTo) {
@@ -62,7 +66,7 @@ export function registerCreateMockTool(server: McpServer, sender: ControlSender)
 
       const rule = buildMockRuleFromArgs(id, { pattern, method, mode, status, body, redirectTo, delayMs, modify })
 
-      const sent = dispatch(sender, { kind: 'mock.add', rule })
+      const sent = await dispatchAcknowledged(sender, args.targetId, { kind: 'mock.add', rule })
       if (!sent) {
         return textResult({ id, sent: false, error: 'bridge_disconnected' }, true)
       }

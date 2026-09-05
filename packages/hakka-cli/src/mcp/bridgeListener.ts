@@ -6,10 +6,11 @@
  */
 
 import { parseBridgeMessage } from 'hakka-bridge'
-import type { ControlCommand, FrameworkSpan, NetworkRequest } from 'hakka-core'
+import type { ControlCommand, FrameworkSpan, NetworkRequest, RuntimeTarget, RuntimeControlResult } from 'hakka-core'
 import WebSocket from 'ws'
 
 import type { RequestStore } from './RequestStore.js'
+import { RuntimeControlClient } from './RuntimeControlClient.js'
 import type { SpanStore } from './SpanStore.js'
 
 export const DEFAULT_BRIDGE_URL = 'ws://localhost:8989'
@@ -19,6 +20,8 @@ export interface BridgeListener {
   readonly connected: boolean
   /** Sends `{ type: 'control', payload: cmd }` to the hub; fire-and-forget, no ack. Returns `false` (never throws) when not connected. */
   sendControl(cmd: ControlCommand): boolean
+  getTargets(): RuntimeTarget[]
+  requestControl(cmd: ControlCommand, targetId?: string, timeoutMs?: number): Promise<RuntimeControlResult>
 }
 
 /** Parses a `{ type: 'request', payload }` frame; returns null for anything else (never throws). `'control'` frames are ignored by design — they must never enter the store. */
@@ -63,6 +66,16 @@ export function createBridgeListener(
   let retryMs = 250
   let timer: ReturnType<typeof setTimeout> | null = null
 
+  const control = new RuntimeControlClient((message) => {
+    if (!connected || ws === null || ws.readyState !== ws.OPEN) return false
+    try {
+      ws.send(JSON.stringify(message))
+      return true
+    } catch {
+      return false
+    }
+  })
+
   const scheduleRetry = (): void => {
     if (closed || timer !== null) return
     timer = setTimeout(() => {
@@ -85,6 +98,12 @@ export function createBridgeListener(
 
     socket.on('open', () => {
       connected = true
+      socket.send(
+        JSON.stringify({
+          type: 'runtime.hello',
+          payload: { role: 'controller', runtime: 'unknown', capabilities: [], protocolVersion: 1 },
+        }),
+      )
       retryMs = 250
       process.stderr.write(`[hakka] connected to bridge at ${url}\n`)
     })
@@ -96,6 +115,11 @@ export function createBridgeListener(
       } else if (Buffer.isBuffer(data)) {
         raw = data.toString('utf8')
       } else {
+        return
+      }
+      try {
+        if (control.receive(JSON.parse(raw))) return
+      } catch {
         return
       }
       const req = parseBridgeFrame(raw)
@@ -111,6 +135,7 @@ export function createBridgeListener(
 
     socket.on('close', () => {
       connected = false
+      control.disconnect()
       if (ws === socket) ws = null
       if (!closed) {
         process.stderr.write(`[hakka] bridge disconnected — retrying in ${retryMs}ms\n`)
@@ -128,7 +153,10 @@ export function createBridgeListener(
     get connected() {
       return connected
     },
+    getTargets: () => control.getTargets(),
+    requestControl: (cmd, targetId, timeoutMs) => control.request(cmd, targetId, timeoutMs),
     close() {
+      control.disconnect()
       closed = true
       if (timer !== null) {
         clearTimeout(timer)
