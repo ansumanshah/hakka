@@ -7,7 +7,7 @@ pre-commit:
       # {staged_files} breaks when every staged JS/TS file is ignored.
       run: bunx oxlint
     format:
-      glob: '*.{ts,tsx,js,jsx,json}'
+      glob: '*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,json,jsonc,md,mdx,yml,yaml,html,css,scss}'
       # oxfmt exits 2 ("no target files") when every staged file is covered by
       # its ignore rules (e.g. the generated docs embed bundle) — that's a pass.
       # Real format issues exit 1 and still fail the hook.
@@ -25,7 +25,7 @@ pre-commit:
 
 # Native suites are skipped by pre-commit and `just test` (RN-only), so run all
 # three on push to catch a red iOS/Android suite before it lands. Requires Xcode
-# + Android SDK locally; skip with `git push --no-verify`. CI is the cross-platform gate.
+# + Android SDK locally. CI is the cross-platform gate.
 #
 # These run in parallel with each other, which is why `test:ios` passes
 # `--no-parallel --skip HakkaBenchmarkTests`: the iOS suite parks real threads
