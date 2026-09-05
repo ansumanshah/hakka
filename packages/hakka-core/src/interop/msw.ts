@@ -544,7 +544,7 @@ function buildRule(method: HttpMethodName, urlLiteral: string, httpCall: HttpRes
   }
 }
 
-const HTTP_CALL_RE = new RegExp(`\\bhttp\\.(${HTTP_METHODS.join('|')})\\s*\\(`, 'g')
+const HTTP_CALL_RE = /* @__PURE__ */ (() => new RegExp(`\\bhttp\\.(${HTTP_METHODS.join('|')})\\s*\\(`, 'g'))()
 
 /**
  * Parse MSW v2 `http.<method>(path, resolver)` handlers out of a TS/JS source string. Anything
