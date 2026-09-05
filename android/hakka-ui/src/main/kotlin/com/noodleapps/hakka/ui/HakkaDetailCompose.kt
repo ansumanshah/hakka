@@ -231,27 +231,27 @@ internal fun HakkaDetailCompose(activity: Activity, request: NetworkRequest, onC
     }
 }
 
-@Composable private fun DetailSection(title: String, trailing: @Composable (() -> Unit)? = null, content: @Composable () -> Unit) = Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-    Row(verticalAlignment = Alignment.CenterVertically) { Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f)); trailing?.invoke() }
-    content()
-}
 @Composable
-private fun DetailRows(rows: List<Pair<String, String>>) = Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+private fun DetailSection(title: String, trailing: @Composable (() -> Unit)? = null, content: @Composable () -> Unit) = Card(
+    modifier = Modifier.fillMaxWidth(),
+    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+) {
+    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            trailing?.invoke()
+        }
+        content()
+    }
+}
+
+@Composable
+private fun DetailRows(rows: List<Pair<String, String>>) = Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
     rows.forEach { (key, value) ->
-        Row(verticalAlignment = Alignment.Top) {
-            Text(
-                key,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall,
-            )
-            Spacer(Modifier.width(12.dp))
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(key, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
             SelectionContainer {
-                Text(
-                    value,
-                    fontFamily = FontFamily.Monospace,
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.bodySmall,
-                )
+                Text(value, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
             }
         }
     }
