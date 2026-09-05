@@ -201,3 +201,14 @@ web/community research when current ecosystem context is needed.
 Every plan update should include: what changed, what stayed, what we learned,
 what is still open, evidence used. Prefer `Verified`, `Decision`, `Open check`,
 and `Deferred` labels. If a claim is not verified, mark it as an open check.
+
+## Efficient agent execution
+
+- Start from the shared ignored `.agent/CURRENT.md` in the main worktree. Read only the relevant source ranges and saved evidence; refresh facts changed since that handoff.
+- Give each delegated task owned files, a short context brief, acceptance checks, and a stop condition. Prefer bounded context over the full conversation. Reuse verified handoffs instead of asking multiple agents to rediscover the same code.
+- Keep handoffs concise: commit/files, result, exact checks, unresolved blocker. Save raw logs under ignored `artifacts/`; return failures and summaries rather than entire logs.
+- Match checks to changed files while iterating. Run the complete applicable gate once on the final integrated branch, including `just spec-drift-check spec-api-check` when SPEC or spec cards change. Record the commit and command so unchanged checks can be reused.
+- Serialize builds and tests that share dist, native targets, caches, or simulators. Measure performance without competing workloads and match CI's runtime when comparing bundle sizes.
+- Inspect the saved failure before retrying. Retry only after a change or evidence of a transient failure; change the approach after two ineffective attempts.
+- Poll CI at least 60 seconds apart, backing off to two minutes for unchanged native builds. Report state changes; avoid repeatedly reading full job logs.
+- Keep one short current-state handoff and link detailed evidence. Update it at milestones, then stop when acceptance checks pass.

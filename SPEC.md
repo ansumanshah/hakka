@@ -147,6 +147,21 @@ shake gesture, a floating bubble, a device's own UA/platform info) are `⊘` or
 section for the different, unrelated question of which platforms the capture
 SDK itself builds and ships for — do not conflate the two tables.
 
+Mac-column audit 2026-08-30: Postman export, status-code chips, cookie inspector
+and GraphQL detail were each marked missing here while already shipping. They
+landed in `5e08798f`, after this table's previous 2026-08-22 sweep, and nothing
+re-read the table afterwards. Each of the four was re-verified reachable from the
+UI before the mark was changed, not merely present as a file:
+`AppCommands.swift`'s Postman export action, `TrafficFilterChipsView`'s
+`statusClasses`, and `NetworkRequestDetailView`'s dispatch to
+`DetailCookiesTabView` / `DetailGraphQLTabView`.
+
+Worth stating plainly, because this table is what anyone plans the next sprint
+from: `spec-drift-check` does not validate these marks, only the documented
+symbols and links elsewhere in this file. A stale `—` reads as "still to build"
+and nearly caused four already-shipped features to be scoped again. Re-sweep the
+Mac column whenever desktop work lands.
+
 | Capability                        | RN      | iOS | Android | Web | Mac app |
 | --------------------------------- | ------- | --- | ------- | --- | ------- |
 | Native capture                    | ●       | ●   | ●       | —   | —       |
@@ -154,15 +169,15 @@ SDK itself builds and ships for — do not conflate the two tables.
 | WebSocket frames¹⁷ ²⁰             | ●       | ●   | ●       | ●   | ●       |
 | Timing waterfall                  | ●       | ●   | ●       | ●   | ●       |
 | HAR / OTel / cURL¹ ²¹             | ●⁴      | ●   | ●       | ●   | ◐       |
-| Postman export                    | ●       | ●   | ●       | ●   | —       |
+| Postman export                    | ●       | ●   | ●       | ●   | ●       |
 | Mocking / throttle²²              | ●       | ●⁵  | ●⁶      | ●   | ●       |
 | Breakpoints³ ²³                   | ●       | ●   | ●       | ●   | ●       |
 | Pause/resume²                     | ●       | ●   | ●       | ●   | ●       |
-| Status-code chips²⁴               | ●       | ●   | ●       | ●   | —       |
+| Status-code chips²⁴               | ●       | ●   | ●       | ●   | ●       |
 | Group-by / sort-by⁷ ²⁵            | ●       | ●   | ●       | ●   | ◐       |
-| Cookie inspector                  | ●       | ●   | ●       | ●   | —       |
+| Cookie inspector                  | ●       | ●   | ●       | ●   | ●       |
 | Body search                       | ●       | ●   | ●       | ●   | ●       |
-| GraphQL detail                    | ●       | ●   | ●       | ●   | —       |
+| GraphQL detail                    | ●       | ●   | ●       | ●   | ●       |
 | Trace correlation⁹                | ●       | ●   | ●       | ●   | ●       |
 | Console panel²⁶                   | ●       | ●   | ●       | ●   | ●       |
 | Storage panel²⁶                   | ●       | ●   | ●       | ●   | ●       |
@@ -234,7 +249,7 @@ SDK itself builds and ships for — do not conflate the two tables.
 
 ²⁷ `TrafficStats`/`TrafficStatsAccumulator` compute exactly what SPEC §2 calls for — count, error rate, p50/p95 latency, byte totals — live, on every `TrafficStore.append` (`Sources/Core/Traffic/TrafficStats.swift`). The only UI consumer is `LiveTrafficHeader`'s single request-count line; there is no dedicated stats screen surfacing the rest. The data model is complete; the UI exposure is thin — partial, not shipped.
 
-²⁸ Confirmed present: gRPC/gRPC-Web frame decode (`GrpcBodyDecode.swift`, fixture-tested) and JSON pretty-print/outline (`JSONPrettyPrinter.swift`, `JSONOutlineNode.swift`). SSE/streaming assembly also exists but is scoped to LLM providers (`AnthropicStreamAssembler.swift`, `OpenAiStreamAssembler.swift`), not a general SSE decoder. No generic gzip/deflate content-encoding inflate path was found in `Sources/Core/Detail` — `BodyViewerRegistry.swift` recognizes `application/gzip` as a viewer _kind_ for routing, but nothing there or elsewhere inflates it, unlike the shared `BodyDecoder` chain (footnote ¹⁰) iOS/Android/RN/web all port in full. Partial, not the same registry.
+²⁸ Confirmed present: gRPC/gRPC-Web frame decode (`GrpcBodyDecode.swift`, fixture-tested), JSON pretty-print/outline (`JSONPrettyPrinter.swift`, `JSONOutlineNode.swift`), and generic gzip/deflate `Content-Encoding` decode — `RecordBodyExtractor` (`Sources/Core/Detail/RecordBody.swift`) runs every captured body through `HakkaCommon.bodyDecoders` (the exact same `BodyDecoderRegistry` instance iOS/RN/web share, footnote ¹⁰), which is where its `GzipBodyDecoder`/`DeflateBodyDecoder` (`InflateSupport.swift`, Apple's `Compression` framework) already live; `BodyViewerRegistry.swift`'s `application/gzip` binary-mime routing is a separate, narrower concern (choosing hex-dump vs. text for bodies the decoder chain didn't already turn to text) and was previously mistaken for the whole gap. Round-trip and fail-open coverage against independently-generated fixtures: `Tests/CoreTests/ContentEncodingDecodeTests.swift`. SSE/streaming assembly also exists but is scoped to LLM providers (`AnthropicStreamAssembler.swift`, `OpenAiStreamAssembler.swift`), not a general SSE decoder — that remains the actual partial-registry gap behind the `◐`.
 
 ²⁹ Mac app receives and stores `FrameworkSpan` frames over the bridge (`.span` case in `BridgeWireFrame`), correlating them with requests in `TraceStore` for the cross-target waterfall (footnote ³¹) — it consumes and renders spans, the same role web plays relative to `hakka-node` (footnote ¹¹), never originating one itself (no OTel SDK integration in `apps/hakka`).
 

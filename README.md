@@ -225,4 +225,9 @@ guided checklist, desktop-mode bridging, and production cohort capture.
 
 ## License
 
-MIT. See [LICENSE](./LICENSE).
+MIT. See [LICENSE](./LICENSE). That covers everything in this repository, the macOS app included:
+read it, fork it, build it, use your own build however you like.
+
+The official signed and notarized macOS builds are a paid product, on the honour system, with no
+DRM. The `hakka-*` SDKs are free forever and are not part of that. See
+[apps/hakka/COMMERCIAL.md](./apps/hakka/COMMERCIAL.md) for exactly where the line sits.

@@ -5,6 +5,10 @@ import SwiftUI
 /// New Request / Send / Save, wired straight to `AppModel` so the same
 /// actions the toolbar buttons trigger are reachable from the menu bar.
 struct AppCommands: Commands {
+    /// `openWindow` is only available through the environment, and `Commands`
+    /// can read it the same way a `View` does.
+    @Environment(\.openWindow) private var openSourceControl
+
     let model: AppModel
 
     var body: some Commands {
@@ -21,6 +25,14 @@ struct AppCommands: Commands {
             Button("Send") { Task { await model.sendActiveRequest() } }
                 .keyboardShortcut(.return, modifiers: .command)
                 .disabled(model.selection?.isRequest != true || model.editor.isSending)
+        }
+        // Sits beside Request/Traffic rather than under a generic View menu:
+        // it acts on the open collection, which is what the Request menu's
+        // neighbours do too.
+        CommandMenu("Source Control") {
+            Button("Show Source Control") { openSourceControl(id: WindowID.sourceControl) }
+                .keyboardShortcut("g", modifiers: [.command, .shift])
+                .disabled(model.collection.directoryURL == nil)
         }
         CommandMenu("Traffic") {
             Button("Focus Search") { model.traffic.focusSearchToken += 1 }

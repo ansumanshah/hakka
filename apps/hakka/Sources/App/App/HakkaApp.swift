@@ -37,5 +37,23 @@ struct HakkaApp: App {
         .commands {
             AppCommands(model: model)
         }
+
+        Window("Source Control", id: WindowID.sourceControl) {
+            GitPaneView(directoryURL: model.collection.directoryURL)
+                .environment(model)
+                .frame(minWidth: 720, minHeight: 460)  // ui-token-check-ignore: window chrome
+        }
+        .defaultSize(width: 980, height: 640)  // ui-token-check-ignore: window chrome
+
+        Settings {
+            SettingsView()
+                .environment(model)
+        }
     }
+}
+
+/// Scene identifiers, named once so the `Window` declaration and the menu item
+/// that opens it cannot drift apart on a string literal.
+enum WindowID {
+    static let sourceControl = "source-control"
 }

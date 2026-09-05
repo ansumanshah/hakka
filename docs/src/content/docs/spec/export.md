@@ -60,7 +60,7 @@ SPEC §5 rows "HAR / OTel / cURL" (footnotes 1, 4) and "Postman export":
 | Capability        | RN  | iOS | Android | Web | Mac app |
 | ----------------- | --- | --- | ------- | --- | ------- |
 | HAR / OTel / cURL | ●   | ●   | ●       | ●   | ◐       |
-| Postman export    | ●   | ●   | ●       | ●   | —       |
+| Postman export    | ●   | ●   | ●       | ●   | ●       |
 
 RN exports HAR via the inspector share button; OTel, Postman, and per-request cURL are
 available as API calls (`toCurl`, `toOtelJson`, `toPostmanCollection` from `hakka-core`) and
