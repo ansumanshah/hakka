@@ -376,19 +376,35 @@ struct BridgeSocketTests {
         #expect(peerA != peerB, "two distinct sockets must not share a peer id in deviceEvents either")
     }
 
-    // A raw-socket "disconnect fires `.disconnected`" test lived here and
-    // was removed: in this sandbox, once any prior test in this same
-    // process has opened and torn down a real socket, Network.framework
-    // stops delivering `.failed`/`.cancelled` for a *later*, completely
-    // unrelated `NWListener`'s connections within any workable timeout
-    // (reproduced even after just one prior single-socket test, regardless
-    // of how generous the wait) — a process/sandbox-level limitation, not a
-    // defect in `BridgeHub.removePeer`/`deviceEvents`. That plumbing is
-    // still proven over a real socket, just at the layer that actually
-    // matters for this feature: `TrafficModelDevicesTests`
-    // (Tests/AppTests) drives a real `TrafficModel`/`BridgeServer` through
-    // connect, capture, and disconnect, and passes reliably regardless of
-    // how many other real-socket tests ran before it in the same process.
+    @Test(arguments: [false, true])
+    func aDisconnectedClientEmitsADisconnectedEventForTheSamePeer(graceful: Bool) async throws {
+        let server = BridgeServer(options: BridgeServerOptions(port: 0, advertise: false))
+        try await server.start()
+        let events = await server.hub.subscribeDeviceEvents()
+        let port = try #require(await boundPort(of: server))
+        let client = openSocket(port: port)
+        try await client.send(.string(requestFrame(id: "disconnect")))
+        let connected = await nextDeviceEvent(events)
+
+        if graceful {
+            client.cancel(with: .normalClosure, reason: nil)
+        } else {
+            client.cancel()
+        }
+        let disconnected = await nextDeviceEvent(events)
+        await server.stop()
+
+        guard case let .connected(peerID) = connected else {
+            Issue.record("expected a connected event, got \(String(describing: connected))")
+            return
+        }
+        guard case let .disconnected(disconnectedPeerID) = disconnected else {
+            Issue.record("expected a disconnected event, got \(String(describing: disconnected))")
+            return
+        }
+        #expect(disconnectedPeerID == peerID)
+        #expect(await server.hub.peerCount == 0)
+    }
 
     private func waitForHostControl(_ stream: AsyncStream<ControlCommand>, timeout: Duration = .seconds(5)) async -> ControlCommand? {
         await withTaskGroup(of: ControlCommand?.self) { group in

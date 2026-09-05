@@ -23,11 +23,8 @@ import Network
 ///   (defense-in-depth alongside `NWProtocolWebSocket.Options.maximumMessageSize`
 ///   set on the listener) — exceeding it cancels the connection instead of
 ///   growing the buffer unbounded.
-/// - A peer disconnecting mid-frame: `nil` content (with or without an
-///   error) stops the receive loop without recursing again; the connection's
-///   state handler deregisters this peer from `hub` once the OS reports
-///   `.failed`/`.cancelled`. Any bytes buffered from an in-flight,
-///   never-completed frame are simply discarded.
+/// - A close frame or transport EOF cancels the connection so its state
+///   handler deregisters the peer and releases any incomplete frame.
 /// - Ordering: assembled frames from this connection reach `hub.ingest` in
 ///   the exact order they finished assembling, even under a burst of
 ///   back-to-back messages. `handleAssembledMessage` only *yields* text onto
@@ -152,7 +149,9 @@ public final class BridgeConnection: BridgeRelayPeer, @unchecked Sendable {
         connection.receiveMessage { [weak self] content, context, isComplete, error in
             guard let self else { return }
 
-            if error != nil {
+            let opcode = Self.opcode(from: context)
+            if error != nil || opcode == .close || (content == nil && opcode == nil) {
+                self.receiveBuffer.removeAll()
                 self.connection.cancel()
                 return
             }
@@ -167,16 +166,11 @@ public final class BridgeConnection: BridgeRelayPeer, @unchecked Sendable {
             }
 
             if isComplete {
-                let opcode = Self.opcode(from: context)
                 let assembled = self.receiveBuffer
                 self.receiveBuffer.removeAll()
                 self.handleAssembledMessage(assembled, opcode: opcode)
             }
 
-            // `nil` content (with no error) signals the peer closed its send
-            // side — stop recursing rather than spin; the state handler owns
-            // cleanup once the OS reports the connection as no longer alive.
-            guard content != nil else { return }
             self.receiveNext()
         }
     }
