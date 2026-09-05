@@ -37,7 +37,7 @@ internal object SharedPreferencesSnapshotter {
         return snapshots
     }
 
-    private fun readAllPrefs(context: Context): Map<String, Map<String, String>> {
+    internal fun readAllPrefs(context: Context): Map<String, Map<String, String>> {
         val prefsDir = java.io.File(context.filesDir.parent, "shared_prefs")
         val prefNames: List<String> = if (prefsDir.exists() && prefsDir.isDirectory) {
             prefsDir.listFiles()
