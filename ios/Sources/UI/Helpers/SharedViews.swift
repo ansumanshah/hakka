@@ -123,11 +123,11 @@ struct HakkaChip: View {
         Button(action: action) {
             Text(label)
                 .font(mono
-                    ? .system(size: HakkaMetrics.FontSize.xs, weight: .bold, design: .monospaced)
-                    : .caption2.weight(isActive ? .semibold : .regular))
+                    ? .system(.caption, design: .monospaced).weight(.bold)
+                    : .caption.weight(isActive ? .semibold : .regular))
                 .foregroundStyle(isActive ? tone : Theme.textTertiary)
                 .padding(.horizontal, Theme.s8)
-                .frame(height: Theme.ctlH)
+                .padding(.vertical, Theme.s6)
                 .background(isActive ? tone.opacity(0.10) : Color.clear)
                 .clipShape(RoundedRectangle(cornerRadius: Theme.radiusS))
                 .overlay(

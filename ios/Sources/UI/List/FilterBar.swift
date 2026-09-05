@@ -105,7 +105,7 @@ struct FilterBar: View {
         } label: {
             HStack(spacing: Theme.s4) {
                 Image(systemName: "line.3.horizontal.decrease.circle")
-                    .font(.caption2)
+                    .font(.system(size: Theme.iconM, weight: .medium))
                 Text("Filters")
                     .font(.caption2.weight(.semibold))
                 if disclosureFilterCount > 0 {
@@ -122,7 +122,7 @@ struct FilterBar: View {
             }
             .foregroundStyle(disclosureFilterCount > 0 ? Theme.accent : Theme.textSecondary)
             .padding(.horizontal, Theme.s10)
-            .frame(height: Theme.ctlHLg)
+            .frame(minHeight: Theme.tapMin)
             .background(Theme.surface.opacity(0.72))
             .clipShape(RoundedRectangle(cornerRadius: Theme.radiusM))
             .overlay(
@@ -191,7 +191,7 @@ struct FilterBar: View {
         HStack(spacing: Theme.s8) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(Theme.textTertiary)
-                .font(.footnote)
+                .font(.system(size: Theme.iconM, weight: .medium))
             TextField("Search or filter\u{2026}", text: $filterText)
                 .textFieldStyle(.plain)
                 .font(.footnote)
@@ -202,7 +202,7 @@ struct FilterBar: View {
                 Button(action: { filterText = "" }) {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(Theme.textTertiary)
-                        .font(.footnote)
+                        .font(.system(size: Theme.iconM, weight: .medium))
             }
             .buttonStyle(.plain)
             .hakkaIconTarget()
@@ -213,7 +213,7 @@ struct FilterBar: View {
             Button(action: { showPresets = true }) {
                 Image(systemName: "bookmark")
                     .foregroundStyle(hasActiveFilters ? Theme.accent : Theme.textTertiary)
-                    .font(.footnote)
+                    .font(.system(size: Theme.iconM, weight: .medium))
             }
             .buttonStyle(.plain)
             .accessibilityLabel(Text("Filter presets"))

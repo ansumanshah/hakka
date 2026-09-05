@@ -159,6 +159,7 @@ enum Theme {
 
     static let iconXS: CGFloat = 8
     static let iconS: CGFloat = 9
+    static let iconM: CGFloat = 18
 
     // MARK: - Row
 

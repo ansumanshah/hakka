@@ -25,51 +25,32 @@ struct RequestListView: View {
     @State private var sortAscending: Bool = false
     @State private var groupBy: GroupBy = .none
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         VStack(spacing: 0) {
             if let req = selectedRequest {
                 RequestDetailView(request: req, onBack: { selectedRequest = nil })
             } else {
-                if selectionMode {
-                    SelectionBar(
-                        selectedCount: selectedIds.count,
-                        onShare: shareSelected,
-                        onDone: exitSelectionMode
-                    )
+                if dynamicTypeSize.isAccessibilitySize {
+                    ScrollView {
+                        VStack(spacing: Theme.s8) {
+                            networkChrome
+                            if sortedFilteredRequests.isEmpty {
+                                EmptyState()
+                            } else {
+                                requestRows
+                            }
+                        }
+                        .padding(.bottom, Theme.s16)
+                    }
                 } else {
-                    ListHeader(
-                        requests: requests,
-                        isPaused: isPaused,
-                        onSelect: enterSelectionMode,
-                        onShare: shareReport,
-                        onClear: clearRequests,
-                        onClose: { dismiss(); onDismiss() },
-                        onTogglePause: togglePause,
-                        onSettings: onSettings
-                    )
-                }
-                // Sort/Group folds into FilterBar's "Filters +n" disclosure,
-                // not a separate always-visible row.
-                FilterBar(
-                    filterText: $filterText,
-                    requests: requests,
-                    selectedDomains: $selectedDomains,
-                    selectedMethods: $selectedMethods,
-                    selectedStatusGroup: $selectedStatusGroup,
-                    sortField: $sortField,
-                    sortAscending: $sortAscending,
-                    groupBy: $groupBy
-                )
-
-                if isPaused {
-                    pausedBanner
-                }
-
-                if sortedFilteredRequests.isEmpty {
-                    EmptyState()
-                } else {
-                    requestList
+                    networkChrome
+                    if sortedFilteredRequests.isEmpty {
+                        EmptyState()
+                    } else {
+                        requestList
+                    }
                 }
             }
         }
@@ -94,6 +75,35 @@ struct RequestListView: View {
         }
     }
 
+    @ViewBuilder
+    private var networkChrome: some View {
+        if selectionMode {
+            SelectionBar(selectedCount: selectedIds.count, onShare: shareSelected, onDone: exitSelectionMode)
+        } else {
+            ListHeader(
+                requests: requests,
+                isPaused: isPaused,
+                onSelect: enterSelectionMode,
+                onShare: shareReport,
+                onClear: clearRequests,
+                onClose: { dismiss(); onDismiss() },
+                onTogglePause: togglePause,
+                onSettings: onSettings
+            )
+        }
+        FilterBar(
+            filterText: $filterText,
+            requests: requests,
+            selectedDomains: $selectedDomains,
+            selectedMethods: $selectedMethods,
+            selectedStatusGroup: $selectedStatusGroup,
+            sortField: $sortField,
+            sortAscending: $sortAscending,
+            groupBy: $groupBy
+        )
+        if isPaused { pausedBanner }
+    }
+
 
     // MARK: - Paused Banner
 
@@ -114,7 +124,13 @@ struct RequestListView: View {
 
     private var requestList: some View {
         ScrollView {
-            LazyVStack(spacing: Theme.s6) {
+            requestRows
+        }
+        .scrollIndicators(.hidden)
+    }
+
+    private var requestRows: some View {
+        LazyVStack(spacing: Theme.s6) {
                 let groups = sortedFilteredRequests.grouped(by: groupBy)
                 let showHeaders = groupBy != .none && groups.count > 1
 
@@ -145,11 +161,8 @@ struct RequestListView: View {
                         }
                     }
                 }
-            }
             .padding(.horizontal, HakkaMetrics.Layout.gutter)
-            .padding(.bottom, Theme.s16)
         }
-        .scrollIndicators(.hidden)
     }
 
     private func selectableRow(for request: NetworkRequest) -> some View {

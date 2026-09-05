@@ -62,9 +62,14 @@ struct ListHeader: View {
     }
 
     private var title: some View {
-        Label("Network", systemImage: "antenna.radiowaves.left.and.right")
-            .font(.headline.weight(.semibold))
-            .foregroundStyle(Theme.text)
+        HStack(spacing: Theme.s6) {
+            Image(systemName: "antenna.radiowaves.left.and.right")
+                .font(.system(size: Theme.iconM, weight: .semibold))
+                .accessibilityHidden(true)
+            Text("Network")
+                .font(.headline.weight(.semibold))
+        }
+        .foregroundStyle(Theme.text)
     }
 
     private var controls: some View {
@@ -88,7 +93,7 @@ struct ListHeader: View {
     private var pauseButton: some View {
         Button(action: onTogglePause) {
             Image(systemName: isPaused ? "play.fill" : "pause.fill")
-                .font(.subheadline.weight(.semibold))
+                .font(.system(size: Theme.iconM, weight: .semibold))
                 .foregroundStyle(isPaused ? Theme.warning : Theme.textSecondary)
                 .frame(width: HakkaMetrics.ControlHeight.icon, height: HakkaMetrics.ControlHeight.icon)
                 .contentShape(Circle())
@@ -113,7 +118,7 @@ struct ListHeader: View {
             .disabled(requests.isEmpty)
         } label: {
             Image(systemName: "ellipsis")
-                .font(.subheadline.weight(.semibold))
+                .font(.system(size: Theme.iconM, weight: .semibold))
                 .foregroundStyle(Theme.textSecondary)
                 .frame(width: HakkaMetrics.ControlHeight.icon, height: HakkaMetrics.ControlHeight.icon)
                 .contentShape(Circle())
@@ -137,7 +142,7 @@ struct ListHeader: View {
     ) -> some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.subheadline.weight(.semibold))
+                .font(.system(size: Theme.iconM, weight: .semibold))
                 .foregroundStyle(disabled ? Theme.textTertiary : destructive ? Theme.error : Theme.textSecondary)
                 .frame(width: HakkaMetrics.ControlHeight.icon, height: HakkaMetrics.ControlHeight.icon)
                 .contentShape(Circle())

@@ -61,7 +61,11 @@ struct DashboardView: View {
                 VStack(alignment: .leading, spacing: Theme.s6) {
                     title
                     Button(action: onSettings) {
-                        Label("Settings", systemImage: "gearshape")
+                        HStack(spacing: Theme.s6) {
+                            Image(systemName: "gearshape")
+                                .font(.system(size: Theme.iconM, weight: .semibold))
+                            Text("Settings")
+                        }
                     }
                     .buttonStyle(.bordered)
                     .frame(minHeight: Theme.tapMin)
@@ -80,7 +84,7 @@ struct DashboardView: View {
     private var title: some View {
         HStack(spacing: Theme.s8) {
             Image(systemName: "chart.bar.fill")
-                .font(.caption.weight(.semibold))
+                .font(.system(size: Theme.iconM, weight: .semibold))
                 .foregroundStyle(Theme.textTertiary)
             Text("Stats")
                 .font(.subheadline.weight(.semibold))
@@ -91,7 +95,7 @@ struct DashboardView: View {
     private var settingsButton: some View {
         Button(action: onSettings) {
             Image(systemName: "gearshape")
-                .font(.caption.weight(.semibold))
+                .font(.system(size: Theme.iconM, weight: .semibold))
                 .foregroundStyle(Theme.textSecondary)
         }
         .buttonStyle(.plain)
