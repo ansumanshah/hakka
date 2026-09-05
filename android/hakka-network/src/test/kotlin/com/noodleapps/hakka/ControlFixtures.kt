@@ -30,4 +30,9 @@ object ControlFixtures {
         val file = File(repoRoot, "fixtures/control/$name")
         return JSONObject(file.readText())
     }
+
+    fun readRuntimeControlJSON(name: String): JSONObject {
+        val file = File(repoRoot, "fixtures/runtime-control/$name")
+        return JSONObject(file.readText())
+    }
 }

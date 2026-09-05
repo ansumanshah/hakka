@@ -68,14 +68,10 @@ public enum HakkaInternalSocketMarker {
 ///
 /// ## Receiving control frames
 ///
-/// The bridge hub relays every text frame to every connected peer, so this
-/// client's receive loop may see its own `{"type":"request",...}` frames
-/// echoed back, as well as `{"type":"control",...}` frames from other peers
-/// (e.g. the MCP server driving mock/breakpoint/throttle from a chat tool).
-/// Anything that isn't a valid `{"type":"control","payload":<ControlCommand>}`
-/// frame — malformed JSON, an unknown `type`, a `payload` that fails
-/// `parseControlCommand` — is silently ignored; see
-/// `packages/hakka-core/src/engine/control.ts` for the shared contract.
+/// Announces native capabilities and accepts a connection-local target identity.
+/// Valid targeted commands are applied once, then acknowledged on the same socket.
+/// Legacy `control` frames remain supported without acknowledgments; unrelated
+/// capture frames, malformed commands and unknown frame types are ignored.
 public final class HakkaBridgeClient: @unchecked Sendable {
 
     // MARK: - Constants
@@ -97,6 +93,7 @@ public final class HakkaBridgeClient: @unchecked Sendable {
     private var backoffMs = HakkaBridgeClient.minBackoffMs
     private var pendingFrames: [String] = []
     private var reconnectWorkItem: DispatchWorkItem?
+    private let runtimeControl = RuntimeControlSession()
 
     // MARK: - Init
 
@@ -193,7 +190,17 @@ public final class HakkaBridgeClient: @unchecked Sendable {
         isStarted = true
         lock.unlock()
 
+        runtimeControl.reset()
         task.resume()
+        struct Hello: Encodable {
+            let role = "runtime"
+            let runtime = "ios"
+            let protocolVersion = 1
+            let capabilities = RuntimeControlFrame.nativeCapabilities
+        }
+        if let hello = encodeRuntimeControlFrame("runtime.hello", payload: Hello()) {
+            task.send(.string(hello)) { _ in }
+        }
         flushQueue()
         schedulePing()
         receiveLoop(on: task)
@@ -202,6 +209,7 @@ public final class HakkaBridgeClient: @unchecked Sendable {
     private func closeConnection() {
         reconnectWorkItem?.cancel()
         reconnectWorkItem = nil
+        runtimeControl.reset()
         let t: URLSessionWebSocketTask?
         let s: URLSession?
         lock.lock()
@@ -281,8 +289,11 @@ public final class HakkaBridgeClient: @unchecked Sendable {
 
             switch result {
             case .success(let message):
-                self.handleIncoming(message)
-                self.receiveLoop(on: task)
+                self.queue.async {
+                    guard self.task === task else { return }
+                    self.handleIncoming(message, on: task)
+                    self.receiveLoop(on: task)
+                }
             case .failure:
                 // Let the ping/send error paths own reconnect scheduling —
                 // avoid double-scheduling a reconnect from both places.
@@ -291,15 +302,19 @@ public final class HakkaBridgeClient: @unchecked Sendable {
         }
     }
 
-    /// Handle one inbound WebSocket message. Only `{"type":"control",...}`
-    /// text frames are meaningful here; everything else (binary frames,
-    /// relayed `"request"` frames, malformed JSON) is ignored.
-    private func handleIncoming(_ message: URLSessionWebSocketTask.Message) {
-        guard case .string(let text) = message,
-              let data = text.data(using: .utf8) else { return }
-        guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              obj["type"] as? String == "control" else { return }
-        guard let command = parseControlCommand(obj["payload"]) else { return }
+    /// Handle legacy and targeted control frames on the connection's serial queue.
+    private func handleIncoming(_ message: URLSessionWebSocketTask.Message, on task: URLSessionWebSocketTask) {
+        guard case .string(let text) = message else { return }
+        if let frame = parseRuntimeControlFrame(text) {
+            if let result = runtimeControl.receive(frame, apply: { applyControlCommand($0) }),
+               let response = encodeRuntimeControlFrame("control.result", payload: result) {
+                // Results belong to this connection and must never enter the reconnect queue.
+                task.send(.string(response)) { _ in }
+            }
+            return
+        }
+        guard let obj = try? JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any],
+              obj["type"] as? String == "control", let command = parseControlCommand(obj["payload"]) else { return }
         applyControlCommand(command)
     }
 

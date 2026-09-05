@@ -10,7 +10,7 @@ Design principles, architecture, and SDK design decisions: [hakka.noodleapps.com
 ## Requirements
 
 - Bun version from `package.json` (`packageManager`)
-- Node.js 22+ and `just`
+- Node.js 22.12 or 24 and `just`
 - Python 3 and Playwright Chromium (for browser E2E)
 - JDK 17+
 - Xcode 16+

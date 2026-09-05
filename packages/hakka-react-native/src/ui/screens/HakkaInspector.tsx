@@ -673,7 +673,7 @@ namespace HakkaInspector {
   export function Wrapper({ disabled = false, children, theme = 'dark', ...props }: WrapperProps): React.ReactElement {
     const scheme = useColorScheme()
     if (disabled) return children as React.ReactElement
-    const resolvedTheme = theme === 'system' ? (scheme ?? 'dark') : theme
+    const resolvedTheme = theme === 'system' ? (scheme === 'light' ? 'light' : 'dark') : theme
     const useNativeOverlay = (props.mode ?? 'bubble') === 'bubble' && props.bubble?.renderMode === 'native'
 
     return (
@@ -700,7 +700,7 @@ namespace HakkaInspector {
   > = ({ visible = true, theme = 'dark', onClose, ...props }) => {
     const scheme = useColorScheme()
     if (!visible) return null
-    const resolvedTheme = theme === 'system' ? (scheme ?? 'dark') : theme
+    const resolvedTheme = theme === 'system' ? (scheme === 'light' ? 'light' : 'dark') : theme
     const useNativeOverlay = (props.mode ?? 'bubble') === 'bubble' && props.bubble?.renderMode === 'native'
 
     return (

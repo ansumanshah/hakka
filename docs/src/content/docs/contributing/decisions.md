@@ -8,16 +8,15 @@ pass — SDK floors, version pins, docs stack. For the larger architectural bets
 (trace correlation, production capture, embeddable components, remote
 sessions), see the [Architecture Decision Records](/contributing/adr/).
 
-## Android SDK Levels
+## Android Toolchains
 
-- Core Android modules compile and target SDK 35.
-- The React Native example app compiles and targets SDK 36.
-- **Decision:** Keep core Android modules at compile/target SDK 35 for the pre-1.0 base SDK.
-- **Trigger to revisit:** Move core modules to SDK 36 only when a public core dependency, Play policy, or Android Gradle Plugin requirement makes SDK 36 the lower-friction consumer baseline.
+- The standalone Android SDK compiles and targets SDK 37 with AGP 9.1.1, Gradle 9.3.1, and Kotlin 2.2.21.
+- The React Native example compiles and targets SDK 36 with AGP 8.12, Gradle 8.13, and Kotlin 2.1.20, matching React Native 0.86.3. The app consumes locally published Hakka artifacts so its supported host toolchain stays isolated from the standalone SDK's AGP 9 build.
+- **Decision:** Keep the React Native wrapper on its host framework's supported toolchain until React Native's Gradle plugin supports AGP 9. The wrapper still consumes the Android SDK artifacts and is verified as a real app build.
 
 ## React Native Support Floor
 
-- The package peer range is `react-native >=0.78.0`; the local runtime validation app runs React Native 0.85.3.
+- The package peer range is `react-native >=0.78.0`; both local runtime validation apps run React Native 0.86.3, the exact version required by Expo 57. React Native 0.87 is deferred because its generated `StyleSheet` types require a broader UI style-typing migration.
 - The package prefers the New Architecture TurboModule path, but the TypeScript surface and optional JS fallback do not require a newer RN version.
 - **Decision:** Keep `react-native >=0.78.0` until a compatibility matrix proves a higher minimum or a required codegen/API dependency forces the change.
 - **Trigger to revisit:** Raise the peer floor only with explicit validation for the new minimum, the latest stable RN, and both Android/iOS example smoke checks.
@@ -86,7 +85,7 @@ Expo SDK 56 introduced a more direct Apple native-module path built around Swift
 - **Context:** `hakka-browser` captures browser `fetch`/`XHR`/`WebSocket`. A Next.js app also makes outbound HTTP from the **server** (Server Components, Route Handlers, Server Actions, middleware). Developers want both sides in one inspector, the way a proxy (mitmproxy) would show everything — but without a proxy's cost.
 - **Decision: instrument in-process; do not build a proxy.** Patch `globalThis.fetch` and Node `http`/`https` inside the Next server runtime rather than routing traffic through an external MITM proxy.
   - **Rationale:** no CA cert / `NODE_EXTRA_CA_CERTS` / TLS re-decryption, no extra network hop, and the interceptor sees decrypted application-level data natively. It also captures _origin context_ (which route/component/action made the call) that a wire-level proxy cannot know. The capture engine (`hakka-core`) is already runtime-agnostic — `enableFetchInterceptor` patches `globalThis.fetch`, which exists in Node 18+ (undici) — so the browser interceptor runs server-side unchanged.
-- **Decision: integrate via Next's `instrumentation.ts` `register()` hook**, the same server-boot seam OpenTelemetry/Sentry use. A `hakka-next` package exposes `startServerCapture()` for that hook; the client overlay is unchanged.
+- **Decision: integrate via Next's `instrumentation.ts` `register()` hook**, the same server-boot seam OpenTelemetry/Sentry use. The `hakka-node/next` package exposes `register()` for that hook; the client overlay is unchanged.
 - **Decision: reuse the existing bridge hub as the unifying transport.** Server captures stream into the `packages/hakka-bridge` WebSocket hub (`{ type: 'request', payload: NetworkRequest }`); the browser overlay subscribes to the same hub, so server and client requests land in one store and one UI. (Dev alternative: a Next route handler SSE endpoint.)
 - **Decision: tag every record with `runtime: 'client' | 'server' | 'edge'`** (new optional `NetworkRequest` field). The overlay filters/groups on it. Existing `source`/`library` are unchanged.
 - **Decision: run the server store in a Node `worker_thread`** via the same `mode: 'store'` engine the browser Worker uses — the server mirror of the off-thread store, keeping the dev server's main thread clean.
@@ -97,7 +96,7 @@ Expo SDK 56 introduced a more direct Apple native-module path built around Swift
   - **Dev-time tool.** In `next dev` the Node server is long-lived and local, so the WebSocket/SSE stream to the browser works. Serverless/edge **prod** has no long-lived socket — the prod path is OTel export (already in `hakka-core`), not the live overlay.
 - **Differentiator:** because capture is in-process with origin context, a future version can correlate `client request → server route → that route's downstream calls` as one trace (via `traceparent` propagation), which a wire proxy cannot. Hakka already exports OTel, so the trace model is in place.
 - **Version split:**
-  - **v1:** core `http`/`https` interceptor + `runtime` tag; `hakka-next` `startServerCapture()` streaming to the bridge hub; overlay runtime filter; a Next example app proving server + client in one UI.
+  - **v1:** core `http`/`https` interceptor + `runtime` tag; `hakka-node/next` streaming to the bridge hub; overlay runtime filter; a Next example app proving server + client in one UI.
   - **v1.1:** SSE endpoint helper (no separate bridge process), `worker_thread` store on the server, edge-runtime capture.
   - **v2:** client↔server request correlation / trace waterfall via header propagation.
 - **Trigger to revisit:** revisit the proxy stance only if a use case needs traffic from processes Hakka cannot instrument (non-JS sidecars, third-party binaries) — there a local proxy lane could complement, not replace, in-process capture.

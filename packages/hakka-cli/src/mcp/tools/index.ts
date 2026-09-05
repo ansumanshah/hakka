@@ -3,7 +3,7 @@
  * grammar live in docs/mcp/overview.mdx. Each tool's registration lives in
  * its own module in this folder; this file only composes them in order.
  * Write tools are agent-issued control commands relayed over the bridge to
- * the connected app(s) — fire-and-forget, DEV builds only.
+ * the selected runtime, with application acknowledgment in DEV builds.
  */
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
@@ -25,6 +25,7 @@ import { registerGenerateTestTool } from './generateTest.js'
 import { registerGetRequestTool } from './getRequest.js'
 import { registerGetTraceTool } from './getTrace.js'
 import { registerListRequestsTool } from './listRequests.js'
+import { registerListTargetsTool } from './listTargets.js'
 import { registerPromoteCaptureToMockTool } from './promoteCaptureToMock.js'
 import { registerReplayRequestTool } from './replayRequest.js'
 import { registerSearchRequestsTool } from './searchRequests.js'
@@ -41,6 +42,7 @@ export function registerTools(
   sender: ControlSender,
   spanStore: SpanStore,
 ): void {
+  registerListTargetsTool(server, sender)
   registerListRequestsTool(server, store)
   registerGetRequestTool(server, store)
   registerSearchRequestsTool(server, store)

@@ -32,6 +32,8 @@ import {
   type ExfiltrationFinding,
 } from 'hakka-node/ci'
 
+import { inputErrorReport, projectBaselineFindings, writeJsonReport } from './jsonReport'
+
 const c = {
   bold: (s: string) => `\x1b[1m${s}\x1b[0m`,
   dim: (s: string) => `\x1b[2m${s}\x1b[0m`,
@@ -56,7 +58,9 @@ function loadCiCapture(path: string): NetworkRequest[] {
 
 function usage(): void {
   logErr(`Usage: ${c.cyan('hakka ci-baseline record <capture.hakka> <baseline.txt>')}`)
-  logErr(`       ${c.cyan('hakka ci-baseline check <capture.hakka> <baseline.txt>')} ${c.dim('[--allow-host <host>]')}`)
+  logErr(
+    `       ${c.cyan('hakka ci-baseline check <capture.hakka> <baseline.txt>')} ${c.dim('[--allow-host <host>] [--json]')}`,
+  )
 }
 
 /** `hakka ci-baseline record` — normalize a capture and (over)write the baseline file. Sets process.exitCode (0 pass / 2 bad input) — does not call process.exit. */
@@ -122,10 +126,11 @@ function printCheckReport(capturePath: string, baselinePath: string, result: CiC
 export function checkCommand(
   capturePath: string | undefined,
   baselinePath: string | undefined,
-  options: { allowHosts?: string[] } = {},
+  options: { allowHosts?: string[]; json?: boolean } = {},
 ): CiCheckResult | undefined {
   if (!capturePath || !baselinePath) {
-    usage()
+    if (options.json) writeJsonReport(inputErrorReport('ci-baseline check', 'MISSING_INPUT_PATH'))
+    else usage()
     process.exitCode = 2
     return undefined
   }
@@ -134,7 +139,8 @@ export function checkCommand(
   try {
     requests = loadCiCapture(capturePath)
   } catch (e: unknown) {
-    logErr(`${c.red('Error:')} ${e instanceof Error ? e.message : String(e)}`)
+    if (options.json) writeJsonReport(inputErrorReport('ci-baseline check', 'CAPTURE_INVALID_OR_UNREADABLE'))
+    else logErr(`${c.red('Error:')} ${e instanceof Error ? e.message : String(e)}`)
     process.exitCode = 2
     return undefined
   }
@@ -144,10 +150,12 @@ export function checkCommand(
     baselineText = readFileSync(baselinePath, 'utf8')
   } catch (e: unknown) {
     const reason = e instanceof Error ? e.message : String(e)
-    logErr(
-      `${c.red('Error:')} could not read baseline ${baselinePath}: ${reason}\n` +
-        `  No baseline yet? Run ${c.cyan(`hakka ci-baseline record ${capturePath} ${baselinePath}`)} once and commit it.`,
-    )
+    if (options.json) writeJsonReport(inputErrorReport('ci-baseline check', 'BASELINE_UNREADABLE'))
+    else
+      logErr(
+        `${c.red('Error:')} could not read baseline ${baselinePath}: ${reason}\n` +
+          `  No baseline yet? Run ${c.cyan(`hakka ci-baseline record ${capturePath} ${baselinePath}`)} once and commit it.`,
+      )
     process.exitCode = 2
     return undefined
   }
@@ -156,7 +164,8 @@ export function checkCommand(
   try {
     baseline = parseBaseline(baselineText)
   } catch (e: unknown) {
-    logErr(`${c.red('Error:')} ${e instanceof Error ? e.message : String(e)}`)
+    if (options.json) writeJsonReport(inputErrorReport('ci-baseline check', 'BASELINE_INVALID'))
+    else logErr(`${c.red('Error:')} ${e instanceof Error ? e.message : String(e)}`)
     process.exitCode = 2
     return undefined
   }
@@ -174,8 +183,21 @@ export function checkCommand(
   const pass = !driftFails && exfiltrationFindings.length === 0
 
   const result: CiCheckResult = { driftFindings, exfiltrationFindings, pass }
-  printCheckReport(capturePath, baselinePath, result)
-  process.exitCode = pass ? 0 : 1
+  const exitCode = pass ? 0 : 1
+  if (options.json) {
+    writeJsonReport({
+      schemaVersion: 1,
+      command: 'ci-baseline check',
+      pass,
+      exitCode,
+      violations: [],
+      findings: projectBaselineFindings(driftFindings, exfiltrationFindings),
+      redaction: { applied: true },
+    })
+  } else {
+    printCheckReport(capturePath, baselinePath, result)
+  }
+  process.exitCode = exitCode
   return result
 }
 
@@ -185,6 +207,7 @@ export function parseCiBaselineArgs(args: string[]): {
   capturePath: string | undefined
   baselinePath: string | undefined
   allowHosts: string[]
+  json: boolean
 } {
   const mode = args[0] === 'record' || args[0] === 'check' ? args[0] : undefined
   const allowHosts: string[] = []
@@ -198,18 +221,19 @@ export function parseCiBaselineArgs(args: string[]): {
       positional.push(a)
     }
   }
-  return { mode, capturePath: positional[0], baselinePath: positional[1], allowHosts }
+  return { mode, capturePath: positional[0], baselinePath: positional[1], allowHosts, json: args.includes('--json') }
 }
 
 /** `hakka ci-baseline` entrypoint dispatch. */
 export function ciBaselineCommand(args: string[]): void {
-  const { mode, capturePath, baselinePath, allowHosts } = parseCiBaselineArgs(args)
+  const { mode, capturePath, baselinePath, allowHosts, json } = parseCiBaselineArgs(args)
   if (mode === 'record') {
     recordCommand(capturePath, baselinePath)
   } else if (mode === 'check') {
-    checkCommand(capturePath, baselinePath, { allowHosts })
+    checkCommand(capturePath, baselinePath, { allowHosts, json })
   } else {
-    usage()
+    if (json) writeJsonReport(inputErrorReport('ci-baseline check', 'INVALID_SUBCOMMAND'))
+    else usage()
     process.exitCode = 2
   }
 }

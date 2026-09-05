@@ -79,6 +79,7 @@ export function stripBodies(req: NetworkRequest): NetworkRequest {
 }
 
 export type MainToWorker =
+  | { type: 'controlApplied'; rid: number; ok: boolean }
   | { type: 'init'; config?: StoreConfig }
   | { type: 'ingest'; req: NetworkRequest }
   | { type: 'update'; partial: Partial<NetworkRequest> & { id: string } }
@@ -119,4 +120,4 @@ export type WorkerToMain =
   // Remote control command received over the bridge (e.g. hakka mcp
   // create_mock). Forwarded to the main thread because the mock/breakpoint/
   // throttle engines live where the interceptors run.
-  | { type: 'control'; payload: unknown }
+  | { type: 'control'; payload: unknown; rid?: number }

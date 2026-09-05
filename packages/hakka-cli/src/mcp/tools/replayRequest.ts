@@ -5,7 +5,7 @@ import { scrubNetworkRequestForShare } from 'hakka-core'
 import { z } from 'zod'
 
 import type { RequestStore } from '../RequestStore.js'
-import { type ControlSender, dispatch } from './controlDispatch.js'
+import { type ControlSender, dispatchAcknowledged } from './controlDispatch.js'
 import { awaitReplayResult, checkReplayable } from './replayHelpers.js'
 import { textResult } from './toolResult.js'
 
@@ -23,6 +23,10 @@ export function registerReplayRequestTool(server: McpServer, store: RequestStore
         'repro. Refuses websocket and server/edge-captured (Next.js) requests immediately with a structured ' +
         'error instead of timing out — see runtime_not_replayable.',
       inputSchema: {
+        targetId: z
+          .string()
+          .optional()
+          .describe('Runtime target ID from list_targets; required when multiple peers are connected.'),
         requestId: z.string().min(1).describe('The id of a previously captured request to replay'),
         timeoutMs: z
           .number()
@@ -47,12 +51,17 @@ export function registerReplayRequestTool(server: McpServer, store: RequestStore
       }
 
       const replayMarker = `mcp-replay-${randomUUID()}`
-      const sent = dispatch(sender, { kind: 'request.replay', requestId, replayMarker })
+      const replayResult = awaitReplayResult(store, replayMarker, timeoutMs)
+      const sent = await dispatchAcknowledged(sender, args.targetId, {
+        kind: 'request.replay',
+        requestId,
+        replayMarker,
+      })
       if (!sent) {
         return textResult({ error: 'bridge_disconnected' }, true)
       }
 
-      const replayed = await awaitReplayResult(store, replayMarker, timeoutMs)
+      const replayed = await replayResult
       if (!replayed) {
         return textResult({ error: 'timeout', message: `No replay landed within ${timeoutMs}ms` }, true)
       }

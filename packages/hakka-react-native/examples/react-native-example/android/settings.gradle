@@ -16,4 +16,3 @@ extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
 rootProject.name = 'HakkaRNExample'
 include ':app'
 includeBuild('../node_modules/@react-native/gradle-plugin')
-includeBuild('../../../../../android')

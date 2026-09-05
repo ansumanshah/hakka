@@ -6,7 +6,7 @@ import { z } from 'zod'
 
 import { evaluateAssertions, evaluateOutcome } from '../../assert.js'
 import type { RequestStore } from '../RequestStore.js'
-import { type ControlSender, dispatch } from './controlDispatch.js'
+import { type ControlSender, dispatchAcknowledged } from './controlDispatch.js'
 import { buildMockRuleFromArgs } from './mockRuleArgs.js'
 import { awaitReplayResult, checkReplayable } from './replayHelpers.js'
 import { textResult } from './toolResult.js'
@@ -29,6 +29,10 @@ export function registerVerifyFixTool(server: McpServer, store: RequestStore, se
         'status and/or response-body-contains. Returned captures are share-scrubbed. The "fix this, then verify it" loop in one call. Refuses ' +
         'websocket and server/edge-captured (Next.js) requests immediately (see replay_request).',
       inputSchema: {
+        targetId: z
+          .string()
+          .optional()
+          .describe('Runtime target ID from list_targets; required when multiple peers are connected.'),
         requestId: z.string().min(1).describe('The id of a previously captured request to replay and verify'),
         mock: z
           .object({
@@ -84,6 +88,8 @@ export function registerVerifyFixTool(server: McpServer, store: RequestStore, se
       },
     },
     async (args) => {
+      const targets = sender.getTargets?.()
+      const targetId = args.targetId ?? (targets?.length === 1 ? targets[0]?.id : undefined)
       const { requestId, mock, waitMs = 0, timeoutMs = DEFAULT_TIMEOUT_MS, expect, maxDurationMs } = args
 
       const req = store.get(requestId)
@@ -94,7 +100,7 @@ export function registerVerifyFixTool(server: McpServer, store: RequestStore, se
       if (mock) {
         const mockId = `mcp-verify-mock-${randomUUID()}`
         const rule = buildMockRuleFromArgs(mockId, mock)
-        const mockSent = dispatch(sender, { kind: 'mock.add', rule })
+        const mockSent = await dispatchAcknowledged(sender, targetId, { kind: 'mock.add', rule })
         if (!mockSent) {
           return textResult({ error: 'bridge_disconnected', step: 'mock.add' }, true)
         }
@@ -110,12 +116,17 @@ export function registerVerifyFixTool(server: McpServer, store: RequestStore, se
       }
 
       const replayMarker = `mcp-verify-replay-${randomUUID()}`
-      const replaySent = dispatch(sender, { kind: 'request.replay', requestId, replayMarker })
+      const replayResult = awaitReplayResult(store, replayMarker, timeoutMs)
+      const replaySent = await dispatchAcknowledged(sender, targetId, {
+        kind: 'request.replay',
+        requestId,
+        replayMarker,
+      })
       if (!replaySent) {
         return textResult({ error: 'bridge_disconnected', step: 'request.replay' }, true)
       }
 
-      const replayed = await awaitReplayResult(store, replayMarker, timeoutMs)
+      const replayed = await replayResult
       if (!replayed) {
         return textResult({ error: 'timeout', message: `No replay landed within ${timeoutMs}ms` }, true)
       }

@@ -32,7 +32,7 @@ export interface Breakpoint {
   enabled: boolean
 }
 
-export type BreakpointInput = Omit<Breakpoint, 'id'> & { id?: string }
+export type BreakpointInput = Omit<Breakpoint, 'id' | 'on'> & { id?: string; on?: BreakpointPhase }
 
 /** The editable request shown while paused at the request phase. */
 export interface PausedRequest {

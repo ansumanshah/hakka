@@ -1,6 +1,6 @@
 import type { FrameworkSpan, LogEntry, NetworkRequest, StorageSnapshot } from 'hakka-core'
 
-import { parseBridgeMessage } from './protocol'
+import { parseBridgeMessage, type BridgeMessage } from './protocol'
 
 export interface BridgeHubOptions {
   /** Max records retained in the buffer; oldest are dropped. Default 1000. */
@@ -80,8 +80,7 @@ export class BridgeHub {
    *   receiving peer's job): returns `{ kind: 'control' }`.
    * - Malformed frames are dropped: returns `null`.
    */
-  ingest(raw: string): IngestResult {
-    const message = parseBridgeMessage(raw)
+  ingest(raw: string, message: BridgeMessage | null = parseBridgeMessage(raw)): IngestResult {
     if (!message) return null
 
     if (message.type === 'control') {

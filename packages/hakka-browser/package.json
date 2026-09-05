@@ -146,7 +146,7 @@
     "tsdown": "^0.23.0",
     "typescript": "^7.0.2",
     "vite": "^8.2.2",
-    "vitest": "^4.1.11",
+    "vitest": "^5.0.0",
     "webpack": "^5.110.3"
   },
   "peerDependencies": {
@@ -172,5 +172,8 @@
     "webpack": {
       "optional": true
     }
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

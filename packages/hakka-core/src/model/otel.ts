@@ -314,10 +314,12 @@ function metricPoint(
 function attributesToOtel(
   attributes: Readonly<Record<string, string | number | boolean | undefined>> = {},
 ): OtelAttribute[] {
-  return Object.entries(attributes)
-    .filter((entry): entry is [string, string | number | boolean] => entry[1] !== undefined)
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([key, value]) => ({ key, value }))
+  const output: OtelAttribute[] = []
+  for (const key of Object.keys(attributes).sort((left, right) => left.localeCompare(right))) {
+    const value = attributes[key]
+    if (value !== undefined) output.push({ key, value })
+  }
+  return output
 }
 
 function compact<T>(values: readonly (T | undefined)[]): T[] {

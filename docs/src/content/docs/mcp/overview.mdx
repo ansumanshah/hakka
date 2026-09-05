@@ -86,7 +86,7 @@ hakka mcp --no-serve           # never host a hub; only connect as a client
 
 ## Tools
 
-Twenty-one tools, grouped by what they do. The see and diagnose tools only observe the buffer. The change tools send fire-and-forget control commands over the bridge to the connected app(s) and take effect in **dev builds only**. The reproduce tools return generated artifacts for the agent to write to disk.
+Twenty-two tools, grouped by what they do. The see and diagnose tools only observe the buffer. The change tools send targeted control commands over the bridge and wait for application acknowledgment and take effect in **dev builds only**. The reproduce tools return generated artifacts for the agent to write to disk.
 
 ### See
 
@@ -100,6 +100,10 @@ Twenty-one tools, grouped by what they do. The see and diagnose tools only obser
 | `get_trace`       | Full request+span trace for one correlated operation (`requestId` or `correlationId`), assembled from both stores.                                                              |
 
 Use `list_requests` with `{ "summary": true, "limit": 50 }` to select requests without loading headers or bodies into agent context. Each summary includes `id`, scrubbed `url`, `method`, and available `status`, `duration`, and `runtime` fields. Pagination and redaction metadata stay the same. Omit `summary` or set it to `false` for full records, then use `get_request` with an `id` for individual details. `unredacted: true` also applies to summary URLs.
+
+For incremental reads, call `list_requests` with `{ "cursor": "", "summary": true }`, then pass its opaque `nextCursor` on each subsequent call. `hasMore` indicates another page of changes. Cursor results are ordered by arrival/update sequence, independent of capture timestamps. Unread updates to an ID coalesce into its latest record; a previously returned ID can appear again when it changes. Empty pages retain the cursor so polling can resume later.
+
+Evicting any request or clearing the store expires prior cursors with `cursor_expired`. Restart with `cursor: ""` and replace the local view; never interpret expiry as an empty, complete page. Cursors also expire when the MCP store restarts. Malformed cursors return `invalid_cursor`. A cursor cannot be combined with a nonzero `offset`; omitting it keeps existing newest-first offset pagination and full-record output unchanged.
 
 ### Diagnose
 
@@ -132,9 +136,10 @@ Use `list_requests` with `{ "summary": true, "limit": 50 }` to select requests w
 | `export_evidence` | A size-budgeted evidence bundle (requests, mocks, trace, diagnosis) for handing a failure to CI, a teammate, or a bug report. Scrubbed for share by default — `unredacted: true` opts out.                                                      |
 
 <Aside type="note" title="Change tools need a connected dev app">
-  The change tools drive Hakka's in-app mock / breakpoint / throttle engines through the bridge. They are
-  fire-and-forget: a `sent: false` result means the bridge was unreachable, not that the app rejected the command.
-  Release builds ship the no-op artifacts, so these tools affect development only.
+  The change tools drive Hakka's in-app mock / breakpoint / throttle engines through the bridge. They are acknowledged:
+  a failed or timed-out command returns an explicit error. A timeout does not prove that an already-running operation
+  was undone; inspect runtime state before retrying. Release builds ship the no-op artifacts, so these tools affect
+  development only.
 </Aside>
 
 <Aside type="caution" title="Share scrubbing">
@@ -145,6 +150,14 @@ Use `list_requests` with `{ "summary": true, "limit": 50 }` to select requests w
   exactly as captured. This is pattern matching, not a secret scanner — see [Share Scrubbing](/spec/share-scrubbing/)
   for exactly what it does and does not catch.
 </Aside>
+
+## Runtime targets and control results
+
+Call `list_targets` to read connected runtime IDs, advertised command capabilities, and whether each peer supports acknowledgments. Pass `targetId` to change/replay tools whenever multiple peers are connected. A single peer may be selected implicitly; multi-step verification keeps that selection for the whole operation. A target ID belongs to one connection and changes on reconnect.
+
+The hub forwards a targeted command only to the selected peer. `target_required`, `unsupported_capability`, `legacy_unacknowledged`, `target_not_found`, `target_disconnected`, and `timeout` errors describe why an operation could not be confirmed. Legacy peers remain visible and their captures remain readable; they cannot receive acknowledged mutations. Upgrade the hub and runtime together for control support. Native iOS/Android omit replay capability; server captures retain their existing replay restriction.
+
+`verify_fix` waits for the mock's apply result before replaying. Its optional `waitMs` is an additional delay, not a replacement for acknowledgment. Request IDs alone do not select a runtime. Duplicate/late acknowledgments are ignored, and a disconnected target cannot be silently replaced by another runtime. Connections enforce a 10,000-command duplicate-history budget; reconnect before issuing additional commands after that budget is exhausted.
 
 ## The `query` DSL
 

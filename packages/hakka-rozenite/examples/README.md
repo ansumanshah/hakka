@@ -6,7 +6,7 @@ Metro/Re.Pack config. There is nothing to scaffold here that would run on its
 own the way `hakka-browser/examples/vite-app` does.
 
 What this directory holds instead is the reproducible, no-device verification
-procedure that was actually run against this package on 2026-08-29 (see the
+procedure that was run against this package (see the
 parent [`README.md`](../README.md)'s "Verification status" section for the
 full writeup and reasoning). It proves two things without a physical or
 simulated RN device: the compiled panel bundle runs and renders correctly,
@@ -58,21 +58,12 @@ same `window.postMessage({pluginId, type, payload})` transport
 `@rozenite/plugin-bridge` uses on a real device, just driven by hand instead
 of by `Hakka.getLogs()`.
 
-## The dev flow bug, and its fix
+## The dev snapshot flow
 
-The message log will also show a `get-snapshot` message pair fire
-automatically when the panel loads, and nothing populates from it. That's
-`rozenite.config.ts`'s own packaged `dev.flows[0]` ("Request snapshot"),
-which is supposed to auto-populate the panel with fake traffic on load and
-doesn't. Full root-cause writeup is in the parent README; the short version
-is it sends `get-snapshot` in the wrong direction, and even fixing that, it
-returns from `run()` before its listener can ever fire.
-
-[`fixed-dev-flow.rozenite.config.ts`](./fixed-dev-flow.rozenite.config.ts) is
-the tested fix, verified live to auto-populate a fake request the instant
-the panel loads, no manual dispatch needed. It is a reference file only (not
-wired into the build); paste its `dev` block over the one in
-`../rozenite.config.ts` to apply it.
+The `rozenite.config.ts` development flow uses Rozenite 2's typed
+`waitForMessage` API to wait for the panel's outbound `get-snapshot` request,
+then responds with a sample request. This simulates the RN-side backlog flush
+without a device and keeps the direction of the production protocol intact.
 
 ## What this does not prove
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test'
+import { createHash } from 'node:crypto'
 
 import { TRACEPARENT_HEADER, buildTraceparent, deriveTraceId } from '../traceparent'
 
@@ -23,6 +24,20 @@ describe('traceparent', () => {
       const a = deriveTraceId('not-a-uuid')
       expect(a).toMatch(/^[0-9a-f]{32}$/)
       expect(deriveTraceId('not-a-uuid')).toBe(a)
+    })
+
+    it('preserves SHA-256 prefixes across padding boundaries, Unicode and cache eviction', () => {
+      const ids = [
+        '',
+        'network-r_1999',
+        'é漢字🚀',
+        '\ud800',
+        ...[55, 56, 63, 64, 65, 119, 120, 127, 128, 200].map((length) => 'x'.repeat(length)),
+        ...Array.from({ length: 600 }, (_, index) => `synthetic-${index}`),
+      ]
+      for (const id of [...ids, ...ids.toReversed()]) {
+        expect(deriveTraceId(id)).toBe(createHash('sha256').update(id).digest('hex').slice(0, 32))
+      }
     })
 
     it('different correlationIds derive different trace-ids', () => {

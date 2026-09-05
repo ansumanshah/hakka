@@ -38,7 +38,9 @@ tasks.test {
 
 mavenPublishing {
     publishToMavenCentral()
-    signAllPublications()
+    if (providers.gradleProperty("signingInMemoryKey").isPresent) {
+        signAllPublications()
+    }
     coordinates("com.noodleapps.hakka", "hakka-network", "0.0.1")
     pom {
         name.set("Hakka Network")

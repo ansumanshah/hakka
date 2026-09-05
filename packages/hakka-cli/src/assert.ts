@@ -12,6 +12,7 @@
 import { analyzeRequests, type DiagnosisFinding, type NetworkRequest, type RequestDiagnosis } from 'hakka-core'
 
 import { loadRequestsFromFile } from './diagnose'
+import { inputErrorReport, projectAssertViolations, projectDiagnosisFindings, writeJsonReport } from './jsonReport'
 
 const c = {
   bold: (s: string) => `\x1b[1m${s}\x1b[0m`,
@@ -25,6 +26,8 @@ const log = (s = '') => process.stdout.write(s + '\n')
 const logErr = (s = '') => process.stderr.write(s + '\n')
 
 export interface AssertOptions {
+  /** Emit exactly one privacy-safe JSON document instead of human output. */
+  json?: boolean
   /** Fail if more than this many requests failed (error or status >= 400). Default 0. */
   maxFailures?: number
   /** Fail if any request took longer than this (ms). */
@@ -195,6 +198,7 @@ export function parseAssertArgs(args: string[]): { filePath: string | undefined;
     return Number.isNaN(n) ? undefined : n
   }
   const options: AssertOptions = {
+    json: args.includes('--json'),
     maxFailures: numFlag('--max-failures') ?? 0,
     maxDurationMs: numFlag('--max-duration-ms'),
     failOnSecrets: args.includes('--fail-on-secrets'),
@@ -208,14 +212,15 @@ function assertUsage(): void {
   logErr(
     `Usage: ${c.cyan(
       'hakka assert <file.hakka|file.har>',
-    )} ${c.dim('[--max-failures <n>] [--max-duration-ms <n>] [--fail-on-secrets] [--budget-p95-ms <n>]')}`,
+    )} ${c.dim('[--max-failures <n>] [--max-duration-ms <n>] [--fail-on-secrets] [--budget-p95-ms <n>] [--json]')}`,
   )
 }
 
 /** `hakka assert` entrypoint. Sets process.exitCode (0 pass / 1 fail / 2 bad input) — does not call process.exit. */
 export function assertCommand(filePath: string | undefined, options: AssertOptions = {}): AssertResult | undefined {
   if (!filePath) {
-    assertUsage()
+    if (options.json) writeJsonReport(inputErrorReport('assert', 'MISSING_CAPTURE_PATH'))
+    else assertUsage()
     process.exitCode = 2
     return undefined
   }
@@ -225,7 +230,8 @@ export function assertCommand(filePath: string | undefined, options: AssertOptio
     requests = loadRequestsFromFile(filePath)
   } catch (e: unknown) {
     const reason = e instanceof Error ? e.message : String(e)
-    logErr(`${c.red('Error:')} ${reason}`)
+    if (options.json) writeJsonReport(inputErrorReport('assert', 'CAPTURE_INVALID_OR_UNREADABLE'))
+    else logErr(`${c.red('Error:')} ${reason}`)
     process.exitCode = 2
     return undefined
   }
@@ -237,8 +243,21 @@ export function assertCommand(filePath: string | undefined, options: AssertOptio
   const relevantFindings = diagnosis.findings.filter(
     (f) => f.kind === 'failure' || f.kind === 'auth' || f.kind === 'secret-in-body' || f.kind === 'slow',
   )
-  printReport(diagnosis, violations, filePath, relevantFindings)
+  const exitCode = violations.length > 0 ? 1 : 0
+  if (options.json) {
+    writeJsonReport({
+      schemaVersion: 1,
+      command: 'assert',
+      pass: exitCode === 0,
+      exitCode,
+      violations: projectAssertViolations(violations, requests, diagnosis, options),
+      findings: projectDiagnosisFindings(relevantFindings),
+      redaction: { applied: true },
+    })
+  } else {
+    printReport(diagnosis, violations, filePath, relevantFindings)
+  }
 
-  process.exitCode = violations.length > 0 ? 1 : 0
+  process.exitCode = exitCode
   return { diagnosis, violations }
 }

@@ -156,14 +156,16 @@ function diagnoseUsage(): void {
 function assertUsage(): void {
   log(
     `Usage: ${c.cyan('hakka assert <file.hakka|file.har>')} ${c.dim(
-      '[--max-failures <n>] [--max-duration-ms <n>] [--fail-on-secrets] [--budget-p95-ms <n>]',
+      '[--max-failures <n>] [--max-duration-ms <n>] [--fail-on-secrets] [--budget-p95-ms <n>] [--json]',
     )}`,
   )
 }
 
 function ciBaselineUsage(): void {
   log(`Usage: ${c.cyan('hakka ci-baseline record <capture.hakka> <baseline.txt>')}`)
-  log(`       ${c.cyan('hakka ci-baseline check <capture.hakka> <baseline.txt>')} ${c.dim('[--allow-host <host>]')}`)
+  log(
+    `       ${c.cyan('hakka ci-baseline check <capture.hakka> <baseline.txt>')} ${c.dim('[--allow-host <host>] [--json]')}`,
+  )
 }
 
 function mcpUsage(): void {
@@ -239,7 +241,7 @@ async function main(): Promise<void> {
     }
     case 'assert': {
       const { filePath, options } = parseAssertArgs(rest)
-      if (filePath === undefined) {
+      if (filePath === undefined && !options.json) {
         assertUsage()
         process.exitCode = 2
         break

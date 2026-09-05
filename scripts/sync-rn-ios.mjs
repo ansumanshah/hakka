@@ -116,6 +116,8 @@ const MANIFEST = [
   ['Common/NWBridgeHostBrowser.swift', 'Core/NWBridgeHostBrowser.swift'],
   ['Common/BreakpointWireEdits.swift', 'Core/BreakpointWireEdits.swift'],
   ['Common/ControlCommand.swift', 'Core/ControlCommand.swift'],
+  ['Common/RuntimeControlFrame.swift', 'Core/RuntimeControlFrame.swift'],
+  ['Common/RuntimeControlSession.swift', 'Core/RuntimeControlSession.swift'],
   ['Common/ControlCommandApply.swift', 'Core/ControlCommandApply.swift'],
   ['Common/ControlCommandParsing.swift', 'Core/ControlCommandParsing.swift'],
   ['Common/ControlCommandParsingBreakpoint.swift', 'Core/ControlCommandParsingBreakpoint.swift'],

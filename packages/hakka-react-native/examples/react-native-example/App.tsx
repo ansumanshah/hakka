@@ -7,6 +7,7 @@ import {
   useNetworkLogs,
 } from 'hakka-react-native'
 import { HakkaInspector } from 'hakka-react-native/ui'
+import { useHakkaRozeniteDevTools } from 'hakka-rozenite'
 import React, { useState } from 'react'
 import { Alert, Pressable, ScrollView, StatusBar, StyleSheet, Text, View, useColorScheme } from 'react-native'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
@@ -58,6 +59,7 @@ function DemoButton({ label, tone, onPress }: { label: string; tone: Tone; onPre
   return (
     <Pressable
       accessibilityRole="button"
+      testID={`demo-request-${label}`}
       style={({ pressed }) => [styles.button, { borderColor: toneColors[tone] }, pressed && { opacity: 0.72 }]}
       onPress={onPress}
     >
@@ -70,6 +72,7 @@ function DemoButton({ label, tone, onPress }: { label: string; tone: Tone; onPre
 }
 
 function App() {
+  useHakkaRozeniteDevTools()
   const isDarkMode = useColorScheme() === 'dark'
   const [selectedGroup, setSelectedGroup] = useState<ScenarioGroup>('Traffic')
   const [showWebViewCapture, setShowWebViewCapture] = useState(false)

@@ -18,8 +18,8 @@
  *      at the bridge (MCP client side stays InMemoryTransport).
  *   4. Call create_mock over MCP, poll the app peer's mockEngine.getRules()
  *      for the minted id.
- *   5. Also assert set_throttle, a raw mock.add+modify frame sent directly
- *      via listener.sendControl (create_mock has no modify param), and
+ *   5. Also assert set_throttle, a mock.add+modify request sent directly
+ *      via listener.requestControl (create_mock has no modify param), and
  *      delete_mock.
  *
  * Every step is timeout-guarded. Exit 0 + PASS on success; exit 1 + the
@@ -108,7 +108,7 @@ async function pollUntil(step, check, ms = POLL_TIMEOUT_MS) {
 async function main() {
   let startBridgeServer
   let createBridgeListener, RequestStore, registerTools, registerResources
-  let mockEngine, breakpointEngine, ThrottleEngine, parseControlCommand, applyControlCommand
+  let mockEngine, breakpointEngine, ThrottleEngine, RuntimeControlReceiver, applyControlCommand
 
   try {
     ;({ startBridgeServer } = await import(path.join(bridgeSrcDir, 'server.ts')))
@@ -126,7 +126,7 @@ async function main() {
   }
 
   try {
-    ;({ mockEngine, breakpointEngine, ThrottleEngine, parseControlCommand, applyControlCommand } = await import(
+    ;({ mockEngine, breakpointEngine, ThrottleEngine, RuntimeControlReceiver, applyControlCommand } = await import(
       path.join(coreSrcDir, 'index.ts')
     ))
   } catch (err) {
@@ -170,20 +170,31 @@ async function main() {
       }),
     )
 
-    const appliedResults = []
+    const receiver = new RuntimeControlReceiver(
+      'server',
+      [
+        'mock.add',
+        'mock.remove',
+        'mock.clear',
+        'breakpoint.add',
+        'breakpoint.remove',
+        'breakpoint.resume',
+        'breakpoint.abort',
+        'throttle.set',
+        'request.replay',
+      ],
+      applyControlCommand,
+      (message) => appPeer.send(JSON.stringify(message)),
+    )
     appPeer.on('message', (data) => {
       const raw = typeof data === 'string' ? data : data.toString('utf8')
-      let msg
       try {
-        msg = JSON.parse(raw)
+        receiver.receive(JSON.parse(raw))
       } catch {
-        return
+        // Ignore non-protocol bridge frames.
       }
-      if (!msg || msg.type !== 'control') return
-      const cmd = parseControlCommand(msg.payload)
-      if (!cmd) return
-      appliedResults.push(applyControlCommand(cmd))
     })
+    receiver.hello()
 
     const store = new RequestStore(50)
     listener = createBridgeListener(store, bridgeUrl)
@@ -243,13 +254,10 @@ async function main() {
     )
     assert.equal(ThrottleEngine.current.downloadKbps, 512, 'ThrottleEngine downloadKbps mismatch after relay')
 
-    // `create_mock` has no `modify` parameter (mock/block/redirect only), but
-    // the control-channel contract supports it (`MockRuleModify` in
-    // `packages/hakka-core/src/engine/MockEngine.ts`). Drive it directly through
-    // `BridgeListener.sendControl` to prove the full relay path covers this
-    // shape too.
+    // `create_mock` has no `modify` parameter, so exercise the shape through
+    // the listener's acknowledged control path.
     const modifyRuleId = 'smoke-modify-rule'
-    const sentModify = listener.sendControl({
+    const modifyResult = await listener.requestControl({
       kind: 'mock.add',
       rule: {
         id: modifyRuleId,
@@ -265,7 +273,7 @@ async function main() {
         response: { status: 200, body: '' },
       },
     })
-    assert.equal(sentModify, true, 'sendControl(mock.add with modify) should report true (bridge connected)')
+    assert.equal(modifyResult.status, 'applied', 'mock.add with modify should be acknowledged')
 
     await pollUntil('mockEngine.getRules() contains the modify-rule id', () =>
       mockEngine.getRules().some((r) => r.id === modifyRuleId),
@@ -284,7 +292,7 @@ async function main() {
     // drive the wire shape directly the same way, proving the relay path
     // covers the transport-error mock + match-budget shapes too.
     const failureRuleId = 'smoke-failure-rule'
-    const sentFailure = listener.sendControl({
+    const failureResult = await listener.requestControl({
       kind: 'mock.add',
       rule: {
         id: failureRuleId,
@@ -296,7 +304,7 @@ async function main() {
         response: { status: 200, body: '' },
       },
     })
-    assert.equal(sentFailure, true, 'sendControl(mock.add with failure/skipCount/stopAfter) should report true')
+    assert.equal(failureResult.status, 'applied', 'mock.add with failure/skipCount/stopAfter should be acknowledged')
 
     await pollUntil('mockEngine.getRules() contains the failure-rule id', () =>
       mockEngine.getRules().some((r) => r.id === failureRuleId),
@@ -307,11 +315,8 @@ async function main() {
     assert.equal(failureRule.stopAfter, 2, 'stopAfter mismatch')
     mockEngine.removeRule(failureRuleId)
 
-    // ── breakpoint.resume / breakpoint.abort: raw sendControl frames (no MCP
-    //    tool exposes these yet — that is deliberately a later task's UI
-    //    surface) relayed over the real bridge into the app peer's real
-    //    breakpointEngine singleton, proving the resume/abort wire seam
-    //    end to end, not just unit-tested in isolation ──────────────────────
+    // No MCP tool exposes resume/abort yet, so exercise both through the
+    // listener's acknowledged control path.
     const resumePause = breakpointEngine.pause('smoke-req-resume', 'request', {
       url: 'https://api.example.com/checkout',
       method: 'GET',
@@ -322,12 +327,12 @@ async function main() {
       const paused = breakpointEngine.getPaused()
       return paused.length > 0 ? paused : null
     })
-    const sentResume = listener.sendControl({
+    const resumeResult = await listener.requestControl({
       kind: 'breakpoint.resume',
       pauseId: pendingResume.id,
       requestEdits: { method: 'PUT' },
     })
-    assert.equal(sentResume, true, 'sendControl(breakpoint.resume) should report true (bridge connected)')
+    assert.equal(resumeResult.status, 'applied', 'breakpoint.resume should be acknowledged')
     const resumeAction = await withTimeout('breakpoint.resume resolves the pause', resumePause)
     assert.equal(
       resumeAction.type,
@@ -353,8 +358,8 @@ async function main() {
       const paused = breakpointEngine.getPaused()
       return paused.length > 0 ? paused : null
     })
-    const sentAbort = listener.sendControl({ kind: 'breakpoint.abort', pauseId: pendingAbort.id })
-    assert.equal(sentAbort, true, 'sendControl(breakpoint.abort) should report true (bridge connected)')
+    const abortResult = await listener.requestControl({ kind: 'breakpoint.abort', pauseId: pendingAbort.id })
+    assert.equal(abortResult.status, 'applied', 'breakpoint.abort should be acknowledged')
     const abortAction = await withTimeout('breakpoint.abort resolves the pause', abortPause)
     assert.deepEqual(
       abortAction,
@@ -387,8 +392,8 @@ async function main() {
     assert.equal(disconnectedBody.sent, false, 'create_mock while disconnected should report sent:false')
 
     process.stdout.write(
-      'PASS smoke-control-roundtrip: create_mock/set_throttle/delete_mock + a raw mock.add-with-modify frame + ' +
-        'raw breakpoint.resume/breakpoint.abort frames relayed over a REAL bridge socket into a real peer process ' +
+      'PASS smoke-control-roundtrip: create_mock/set_throttle/delete_mock + acknowledged mock.add-with-modify + ' +
+        'breakpoint.resume/breakpoint.abort requests relayed over a REAL bridge socket into a real peer process ' +
         'running parseControlCommand+applyControlCommand against the real mockEngine/breakpointEngine/' +
         'ThrottleEngine singletons; disconnected-bridge path verified isError without throwing\n',
     )

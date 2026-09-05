@@ -55,7 +55,7 @@ export class BodyDecoderRegistry {
       const result = decoder.decode(body, contentType, contentEncoding)
       if (result !== null) return result
     }
-    return passthroughDecoder.decode(body, contentType, contentEncoding)
+    return passthroughDecoder.decode(body, contentType, contentEncoding) ?? body
   }
 }
 

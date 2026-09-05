@@ -1,5 +1,5 @@
 import './wsCompat'
-import { timingSafeEqual } from 'node:crypto'
+import { randomUUID, timingSafeEqual } from 'node:crypto'
 import type { IncomingMessage } from 'node:http'
 
 import type { NetworkRequest } from 'hakka-core'
@@ -7,6 +7,8 @@ import { WebSocketServer, type WebSocket } from 'ws'
 
 import { BridgeHub } from './BridgeHub'
 import { startBridgeAdvertise, type BridgeAdvertisement, type BridgeAdvertiseOptions } from './discovery'
+import { parseBridgeMessage } from './protocol'
+import { RuntimeRouter } from './RuntimeRouter'
 
 /** Default port — matches the hakka-browser `desktopBridge` client (ws://localhost:8989). */
 export const DEFAULT_BRIDGE_PORT = 8989
@@ -128,6 +130,7 @@ export function startBridgeServer(options: BridgeServerOptions = {}): Promise<Br
     maxSpansPerTrace: options.maxSpansPerTrace,
   })
   const clients = new Set<WebSocket>()
+  const runtimeRouter = new RuntimeRouter()
   // Per-socket liveness flag for the heartbeat below. A WeakMap rather than a
   // property on `socket` so nothing here depends on `ws`'s instance shape;
   // entries fall out on their own once a socket is garbage-collected.
@@ -209,6 +212,8 @@ export function startBridgeServer(options: BridgeServerOptions = {}): Promise<Br
       return
     }
 
+    const peerId = randomUUID()
+    runtimeRouter.connect(peerId, (message) => safeSend(socket, JSON.stringify(message), maxPayload))
     clients.add(socket)
     isAlive.set(socket, true)
     socket.on('pong', () => isAlive.set(socket, true))
@@ -242,7 +247,16 @@ export function startBridgeServer(options: BridgeServerOptions = {}): Promise<Br
       // is UTF-16 code units, which undercounts multi-byte text (emoji, CJK) by
       // up to 4x and would let payloads well past the intended cap through here.
       if (Buffer.byteLength(raw, 'utf8') > maxPayload) return
-      const result = hub.ingest(raw)
+      const message = parseBridgeMessage(raw)
+      if (!message) {
+        try {
+          runtimeRouter.handle(peerId, JSON.parse(raw))
+        } catch {
+          /* malformed frame */
+        }
+        return
+      }
+      const result = hub.ingest(raw, message)
       if (!result) return
       // Relay to OTHER peers (viewers/controllers); never echo back to the sender.
       for (const peer of clients) {
@@ -252,8 +266,12 @@ export function startBridgeServer(options: BridgeServerOptions = {}): Promise<Br
         options.onRecord?.(result.request, clients.size)
       }
     })
-    socket.on('close', () => clients.delete(socket))
-    socket.on('error', () => clients.delete(socket))
+    const removePeer = () => {
+      clients.delete(socket)
+      runtimeRouter.disconnect(peerId)
+    }
+    socket.on('close', removePeer)
+    socket.on('error', removePeer)
   })
 
   return new Promise<BridgeServer>((resolve, reject) => {
@@ -297,6 +315,7 @@ export function startBridgeServer(options: BridgeServerOptions = {}): Promise<Br
             }
           }
           clients.clear()
+          runtimeRouter.close()
 
           // Bound only the mDNS goodbye by a timeout — a hung or slow
           // `advertisement.close()` must never block `wss.close()` below.

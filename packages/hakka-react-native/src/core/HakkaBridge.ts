@@ -8,7 +8,15 @@
  * Includes bidirectional command handling (storage:set, storage:delete,
  * mmkv:set, mmkv:delete) and console interceptor forwarding.
  */
-import { applyControlCommand, ConsoleInterceptor, Hakka, logStore, parseControlCommand } from 'hakka-core'
+import {
+  RuntimeControlReceiver,
+  RUNTIME_CONTROL_CAPABILITIES,
+  applyControlCommand,
+  ConsoleInterceptor,
+  Hakka,
+  logStore,
+  parseControlCommand,
+} from 'hakka-core'
 import type { ConnectionStatus, LogEntry, LogLevel, NetworkRequest, StorageSnapshot } from 'hakka-core'
 
 import { redactStorageEntries } from '../storage/redact'
@@ -281,7 +289,16 @@ export class HakkaBridge {
       const ws = new WebSocket(this._url)
       this.ws = ws
 
+      const control = new RuntimeControlReceiver(
+        'react-native',
+        RUNTIME_CONTROL_CAPABILITIES,
+        (command) => applyControlCommand(command).ok,
+        (message) => {
+          if (this.ws === ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(message))
+        },
+      )
       ws.onopen = () => {
+        control.hello()
         this.reconnectDelay = MIN_DELAY
         this._setStatus({ state: 'connected', url: this._url, since: Date.now() })
 
@@ -305,10 +322,16 @@ export class HakkaBridge {
       }
 
       ws.onmessage = (event: HakkaMessageEvent) => {
+        try {
+          if (control.receive(typeof event.data === 'string' ? JSON.parse(event.data) : event.data)) return
+        } catch {
+          return
+        }
         this._handleMessage(event)
       }
 
       ws.onclose = () => {
+        control.close()
         this.ws = null
         this.unsubscribe?.()
         this.unsubscribe = null

@@ -2,17 +2,16 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
 }
 
 android {
     namespace = "com.noodleapps.hakka.sizegate"
-    compileSdk = 35
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.noodleapps.hakka.sizegate"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 37
         versionCode = 1
         versionName = "1.0"
     }

@@ -1,4 +1,5 @@
 const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config')
+const { withRozenite } = require('@rozenite/metro')
 const path = require('node:path')
 // Makes Hakka's optional peer deps genuinely optional. This app installs none
 // of them, so without this wrapper Metro fails to resolve `react-native-mmkv`
@@ -27,4 +28,7 @@ const config = {
   },
 }
 
-module.exports = withHakka(mergeConfig(getDefaultConfig(__dirname), config))
+module.exports = withRozenite(withHakka(mergeConfig(getDefaultConfig(__dirname), config)), {
+  enabled: process.env.WITH_ROZENITE === 'true',
+  include: ['hakka-rozenite'],
+})

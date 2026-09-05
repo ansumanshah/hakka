@@ -32,7 +32,9 @@ tasks.test {
 
 mavenPublishing {
     publishToMavenCentral()
-    signAllPublications()
+    if (providers.gradleProperty("signingInMemoryKey").isPresent) {
+        signAllPublications()
+    }
     coordinates("com.noodleapps.hakka", "hakka-performance", "0.0.1")
     pom {
         name.set("Hakka Performance")

@@ -12,6 +12,8 @@
  */
 import {
   Hakka,
+  RuntimeControlReceiver,
+  RUNTIME_CONTROL_CAPABILITIES,
   compileQuery,
   exportHarString,
   exportPostmanString,
@@ -30,7 +32,7 @@ const DEFAULT_DESKTOP_URL = 'ws://localhost:8989'
 
 type RequestSink = (req: NetworkRequest) => void
 type BridgeSink = (status: ConnectionStatus) => void
-type ControlSink = (payload: unknown) => void
+type ControlSink = (payload: unknown, applied?: (ok: boolean) => void) => void
 type SpanSink = (span: FrameworkSpan) => void
 
 let started = false
@@ -149,11 +151,20 @@ function openBridgeSocket(): void {
   }
   ws = socket
 
+  const control = new RuntimeControlReceiver(
+    'browser',
+    RUNTIME_CONTROL_CAPABILITIES,
+    (command) => new Promise<boolean>((resolve) => onControl(command, resolve)),
+    (message) => {
+      if (ws === socket && socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message))
+    },
+  )
   socket.onopen = () => {
     if (intentionalClose || ws !== socket) {
       socket.close()
       return
     }
+    control.hello()
     retryDelay = 1000
     emitBridge({ state: 'connected', url: bridgeUrl, since: Date.now() })
     // Replay only records THIS page originated — anything that arrived over
@@ -172,6 +183,7 @@ function openBridgeSocket(): void {
     try {
       const raw = typeof ev.data === 'string' ? ev.data : ''
       const msg = JSON.parse(raw) as { type?: unknown; payload?: unknown }
+      if (control.receive(msg)) return
       if (msg?.type === 'request' && msg.payload && typeof msg.payload === 'object') {
         const payload = msg.payload as NetworkRequest
         // Bracketed with ingestingFromBridge so our bridge-send listener
@@ -202,6 +214,7 @@ function openBridgeSocket(): void {
   }
 
   socket.onclose = (ev) => {
+    control.close()
     if (ws === socket) ws = null
     if (intentionalClose) {
       emitBridge({ state: 'disconnected' })

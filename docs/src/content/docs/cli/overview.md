@@ -18,14 +18,22 @@ command branches, so a plain `hakka init` never loads `@modelcontextprotocol/sdk
 
 ## Other commands
 
-`init` is the one most people run, but the same binary has four more:
+`init` is the one most people run, but the same binary also provides:
 
-| Command                                 | What it does                                                                                                                                                              |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `hakka diagnose <file.hakka\|file.har>` | Load a saved session or HAR capture from disk and pretty-print a ranked diagnosis to the terminal — the same `analyzeRequests` engine that backs the MCP `diagnose` tool. |
-| `hakka assert <file.hakka\|file.har>`   | Same engine, built for CI gating: exits non-zero when configured thresholds (`--max-failures`, `--max-duration-ms`, `--fail-on-secrets`, `--budget-p95-ms`) are violated. |
-| `hakka mcp`                             | Start the stdio MCP server exposing captured traffic to AI agents. See [MCP overview](/mcp/overview/).                                                                    |
-| `hakka cdp`                             | Attach to a Chrome DevTools Protocol debugging port and stream Network captures to a bridge hub — no Playwright/Puppeteer needed. See [CDP overview](/cdp/overview/).     |
+| Command                                                  | What it does                                                                                                                                                              |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `hakka diagnose <file.hakka\|file.har>`                  | Load a saved session or HAR capture from disk and pretty-print a ranked diagnosis to the terminal — the same `analyzeRequests` engine that backs the MCP `diagnose` tool. |
+| `hakka assert <file.hakka\|file.har>`                    | Same engine, built for CI gating: exits non-zero when configured thresholds (`--max-failures`, `--max-duration-ms`, `--fail-on-secrets`, `--budget-p95-ms`) are violated. |
+| `hakka ci-baseline check <capture.hakka> <baseline.txt>` | Compare captured traffic with a committed API baseline and fail on blocking drift or exfiltration risk.                                                                   |
+| `hakka mcp`                                              | Start the stdio MCP server exposing captured traffic to AI agents. See [MCP overview](/mcp/overview/).                                                                    |
+| `hakka cdp`                                              | Attach to a Chrome DevTools Protocol debugging port and stream Network captures to a bridge hub — no Playwright/Puppeteer needed. See [CDP overview](/cdp/overview/).     |
+
+Both CI checks accept `--json`. JSON mode emits exactly one versioned document and keeps the human command's exit codes: `0` pass, `1` policy failure, and `2` invalid input. Reports omit raw messages, file paths, bodies, headers, and URL paths while retaining structured rules, finding kinds, severity, scrubbed origins, and opaque references.
+
+```bash
+hakka assert capture.har --fail-on-secrets --json
+hakka ci-baseline check capture.hakka baseline.txt --json
+```
 
 ## Framework detection
 

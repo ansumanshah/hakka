@@ -1,7 +1,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 
-import { type ControlSender, dispatch } from './controlDispatch.js'
+import { type ControlSender, dispatchAcknowledged } from './controlDispatch.js'
 import { textResult } from './toolResult.js'
 
 export function registerSetThrottleTool(server: McpServer, sender: ControlSender): void {
@@ -10,8 +10,12 @@ export function registerSetThrottleTool(server: McpServer, sender: ControlSender
     {
       description:
         'Simulate network conditions in the connected app. The command is applied inside connected app(s); ' +
-        'delivery is fire-and-forget over the bridge (no acknowledgment). Affects DEV builds only.',
+        'application is acknowledged over the bridge. Affects DEV builds only.',
       inputSchema: {
+        targetId: z
+          .string()
+          .optional()
+          .describe('Runtime target ID from list_targets; required when multiple peers are connected.'),
         profile: z
           .enum(['none', 'fast-3g', 'slow-3g', 'edge', 'offline', 'custom'])
           .describe('Throttle preset. Use "custom" with latencyMs/downloadKbps for explicit values.'),
@@ -23,8 +27,8 @@ export function registerSetThrottleTool(server: McpServer, sender: ControlSender
           .describe('Simulated download bandwidth in kbps (custom profile only)'),
       },
     },
-    (args) => {
-      const sent = dispatch(sender, {
+    async (args) => {
+      const sent = await dispatchAcknowledged(sender, args.targetId, {
         kind: 'throttle.set',
         profile: args.profile,
         latencyMs: args.latencyMs,

@@ -38,19 +38,26 @@ function rotr(x: number, n: number): number {
   return (x >>> n) | (x << (32 - n))
 }
 
-/** Synchronous SHA-256 digest of a UTF-8 string, returned as lowercase hex. */
-function sha256Hex(message: string): string {
-  const msgBytes = new TextEncoder().encode(message)
+let traceIdEncoder: TextEncoder | undefined
+// Hashing is synchronous; each block overwrites the schedule before reading it.
+const hashSchedule = new Uint32Array(64)
+const singleBlock = new Uint8Array(64)
+const singleBlockView = new DataView(singleBlock.buffer)
+
+/** First 128 bits of the synchronous SHA-256 digest of a UTF-8 string, as lowercase hex. */
+function sha256TraceId(message: string): string {
+  const msgBytes = (traceIdEncoder ??= new TextEncoder()).encode(message)
   const bitLen = msgBytes.length * 8
 
   // Pad: 0x80, then zero bytes until length ≡ 56 (mod 64), then 8-byte
   // big-endian bit length.
   const paddedLen = Math.ceil((msgBytes.length + 9) / 64) * 64
-  const padded = new Uint8Array(paddedLen)
+  const padded = paddedLen === 64 ? singleBlock : new Uint8Array(paddedLen)
+  if (paddedLen === 64) padded.fill(0)
   padded.set(msgBytes)
   padded[msgBytes.length] = 0x80
   // bitLen fits in 32 bits for any realistic correlationId; high word is 0.
-  const view = new DataView(padded.buffer)
+  const view = paddedLen === 64 ? singleBlockView : new DataView(padded.buffer)
   view.setUint32(paddedLen - 4, bitLen >>> 0, false)
 
   let h0 = 0x6a09e667
@@ -62,7 +69,7 @@ function sha256Hex(message: string): string {
   let h6 = 0x1f83d9ab
   let h7 = 0x5be0cd19
 
-  const w = new Uint32Array(64)
+  const w = hashSchedule
   for (let offset = 0; offset < paddedLen; offset += 64) {
     for (let i = 0; i < 16; i++) w[i] = view.getUint32(offset + i * 4, false)
     for (let i = 16; i < 64; i++) {
@@ -108,7 +115,12 @@ function sha256Hex(message: string): string {
     h7 = (h7 + h) >>> 0
   }
 
-  return [h0, h1, h2, h3, h4, h5, h6, h7].map((n) => n.toString(16).padStart(8, '0')).join('')
+  return (
+    h0.toString(16).padStart(8, '0') +
+    h1.toString(16).padStart(8, '0') +
+    h2.toString(16).padStart(8, '0') +
+    h3.toString(16).padStart(8, '0')
+  )
 }
 
 /** Synchronous random hex string of `byteLen` bytes — Web Crypto when available, `Math.random` fallback. */
@@ -145,7 +157,7 @@ export function deriveTraceId(correlationId: string): string {
   let traceId: string
   if (HEX32_RE.test(correlationId)) traceId = correlationId.toLowerCase()
   else if (UUID_RE.test(correlationId)) traceId = correlationId.replace(/-/g, '').toLowerCase()
-  else traceId = sha256Hex(correlationId).slice(0, 32)
+  else traceId = sha256TraceId(correlationId)
 
   if (traceIdCache.size >= TRACE_ID_CACHE_LIMIT) traceIdCache.clear()
   traceIdCache.set(correlationId, traceId)

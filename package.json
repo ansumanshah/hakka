@@ -29,16 +29,18 @@
     "phase:verify:full": "scripts/phase-verify.sh full",
     "changeset": "changeset",
     "version-packages": "changeset version",
+    "tag-packages": "changeset git-tag",
     "prepare": "lefthook install --force"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.31.1",
+    "@changesets/cli": "^3.0.2",
     "@tsconfig/react-native": "^3.0.9",
     "knip": "^6.34.0",
     "lefthook": "2.1.12",
     "oxfmt": "^0.66.0",
-    "oxlint": "1.78.0",
-    "typescript": "^7.0.2"
+    "oxlint": "1.81.0",
+    "typescript": "^7.0.2",
+    "unrun": "^0.3.1"
   },
   "overrides": {
     "@babel/plugin-transform-modules-systemjs": "^7.29.7",
@@ -47,6 +49,9 @@
     "react": "19.2.3",
     "react-test-renderer": "19.2.3",
     "vite-plugin-dts": "^5.0.3"
+  },
+  "engines": {
+    "node": ">=22"
   },
   "packageManager": "bun@1.4.2",
   "patchedDependencies": {

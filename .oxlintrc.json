@@ -10,11 +10,39 @@
     "typescript/no-explicit-any": "warn",
     "react/jsx-key": "error",
     "react/self-closing-comp": "error",
+    "react/error-boundaries": "off",
+    "react/globals": "off",
+    "react/immutability": "warn",
+    "react/incompatible-library": "off",
+    "react/preserve-manual-memoization": "off",
+    "react/purity": "off",
+    "react/refs": "warn",
+    "react/set-state-in-effect": "off",
+    "react/set-state-in-render": "off",
+    "react/static-components": "off",
+    "react/use-memo": "off",
+    "react/void-use-memo": "off",
     "unicorn/prefer-node-protocol": "warn",
     "import/no-cycle": "warn",
     "no-unused-vars": "warn",
     "react-hooks/exhaustive-deps": "warn"
   },
+  "overrides": [
+    {
+      "files": ["packages/hakka-browser/src/**"],
+      "rules": {
+        "react/immutability": "off",
+        "react/refs": "off"
+      }
+    },
+    {
+      "files": ["packages/hakka-browser/src/react/**"],
+      "rules": {
+        "react/immutability": "error",
+        "react/refs": "error"
+      }
+    }
+  ],
   "ignorePatterns": [
     "**/node_modules",
     "**/dist",

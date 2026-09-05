@@ -352,6 +352,7 @@ dev-ios:
 
 # Run the RN example app on Android
 dev-android:
+    cd android && ./gradlew publishToMavenLocal
     bun run --cwd packages/hakka-react-native/examples/react-native-example android
 
 # Open RN example in Xcode

@@ -7,6 +7,8 @@
 import { RingBuffer, redactHeaderValues, redactHeaders } from 'hakka-core'
 import type { NetworkRequest } from 'hakka-core'
 
+import { RequestChanges } from './RequestChanges.js'
+
 export interface StoreFilter {
   method?: string
   /** Minimum HTTP status (inclusive) */
@@ -53,10 +55,11 @@ function extractHost(url: string): string {
 }
 
 export class RequestStore {
+  private readonly changes = new RequestChanges()
   private readonly buffer: RingBuffer
   private addListeners: Set<(req: NetworkRequest) => void> = new Set()
 
-  constructor(capacity = 500) {
+  constructor(private readonly capacity = 500) {
     this.buffer = new RingBuffer(capacity)
   }
 
@@ -65,8 +68,11 @@ export class RequestStore {
     if (this.buffer.get(redacted.id)) {
       this.buffer.update(redacted)
     } else {
+      const evicts = this.buffer.size === this.capacity
       this.buffer.add(redacted)
+      if (evicts) this.changes.reset([...this.buffer].map((request) => request.id))
     }
+    this.changes.record(redacted.id)
     for (const listener of this.addListeners) {
       listener(redacted)
     }
@@ -113,6 +119,12 @@ export class RequestStore {
     }
 
     return requests
+  }
+
+  getChanges(cursor: string, limit: number) {
+    const page = this.changes.read(cursor, limit)
+    if ('error' in page) return page
+    return { ...page, requests: page.ids.map((id) => this.buffer.get(id)!) }
   }
 
   stats(): StoreStats {
@@ -173,6 +185,7 @@ export class RequestStore {
 
   clear(): void {
     this.buffer.clear()
+    this.changes.reset()
   }
 
   get size(): number {

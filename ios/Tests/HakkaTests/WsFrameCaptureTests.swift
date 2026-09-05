@@ -513,7 +513,7 @@ struct HakkaWebSocketMonitorSelfExclusionTests {
         )
         interceptor.flushCaptureProcessing()
 
-        let frames = await server.waitForFrames(count: 1)
+        let frames = await server.waitForFrames(count: 1, type: "request")
         #expect(frames.first?.contains("self-capture-0") == true)
     }
 }

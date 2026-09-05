@@ -3,7 +3,7 @@ import { compileQuery, generateMockRules, parseRangeFilters, parseSearchTokens }
 import { z } from 'zod'
 
 import type { RequestStore } from '../RequestStore.js'
-import { type ControlSender, dispatch } from './controlDispatch.js'
+import { type ControlSender, dispatchAcknowledged } from './controlDispatch.js'
 import { textResult } from './toolResult.js'
 
 export function registerGenerateMocksTool(server: McpServer, store: RequestStore, sender: ControlSender): void {
@@ -15,8 +15,12 @@ export function registerGenerateMocksTool(server: McpServer, store: RequestStore
         'using the same filters as search_requests (query DSL, method, urlContains), dedupes to one rule per ' +
         '(method, url path+query) — newest capture wins — and carries over status/content-type/body. With ' +
         'apply=false (default) the rules are returned for review only. With apply=true they are additionally ' +
-        'sent as mock.add commands over the bridge (fire-and-forget, DEV builds only).',
+        'sent as mock.add commands over the bridge (application acknowledged, DEV builds only).',
       inputSchema: {
+        targetId: z
+          .string()
+          .optional()
+          .describe('Runtime target ID from list_targets; required when multiple peers are connected.'),
         query: z
           .string()
           .optional()
@@ -42,6 +46,8 @@ export function registerGenerateMocksTool(server: McpServer, store: RequestStore
       },
     },
     async (args) => {
+      const targets = sender.getTargets?.()
+      const targetId = args.targetId ?? (targets?.length === 1 ? targets[0]?.id : undefined)
       const { query, method, urlContains, limit = 50, apply = false } = args
 
       let pool = store.getAll()
@@ -74,7 +80,7 @@ export function registerGenerateMocksTool(server: McpServer, store: RequestStore
 
       let applied = 0
       for (const rule of rules) {
-        const sent = dispatch(sender, { kind: 'mock.add', rule })
+        const sent = await dispatchAcknowledged(sender, targetId, { kind: 'mock.add', rule })
         if (sent) applied++
       }
       return textResult({ applied, rules })

@@ -34,7 +34,7 @@ RCT_EXPORT_MODULE(HakkaMonitor)
 }
 
 - (NSArray<NSString *> *)supportedEvents {
-    return @[@"onHakkaRequests"];
+    return @[@"onHakkaRequests", @"onHakkaConsole", @"onHakkaStorage"];
 }
 
 - (void)startObserving {

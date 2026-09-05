@@ -23,7 +23,6 @@
       "entry": ["examples/framework-servers/*.mjs", "examples/otel-spans/*.mjs", "examples/prod-cohort/demo.mjs"],
     },
     "packages/hakka-rozenite": {
-      "entry": ["examples/fixed-dev-flow.rozenite.config.ts"],
       // Rozenite maps react-native imports to this renderer in its web build.
       "ignoreDependencies": ["react-native-web"],
     },
@@ -95,6 +94,8 @@
     "react-native-mmkv",
     "react-native-reanimated",
     "react-native-safe-area-context",
+    // tsdown loads this optional peer while evaluating its config on Node 22.
+    "unrun",
     // Optional peers referenced only behind runtime guards (try/catch dynamic require,
     // or an optional-native-module check) — same "referenced optional peer, not a real
     // devDependency" pattern as the RN entries above.
