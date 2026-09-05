@@ -75,3 +75,6 @@ packages/hakka-browser/e2e/render-bench-results.json
 *.app/
 .mimosa/
 apps/hakka/Hakka-*.zip
+
+# Prebuilt iOS native SDK assembled for npm distribution
+packages/hakka-react-native/ios/Frameworks/

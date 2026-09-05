@@ -132,6 +132,23 @@ Native controls can vary by platform. Session APIs, hooks, capture, clipboard sh
 WebView support, storage and query monitors, and Rozenite remain available programmatically when a
 native surface does not expose a matching control.
 
+## Prebuilt iOS SDK
+
+Release npm packages include `HakkaNative.xcframework` with iOS device and simulator slices.
+CocoaPods links the precompiled native capture engine and inspector; the React Native bridge
+remains source so it builds against your app's React Native version. No separate download is
+needed during `pod install`.
+
+To edit the native SDK in a local checkout, install pods in source mode:
+
+```bash
+HAKKA_IOS_USE_SOURCE=1 pod install
+```
+
+A checkout without the XCFramework also uses source automatically. Run `pod install` again
+when changing modes. The binary supports iOS 16 and later, arm64 devices, and arm64/x86_64
+simulators. The declared visionOS target continues to compile from source.
+
 ## Optional monitors
 
 ```tsx title="Monitors.tsx"

@@ -186,3 +186,26 @@ Maintainers only. Contributors do not publish.
 Release prep follows the [release checklist](https://hakka.noodleapps.com/release/checklist), which also covers the open-source boundary scan.
 
 Run `just verify-all` (or `bun run phase:verify:full`) before any release — it runs the Tier-0 gate, the smoke gate, and a full cross-platform build (`build-all`). Physical-device benchmark verification (`scripts/benchmark-verify.mjs --strict-physical`) is a separate, manual step — run it directly when claiming the performance phase complete; it is not currently wired into `just verify-all`.
+
+## React Native iOS binary builds
+
+The published RN package contains a static `HakkaNative.xcframework`; the small RN bridge
+remains source. Canonical Swift sources still live under `ios/Sources`, and the generated
+RN mirrors remain available for source builds.
+
+On macOS with Xcode, Node, XcodeGen, and xcbeautify installed:
+
+```bash
+node scripts/sync-rn-ios.mjs
+bash scripts/build-rn-ios-xcframework.sh
+node scripts/verify-rn-ios-xcframework.mjs
+```
+
+The builder archives device and simulator slices, records source/version checksums, and
+places the result in ignored `packages/hakka-react-native/ios/Frameworks/`. The npm release
+workflow builds this artifact on macOS before publishing. The RN package's prepublish gate
+rejects a missing or stale binary. Binaries are included in npm, never committed to Git.
+
+Use `HAKKA_IOS_USE_SOURCE=1 pod install` in a consumer's iOS directory while editing Swift
+sources. Otherwise, `pod install` selects the local XCFramework when present. Rebuild the
+binary after native source changes, then rerun `pod install` to switch back.

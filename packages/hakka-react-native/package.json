@@ -44,6 +44,7 @@
     "ios/**/*.mm",
     "ios/**/*.cpp",
     "ios/**/*.swift",
+    "ios/Frameworks",
     "*.podspec",
     "LICENSE",
     "README.md",
@@ -79,7 +80,7 @@
   },
   "scripts": {
     "build": "bun run typecheck && bunx react-native-builder-bob build",
-    "prepublishOnly": "npm run build",
+    "prepublishOnly": "node ../../scripts/verify-rn-ios-xcframework.mjs && npm run build",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf android/build ios/build lib",
     "test": "NODE_ENV=test jest --forceExit"

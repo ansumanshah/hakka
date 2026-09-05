@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(HakkaNative)
+import HakkaNative
+#endif
 #if canImport(HakkaCommon)
 import HakkaCommon
 #endif
@@ -214,7 +217,7 @@ public final class RNHakkaCoreBridge: NSObject, HakkaDelegate, @unchecked Sendab
         }
     }
 
-    /// The React Native pod compiles the canonical inspector into this target.
+    /// The React Native pod includes the canonical inspector in both binary and source builds.
     @objc public func isUIAvailable() -> Bool {
         true
     }
@@ -412,7 +415,7 @@ public final class RNHakkaCoreBridge: NSObject, HakkaDelegate, @unchecked Sendab
         if let body = request.requestBody { payload["requestBody"] = body }
         if let body = request.responseBody { payload["responseBody"] = body }
         if let error = request.error { payload["error"] = error }
-        if let contentType = request.responseHeaders.firstValue("Content-Type") {
+        if let contentType = request.responseHeaders.first(where: { $0.key.lowercased() == "content-type" })?.value.first {
             payload["contentType"] = contentType
         }
         if let protocolName = request.networkProtocol {
