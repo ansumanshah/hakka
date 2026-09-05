@@ -21,6 +21,12 @@ final class AppModel {
     let sessionCompare = SessionCompareModel()
     let logs = LogsModel()
     let storage = StorageModel()
+    /// The native MCP server's lifecycle, surfaced by the Settings toggle
+    /// (`MCPSettingsSection`). Constructed here (not started here) so it
+    /// exists for the whole window's lifetime the same as every other
+    /// sub-model, wired to this window's own `traffic.store`/`collection` —
+    /// see `MCPServerModel`'s doc comment for why it never starts itself.
+    let mcp: MCPServerModel
 
     /// Ids currently marked for a batch delete — toggled from the sidebar's
     /// context menu, cleared once `deleteMarkedNodes()` (in
@@ -32,6 +38,7 @@ final class AppModel {
         self.traffic = traffic
         self.rules = RulesModel(traffic: traffic)
         self.pauseInbox = PauseInboxModel(channel: traffic)
+        self.mcp = MCPServerModel(trafficStore: traffic.store, collectionModel: collection)
     }
 
     private(set) var selection: SidebarSelection?
