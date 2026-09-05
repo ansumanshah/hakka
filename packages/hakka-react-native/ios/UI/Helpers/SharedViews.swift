@@ -100,13 +100,13 @@ struct MethodBadge: View {
 struct MethodLabel: View {
     let method: HttpMethod
 
-    private static let fixedWidth: CGFloat = 52
+    private static let minimumWidth: CGFloat = 52
 
     var body: some View {
         Text(method.rawValue)
-            .font(.system(size: HakkaMetrics.FontSize.xs, weight: .bold, design: .monospaced))
+            .font(.caption.monospaced().weight(.bold))
             .foregroundStyle(Theme.methodColor(for: method))
-            .frame(width: Self.fixedWidth, alignment: .leading)
+            .frame(minWidth: Self.minimumWidth, alignment: .leading)
     }
 }
 
@@ -141,7 +141,7 @@ struct HakkaChip: View {
                     RoundedRectangle(cornerRadius: Theme.radiusS)
                         .stroke(isActive ? tone.opacity(0.40) : Theme.border, lineWidth: 1)
                 )
-                // Visual chip stays the 26pt `ctlH` grammar (DESIGN.md); the
+                // Visual chip stays on the shared `ctlH` grammar (DESIGN.md); the
                 // tap target grows to the 44pt `tapMin` floor via this
                 // transparent container frame — SwiftUI never hit-tests
                 // outside a view's own frame, so the container itself (not

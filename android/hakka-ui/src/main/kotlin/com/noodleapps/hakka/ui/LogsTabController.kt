@@ -57,7 +57,7 @@ internal class LogsTabController(private val activity: Activity) : TabController
     private fun buildHeader() = LinearLayout(activity).apply {
         orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
         setBackgroundColor(Theme.surface(activity))
-        setPadding(dp(Theme.s8), dp(Theme.s10), dp(Theme.s8), dp(Theme.s10))
+        setPadding(dp(GeneratedMetrics.Layout.gutter), dp(Theme.s10), dp(GeneratedMetrics.Layout.gutter), dp(Theme.s10))
 
         segHolder = LinearLayout(activity).apply {
             layoutParams = LinearLayout.LayoutParams(0, WC, 1f)

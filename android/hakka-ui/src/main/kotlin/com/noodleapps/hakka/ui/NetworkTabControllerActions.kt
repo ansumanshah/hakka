@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.view.View
+import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.FileProvider
@@ -60,7 +61,10 @@ internal fun NetworkTabController.syncPausedState() {
     if (isPausedBannerReady()) {
         pausedBanner.visibility = if (paused) View.VISIBLE else View.GONE
     }
-    topBarContainer.findViewWithTag<TextView>("pauseBtn")?.text = if (paused) "Resume" else "Pause"
+    topBarContainer.findViewWithTag<ImageView>("pauseBtn")?.apply {
+        setImageResource(if (paused) R.drawable.hakka_ic_play else R.drawable.hakka_ic_pause)
+        contentDescription = if (paused) "Resume capture" else "Pause capture"
+    }
 }
 
 // ── Actions ──────────────────────────────────────────────────────────

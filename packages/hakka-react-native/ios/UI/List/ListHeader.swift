@@ -33,10 +33,7 @@ struct ListHeader: View {
                 headerContent
             }
         }
-        .padding(.horizontal, Theme.s16)
-        .padding(.top, Theme.s10)
-        .padding(.bottom, Theme.s6)
-        .background(Theme.surface)
+        .hakkaInspectorToolbar()
     }
 
     private var headerContent: some View {

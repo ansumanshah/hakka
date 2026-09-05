@@ -65,7 +65,7 @@ internal class RulesTabController(private val activity: Activity) : TabControlle
     private fun buildHeader() = LinearLayout(activity).apply {
         orientation = LinearLayout.VERTICAL
         setBackgroundColor(Theme.surface(activity))
-        setPadding(dp(Theme.s8), dp(Theme.s10), dp(Theme.s8), dp(Theme.s10))
+        setPadding(dp(GeneratedMetrics.Layout.gutter), dp(Theme.s10), dp(GeneratedMetrics.Layout.gutter), dp(Theme.s10))
         segHolder = LinearLayout(activity)
         addView(segHolder)
         rebuildSegSwitch()

@@ -88,10 +88,7 @@ struct StorageView: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Settings")
         }
-        .padding(.horizontal, Theme.s16)
-        .padding(.top, Theme.s10)
-        .padding(.bottom, Theme.s6)
-        .background(Theme.surface)
+        .hakkaInspectorToolbar()
     }
 
     // MARK: - Search Bar

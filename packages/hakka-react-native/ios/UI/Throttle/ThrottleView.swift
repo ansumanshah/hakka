@@ -77,10 +77,7 @@ struct ThrottleView: View {
                     .frame(width: 8, height: 8)  // ui-token-check-ignore: chart bar or plot-area geometry
             }
         }
-        .padding(.horizontal, Theme.s16)
-        .padding(.top, Theme.s10)
-        .padding(.bottom, Theme.s6)
-        .background(Theme.surface)
+        .hakkaInspectorToolbar()
     }
 
     // MARK: - Profile section

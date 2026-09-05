@@ -54,8 +54,7 @@ class SettingsActivity : Activity() {
 
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            // Reduced side padding on phones (Wok Hei width-effectiveness).
-            setPadding(dp(Theme.s8), dp(Theme.s8), dp(Theme.s8), dp(Theme.s16))
+            setPadding(dp(GeneratedMetrics.Layout.gutter), dp(Theme.s8), dp(GeneratedMetrics.Layout.gutter), dp(Theme.s16))
         }
 
         buildControls(this, content, interceptor)
@@ -76,7 +75,7 @@ class SettingsActivity : Activity() {
     private fun buildHeader() = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
         setBackgroundColor(Theme.surface(this@SettingsActivity))
-        setPadding(dp(Theme.s8), dp(Theme.s10), dp(Theme.s8), dp(Theme.s10))
+        setPadding(dp(GeneratedMetrics.Layout.gutter), dp(Theme.s10), dp(GeneratedMetrics.Layout.gutter), dp(Theme.s10))
 
         addView(ImageView(context).apply {
             setImageResource(R.drawable.hakka_ic_back)

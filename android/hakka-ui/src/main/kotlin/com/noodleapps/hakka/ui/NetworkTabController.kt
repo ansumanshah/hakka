@@ -47,7 +47,11 @@ enum class GroupBy { NONE, HOST, STATUS_CLASS, METHOD, ERROR }
  * (`NetworkTabControllerPresets.kt`), and selection mode / pause-resume /
  * share-export actions (`NetworkTabControllerActions.kt`).
  */
-internal class NetworkTabController(internal val activity: Activity) : TabController {
+internal class NetworkTabController(
+    internal val activity: Activity,
+    internal val onOpenSettings: (() -> Unit)? = null,
+    internal val onCloseInspector: (() -> Unit)? = null,
+) : TabController {
     private lateinit var root: LinearLayout
     internal lateinit var topBarContainer: LinearLayout
     private lateinit var recyclerView: RecyclerView
@@ -274,16 +278,16 @@ internal class NetworkTabController(internal val activity: Activity) : TabContro
     private fun buildRowLayout() = LinearLayout(activity).apply {
         tag = "requestRow"
         orientation = LinearLayout.VERTICAL
-        layoutParams = ViewGroup.LayoutParams(MP, dp(64))
+        // A minimum rather than a fixed height lets accessibility font scaling grow
+        // the row instead of clipping its two text lines.
+        minimumHeight = dp(64)
+        layoutParams = ViewGroup.LayoutParams(MP, WC)
         addView(LinearLayout(context).apply {
             tag = "rowContent"; orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            // 63dp, not 64 — the outer row is a fixed dp(64) and stacks this content
-            // above a dp(1) divider below. At 64+1 the divider laid out 1dp past the
-            // outer container's clip bounds and never drew. 63+1 = 64 keeps the total
-            // row height on-spec while making the hairline actually visible.
-            layoutParams = LinearLayout.LayoutParams(MP, dp(63))
-            setPadding(0, 0, dp(Theme.s8), 0)
+            layoutParams = LinearLayout.LayoutParams(MP, WC)
+            minimumHeight = dp(63)
+            setPadding(0, 0, 0, 0)
             // Severity stripe — chili (5xx/error) / turmeric (4xx) / flame (selected). Empty otherwise.
             addView(View(context).apply {
                 tag = "stripe"
@@ -291,20 +295,20 @@ internal class NetworkTabController(internal val activity: Activity) : TabContro
             })
             addView(LinearLayout(context).apply {
                 orientation = LinearLayout.VERTICAL
-                setPadding(dp(Theme.s10), 0, dp(Theme.s4), 0)
+                setPadding(dp(GeneratedMetrics.Spacing.ll), dp(GeneratedMetrics.Spacing.ml), dp(GeneratedMetrics.Spacing.ll), dp(GeneratedMetrics.Spacing.ml))
                 layoutParams = LinearLayout.LayoutParams(0, WC, 1f)
                 addView(LinearLayout(context).apply {
                     orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
                     addView(TextView(context).apply { tag = "chip" })
                     addView(TextView(context).apply {
-                        tag = "path"; textSize = GeneratedMetrics.FontSize.md.toFloat(); setSingleLine()
+                        tag = "path"; textSize = GeneratedMetrics.FontSize.lg.toFloat(); setSingleLine()
                         ellipsize = TextUtils.TruncateAt.END
                         layoutParams = LinearLayout.LayoutParams(0, WC, 1f).apply {
                             setMargins(dp(Theme.s6), 0, dp(Theme.s6), 0)
                         }
                     })
                     addView(TextView(context).apply {
-                        tag = "duration"; textSize = GeneratedMetrics.FontSize.sm.toFloat(); setTypeface(Typeface.MONOSPACE)
+                        tag = "duration"; textSize = GeneratedMetrics.FontSize.md.toFloat(); setTypeface(Typeface.MONOSPACE)
                         gravity = Gravity.END
                         layoutParams = LinearLayout.LayoutParams(WC, WC).apply { minWidth = dp(44) }
                     })
@@ -314,17 +318,17 @@ internal class NetworkTabController(internal val activity: Activity) : TabContro
                     orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
                     setPadding(0, dp(GeneratedMetrics.Spacing.xs), 0, 0)
                     addView(TextView(context).apply {
-                        tag = "status"; textSize = GeneratedMetrics.FontSize.sm.toFloat(); setTypeface(Typeface.MONOSPACE)
+                        tag = "status"; textSize = GeneratedMetrics.FontSize.md.toFloat(); setTypeface(Typeface.MONOSPACE)
                     })
                     addView(TextView(context).apply {
-                        tag = "host"; textSize = GeneratedMetrics.FontSize.sm.toFloat(); setSingleLine()
+                        tag = "host"; textSize = GeneratedMetrics.FontSize.md.toFloat(); setSingleLine()
                         ellipsize = TextUtils.TruncateAt.END
                         layoutParams = LinearLayout.LayoutParams(0, WC, 1f).apply {
                             setMargins(dp(Theme.s6), 0, dp(Theme.s6), 0)
                         }
                     })
                     addView(TextView(context).apply {
-                        tag = "size"; textSize = GeneratedMetrics.FontSize.xs.toFloat(); setTypeface(Typeface.MONOSPACE)
+                        tag = "size"; textSize = GeneratedMetrics.FontSize.sm.toFloat(); setTypeface(Typeface.MONOSPACE)
                         gravity = Gravity.END
                         layoutParams = LinearLayout.LayoutParams(WC, WC).apply { minWidth = dp(44) }
                     })

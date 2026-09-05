@@ -16,7 +16,7 @@ import android.widget.TextView
 internal fun NetworkTabController.buildSearchBar() = LinearLayout(activity).apply {
     orientation = LinearLayout.VERTICAL
     setBackgroundColor(Theme.surface(activity))
-    setPadding(dp(Theme.s8), dp(Theme.s4), dp(Theme.s4), dp(Theme.s4))
+    setPadding(dp(GeneratedMetrics.Layout.gutter), dp(Theme.s4), dp(GeneratedMetrics.Layout.gutter), dp(Theme.s4))
     val searchBg = GradientDrawable().apply {
         setColor(Theme.bg(activity)); cornerRadius = dp(Theme.radiusL).toFloat()
     }
@@ -24,11 +24,12 @@ internal fun NetworkTabController.buildSearchBar() = LinearLayout(activity).appl
         orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
         addView(EditText(context).also { et ->
             searchEditText = et
-            et.hint = "Search — url: header: body: /regex/ *glob*"; et.textSize = GeneratedMetrics.FontSize.lg.toFloat(); et.setSingleLine()
+            et.hint = "Search or filter…"; et.textSize = GeneratedMetrics.FontSize.md.toFloat(); et.setSingleLine()
             et.setTextColor(Theme.text(activity))
             et.setHintTextColor(Theme.textSecondary(activity))
-            et.background = searchBg
-            et.setPadding(dp(Theme.s12), dp(Theme.s8), dp(Theme.s12), dp(Theme.s8))
+            et.background = searchBg; et.includeFontPadding = false; et.minHeight = dp(GeneratedMetrics.ControlHeight.nav)
+            et.setPadding(dp(Theme.s12), 0, dp(Theme.s12), 0)
+            et.gravity = Gravity.CENTER_VERTICAL
             et.layoutParams = LinearLayout.LayoutParams(0, WC, 1f)
             et.setText(searchQuery)
             et.addTextChangedListener(object : TextWatcher {
@@ -105,7 +106,7 @@ private fun NetworkTabController.activeFilterCount(): Int {
 private fun NetworkTabController.buildQuickChipRow() = HorizontalScrollView(activity).apply {
     isHorizontalScrollBarEnabled = false
     setPadding(0, dp(Theme.s4), 0, 0)
-    quickChipStrip = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
+    quickChipStrip = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; minimumHeight = dp(GeneratedMetrics.ControlHeight.chip) }
     addView(quickChipStrip)
     rebuildQuickChips()
 }

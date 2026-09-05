@@ -39,7 +39,7 @@ struct RequestRowView: View {
                         SearchHighlightedText(
                             text: pathComponent,
                             searchText: searchText,
-                            font: .footnote.weight(.medium),
+                            font: .subheadline.weight(.medium),
                             color: Theme.text,
                             lineLimit: 1,
                             truncationMode: .middle
@@ -66,7 +66,7 @@ struct RequestRowView: View {
                         SearchHighlightedText(
                             text: hostText,
                             searchText: searchText,
-                            font: .caption,
+                            font: .footnote,
                             color: Theme.textTertiary,
                             lineLimit: 1,
                             truncationMode: .tail
@@ -83,7 +83,7 @@ struct RequestRowView: View {
                         .foregroundStyle(durationColor)
                     if request.responseBodySize > 0 {
                         Text(formatBytes(request.responseBodySize))
-                            .font(.caption2.monospacedDigit())
+                            .font(.caption.monospacedDigit())
                             .foregroundStyle(Theme.textTertiary.opacity(0.75))
                     }
                 }
@@ -110,11 +110,11 @@ struct RequestRowView: View {
     private var statusIndicator: some View {
         if let code = request.status {
             Text("\(code)")
-                .font(.caption.monospacedDigit().weight(.semibold))
+                .font(.footnote.monospacedDigit().weight(.semibold))
                 .foregroundStyle(Theme.statusColor(for: code))
         } else if request.error != nil {
             Text("ERR")
-                .font(.caption.weight(.bold))
+                .font(.footnote.weight(.bold))
                 .foregroundStyle(Theme.error)
         } else {
             ProgressView()

@@ -55,9 +55,7 @@ class DetailActivity : Activity() {
         root.addView(buildTabBar())
         contentLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            // Reduced side padding on phones (Wok Hei width-effectiveness) — the pane's
-            // first/last columns should sit close to the screen edge, not double-inset.
-            setPadding(dp(Theme.s8), dp(Theme.s8), dp(Theme.s8), dp(Theme.s16))
+            setPadding(dp(GeneratedMetrics.Layout.gutter), dp(Theme.s8), dp(GeneratedMetrics.Layout.gutter), dp(Theme.s16))
         }
         scrollView = ScrollView(this).apply {
             setBackgroundColor(Theme.bg(this@DetailActivity)); addView(contentLayout)

@@ -92,6 +92,7 @@ internal fun quietQuickChip(
         setTypeface(Typeface.MONOSPACE, Typeface.BOLD)
         background = bg
         setPadding(dp(ctx.resources, Theme.s6), dp(ctx.resources, 3), dp(ctx.resources, Theme.s6), dp(ctx.resources, 3))
+        minimumHeight = dp(ctx.resources, GeneratedMetrics.ControlHeight.chip)
         layoutParams = LinearLayout.LayoutParams(WC, WC).apply { setMargins(0, 0, dp(ctx.resources, Theme.s6), 0) }
         isClickable = true; isFocusable = true
         addRipple(ctx)
@@ -196,9 +197,11 @@ internal fun iconButton(
     contentDescription = label
     val color = tint ?: Theme.textSecondary(ctx)
     @Suppress("DEPRECATION") setColorFilter(color, PorterDuff.Mode.SRC_IN)
-    val pad = dp(res, Theme.s8)
+    // The glyph stays at the shared 20dp visual scale while the enclosing view
+    // supplies Android's 48dp touch target.
+    val pad = dp(res, GeneratedMetrics.Spacing.ll)
     setPadding(pad, pad, pad, pad)
-    layoutParams = LinearLayout.LayoutParams(dp(res, 36), dp(res, 36)).apply {
+    layoutParams = LinearLayout.LayoutParams(dp(res, 48), dp(res, 48)).apply {
         gravity = Gravity.CENTER_VERTICAL
     }
     isClickable = true; isFocusable = true
