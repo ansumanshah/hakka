@@ -13,25 +13,32 @@ enum MCPHTTPRequestParser {
         let body: Data
     }
 
+    enum ParseError: Error {
+        case invalidRequest
+    }
+
     private static let headerBodySeparator = Data("\r\n\r\n".utf8)
 
     /// `nil` means "not a complete request yet" — either the header block
     /// hasn't fully arrived, or it has but the body (per `Content-Length`)
     /// hasn't. The caller keeps accumulating bytes and calls again.
-    static func parse(_ buffer: Data) -> ParsedRequest? {
+    /// Invalid framing throws so the connection can reject it immediately.
+    static func parse(_ buffer: Data) throws -> ParsedRequest? {
         guard let separatorRange = buffer.range(of: headerBodySeparator) else { return nil }
 
         let headerData = buffer[buffer.startIndex..<separatorRange.lowerBound]
-        guard let headerText = String(data: headerData, encoding: .utf8) else { return nil }
+        guard let headerText = String(data: headerData, encoding: .utf8) else { throw ParseError.invalidRequest }
         let lines = headerText.components(separatedBy: "\r\n")
-        guard let requestLine = lines.first else { return nil }
+        guard let requestLine = lines.first else { throw ParseError.invalidRequest }
 
         let requestLineParts = requestLine.split(separator: " ", maxSplits: 2)
-        guard requestLineParts.count >= 2 else { return nil }
+        guard requestLineParts.count >= 2 else {
+            throw ParseError.invalidRequest
+        }
         let method = String(requestLineParts[0])
         let path = String(requestLineParts[1])
 
-        let contentLength = contentLength(fromHeaderLines: lines.dropFirst())
+        let contentLength = try contentLength(fromHeaderLines: lines.dropFirst())
         let bodyStart = separatorRange.upperBound
         let availableBodyBytes = buffer.count - buffer.distance(from: buffer.startIndex, to: bodyStart)
         guard availableBodyBytes >= contentLength else { return nil }
@@ -41,17 +48,28 @@ enum MCPHTTPRequestParser {
         return ParsedRequest(method: method, path: path, body: Data(body))
     }
 
-    /// 0 when the header is absent — a request with no `Content-Length` is
-    /// treated as having no body rather than attempting chunked decoding
-    /// (see this file's top comment).
-    private static func contentLength(fromHeaderLines lines: some Sequence<String>) -> Int {
+    /// A missing length means an empty body. Reject framing this transport
+    /// cannot interpret unambiguously before calculating a body range.
+    private static func contentLength(fromHeaderLines lines: some Sequence<String>) throws -> Int {
+        var contentLength: Int?
         for line in lines {
-            guard let colon = line.firstIndex(of: ":") else { continue }
-            let name = line[line.startIndex..<colon].trimmingCharacters(in: .whitespaces)
+            guard let colon = line.firstIndex(of: ":") else { throw ParseError.invalidRequest }
+            let name = line[line.startIndex..<colon]
+            guard !name.isEmpty, !name.contains(where: { $0.isWhitespace }) else {
+                throw ParseError.invalidRequest
+            }
+            if name.caseInsensitiveCompare("Transfer-Encoding") == .orderedSame {
+                throw ParseError.invalidRequest
+            }
             guard name.caseInsensitiveCompare("Content-Length") == .orderedSame else { continue }
             let value = line[line.index(after: colon)...].trimmingCharacters(in: .whitespaces)
-            return Int(value) ?? 0
+            guard contentLength == nil, !value.isEmpty,
+                  value.utf8.allSatisfy({ $0 >= 48 && $0 <= 57 }),
+                  let length = Int(value) else {
+                throw ParseError.invalidRequest
+            }
+            contentLength = length
         }
-        return 0
+        return contentLength ?? 0
     }
 }

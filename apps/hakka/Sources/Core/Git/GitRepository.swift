@@ -1,20 +1,8 @@
 import Foundation
 
-/// Native git write-operations on a collection directory — the surface Bruno
-/// gates behind $6/user/month (commit, push, branch create/checkout, stash,
-/// merge-conflict resolution) while leaving read-side git free. Hakka's
-/// collection format already produces reviewable git diffs (one file per
-/// request, sorted-key pretty JSON — see `CollectionFileFormat`); this actor
-/// is what lets the app drive git against that format directly, instead of
-/// sending the user out to a terminal.
-///
-/// An `actor` because every method ultimately shells out to `git` against
-/// `directory` on disk: two concurrent writers (an autosave commit racing a
-/// user-initiated push, say) must serialize through the same process queue
-/// rather than both spawning `git` against the same index at once. All
-/// process work is delegated to `runner` — this type never touches
-/// `Process` itself — so the UI layer, and tests, only ever see this typed
-/// surface.
+/// Git operations for a collection directory. Commands use argument arrays
+/// through an injectable runner; callers must avoid overlapping writes while
+/// an operation is suspended.
 public actor GitRepository {
     public let directory: URL
     private let runner: any GitRunning

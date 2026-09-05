@@ -53,8 +53,13 @@ final class MCPHTTPConnection: @unchecked Sendable {
                 self.buffer.append(content)
             }
 
-            if let parsed = MCPHTTPRequestParser.parse(self.buffer) {
-                self.dispatch(parsed)
+            do {
+                if let parsed = try MCPHTTPRequestParser.parse(self.buffer) {
+                    self.dispatch(parsed)
+                    return
+                }
+            } catch {
+                self.respondPlain(status: "400 Bad Request", body: "Invalid HTTP request framing")
                 return
             }
 

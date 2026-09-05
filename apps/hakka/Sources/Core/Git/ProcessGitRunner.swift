@@ -35,6 +35,12 @@ public struct ProcessGitRunner: GitRunning {
         // fails fast against a closed pipe instead of hanging the caller.
         process.standardInput = FileHandle.nullDevice
 
+        let (exits, exitContinuation) = AsyncStream<Int32>.makeStream(bufferingPolicy: .bufferingNewest(1))
+        process.terminationHandler = { process in
+            exitContinuation.yield(process.terminationStatus)
+            exitContinuation.finish()
+        }
+        try Task.checkCancellation()
         do {
             try process.run()
         } catch {
@@ -62,23 +68,25 @@ public struct ProcessGitRunner: GitRunning {
             async let stdoutData = Self.readAll(stdoutPipe.fileHandleForReading)
             async let stderrData = Self.readAll(stderrPipe.fileHandleForReading)
             let (outData, errData) = await (stdoutData, stderrData)
-            process.waitUntilExit()
 
             if Task.isCancelled {
                 throw GitError.cancelled
             }
-            return GitProcessResult(
-                exitCode: process.terminationStatus,
-                standardOutput: String(decoding: outData, as: UTF8.self),
-                standardError: String(decoding: errData, as: UTF8.self),
-            )
+            for await exitCode in exits {
+                return GitProcessResult(
+                    exitCode: exitCode,
+                    standardOutput: String(decoding: outData, as: UTF8.self),
+                    standardError: String(decoding: errData, as: UTF8.self),
+                )
+            }
+            throw GitError.cancelled
         } onCancel: {
             // SIGTERM, not `interrupt()` — git handles TERM by giving up
             // its current operation (including a partial fetch/push) rather
             // than leaving an index lock behind, which is what matters for
             // a cancel to actually unblock a follow-up call against the
             // same repository.
-            process.terminate()
+            if process.isRunning { process.terminate() }
         }
     }
 
