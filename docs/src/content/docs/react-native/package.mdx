@@ -28,16 +28,19 @@ Next.js SDKs.
 
 ## Setup
 
+The native inspector needs no clipboard package or React Native UI peers. It uses
+the platform clipboard directly.
+
 <Steps>
 
-1.  **Install the package and clipboard peer**
+1.  **Install the package**
 
           <Tabs syncKey="pkg-manager">
 
     <TabItem label="npm">
 
     ```bash title="Terminal"
-    npm install hakka-react-native @react-native-clipboard/clipboard
+    npm install hakka-react-native
     ```
 
           </TabItem>
@@ -45,7 +48,7 @@ Next.js SDKs.
     <TabItem label="pnpm">
 
     ```bash title="Terminal"
-    pnpm add hakka-react-native @react-native-clipboard/clipboard
+    pnpm add hakka-react-native
     ```
 
           </TabItem>
@@ -53,7 +56,7 @@ Next.js SDKs.
     <TabItem label="yarn">
 
     ```bash title="Terminal"
-    yarn add hakka-react-native @react-native-clipboard/clipboard
+    yarn add hakka-react-native
     ```
 
           </TabItem>
@@ -61,7 +64,7 @@ Next.js SDKs.
     <TabItem label="bun">
 
     ```bash title="Terminal"
-    bun add hakka-react-native @react-native-clipboard/clipboard
+    bun add hakka-react-native
     ```
 
           </TabItem>

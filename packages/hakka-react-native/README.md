@@ -5,14 +5,14 @@ Local-first network inspector for React Native. Captures HTTP traffic via native
 ## Install
 
 ```bash
-npm install hakka-react-native @react-native-clipboard/clipboard
+npm install hakka-react-native
 cd ios && pod install
 ```
 
-`@react-native-clipboard/clipboard` is an optional peer, recommended so Hakka's share/copy
-actions work. Without it, copy falls back to `expo-clipboard` when present, and otherwise
-reports failure while everything else keeps working — the SDK has no required native
-dependencies beyond React Native itself.
+No clipboard package or React Native UI peer is required. The native inspector uses
+the platform clipboard directly. Only the optional JavaScript `copyToClipboard` and
+`useShakeToShare` helpers need `@react-native-clipboard/clipboard` or `expo-clipboard`
+for their clipboard-copy step.
 
 ## Quick Start
 
@@ -78,7 +78,7 @@ Expo Go is not supported. Use a development build:
 
 ```bash
 npm install hakka-react-native
-npx expo install @react-native-clipboard/clipboard expo-dev-client
+npx expo install expo-dev-client
 ```
 
 Add the config plugin:

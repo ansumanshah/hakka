@@ -1,62 +1,40 @@
 # hakka-integrate-react-native
 
-Install and configure Hakka network inspector in a React Native app — installs the package, starts capture, adds the UI overlay, and verifies that requests appear in the inspector.
+Install Hakka in a React Native app, start capture, and open the native iOS or Android inspector.
 
 ## Steps
 
-1. Install the package and required clipboard peer:
+1. Install Hakka. No clipboard package, React Native UI peers, or worklets Babel plugin is required:
 
    ```sh
-   bun add hakka-react-native @react-native-clipboard/clipboard
+   bun add hakka-react-native
    ```
 
-   Install UI peers (skip any already present):
-
-   ```sh
-   bun add react-native-gesture-handler react-native-reanimated react-native-safe-area-context react-native-svg react-native-worklets
-   ```
-
-2. Rebuild iOS native layer:
+2. Install the native dependencies and rebuild the app:
 
    ```sh
    cd ios && pod install && cd ..
    ```
 
-   Then relaunch the app from Xcode or `bun run ios`.
+   For Android, configure the app-level native SDK artifacts following the React Native package guide, then rebuild. The bridge uses compile-only dependencies; native capture and inspector artifacts must be present in the host app.
 
-3. Add the worklets Babel plugin as the **last** entry in your `babel.config.js` `plugins` array:
-
-   ```js
-   plugins: ['react-native-worklets/plugin']
-   ```
-
-4. Import and start capture in your app entry point (e.g. `App.tsx`):
+3. Start capture once in the app entry point:
 
    ```ts
    import { Hakka } from 'hakka-react-native'
    Hakka.start({ mode: 'auto' })
    ```
 
-   `'auto'` prefers the native OkHttp/URLProtocol interceptor and falls back to JS-layer patching if the native module is unavailable.
+   `auto` prefers native capture and falls back to JS capture when the native module is unavailable.
 
-5. Wrap the root component with the inspector overlay:
+4. Open the native inspector from an app action or debug menu:
 
-   ```tsx
-   import { HakkaInspector } from 'hakka-react-native/ui'
-
-   export default function App() {
-     return (
-       <HakkaInspector.Wrapper mode="bubble">
-         <YourRootComponent />
-       </HakkaInspector.Wrapper>
-     )
-   }
-   ```
-
-6. Fire a test network request in your app, then shake the device or call `Hakka.show({ as: 'sheet' })` — the inspector should list the captured request with method, URL, status, and timing.
-
-7. Verify capture is active:
    ```ts
-   console.log(Hakka.isActive) // true
-   console.log(Hakka.getLogs()) // NetworkRecord[]
+   const didOpen = await Hakka.show({ as: 'sheet' })
+   // Also supports 'bubble' and 'fullscreen'.
+   Hakka.hide()
    ```
+
+   No React wrapper is needed. Native UI requires native capture and returns `false` when unavailable, including JS-only capture.
+
+5. Fire a test request, open the inspector, and verify its method, URL, status, and timing. Confirm `Hakka.isActive` and inspect `Hakka.getLogs()` when debugging capture.

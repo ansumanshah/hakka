@@ -6,11 +6,10 @@ development build instead.
 
 ## Install
 
-Install Hakka and the required clipboard peer:
+Install Hakka:
 
 ```bash
 npm install hakka-react-native
-npx expo install @react-native-clipboard/clipboard
 ```
 
 Install the development client for local Expo development builds:

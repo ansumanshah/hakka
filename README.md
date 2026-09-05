@@ -73,7 +73,7 @@ Working with an AI coding agent? Paste [the setup prompt](https://hakka.noodleap
 ### React Native
 
 ```bash
-npm install hakka-react-native @react-native-clipboard/clipboard
+npm install hakka-react-native
 cd ios && pod install
 ```
 
@@ -100,7 +100,7 @@ remain available programmatically.
 ### Expo (development build only — Expo Go is not supported)
 
 ```bash
-npx expo install hakka-react-native @react-native-clipboard/clipboard expo-dev-client
+npx expo install hakka-react-native expo-dev-client
 ```
 
 ```json
