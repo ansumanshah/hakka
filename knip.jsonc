@@ -94,6 +94,8 @@
     "react-native-mmkv",
     "react-native-reanimated",
     "react-native-safe-area-context",
+    // tsdown loads this optional peer while evaluating its config on Node 22.
+    "unrun",
     // Optional peers referenced only behind runtime guards (try/catch dynamic require,
     // or an optional-native-module check) — same "referenced optional peer, not a real
     // devDependency" pattern as the RN entries above.

@@ -7,8 +7,6 @@
  * Hakka also documents an explicit `hakka-rozenite/react-native` subpath.
  * Rozenite does not manage that alias, so copy the generated root mapping to
  * the subpath after every build to keep both entry points in sync.
- *
- * If a rozenite upgrade changes its contract paths, update DIST here too.
  */
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'

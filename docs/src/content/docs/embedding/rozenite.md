@@ -1,15 +1,13 @@
 ---
 title: Rozenite
-description: EXPERIMENTAL — Hakka's network inspector as a panel inside React Native DevTools via Rozenite, not yet verified against a real running app.
+description: EXPERIMENTAL — Hakka's network inspector as a panel inside React Native DevTools via Rozenite.
 ---
 
-> **Experimental — not yet verified against a real running app.** Rozenite's plugin API is
-> young and still moving. This package is built and tested against the coordinated Rozenite
-> `2.4.0` family and Vite `7.3.6`. Automated checks exercise the real in-process Rozenite
-> transport, and the repository's bare React Native example passes Metro plugin discovery and
-> bundling. A simulator or physical device is still required to verify the React Native
-> DevTools sidebar and device-side CDP transport. Treat this package's shape as likely to
-> change alongside Rozenite's, not as a stable contract.
+> **Experimental.** Rozenite's plugin API is young and still moving. This package is built and
+> tested against the coordinated Rozenite `2.4.0` family and Vite `7.3.6`. Automated checks
+> exercise the real in-process transport, and the React Native example passes Metro discovery,
+> bundling, and simulator verification in the real DevTools sidebar. Treat this package's shape
+> as likely to change alongside Rozenite's, not as a stable contract.
 
 `hakka-rozenite` renders Hakka's network inspector as a panel inside **React Native DevTools**,
 via [Rozenite](https://rozenite.dev). It renders the same

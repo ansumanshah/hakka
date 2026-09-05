@@ -5,8 +5,8 @@
 > alongside it, not a stable contract. Built and tested against the complete
 > Rozenite `2.4.0` family and Vite `7.3.6`. The repository's React Native
 > example now exercises Metro discovery during its Rozenite-enabled bundle,
-> while the real DevTools sidebar and device-side CDP transport still need a
-> simulator or physical device. See "Verification status" below.
+> and the real DevTools sidebar has been verified on an iOS simulator. See
+> "Verification status" below.
 
 Hakka's network inspector as a panel inside **React Native DevTools**, via
 [Rozenite](https://rozenite.dev). Renders the same
