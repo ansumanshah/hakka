@@ -2,6 +2,7 @@ package com.noodleapps.hakka.ui
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
 
 /** Fullscreen Compose host for the Hakka inspector. Public activity identity is retained. */
 class HakkaActivity : ComponentActivity() {

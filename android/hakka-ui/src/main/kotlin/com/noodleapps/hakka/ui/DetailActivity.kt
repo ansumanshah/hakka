@@ -6,6 +6,7 @@ import android.os.Looper
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
 import com.noodleapps.hakka.NetworkRequest
 
 /** Full-screen Compose detail screen for one captured Hakka request. */
