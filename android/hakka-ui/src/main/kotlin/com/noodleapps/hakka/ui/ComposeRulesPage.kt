@@ -11,7 +11,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -281,13 +284,40 @@ private fun MockRuleEditor(existing: MockRule?, onDismiss: () -> Unit, onSave: (
     var redirectTo by remember(existing) { mutableStateOf(existing?.redirectTo.orEmpty()) }
     var enabled by remember(existing) { mutableStateOf(existing?.enabled ?: true) }
     EditorDialog(if (existing == null) "Add Mock Rule" else "Edit Mock Rule", onDismiss, onSave = {
-        onSave(MockRuleInput(pattern, method = method.takeUnless { it == "ANY" }, response = MockResponse(status = status.toIntOrNull() ?: 200, body = body.ifBlank { null }, delayMs = delay.toLongOrNull() ?: 0), enabled = enabled, id = existing?.id, redirectTo = redirectTo.takeIf { action == RuleAction.REDIRECT }, block = action == RuleAction.BLOCK))
+        val response = when (action) {
+            RuleAction.MOCK -> MockResponse(
+                status = status.toIntOrNull() ?: 200,
+                body = body.ifBlank { null },
+                delayMs = delay.toLongOrNull() ?: 0,
+            )
+            // Match the existing Android dialog: redirects are passthrough rules
+            // with a nominal 200 response, and blocks use status zero.
+            RuleAction.REDIRECT -> MockResponse(status = 200)
+            RuleAction.BLOCK -> MockResponse(status = 0)
+        }
+        onSave(
+            MockRuleInput(
+                pattern = pattern,
+                method = method.takeUnless { it == "ANY" },
+                response = response,
+                enabled = enabled,
+                id = existing?.id,
+                redirectTo = redirectTo.takeIf { action == RuleAction.REDIRECT },
+                block = action == RuleAction.BLOCK,
+            ),
+        )
     }) {
         OutlinedTextField(pattern, { pattern = it }, label = { Text("URL pattern") }, modifier = Modifier.fillMaxWidth())
         ChoiceRow("Method", listOf("ANY", "GET", "POST", "PUT", "PATCH", "DELETE"), method) { method = it }
         ChoiceRow("Action", listOf("Mock", "Redirect", "Block"), action.label) { action = RuleAction.entries.first { action -> action.label == it } }
-        if (action == RuleAction.MOCK) { OutlinedTextField(status, { status = it }, label = { Text("Status") }, modifier = Modifier.fillMaxWidth()); OutlinedTextField(delay, { delay = it }, label = { Text("Delay (ms)") }, modifier = Modifier.fillMaxWidth()); OutlinedTextField(body, { body = it }, label = { Text("Response body") }, modifier = Modifier.fillMaxWidth(), minLines = 3) }
-        if (action == RuleAction.REDIRECT) OutlinedTextField(redirectTo, { redirectTo = it }, label = { Text("Target URL") }, modifier = Modifier.fillMaxWidth())
+        if (action == RuleAction.MOCK) {
+            OutlinedTextField(status, { status = it }, label = { Text("Status") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(delay, { delay = it }, label = { Text("Delay (ms)") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(body, { body = it }, label = { Text("Response body") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
+        }
+        if (action == RuleAction.REDIRECT) {
+            OutlinedTextField(redirectTo, { redirectTo = it }, label = { Text("Target URL") }, modifier = Modifier.fillMaxWidth())
+        }
         EnabledRow(enabled) { enabled = it }
     }
 }
@@ -326,13 +356,60 @@ private fun PausedEntryEditor(entry: PausedEntry, engine: BreakpointEngine, onDi
 }
 
 @Composable
-private fun EditorDialog(title: String, onDismiss: () -> Unit, saveLabel: String = "Save", onSave: () -> Unit, content: @Composable () -> Unit) = AlertDialog(onDismissRequest = onDismiss, title = { Text(title) }, text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { content() } }, confirmButton = { Button(onClick = onSave) { Text(saveLabel) } }, dismissButton = { OutlinedButton(onClick = onDismiss) { Text("Cancel") } })
+private fun EditorDialog(
+    title: String,
+    onDismiss: () -> Unit,
+    saveLabel: String = "Save",
+    onSave: () -> Unit,
+    content: @Composable () -> Unit,
+) = AlertDialog(
+    onDismissRequest = onDismiss,
+    title = { Text(title) },
+    text = {
+        Column(
+            Modifier.verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            content()
+        }
+    },
+    confirmButton = { Button(onClick = onSave) { Text(saveLabel) } },
+    dismissButton = { OutlinedButton(onClick = onDismiss) { Text("Cancel") } },
+)
 
 @Composable
-private fun ChoiceRow(label: String, options: List<String>, selected: String, onSelect: (String) -> Unit) = Column { Text(label, style = MaterialTheme.typography.labelMedium); Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { options.forEach { FilterChip(it == selected, { onSelect(it) }, { Text(it) }) } } }
+private fun ChoiceRow(label: String, options: List<String>, selected: String, onSelect: (String) -> Unit) {
+    Column {
+        Text(label, style = MaterialTheme.typography.labelMedium)
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            items(options, key = { it }) { option ->
+                FilterChip(
+                    selected = option == selected,
+                    onClick = { onSelect(option) },
+                    label = { Text(option) },
+                )
+            }
+        }
+    }
+}
 
-@Composable private fun EnabledRow(enabled: Boolean, onChanged: (Boolean) -> Unit) = Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(enabled, onCheckedChange = onChanged); Text("Enabled") }
-@Composable private fun ConfirmDialog(title: String, action: String, onDismiss: () -> Unit, onConfirm: () -> Unit) = AlertDialog(onDismissRequest = onDismiss, title = { Text(title) }, confirmButton = { Button(onClick = onConfirm) { Text(action) } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
+@Composable
+private fun EnabledRow(enabled: Boolean, onChanged: (Boolean) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Checkbox(enabled, onCheckedChange = onChanged)
+        Text("Enabled")
+    }
+}
+
+@Composable
+private fun ConfirmDialog(title: String, action: String, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        confirmButton = { Button(onClick = onConfirm) { Text(action) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
 
 @Composable
 private fun ObserveRules(activity: Activity, revision: () -> Unit, subscribe: ((() -> Unit) -> () -> Unit)) {
@@ -342,8 +419,43 @@ private fun ObserveRules(activity: Activity, revision: () -> Unit, subscribe: ((
     }
 }
 
-private val RuleAction.label: String get() = when (this) { RuleAction.MOCK -> "Mock"; RuleAction.REDIRECT -> "Redirect"; RuleAction.BLOCK -> "Block" }
-private val BreakpointPhase.label: String get() = when (this) { BreakpointPhase.REQUEST -> "Request"; BreakpointPhase.RESPONSE -> "Response"; BreakpointPhase.BOTH -> "Both" }
-private fun profileHint(profile: ThrottleProfile): String? = when (profile) { ThrottleProfile.FAST_3G -> "150ms · 1500 kbps"; ThrottleProfile.SLOW_3G -> "400ms · 400 kbps"; ThrottleProfile.EDGE -> "250ms · 240 kbps"; ThrottleProfile.OFFLINE -> "Drops all requests"; else -> null }
-private fun throttleStatus(profile: ThrottleProfile, latency: Long, bandwidth: Long): String = when (profile) { ThrottleProfile.NONE -> "Throttle off — requests pass through normally."; ThrottleProfile.OFFLINE -> "Offline — all requests will fail with a connection error."; else -> "Active: ${profileHint(profile)}${if (latency > 0) " · +${latency}ms latency" else ""}${if (bandwidth > 0) " · ${bandwidth} kbps download" else ""}" }
-private fun parseComposeHeaders(value: String): Map<String, String>? = value.lines().mapNotNull { line -> line.indexOf(':').takeIf { it > 0 }?.let { index -> line.substring(0, index).trim().takeIf(String::isNotEmpty)?.let { key -> key to line.substring(index + 1).trim() } } }.toMap().ifEmpty { null }
+private val RuleAction.label: String get() = when (this) {
+    RuleAction.MOCK -> "Mock"
+    RuleAction.REDIRECT -> "Redirect"
+    RuleAction.BLOCK -> "Block"
+}
+
+private val BreakpointPhase.label: String get() = when (this) {
+    BreakpointPhase.REQUEST -> "Request"
+    BreakpointPhase.RESPONSE -> "Response"
+    BreakpointPhase.BOTH -> "Both"
+}
+
+private fun profileHint(profile: ThrottleProfile): String? = when (profile) {
+    ThrottleProfile.FAST_3G -> "150ms · 1500 kbps"
+    ThrottleProfile.SLOW_3G -> "400ms · 400 kbps"
+    ThrottleProfile.EDGE -> "250ms · 240 kbps"
+    ThrottleProfile.OFFLINE -> "Drops all requests"
+    else -> null
+}
+
+private fun throttleStatus(profile: ThrottleProfile, latency: Long, bandwidth: Long): String = when (profile) {
+    ThrottleProfile.NONE -> "Throttle off — requests pass through normally."
+    ThrottleProfile.OFFLINE -> "Offline — all requests will fail with a connection error."
+    else -> buildString {
+        append("Active: ${profileHint(profile)}")
+        if (latency > 0) append(" · +${latency}ms latency")
+        if (bandwidth > 0) append(" · ${bandwidth} kbps download")
+    }
+}
+
+private fun parseComposeHeaders(value: String): Map<String, String>? = value
+    .lines()
+    .mapNotNull { line ->
+        val index = line.indexOf(':')
+        if (index <= 0) return@mapNotNull null
+        val key = line.substring(0, index).trim()
+        key.takeIf(String::isNotEmpty)?.let { it to line.substring(index + 1).trim() }
+    }
+    .toMap()
+    .ifEmpty { null }
