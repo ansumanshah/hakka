@@ -1,6 +1,7 @@
 package com.noodleapps.hakka.ui
 
 import android.content.Context
+import android.graphics.Color as AndroidColor
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
@@ -13,14 +14,25 @@ import androidx.compose.ui.unit.sp
 /** Hakka's existing generated tokens expressed as Material 3 roles. */
 internal fun hakkaColorScheme(context: Context): ColorScheme {
     val primary = Color(Theme.accent(context))
+    val surface = Color(Theme.surface(context))
+    val raised = Color(Theme.surfaceRaised(context))
+    val text = Color(Theme.text(context))
+    val secondary = Color(Theme.textSecondary(context))
+    val outline = Color(Theme.border(context))
     return if (Theme.isDark(context)) darkColorScheme(
-        primary = primary, background = Color(Theme.bg(context)), surface = Color(Theme.surface(context)),
-        surfaceContainerLow = Color(Theme.surfaceRaised(context)), onBackground = Color(Theme.text(context)),
-        onSurface = Color(Theme.text(context)), onSurfaceVariant = Color(Theme.textSecondary(context)),
+        primary = primary, onPrimary = Color(Theme.badgeText), primaryContainer = raised, onPrimaryContainer = text,
+        secondary = secondary, onSecondary = Color(Theme.bg(context)), secondaryContainer = raised, onSecondaryContainer = text,
+        tertiary = Color(AndroidColor.parseColor(GeneratedTokens.timingTcp)), onTertiary = Color(Theme.bg(context)), tertiaryContainer = raised, onTertiaryContainer = text,
+        background = Color(Theme.bg(context)), surface = surface, surfaceVariant = raised, surfaceContainerLow = raised,
+        onBackground = text, onSurface = text, onSurfaceVariant = secondary, outline = outline,
+        error = Color(Theme.error), onError = Color(Theme.badgeText), errorContainer = raised, onErrorContainer = text,
     ) else lightColorScheme(
-        primary = primary, background = Color(Theme.bg(context)), surface = Color(Theme.surface(context)),
-        surfaceContainerLow = Color(Theme.surfaceRaised(context)), onBackground = Color(Theme.text(context)),
-        onSurface = Color(Theme.text(context)), onSurfaceVariant = Color(Theme.textSecondary(context)),
+        primary = primary, onPrimary = Color(Theme.badgeText), primaryContainer = raised, onPrimaryContainer = text,
+        secondary = secondary, onSecondary = Color(Theme.bg(context)), secondaryContainer = raised, onSecondaryContainer = text,
+        tertiary = Color(AndroidColor.parseColor(GeneratedTokens.timingTcp)), onTertiary = Color(Theme.bg(context)), tertiaryContainer = raised, onTertiaryContainer = text,
+        background = Color(Theme.bg(context)), surface = surface, surfaceVariant = raised, surfaceContainerLow = raised,
+        onBackground = text, onSurface = text, onSurfaceVariant = secondary, outline = outline,
+        error = Color(Theme.error), onError = Color(Theme.badgeText), errorContainer = raised, onErrorContainer = text,
     )
 }
 

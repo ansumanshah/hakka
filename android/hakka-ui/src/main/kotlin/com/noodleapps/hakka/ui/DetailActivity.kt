@@ -19,6 +19,11 @@ class DetailActivity : Activity() {
     internal var pendingSearchRunnable: Runnable? = null
     internal var urlDecoded = true
 
+    // Legacy detail helpers remain compiled for source compatibility while the
+    // Compose screen owns rendering. They are no longer invoked by this activity.
+    internal fun dp(value: Int): Int = dp(resources, value)
+    internal fun rebuildTabContent() = Unit
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val captured = intent.getStringExtra(EXTRA_REQUEST_ID)

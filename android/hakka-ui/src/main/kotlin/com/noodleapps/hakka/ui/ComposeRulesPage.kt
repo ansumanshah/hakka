@@ -104,7 +104,7 @@ private fun MockRulesPanel(activity: Activity) {
             subtitle = "${rules.size} rule${if (rules.size == 1) "" else "s"}",
             addLabel = "Add rule",
             onAdd = { adding = true },
-            onClear = if (rules.isEmpty()) null else { confirmClear = true },
+            onClear = if (rules.isEmpty()) null else ({ confirmClear = true }),
         )
         if (rules.isEmpty()) EmptyRules("No mock rules yet", "Add a rule or use Mock this from a request detail.")
         else LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -146,7 +146,7 @@ private fun BreakpointRulesPanel(activity: Activity) {
                 subtitle = "${rules.size} rules · ${paused.size} paused",
                 addLabel = "Add rule",
                 onAdd = { adding = true },
-                onClear = if (rules.isEmpty()) null else { confirmClear = true },
+                onClear = if (rules.isEmpty()) null else ({ confirmClear = true }),
                 toggleLabel = if (engine.enabled) "Enabled" else "Disabled",
                 toggleChecked = engine.enabled,
                 onToggle = { engine.enabled = !engine.enabled; revision++ },

@@ -33,6 +33,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,6 +49,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.noodleapps.hakka.LogEntry
 import com.noodleapps.hakka.NetworkRequest
+import kotlinx.coroutines.delay
 
 /** Compose-first inspector shell shared by the fullscreen host and bottom sheet. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -78,8 +80,8 @@ internal fun HakkaInspectorCompose(activity: Activity, onClose: () -> Unit) {
                     NavTab.NETWORK -> NetworkPage(activity, onClose)
                     NavTab.STATS -> StatsPage(activity)
                     NavTab.LOGS -> LogsPage(activity)
-                    NavTab.RULES -> RulesPage()
-                    NavTab.STORAGE -> StoragePage(activity)
+                    NavTab.RULES -> ComposeRulesPage(activity)
+                    NavTab.STORAGE -> ComposeStoragePage(activity)
                 }
             }
         }
@@ -109,28 +111,37 @@ private fun HakkaNavigation(selected: NavTab, onSelect: (NavTab) -> Unit) = Surf
 private fun NetworkPage(activity: Activity, onClose: () -> Unit) {
     var query by remember { mutableStateOf("") }
     var method by remember { mutableStateOf<String?>(null) }
+    var statusClass by remember { mutableStateOf<String?>(null) }
     var revision by remember { mutableStateOf(0) }
-    val requests = remember(revision, query, method) {
-        (HakkaUI.getInstance(activity).logStore?.all() ?: emptyList()).asReversed()
+    val logStore = HakkaUI.getInstance(activity).logStore
+    LaunchedEffect(Unit) { while (true) { delay(750); revision++ } }
+    val requests = remember(revision, query, method, statusClass) {
+        (logStore?.all() ?: emptyList()).asReversed()
             .filter { request ->
                 (query.isBlank() || request.url.contains(query, true) || request.method.name.contains(query, true)) &&
-                    (method == null || request.method.name == method)
+                    (method == null || request.method.name == method) &&
+                    (statusClass == null || request.status?.div(100)?.toString() == statusClass)
             }
     }
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Hakka", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-            IconButton(onClick = { revision++ }) { Icon(painterResource(R.drawable.hakka_ic_play), "Refresh") }
+            IconButton(onClick = { if (logStore?.isPaused == true) logStore.resume() else logStore?.pause(); revision++ }) { Icon(painterResource(if (logStore?.isPaused == true) R.drawable.hakka_ic_play else R.drawable.hakka_ic_pause), if (logStore?.isPaused == true) "Resume capture" else "Pause capture") }
+            IconButton(onClick = { logStore?.clear(); revision++ }) { Icon(painterResource(R.drawable.hakka_ic_trash), "Clear requests") }
             IconButton(onClick = { activity.startActivity(Intent(activity, SettingsActivity::class.java)) }) { Icon(painterResource(R.drawable.hakka_ic_settings), "Settings") }
             IconButton(onClick = onClose) { Icon(painterResource(R.drawable.hakka_ic_close), "Close") }
         }
         OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth().padding(horizontal = 16.dp), singleLine = true, label = { Text("Search requests") })
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("All", "GET", "POST", "Errors").forEach { option ->
+            listOf("All", "GET", "POST").forEach { option ->
                 val chosen = if (option == "All") method == null else method == option
                 FilterChip(chosen, { method = if (option == "All") null else option }, { Text(option) })
             }
         }
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("All" to null, "2xx" to "2", "4xx" to "4", "5xx" to "5").forEach { (label, value) -> FilterChip(statusClass == value, { statusClass = value }, { Text(label) }) }
+        }
+        if (logStore?.isPaused == true) Text("Capture paused — new requests are buffered until Resume.", color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.bodySmall)
         if (requests.isEmpty()) EmptyState("No captured requests", "Requests appear here as Hakka records traffic.")
         else LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(requests, key = { it.id }) { RequestCard(activity, it) }
@@ -182,21 +193,6 @@ private fun RequestCard(activity: Activity, request: NetworkRequest) = Card(
 }
 
 @Composable private fun StructuredLogCard(entry: LogEntry) = Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) { Text(entry.category ?: entry.level.name, fontWeight = FontWeight.Bold); Text(entry.message, style = MaterialTheme.typography.bodySmall); entry.metadata?.takeIf { it.isNotEmpty() }?.let { Text(it.entries.joinToString { (key, value) -> "$key: $value" }, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium) } } }
-
-@Composable private fun RulesPage() {
-    var section by remember { mutableStateOf("Mock") }
-    Column(Modifier.fillMaxSize().padding(16.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("Mock", "Breakpoints", "Throttle").forEach { FilterChip(section == it, { section = it }, { Text(it) }) } }
-        Spacer(Modifier.height(24.dp))
-        EmptyState("$section rules", "Create and manage $section rules from this inspector.")
-    }
-}
-
-@Composable private fun StoragePage(activity: Activity) {
-    val files = activity.filesDir.parentFile?.resolve("shared_prefs")?.listFiles()?.filter { it.name.endsWith(".xml") }.orEmpty()
-    if (files.isEmpty()) EmptyState("No stored preferences", "SharedPreferences appear here when your app creates them.")
-    else LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { items(files, key = { it.name }) { file -> Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) { Text(file.nameWithoutExtension, style = MaterialTheme.typography.titleMedium); Text("SharedPreferences file", color = MaterialTheme.colorScheme.onSurfaceVariant) } } } }
-}
 
 @Composable private fun Dashboard(title: String, metrics: List<Pair<String, String>>) = Column(Modifier.fillMaxSize().padding(16.dp)) { Text(title, style = MaterialTheme.typography.titleLarge); Spacer(Modifier.height(16.dp)); metrics.forEach { (label, value) -> Card(Modifier.fillMaxWidth().padding(bottom = 8.dp)) { Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) { Text(label, Modifier.weight(1f)); Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) } } } }
 @Composable private fun EmptyState(title: String, description: String) = Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text(title, style = MaterialTheme.typography.titleLarge); Spacer(Modifier.height(8.dp)); Text(description, color = MaterialTheme.colorScheme.onSurfaceVariant) } }
