@@ -7,7 +7,7 @@ a **bare React Native app** (no Expo) with the optional native Hakka modules lin
 
 ```bash
 bun install    # from the repo root
-cd packages/hakka-react-native/examples/react-native-example/ios && pod install && cd -
+cd examples/react-native-example/ios && pod install && cd -
 ```
 
 The WebView capture demo (`WebViewCaptureScreen.tsx`) imports a built copy of `hakka-browser` from
@@ -50,7 +50,7 @@ then assemble the minified example:
 ```bash
 bun run build
 cd android && ./gradlew publishToMavenLocal && cd -
-cd packages/hakka-react-native/examples/react-native-example/android
+cd examples/react-native-example/android
 ./gradlew -PhakkaMinifyRelease=true :app:assembleRelease
 ```
 

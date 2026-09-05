@@ -26,7 +26,7 @@
       // Rozenite maps react-native imports to this renderer in its web build.
       "ignoreDependencies": ["react-native-web"],
     },
-    "packages/hakka-react-native/examples/expo-example": {
+    "examples/expo-example": {
       // Expo's Metro pipeline loads Babel via its preset.
       "ignoreDependencies": ["@babel/core"],
     },

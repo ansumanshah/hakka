@@ -9,7 +9,7 @@ const { withHakka } = require('hakka-react-native/metro')
 
 // Same monorepo layout as ../react-native-example: bun hoists shared deps to
 // the workspace root, so Metro needs to watch and resolve from there too.
-const workspaceRoot = path.resolve(__dirname, '../../../..')
+const workspaceRoot = path.resolve(__dirname, '../..')
 
 const config = getDefaultConfig(__dirname)
 config.watchFolders = [workspaceRoot]

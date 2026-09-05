@@ -348,20 +348,20 @@ sim *args:
 
 # Run the RN example app on iOS Simulator
 dev-ios:
-    bun run --cwd packages/hakka-react-native/examples/react-native-example ios
+    bun run --cwd examples/react-native-example ios
 
 # Run the RN example app on Android
 dev-android:
     cd android && ./gradlew publishToMavenLocal
-    bun run --cwd packages/hakka-react-native/examples/react-native-example android
+    bun run --cwd examples/react-native-example android
 
 # Open RN example in Xcode
 xcode:
-    xed packages/hakka-react-native/examples/react-native-example/ios/
+    xed examples/react-native-example/ios/
 
 # Open RN example in Android Studio
 studio:
-    open -a 'Android Studio' packages/hakka-react-native/examples/react-native-example/android/
+    open -a 'Android Studio' examples/react-native-example/android/
 
 # Open core iOS Swift package in Xcode
 xcode-core:

@@ -134,7 +134,7 @@ directions. Sustained production-volume traffic remains a benchmark candidate.
 
 **Reproduction steps:**
 
-1. Run `bun run --cwd packages/hakka-react-native/examples/react-native-example start:rozenite`.
+1. Run `bun run --cwd examples/react-native-example start:rozenite`.
 2. Build and open that example on a simulator or device.
 3. Open React Native DevTools and confirm a "Hakka" panel appears in the sidebar.
 4. Trigger some network requests; confirm they appear live in the panel's request list, and

@@ -14,7 +14,7 @@ normalization and store mutation stay off callback paths.
 :::caution[WebSocket capture is metadata-only on iOS]
 `HakkaNetwork`'s `URLProtocol` HTTP capture sees the HTTP/1.1 Upgrade request but not WebSocket frames after the protocol is established — Apple's networking stack handles framing below the `URLProtocol` layer.
 
-Opt in to a native WebSocket monitor with `captureNativeWebSocket: true` in `HakkaConfig` (or `enableNativeWebSocket()`): it observes `URLSessionWebSocketTask` connections and records **metadata** — message count and close code — but **not** individual frame payloads. For full frame-level message capture, use the React Native package with `mode: 'js'` or `mode: 'auto'`.
+Opt in to a native WebSocket monitor with `captureNativeWebSocket: true` in `HakkaConfig` (or `enableNativeWebSocket()`): it observes `URLSessionWebSocketTask` connections and records **metadata** — message count and close code — but **not** individual frame payloads. The React Native package uses native capture exclusively and does not add JavaScript frame interception.
 :::
 
 ## Products

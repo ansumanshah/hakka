@@ -13,7 +13,7 @@ not perform expensive redaction, store mutation, export mapping, or subscriber
 work inline.
 
 :::caution[WebSocket frame capture not supported]
-`HakkaInterceptor` is an OkHttp `Interceptor`, which sees the HTTP/1.1 Upgrade handshake for WebSocket connections but does **not** receive WebSocket frame data after the protocol switch. Only the initial upgrade request and response are recorded. If you need individual WebSocket message capture, use the React Native package with `mode: 'js'` or `mode: 'auto'`.
+`HakkaInterceptor` is an OkHttp `Interceptor`, which sees the HTTP/1.1 Upgrade handshake for WebSocket connections but does **not** receive WebSocket frame data after the protocol switch. Only the initial upgrade request and response are recorded. For native frame capture, instrument the WebSocket through `HakkaWebSocketWrapper`. The React Native package does not install JavaScript frame interception.
 :::
 
 ## Artifacts

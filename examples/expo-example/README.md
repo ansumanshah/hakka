@@ -1,7 +1,7 @@
 # expo-example
 
 Minimal Expo app exercising the `hakka-react-native` **config plugin**, the dedicated setup path
-described in [docs/react-native/expo.mdx](../../../../docs/src/content/docs/react-native/expo.mdx).
+described in [docs/react-native/expo.mdx](../../docs/src/content/docs/react-native/expo.mdx).
 Where [`../react-native-example`](../react-native-example) is a bare RN app that deliberately never
 links native Hakka, this app links it through `app.json`'s `plugins` array and `expo prebuild`.
 
@@ -16,7 +16,7 @@ bun install    # from the repo root
 ## Prebuild + run
 
 ```bash
-cd packages/hakka-react-native/examples/expo-example
+cd examples/expo-example
 npx expo prebuild --clean
 npx expo run:ios
 npx expo run:android
@@ -60,7 +60,7 @@ requests in the inspector with method, status, and timing.
 
 This example installs none of `hakka-react-native`'s optional capture and monitor peer dependencies (no
 mmkv, async-storage, and so on; see
-[`../../metro.js`](../../metro.js) for the full list). Those are `require()`d behind `try/catch` in
+[`hakka-react-native/metro`](../../packages/hakka-react-native/metro.js) for the full list). Those are `require()`d behind `try/catch` in
 `src/`, which Metro cannot honor: it resolves `require('<literal>')` statically at bundle time,
 before any of that guard code runs. Without help, an absent optional peer fails the whole bundle
 with "Unable to resolve module ..." instead of degrading.

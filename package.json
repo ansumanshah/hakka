@@ -3,7 +3,8 @@
   "private": true,
   "workspaces": [
     "packages/*",
-    "packages/hakka-react-native/examples/*",
+    "examples/react-native-example",
+    "examples/expo-example",
     "docs"
   ],
   "type": "module",

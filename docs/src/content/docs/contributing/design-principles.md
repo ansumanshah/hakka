@@ -33,7 +33,6 @@ React Native owns:
 
 - TypeScript API ergonomics
 - TurboModule bridge
-- JS fallback capture
 - native inspector presentation through the TurboModule bridge
 - JavaScript-only monitors
 

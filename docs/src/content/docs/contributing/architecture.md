@@ -148,13 +148,12 @@ in `Sources/Core`.
 
 - TypeScript API surface
 - TurboModule bridge to native SDKs
-- JS fallback capture for fetch, XHR, and WebSocket
 - native inspector presentation through the TurboModule bridge
 - optional monitors for React Query and storage
 
 The RN package must not define the canonical storage model, privacy model, or
-native capture behavior. It wraps native capabilities and fills gaps that native
-network APIs cannot observe, especially WebSocket frames and pure JS calls.
+native capture behavior. It wraps native capture capabilities and adds JavaScript monitors and explicit
+WebView instrumentation. It does not install JavaScript fallback interceptors.
 
 ## Local Desktop Bridge
 

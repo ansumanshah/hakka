@@ -13,7 +13,7 @@ Android Maven artifacts and an iOS Swift Package. The macOS app lives in `apps/h
 packages/
   hakka-core/           hakka-core — platform-neutral capture engine (one dep: fflate)
                          + /test subpath — assert-on-captured-traffic test helpers
-  hakka-react-native/   hakka-react-native — RN SDK + native bridge + example app
+  hakka-react-native/   hakka-react-native — RN SDK + native bridge + native UI
   hakka-browser/        hakka-browser — browser overlay (Solid, Shadow DOM, Web Worker store)
                          + /elements/* subpaths — standalone inspector pieces as custom elements
                          + /react subpath — thin React wrappers over the elements
@@ -27,7 +27,7 @@ packages/
 android/                Kotlin SDK modules (Gradle) — see Android Notes
 ios/                    Swift Package — canonical iOS sources (xed ios/)
 docs/                   Astro/Starlight — single source of truth for public docs
-examples/next-fullstack/  Next.js full-stack capture demo
+examples/                Runnable apps: React Native, Expo, and Next.js
 fixtures/               Shared Hakka record fixtures (pinned wire contract)
 scripts/                Build, sync-gate, benchmark, and CI helper scripts
 design-tokens.json      Single source of truth for colors (synced per platform)
@@ -128,6 +128,7 @@ are the release/CI confidence path.
 - `'native'` — TurboModule; `'js'` — fetch/XHR/WS intercept; `'auto'` — prefer
   native, fallback js; `'store'` — pure aggregator (hosts the engine off-thread,
   e.g. in a Web Worker); `'disabled'`.
+  React Native supports native capture only and defaults to it; the other modes belong to the shared core.
 
 ## Architecture Rules
 

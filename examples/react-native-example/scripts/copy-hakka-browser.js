@@ -21,7 +21,7 @@
 const fs = require('node:fs')
 const path = require('node:path')
 
-const SRC = path.resolve(__dirname, '../../../../hakka-browser/dist/hakka-browser.global.js')
+const SRC = path.resolve(__dirname, '../../../packages/hakka-browser/dist/hakka-browser.global.js')
 const OUT_DIR = path.resolve(__dirname, '../assets')
 const OUT_JS = path.join(OUT_DIR, 'hakka-browser.global.js')
 const OUT_JSON = path.join(OUT_DIR, 'hakka-browser.global.json')

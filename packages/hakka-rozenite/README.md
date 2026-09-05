@@ -279,7 +279,7 @@ gap.
 **Reproduction steps:**
 
 1. From the repository root, run
-   `bun run --cwd packages/hakka-react-native/examples/react-native-example start:rozenite`.
+   `bun run --cwd examples/react-native-example start:rozenite`.
 2. Build and open that example on a simulator or device.
 3. Open React Native DevTools; confirm a "Hakka" panel appears in the sidebar.
 4. Trigger some network requests in the app; confirm they appear in the

@@ -7,7 +7,7 @@ const path = require('node:path')
 // ever run. See packages/hakka-react-native/metro.js.
 const { withHakka } = require('hakka-react-native/metro')
 
-const workspaceRoot = path.resolve(__dirname, '../../../..')
+const workspaceRoot = path.resolve(__dirname, '../..')
 
 /**
  * Metro configuration
