@@ -45,7 +45,7 @@ SPEC §5 row "GraphQL detail":
 
 | Capability     | RN  | iOS | Android | Web | Mac app |
 | -------------- | --- | --- | ------- | --- | ------- |
-| GraphQL detail | ●   | ●   | ●       | ●   | —       |
+| GraphQL detail | ●   | ●   | ●       | ●   | ●       |
 
 ## Wire format
 
