@@ -18,6 +18,7 @@ import android.view.animation.DecelerateInterpolator
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.compose.ui.platform.ComposeView
 import com.noodleapps.hakka.LogStore
 
 /**
@@ -169,8 +170,11 @@ class HakkaBottomSheet(
         handleContainer.addView(handle)
         sheet.addView(handleContainer)
 
-        // Content: the same tab-controller content HakkaActivity hosts.
-        val content = buildTabbedContent(ctx)
+        // The sheet keeps its native drag/snap shell, while the inspector itself is
+        // the same direct Compose screen used by fullscreen presentation.
+        val content = ComposeView(ctx).apply {
+            setContent { HakkaInspectorCompose(activity, ::hide) }
+        }
         sheet.addView(content, LinearLayout.LayoutParams(MP, 0, 1f))
 
         // Position sheet at bottom
