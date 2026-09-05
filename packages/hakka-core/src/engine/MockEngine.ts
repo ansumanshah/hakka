@@ -748,7 +748,7 @@ class MockEngine {
 }
 
 /** Singleton instance shared by interceptors */
-export const mockEngine = new MockEngine()
+export const mockEngine = /* @__PURE__ */ new MockEngine()
 
 function toMockRequestContext(request: RuleEngineRequest): MockRequestContext {
   return { url: request.url, method: request.method, headers: { ...request.headers }, body: request.body ?? undefined }

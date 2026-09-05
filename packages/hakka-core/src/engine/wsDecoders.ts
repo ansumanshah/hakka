@@ -86,9 +86,6 @@ class WsFrameDecoderRegistry {
   }
 }
 
-/** Singleton registry — shared across the application. */
-export const wsFrameDecoders = new WsFrameDecoderRegistry()
-
 /** Convenience wrapper — calls the singleton registry. */
 export function decodeWsFrame(
   frame: { data: string | number; binary: boolean },
@@ -101,7 +98,7 @@ export function decodeWsFrame(
 const B64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
 
 // Built once at module load (128 bytes); 0xff marks invalid chars.
-const B64_LOOKUP = ((): Uint8Array => {
+const B64_LOOKUP = /* @__PURE__ */ ((): Uint8Array => {
   const tbl = new Uint8Array(128).fill(0xff)
   for (let i = 0; i < B64_CHARS.length; i++) tbl[B64_CHARS.charCodeAt(i)] = i
   return tbl
@@ -267,8 +264,6 @@ const mqttDecoder: WsFrameDecoder = {
     return { kind: 'mqtt', summary: typeName }
   },
 }
-
-wsFrameDecoders.register(mqttDecoder)
 
 const EIO_TYPE_NAMES: Record<number, string> = {
   0: 'open',
@@ -497,9 +492,12 @@ const graphqlWsDecoder: WsFrameDecoder = {
   },
 }
 
-// Registration order matters: graphql-ws/stomp are protocol-matched (more
-// specific) and must register before socket.io, the content-matched universal
-// fallback.
-wsFrameDecoders.register(graphqlWsDecoder)
-wsFrameDecoders.register(stompDecoder)
-wsFrameDecoders.register(socketioDecoder)
+/** Singleton with protocol-specific decoders before the universal fallback. */
+export const wsFrameDecoders = /* @__PURE__ */ (() => {
+  const registry = new WsFrameDecoderRegistry()
+  registry.register(mqttDecoder)
+  registry.register(graphqlWsDecoder)
+  registry.register(stompDecoder)
+  registry.register(socketioDecoder)
+  return registry
+})()

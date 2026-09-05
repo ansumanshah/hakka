@@ -206,7 +206,7 @@ class BreakpointEngine {
   }
 }
 
-export const breakpointEngine = new BreakpointEngine()
+export const breakpointEngine = /* @__PURE__ */ new BreakpointEngine()
 
 let ruleEngineRequestCounter = 0
 
