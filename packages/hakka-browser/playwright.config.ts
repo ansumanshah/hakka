@@ -3,8 +3,8 @@ import { defineConfig, devices } from '@playwright/test'
 /**
  * Mobile-viewport E2E for the hakka-browser overlay.
  *
- * The demo (`demo/index.html`) loads the built IIFE bundle, so the suite serves the
- * package root statically (python3 http.server) and drives `/demo/index.html` on a
+ * The demo (`examples/browser-demo/index.html`) loads the built IIFE bundle, so the suite serves the
+ * repository root statically (python3 http.server) and drives `/examples/browser-demo/index.html` on a
  * phone profile. Build first: the `test:e2e` script runs `bun run build` before this.
  */
 const PORT = 4173
@@ -21,8 +21,8 @@ export default defineConfig({
   },
   projects: [{ name: 'mobile-chrome', use: { ...devices['Pixel 5'] } }],
   webServer: {
-    // Serve the package root so /demo/index.html can load /dist/* (the demo references ../dist).
-    command: `python3 -m http.server ${PORT}`,
+    // Serve root demos while preserving package-relative fixture and benchmark URLs.
+    command: `python3 ../../scripts/serve-browser-demo.py ${PORT}`,
     port: PORT,
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,

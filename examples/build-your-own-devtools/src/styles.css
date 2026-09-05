@@ -1,0 +1,390 @@
+/*
+ * Host-page chrome for this example's OWN devtools panel — not Hakka's. The
+ * six custom elements render their own look inside a Shadow DOM (see
+ * ADR 0003 (d) — they inherit hakka-browser's `--hakka-*` tokens, curated by
+ * `setPreset()`); everything below is the surrounding page: a full-height
+ * console layout with a header, a filter row, and a three-column body,
+ * nothing like the floating bottom-sheet overlay hakka-browser ships by
+ * default. That's the point of this example — the six elements are raw
+ * material, not a fixed shell.
+ *
+ * Every color/spacing/radius value is a --demo-* custom property, following
+ * the same convention as examples/next-fullstack/app/globals.css and
+ * examples/browser-demo/index.html. A cool graphite-and-teal palette on
+ * purpose — visually distinct from Hakka's own warm "Wok Hei" orange/jade, so
+ * screenshots of this page never get mistaken for the product's own chrome.
+ */
+
+:root {
+  color-scheme: dark;
+
+  --demo-bg: #0b0f12;
+  --demo-surface: #10161a;
+  --demo-surface-raised: #161e23;
+  --demo-border: #263139;
+  --demo-border-strong: #34424c;
+  --demo-text: #e6edf0;
+  --demo-text-secondary: #9fb0b8;
+  --demo-text-tertiary: #64757d;
+  --demo-accent: #2dd4bf;
+  --demo-accent-strong: #14b8a6;
+  --demo-danger: #f0645a;
+  --demo-warn: #e0b34e;
+
+  --demo-font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --demo-font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
+  --demo-font-xs: 0.6875rem;
+  --demo-font-sm: 0.8125rem;
+  --demo-font-md: 0.9375rem;
+  --demo-font-lg: 1.125rem;
+
+  --demo-radius-sm: 6px;
+  --demo-radius-md: 10px;
+
+  --demo-space-1: 4px;
+  --demo-space-2: 8px;
+  --demo-space-3: 12px;
+  --demo-space-4: 16px;
+  --demo-space-5: 20px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--demo-bg);
+  color: var(--demo-text);
+  font-family: var(--demo-font-sans);
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+code {
+  font-family: var(--demo-font-mono);
+  background: var(--demo-surface-raised);
+  border: 1px solid var(--demo-border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 0.9em;
+}
+
+a {
+  color: var(--demo-accent);
+}
+
+button,
+select {
+  font: inherit;
+  font-family: var(--demo-font-sans);
+  color: var(--demo-text);
+  background: var(--demo-surface-raised);
+  border: 1px solid var(--demo-border-strong);
+  border-radius: var(--demo-radius-sm);
+  padding: 6px 10px;
+  font-size: var(--demo-font-sm);
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: var(--demo-accent);
+  color: var(--demo-accent);
+}
+
+button:active {
+  background: var(--demo-surface);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+button:disabled:hover {
+  border-color: var(--demo-border-strong);
+  color: var(--demo-text);
+}
+
+/* ── App shell ─────────────────────────────────────────────────────────── */
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: var(--demo-space-4);
+  padding: var(--demo-space-3) var(--demo-space-4);
+  border-bottom: 1px solid var(--demo-border);
+  background: var(--demo-surface);
+  flex-wrap: wrap;
+}
+
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: var(--demo-space-2);
+  margin-right: auto;
+}
+
+.brand-title {
+  font-size: var(--demo-font-lg);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.brand-sub {
+  font-size: var(--demo-font-xs);
+  color: var(--demo-text-tertiary);
+  font-family: var(--demo-font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.traffic-buttons {
+  display: flex;
+  gap: var(--demo-space-2);
+  flex-wrap: wrap;
+}
+
+.mode-links {
+  display: flex;
+  gap: var(--demo-space-2);
+  font-family: var(--demo-font-mono);
+  font-size: var(--demo-font-xs);
+}
+
+.mode-links a {
+  padding: 4px 8px;
+  border-radius: var(--demo-radius-sm);
+  border: 1px solid var(--demo-border);
+  text-decoration: none;
+  color: var(--demo-text-secondary);
+}
+
+.mode-links a[aria-current='page'] {
+  border-color: var(--demo-accent);
+  color: var(--demo-accent);
+}
+
+/* ── Filter row ────────────────────────────────────────────────────────── */
+
+.filter-row {
+  display: block;
+  width: 100%;
+  padding: var(--demo-space-2) var(--demo-space-4);
+  background: var(--demo-surface);
+  border-bottom: 1px solid var(--demo-border);
+}
+
+hakka-filter-bar {
+  display: block;
+  width: 100%;
+}
+
+/* ── Body grid: rail | main | right rail ──────────────────────────────── */
+
+.body-grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr) 300px;
+}
+
+@media (max-width: 900px) {
+  .body-grid {
+    grid-template-columns: 1fr;
+    grid-auto-rows: min-content;
+    overflow-y: auto;
+  }
+}
+
+.rail,
+.right-rail {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: var(--demo-space-3);
+  gap: var(--demo-space-3);
+  overflow-y: auto;
+}
+
+.rail {
+  border-right: 1px solid var(--demo-border);
+}
+
+.right-rail {
+  border-left: 1px solid var(--demo-border);
+}
+
+.main-panel {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.card {
+  background: var(--demo-surface);
+  border: 1px solid var(--demo-border);
+  border-radius: var(--demo-radius-md);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--demo-space-2);
+  padding: var(--demo-space-2) var(--demo-space-3);
+  border-bottom: 1px solid var(--demo-border);
+}
+
+.card-title {
+  font-family: var(--demo-font-mono);
+  font-size: var(--demo-font-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--demo-text-tertiary);
+}
+
+.card-body {
+  padding: var(--demo-space-3);
+  overflow: auto;
+}
+
+.card-body.no-pad {
+  padding: 0;
+}
+
+/* ── Rail: request list ───────────────────────────────────────────────── */
+
+hakka-request-list {
+  display: block;
+  width: 100%;
+  --hakka-list-max-height: none;
+}
+
+.rail .card {
+  flex: 1;
+  min-height: 240px;
+}
+
+/* ── Main: tab strip + panels ─────────────────────────────────────────── */
+
+.tabs {
+  display: flex;
+  gap: var(--demo-space-1);
+  padding: var(--demo-space-2) var(--demo-space-3) 0;
+  border-bottom: 1px solid var(--demo-border);
+  background: var(--demo-surface);
+}
+
+.tab-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: var(--demo-radius-sm) var(--demo-radius-sm) 0 0;
+  color: var(--demo-text-secondary);
+  padding: 8px 14px;
+}
+
+.tab-btn:hover {
+  color: var(--demo-accent);
+  border-color: transparent;
+}
+
+.tab-btn[aria-selected='true'] {
+  color: var(--demo-text);
+  background: var(--demo-surface-raised);
+  border-color: var(--demo-border);
+}
+
+.tab-panels {
+  flex: 1;
+  min-height: 0;
+  background: var(--demo-surface-raised);
+  overflow: hidden;
+  display: flex;
+}
+
+.tab-panel {
+  flex: 1;
+  min-height: 0;
+  display: none;
+  flex-direction: column;
+  overflow: auto;
+}
+
+.tab-panel[data-active='true'] {
+  display: flex;
+}
+
+hakka-request-detail {
+  display: block;
+  width: 100%;
+  flex: 1;
+}
+
+.waterfall-wrap {
+  padding: var(--demo-space-3);
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+hakka-waterfall {
+  display: block;
+  width: 100%;
+}
+
+.empty-state {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--demo-text-tertiary);
+  font-size: var(--demo-font-sm);
+  padding: var(--demo-space-5);
+  text-align: center;
+}
+
+/* ── Right rail: stats + raw payload ──────────────────────────────────── */
+
+hakka-stats {
+  display: block;
+  width: 100%;
+}
+
+hakka-json-tree {
+  display: block;
+  width: 100%;
+}
+
+.payload-hint {
+  font-size: var(--demo-font-xs);
+  color: var(--demo-text-tertiary);
+  padding: var(--demo-space-2) var(--demo-space-3);
+}
+
+/* ── Theme picker ──────────────────────────────────────────────────────── */
+
+.theme-picker {
+  display: flex;
+  align-items: center;
+  gap: var(--demo-space-2);
+  font-size: var(--demo-font-xs);
+  color: var(--demo-text-tertiary);
+  font-family: var(--demo-font-mono);
+}

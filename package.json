@@ -5,6 +5,7 @@
     "packages/*",
     "examples/react-native-example",
     "examples/expo-example",
+    "examples/ci-gate",
     "docs"
   ],
   "type": "module",

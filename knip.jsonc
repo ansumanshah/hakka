@@ -3,24 +3,22 @@
   // Standalone examples are outside Bun's workspace graph. Their HTML, package
   // scripts, and subprocess paths load these entrypoints; trace their imports.
   "workspaces": {
-    ".": { "entry": ["scripts/dep-declaration-check.mjs", "scripts/feed-desktop-demo.mjs"] },
-    "packages/hakka-browser": {
+    ".": {
       "entry": [
-        "src/index.ts",
-        "src/ui/elements/index.ts",
-        "demo/assets/tick.js",
-        "examples/build-your-own-devtools/vite.config.ts",
-        "examples/build-your-own-devtools/src/{panel.ts,react-main.tsx}",
+        "scripts/dep-declaration-check.mjs",
+        "scripts/feed-desktop-demo.mjs",
+        "examples/browser-demo/assets/tick.js",
+        "examples/build-your-own-devtools/{vite.config.ts,src/panel.ts,src/react-main.tsx}",
         "examples/vite-app/{vite.config.ts,src/main.ts}",
         "examples/webpack-probe/{webpack.config.js,src/index.js}",
-        "src/plugin/__tests__/fixtures/webpackEntry.js",
+        "examples/cdp-playwright/{playwright.config.ts,fixtures/demo-server.ts,tests/*.spec.ts}",
+        "examples/framework-servers/*.mjs",
+        "examples/otel-spans/*.mjs",
+        "examples/prod-cohort/demo.mjs",
       ],
     },
-    "packages/hakka-cli": {
-      "entry": ["examples/cdp-playwright/{playwright.config.ts,fixtures/demo-server.ts,tests/*.spec.ts}"],
-    },
-    "packages/hakka-node": {
-      "entry": ["examples/framework-servers/*.mjs", "examples/otel-spans/*.mjs", "examples/prod-cohort/demo.mjs"],
+    "packages/hakka-browser": {
+      "entry": ["src/index.ts", "src/ui/elements/index.ts", "src/plugin/__tests__/fixtures/webpackEntry.js"],
     },
     "packages/hakka-rozenite": {
       // Rozenite maps react-native imports to this renderer in its web build.
@@ -57,7 +55,7 @@
     "examples/next-fullstack/**",
     // Worker string-path — instantiated via `new Worker('./traced-worker.js')`, knip
     // can't trace a bare string specifier to its target file.
-    "packages/hakka-browser/demo/traced-worker.js",
+    "examples/browser-demo/traced-worker.js",
     // Manual docs-screenshot script, run ad hoc, never imported.
     "packages/hakka-browser/scripts/capture-next-runtime.mjs",
     // Rozenite convention-loaded: read directly by the Rozenite CLI/host, not imported.

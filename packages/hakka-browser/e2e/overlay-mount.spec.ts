@@ -18,7 +18,7 @@ test('the built overlay mounts <hakka-inspector> with a clean console on the pla
   })
   page.on('pageerror', (err) => pageErrors.push(err.message))
 
-  await page.goto('/demo/index.html')
+  await page.goto('/examples/browser-demo/index.html')
   // The demo calls Hakka.start({ overlay: true }), so the panel opens with no click needed.
   await expect(page.locator('.hakka-panel.open')).toBeVisible({ timeout: 15_000 })
 

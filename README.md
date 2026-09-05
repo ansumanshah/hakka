@@ -192,15 +192,15 @@ HakkaInterceptor().start()
 Seven runnable examples, one per integration surface. Each has its own README with a guided
 walkthrough.
 
-| Example                                                                          | Surface                 | Run it                                                         |
-| -------------------------------------------------------------------------------- | ----------------------- | -------------------------------------------------------------- |
-| [`examples/next-fullstack`](./examples/next-fullstack)                           | Next.js server + client | `just demo-claude-code` (or `npm run dev` there)               |
-| [`examples/claude-code`](./examples/claude-code)                                 | MCP / AI agents         | `claude mcp add hakka -- npx -y hakka-cli mcp`                 |
-| [`packages/hakka-browser/demo`](./packages/hakka-browser/demo)                   | Plain web               | `just demo-browser`                                            |
-| [`examples/react-native-example`](./examples/react-native-example)               | React Native            | `just dev-ios` / `just dev-android`                            |
-| [`ios/Example`](./ios/Example)                                                   | iOS (Swift)             | `just build-ios-demo`, then run in Xcode                       |
-| [`android/example`](./android/example)                                           | Android (Kotlin)        | `cd android && ./gradlew :example:installDebug`                |
-| [`packages/hakka-node/examples/ci-gate`](./packages/hakka-node/examples/ci-gate) | Node CI gate            | `bun test packages/hakka-node/examples/ci-gate/ciGate.test.ts` |
+| Example                                                            | Surface                 | Run it                                           |
+| ------------------------------------------------------------------ | ----------------------- | ------------------------------------------------ |
+| [`examples/next-fullstack`](./examples/next-fullstack)             | Next.js server + client | `just demo-claude-code` (or `npm run dev` there) |
+| [`examples/claude-code`](./examples/claude-code)                   | MCP / AI agents         | `claude mcp add hakka -- npx -y hakka-cli mcp`   |
+| [`examples/browser-demo`](./examples/browser-demo)                 | Plain web               | `just demo-browser`                              |
+| [`examples/react-native-example`](./examples/react-native-example) | React Native            | `just dev-ios` / `just dev-android`              |
+| [`ios/Example`](./ios/Example)                                     | iOS (Swift)             | `just build-ios-demo`, then run in Xcode         |
+| [`android/example`](./android/example)                             | Android (Kotlin)        | `cd android && ./gradlew :example:installDebug`  |
+| [`examples/ci-gate`](./examples/ci-gate)                           | Node CI gate            | `bun test examples/ci-gate/ciGate.test.ts`       |
 
 The Next.js one is the most complete: server and client capture in one inspector, an eight-step
 guided checklist, desktop-mode bridging, and production cohort capture.

@@ -6,15 +6,15 @@ description: Seven runnable examples, one per Hakka integration surface, each wi
 Every integration surface has a runnable example in the repo. Each one has its own README with a
 guided walkthrough rather than a bare code dump.
 
-| Example                                                                                                                       | Surface                 | Run it                                                         |
-| ----------------------------------------------------------------------------------------------------------------------------- | ----------------------- | -------------------------------------------------------------- |
-| [`examples/next-fullstack`](https://github.com/ansumanshah/hakka/tree/main/examples/next-fullstack)                           | Next.js server + client | `just demo-claude-code`                                        |
-| [`examples/claude-code`](https://github.com/ansumanshah/hakka/tree/main/examples/claude-code)                                 | MCP / AI agents         | `claude mcp add hakka -- npx -y hakka-cli mcp`                 |
-| [`packages/hakka-browser/demo`](https://github.com/ansumanshah/hakka/tree/main/packages/hakka-browser/demo)                   | Plain web               | `just demo-browser`                                            |
-| [`examples/react-native-example`](https://github.com/ansumanshah/hakka/tree/main/examples/react-native-example)               | React Native            | `just dev-ios` / `just dev-android`                            |
-| [`ios/Example`](https://github.com/ansumanshah/hakka/tree/main/ios/Example)                                                   | iOS (Swift)             | `just build-ios-demo`                                          |
-| [`android/example`](https://github.com/ansumanshah/hakka/tree/main/android/example)                                           | Android (Kotlin)        | `cd android && ./gradlew :example:installDebug`                |
-| [`packages/hakka-node/examples/ci-gate`](https://github.com/ansumanshah/hakka/tree/main/packages/hakka-node/examples/ci-gate) | Node CI gate            | `bun test packages/hakka-node/examples/ci-gate/ciGate.test.ts` |
+| Example                                                                                                         | Surface                 | Run it                                          |
+| --------------------------------------------------------------------------------------------------------------- | ----------------------- | ----------------------------------------------- |
+| [`examples/next-fullstack`](https://github.com/ansumanshah/hakka/tree/main/examples/next-fullstack)             | Next.js server + client | `just demo-claude-code`                         |
+| [`examples/claude-code`](https://github.com/ansumanshah/hakka/tree/main/examples/claude-code)                   | MCP / AI agents         | `claude mcp add hakka -- npx -y hakka-cli mcp`  |
+| [`examples/browser-demo`](https://github.com/ansumanshah/hakka/tree/main/examples/browser-demo)                 | Plain web               | `just demo-browser`                             |
+| [`examples/react-native-example`](https://github.com/ansumanshah/hakka/tree/main/examples/react-native-example) | React Native            | `just dev-ios` / `just dev-android`             |
+| [`ios/Example`](https://github.com/ansumanshah/hakka/tree/main/ios/Example)                                     | iOS (Swift)             | `just build-ios-demo`                           |
+| [`android/example`](https://github.com/ansumanshah/hakka/tree/main/android/example)                             | Android (Kotlin)        | `cd android && ./gradlew :example:installDebug` |
+| [`examples/ci-gate`](https://github.com/ansumanshah/hakka/tree/main/examples/ci-gate)                           | Node CI gate            | `bun test examples/ci-gate/ciGate.test.ts`      |
 
 ## Where to start
 

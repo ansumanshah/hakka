@@ -27,7 +27,7 @@ packages/
 android/                Kotlin SDK modules (Gradle) — see Android Notes
 ios/                    Swift Package — canonical iOS sources (xed ios/)
 docs/                   Astro/Starlight — single source of truth for public docs
-examples/                Runnable apps: React Native, Expo, and Next.js
+examples/                Runnable demos and integration examples for all packages
 fixtures/               Shared Hakka record fixtures (pinned wire contract)
 scripts/                Build, sync-gate, benchmark, and CI helper scripts
 design-tokens.json      Single source of truth for colors (synced per platform)

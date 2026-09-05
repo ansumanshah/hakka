@@ -145,5 +145,5 @@ none of which run as a CI build step the way a Node test suite does.
 
 ## Worked example
 
-`packages/hakka-node/examples/ci-gate/` wires a tiny HTTP server + test suite through record and
+`examples/ci-gate/` wires a tiny HTTP server + test suite through record and
 check, including a deliberately-broken second run to show a FAIL report.

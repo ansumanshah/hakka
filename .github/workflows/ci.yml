@@ -336,7 +336,7 @@ jobs:
       # The ci-gate example is not picked up by `bun test` in packages/hakka-node
       # (it lives under examples/), so nothing ran it before this step.
       - name: Run the ci-gate example's test
-        run: bun test packages/hakka-node/examples/ci-gate/ciGate.test.ts
+        run: bun test examples/ci-gate/ciGate.test.ts
       # npm, not bun: bun lays `file:` deps out as per-file symlinks and Turbopack
       # rejects a symlinked package.json. See the example's own README.
       - name: Install the example as a real consumer

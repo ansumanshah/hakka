@@ -190,7 +190,7 @@ development-mode environment.
 ## Verification status
 
 Three tiers, from "runs in a test sandbox" to "runs on a real device." The
-no-device reproduction steps are in [`examples/`](./examples).
+no-device reproduction steps are in [`examples/rozenite/`](../../examples/rozenite/).
 
 ### 1. Unit-tested
 
