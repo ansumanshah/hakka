@@ -10,7 +10,7 @@
  * very first `bun run ios`/`android` would fail to bundle with an
  * "Unable to resolve module" error, before the app ever launches.
  *
- * Wired as `preios`/`preandroid`/`prestart` in package.json — runs ahead of
+ * Wired as `preios`/`preandroid`/`prestart` and explicitly by `bundle` — runs ahead of
  * every entry point that could trigger a Metro bundle.
  *
  * Never overwrites an existing file — real (from copy-hakka-browser.js) or a

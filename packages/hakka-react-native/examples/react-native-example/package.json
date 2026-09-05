@@ -12,7 +12,7 @@
     "test": "jest",
     "typecheck": "tsc --noEmit",
     "copy:hakka-browser": "node scripts/copy-hakka-browser.js",
-    "bundle": "react-native bundle --entry-file index.js --platform ios --dev true --bundle-output /tmp/hakka-rn-ci-bundle.js --assets-dest /tmp/hakka-rn-ci-assets"
+    "bundle": "node scripts/ensure-webview-asset.js && react-native bundle --entry-file index.js --platform ios --dev true --bundle-output /tmp/hakka-rn-ci-bundle.js --assets-dest /tmp/hakka-rn-ci-assets"
   },
   "dependencies": {
     "@react-native-clipboard/clipboard": "1.16.3",
