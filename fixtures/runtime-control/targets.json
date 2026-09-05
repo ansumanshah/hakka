@@ -1,0 +1,9 @@
+{
+  "type": "runtime.targets",
+  "payload": {
+    "targets": [
+      { "id": "target-a", "runtime": "ios", "capabilities": ["mock.add"], "acknowledged": true },
+      { "id": "legacy-b", "runtime": "unknown", "capabilities": [], "acknowledged": false }
+    ]
+  }
+}

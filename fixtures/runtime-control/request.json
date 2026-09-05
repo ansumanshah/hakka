@@ -1,0 +1,9 @@
+{
+  "type": "control.request",
+  "payload": {
+    "commandId": "command-1",
+    "targetId": "target-a",
+    "command": { "kind": "mock.clear" },
+    "timeoutMs": 5000
+  }
+}

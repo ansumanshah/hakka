@@ -1,0 +1,1 @@
+{ "type": "control.result", "payload": { "commandId": "command-1", "targetId": "target-a", "status": "applied" } }

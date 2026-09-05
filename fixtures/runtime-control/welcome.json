@@ -1,0 +1,1 @@
+{ "type": "runtime.welcome", "payload": { "targetId": "target-a" } }

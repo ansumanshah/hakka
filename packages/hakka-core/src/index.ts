@@ -346,3 +346,13 @@ export type {
 
 // search — natural language → search DSL heuristic mapper
 export { nlToQuery } from './search/nlToQuery'
+
+export { parseRuntimeControlMessage, RUNTIME_CONTROL_CAPABILITIES } from './contract/runtimeControl'
+export type {
+  RuntimeCapability,
+  RuntimeKind,
+  RuntimeTarget,
+  RuntimeControlError,
+  RuntimeControlResult,
+  RuntimeControlMessage,
+} from './contract/runtimeControl'
