@@ -8,9 +8,8 @@ import java.util.Date
 import java.util.Locale
 
 // ── Pure formatting / classification helpers ────────────────────────
-// Data → String/Int only, no View construction — kept separate from
-// ViewBuilders.kt so the row-severity predicates ([isErrorSeverityRow] etc.)
-// stay unit-testable without Robolectric (see ViewHelpersTest.kt).
+// Data → String/Int only, no View construction, so the helpers stay
+// unit-testable without Robolectric.
 
 internal val STATUS_REASONS = mapOf(
     200 to "OK", 201 to "Created", 204 to "No Content",

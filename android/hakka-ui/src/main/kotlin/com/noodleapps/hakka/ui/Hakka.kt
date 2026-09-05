@@ -35,7 +35,7 @@ import java.util.concurrent.atomic.AtomicLong
  * Hakka.startPerf(context)   // or: Hakka.install(context, perfMonitoring = true)
  * ```
  *
- * The Stats tab in the inspector (`StatsTabController`) reads live from the same
+ * The Compose Stats tab reads live from the same
  * shared [HakkaPerformance] instance — no extra wiring needed to see it.
  */
 object Hakka {
@@ -100,7 +100,7 @@ object Hakka {
      * are no-ops while monitoring is already running.
      *
      * The resulting [HakkaPerformance] instance is shared process-wide via
-     * [HakkaUI], so the inspector's Stats tab ([StatsTabController]) renders live
+     * [HakkaUI], so the inspector's Compose Stats tab renders live
      * data from it without any extra wiring:
      *
      * ```kotlin

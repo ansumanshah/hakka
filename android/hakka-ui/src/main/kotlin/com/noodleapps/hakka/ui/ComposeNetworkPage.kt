@@ -185,7 +185,7 @@ internal fun ComposeNetworkPage(activity: Activity, onClose: () -> Unit) {
         val errors = visibleRequests.count { it.error != null || (it.status ?: 0) >= 400 }
         val pending = visibleRequests.count { it.status == null && it.error == null }
         Text(
-            buildString { append("$requestCount requests"); if (errors > 0) append(" · $errors errors"); if (pending > 0) append(" · $pending pending") },
+            buildString { append("$requestCount request${if (requestCount == 1) "" else "s"}"); if (errors > 0) append(" · $errors errors"); if (pending > 0) append(" · $pending pending") },
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodySmall,

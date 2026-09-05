@@ -13,9 +13,8 @@ import com.noodleapps.hakka.redactLogMetadata
  * ([buildSnapshots]) so the interesting logic (which fields get redacted, how files are
  * grouped, empty files being skipped) is unit-testable without a `Context`/`SharedPreferences`.
  *
- * Shared between [HakkaUI.captureStorageSnapshots] (used by hakka-react-native's on-demand
- * `publishStorageSnapshots()` native module method) and, in future, [StorageTabController]'s
- * own bridge relay — both should see identical output for the same on-disk state.
+ * Shared by [HakkaUI.captureStorageSnapshots] (used by hakka-react-native's on-demand
+ * `publishStorageSnapshots()` native module method) and the Compose Storage page.
  */
 internal object SharedPreferencesSnapshotter {
     /** Reads every SharedPreferences file for [context] and builds redacted snapshots. */

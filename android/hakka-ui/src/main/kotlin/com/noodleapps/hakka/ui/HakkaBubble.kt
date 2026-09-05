@@ -63,8 +63,8 @@ class HakkaBubble private constructor() {
     internal var performance: HakkaPerformance? = null
     internal var performanceSubscription: SinkSubscription? = null
     // True when [performance] is the process-wide instance from `HakkaUI.sharedPerformance`
-    // rather than one this bubble started itself — see [startPerformanceMetrics]. Mirrors
-    // StatsTabController's identically-named field; governs who owns start()/close().
+    // rather than one this bubble started itself — see [startPerformanceMetrics]. Governs
+    // who owns start()/close().
     internal var usesSharedPerformance = false
     internal var activity: Activity? = null
     internal var logStore: LogStore? = null

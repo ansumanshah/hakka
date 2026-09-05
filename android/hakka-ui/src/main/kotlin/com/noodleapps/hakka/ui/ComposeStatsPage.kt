@@ -3,8 +3,11 @@ package com.noodleapps.hakka.ui
 import android.app.Activity
 import android.os.Handler
 import android.os.Looper
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -115,6 +118,7 @@ internal fun ComposeStatsPage(activity: Activity) {
 
     LazyColumn(
         modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item { PerformanceSection(metrics) }
@@ -134,17 +138,17 @@ private fun PerformanceSection(metrics: ComposePerformanceMetrics) {
     StatsSection("Performance") {
         StatsCards(listOf(
             StatsCard("FPS", metrics.fpsDisplay, MaterialTheme.colorScheme.onSurface),
-            StatsCard("JNK", metrics.jankDisplay, Color(Theme.warning)),
-            StatsCard("FRZ", metrics.frozenDisplay, Color(Theme.error)),
+            StatsCard("Jank", metrics.jankDisplay, Color(Theme.warning)),
+            StatsCard("Frozen", metrics.frozenDisplay, Color(Theme.error)),
         ))
         StatsCards(listOf(
-            StatsCard("MEM", metrics.memoryDisplay, Color(Theme.info)),
+            StatsCard("Memory", metrics.memoryDisplay, Color(Theme.info)),
             StatsCard("CPU", metrics.cpuDisplay, MaterialTheme.colorScheme.onSurface),
-            StatsCard("NET", metrics.networkDisplay, Color(Theme.methodPut)),
+            StatsCard("Network", metrics.networkDisplay, Color(Theme.methodPut)),
         ))
         StatsCards(listOf(
-            StatsCard("RX", metrics.receivedDisplay, Color(Theme.info)),
-            StatsCard("TX", metrics.sentDisplay, Color(Theme.methodPost)),
+            StatsCard("Received", metrics.receivedDisplay, Color(Theme.info)),
+            StatsCard("Sent", metrics.sentDisplay, Color(Theme.methodPost)),
         ))
     }
 }
@@ -169,8 +173,10 @@ private fun BreakdownSection(title: String, rows: List<BreakdownRow>) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(row.label, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(row.count.toString(), fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.width(12.dp))
-                Text(row.detail, fontFamily = FontFamily.Monospace, color = row.color, maxLines = 1)
+                if (row.detail.isNotEmpty()) {
+                    Spacer(Modifier.width(12.dp))
+                    Text(row.detail, fontFamily = FontFamily.Monospace, color = row.color, maxLines = 1)
+                }
             }
         }
     }
@@ -228,10 +234,10 @@ private data class StatsCard(val label: String, val value: String, val color: Co
 
 @Composable
 private fun StatsCards(cards: List<StatsCard>) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
         cards.forEach { card ->
             Card(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).fillMaxHeight(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
             ) {
                 Column(
@@ -259,7 +265,7 @@ private fun domainRows(activity: Activity, requests: List<NetworkRequest>): List
 
 private fun methodRows(requests: List<NetworkRequest>): List<BreakdownRow> = requests
     .groupingBy { it.method.name }.eachCount().entries.sortedByDescending { it.value }
-    .map { (method, count) -> BreakdownRow(method, count, "$count", Color(methodColor(method))) }
+    .map { (method, count) -> BreakdownRow(method, count, "", Color(methodColor(method))) }
 
 private fun statusRows(requests: List<NetworkRequest>): List<BreakdownRow> = requests
     .groupingBy { request ->
@@ -277,5 +283,5 @@ private fun statusRows(requests: List<NetworkRequest>): List<BreakdownRow> = req
             "5xx", "Error" -> Color(Theme.error)
             else -> Color(Theme.pending)
         }
-        BreakdownRow(status, count, "$count", color)
+        BreakdownRow(status, count, "", color)
     }

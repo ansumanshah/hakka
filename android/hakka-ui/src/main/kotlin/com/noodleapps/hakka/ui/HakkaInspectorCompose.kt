@@ -50,6 +50,7 @@ internal fun HakkaInspectorCompose(activity: Activity, onClose: () -> Unit) {
             topBar = {
                 if (tab != NavTab.NETWORK) {
                     TopAppBar(
+                        windowInsets = WindowInsets(0),
                         title = { Text(tab.label, style = MaterialTheme.typography.titleLarge) },
                         actions = {
                             IconButton(onClick = { activity.startActivity(Intent(activity, SettingsActivity::class.java)) }) {

@@ -109,8 +109,7 @@ internal fun HakkaBubble.render() {
 
 /**
  * Reuses the process-wide instance started via `Hakka.startPerf(context)` / `Hakka.install(
- * context, perfMonitoring = true)` when present — same rationale and pattern as
- * [StatsTabController]'s `startPerformanceMetrics`: with perf monitoring enabled plus a
+ * context, perfMonitoring = true)` when present. With perf monitoring enabled plus a
  * visible bubble, spinning up a second local collector would run two frame samplers
  * concurrently for no reason and risk disagreeing FPS values between the two surfaces.
  * Falls back to a local frame-only collector so the bubble still shows FPS even if the

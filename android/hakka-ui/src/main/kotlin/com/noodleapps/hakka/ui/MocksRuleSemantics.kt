@@ -3,11 +3,10 @@ package com.noodleapps.hakka.ui
 import com.noodleapps.hakka.MockRule
 
 /**
- * [MocksPanel] rule semantics — a rule is one of three actions, mirroring
+ * Mock rule semantics — a rule is one of three actions, mirroring
  * `packages/hakka-browser/src/ui/MockTab.tsx`'s mock/redirect/block trio. Pure
- * data → data/String/Int, no View construction, so both [MocksPanel]'s row
- * binding and [showRuleDialog] (MocksRuleDialog.kt) share one definition of
- * what each rule means.
+ * data → data/String/Int, no view construction, so Compose Rules rendering shares
+ * one definition of what each rule means.
  */
 internal enum class RuleAction { MOCK, REDIRECT, BLOCK }
 

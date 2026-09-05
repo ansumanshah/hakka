@@ -50,7 +50,7 @@ internal fun NetworkTopBar(
     onSessionMenuChange: (Boolean) -> Unit, onTogglePause: () -> Unit, onSelect: () -> Unit,
     onShare: (List<NetworkRequest>) -> Unit, onClear: () -> Unit, onDone: () -> Unit, onClose: () -> Unit,
 ) = Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-    Text(if (selectionMode) "$selectedCount selected" else "Hakka", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+    Text(if (selectionMode) "$selectedCount selected" else "Network", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
     if (selectionMode) {
         IconButton(onClick = { onShare(selectedRequests) }) { Icon(painterResource(R.drawable.hakka_ic_share), "Share selected") }
         TextButton(onClick = onDone, modifier = Modifier.heightIn(min = 48.dp)) { Text("Done") }
