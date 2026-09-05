@@ -137,6 +137,8 @@ class HakkaBubble private constructor() {
         }
     }
 
+    internal fun isShowing(): Boolean = bubbleView != null
+
     fun toggle(activity: Activity, logStore: LogStore?) {
         if (bubbleView != null) hide() else show(activity, logStore)
     }

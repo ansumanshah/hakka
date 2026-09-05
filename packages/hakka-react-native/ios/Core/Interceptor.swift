@@ -3,7 +3,9 @@
 
 import Foundation
 #if canImport(HakkaCommon)
+#if canImport(HakkaCommon)
 import HakkaCommon
+#endif
 #endif
 
 /// Main entry point for Hakka network interception.

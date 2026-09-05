@@ -98,6 +98,8 @@ class HakkaBottomSheet(
         try { dismissWithAnimation() } catch (_: Exception) {}
     }
 
+    internal fun isShowing(): Boolean = dialog?.isShowing == true
+
     fun toggle() {
         if (dialog?.isShowing == true) hide() else show()
     }

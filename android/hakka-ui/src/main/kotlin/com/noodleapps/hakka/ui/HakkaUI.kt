@@ -2,6 +2,7 @@ package com.noodleapps.hakka.ui
 
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import com.noodleapps.hakka.HakkaInterceptor
 import com.noodleapps.hakka.HakkaLogStore
 import com.noodleapps.hakka.HakkaPerformance
@@ -22,8 +23,12 @@ class HakkaUI(private val context: Context) {
 
     private val notificationManager = HakkaNotificationManager(context)
     private var shakeDetector: ShakeDetector? = null
+    private var bottomSheet: HakkaBottomSheet? = null
+    private var inspectorActivity: HakkaActivity? = null
+    private val presentationState = InspectorPresentationState()
 
     /** Shared LogStore reference — set via [attach] so HakkaActivity can read requests. */
+    @Volatile
     internal var logStore: LogStore? = null
 
     /**
@@ -32,6 +37,7 @@ class HakkaUI(private val context: Context) {
      * runtime. Null when the host wired [attach] manually without going through [Hakka.install]
      * — Settings' controls disable themselves in that case rather than silently no-op-ing.
      */
+    @Volatile
     internal var interceptor: HakkaInterceptor? = null
 
     /**
@@ -72,6 +78,7 @@ class HakkaUI(private val context: Context) {
      * Optional plugin list provider — used by [HakkaBottomSheet] to render plugin panels.
      * Set via [attachPluginProvider] when an interceptor with plugins is available.
      */
+    @Volatile
     private var pluginProvider: (() -> List<HakkaPlugin>)? = null
 
     /**
@@ -196,7 +203,7 @@ class HakkaUI(private val context: Context) {
     /** Hide the floating bubble. */
     fun hide() {
         try {
-            HakkaBubble.getInstance().hide()
+            dismissCurrentPresentation()
         } catch (_: Exception) {
             // SDK must never crash the host app
         }
@@ -208,16 +215,74 @@ class HakkaUI(private val context: Context) {
      */
     fun showSheet(activity: Activity) {
         try {
-            HakkaBottomSheet(activity, logStore).show()
+            bottomSheet?.hide()
+            bottomSheet = HakkaBottomSheet(activity, logStore).also { it.show() }
         } catch (_: Exception) {
             // SDK must never crash the host app
         }
     }
 
+    /**
+     * Presents the inspector using the shared gateway used by optional runtime integrations.
+     * The attached store and interceptor remain the sole data/control source for every mode.
+     */
+    fun present(activity: Activity, mode: String, onResult: (Boolean) -> Unit) {
+        if (activity.isFinishing || activity.isDestroyed) {
+            onResult(false)
+            return
+        }
+        try {
+            dismissCurrentPresentation()
+            when (mode) {
+                "fullscreen" -> {
+                    val token = presentationState.beginFullscreen(onResult)
+                    activity.startActivity(Intent(activity, HakkaActivity::class.java)
+                        .putExtra(FULLSCREEN_REQUEST_TOKEN, token))
+                }
+                "sheet" -> {
+                    showSheet(activity)
+                    onResult(bottomSheet?.isShowing() == true)
+                }
+                else -> {
+                    show(activity)
+                    onResult(HakkaBubble.getInstance().isShowing())
+                }
+            }
+        } catch (_: Exception) {
+            if (!presentationState.cancelPendingFullscreen()) onResult(false)
+        }
+    }
+
+    internal fun registerInspector(activity: HakkaActivity, requestToken: Long?): Boolean {
+        if (requestToken != null && !presentationState.confirmFullscreen(requestToken)) return false
+        inspectorActivity = activity
+        return true
+    }
+
+    internal fun rejectInspector(requestToken: Long?) {
+        if (requestToken != null) presentationState.rejectFullscreen(requestToken)
+    }
+
+    internal fun unregisterInspector(activity: HakkaActivity) {
+        if (inspectorActivity === activity) inspectorActivity = null
+    }
+
+    private fun dismissCurrentPresentation() {
+        presentationState.cancelPendingFullscreen()
+        // A canceled request remains stale because its token is no longer pending.
+        HakkaBubble.getInstance().hide()
+        bottomSheet?.hide()
+        bottomSheet = null
+        inspectorActivity?.finish()
+        inspectorActivity = null
+    }
+
     companion object {
+        internal const val FULLSCREEN_REQUEST_TOKEN = "com.noodleapps.hakka.ui.FULLSCREEN_REQUEST_TOKEN"
         @Volatile
         private var instance: HakkaUI? = null
 
+        @JvmStatic
         fun getInstance(context: Context): HakkaUI {
             return instance ?: synchronized(this) {
                 instance ?: HakkaUI(context.applicationContext).also { instance = it }

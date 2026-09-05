@@ -22,10 +22,9 @@ import android.widget.TextView
  * alive for the whole session. Settings is deliberately NOT a tab — it's the
  * persistent header gear, present on every tab, reached via [SettingsActivity].
  *
- * `Hakka.open()` / `HakkaUI.show()`/`showSheet()`, and hakka-react-native's
- * `NativeCoreDelegate` (via `Class.forName("com.noodleapps.hakka.ui.HakkaActivity")`)
- * all launch this exact class with a plain `Intent(context, HakkaActivity::class.java)`
- * — renaming or moving this class breaks that reflection path.
+ * `Hakka.open()`, `HakkaUI.present()`, and the React Native native gateway all
+ * launch this exact class with an [Intent]. Renaming or moving this class breaks
+ * fullscreen presentation.
  */
 class HakkaActivity : Activity() {
 
@@ -50,7 +49,28 @@ class HakkaActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        try { initUI() } catch (_: Exception) { finish() }
+        val token = intent.getLongExtra(HakkaUI.FULLSCREEN_REQUEST_TOKEN, Long.MIN_VALUE)
+            .takeUnless { it == Long.MIN_VALUE }
+        try {
+            initUI()
+            if (!HakkaUI.getInstance(this).registerInspector(this, token)) finish()
+        } catch (_: Exception) {
+            HakkaUI.getInstance(this).rejectInspector(token)
+            finish()
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val token = intent.getLongExtra(HakkaUI.FULLSCREEN_REQUEST_TOKEN, Long.MIN_VALUE)
+            .takeUnless { it == Long.MIN_VALUE }
+        if (token != null && !HakkaUI.getInstance(this).registerInspector(this, token)) finish()
+    }
+
+    override fun onDestroy() {
+        HakkaUI.getInstance(this).unregisterInspector(this)
+        super.onDestroy()
     }
 
     override fun onResume() {

@@ -7,6 +7,7 @@
 
 #import "HakkaMonitorModule.h"
 #import <Foundation/Foundation.h>
+#import <UserNotifications/UserNotifications.h>
 
 #if __has_include("Hakka-Swift.h")
 #import "Hakka-Swift.h"
@@ -241,14 +242,22 @@ RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(isUIAvailable)
     return @([[RNHakkaCoreBridge shared] isUIAvailable]);
 }
 
-RCT_EXPORT_METHOD(showUI:(NSString *)mode)
+RCT_EXPORT_METHOD(showUI:(NSString *)mode
+                  resolve:(RCTPromiseResolveBlock)resolve
+                  reject:(RCTPromiseRejectBlock)reject)
 {
-    [[RNHakkaCoreBridge shared] showUI:mode];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [[RNHakkaCoreBridge shared] showUI:mode completion:^(BOOL presented) {
+            resolve(@(presented));
+        }];
+    });
 }
 
 RCT_EXPORT_METHOD(hideUI)
 {
-    [[RNHakkaCoreBridge shared] hideUI];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [[RNHakkaCoreBridge shared] hideUI];
+    });
 }
 
 // MARK: - Snapshot

@@ -50,16 +50,6 @@ export function configureMMKVInstance(instance: MMKVInstanceLike | null): void {
   registeredMMKV = instance
 }
 
-/**
- * The instance registered via `configureMMKVInstance`, or `null` if the host
- * app hasn't called it. Lets other in-package MMKV consumers (e.g.
- * `StorageViewer.tsx`) share the same registry instead of each falling back
- * to their own throwaway `new MMKV()` default instance.
- */
-export function getConfiguredMMKVInstance(): MMKVInstanceLike | null {
-  return registeredMMKV
-}
-
 // Storage write allowlist — prefix-based: desktop can only write keys starting with 'hakka:'
 const ALLOWED_KEY_PREFIX = 'hakka:'
 const MAX_VALUE_BYTES = 64 * 1024

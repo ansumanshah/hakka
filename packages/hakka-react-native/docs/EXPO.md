@@ -31,9 +31,11 @@ Add Hakka to the Expo plugins array:
 }
 ```
 
-The config plugin adds the Android debug/release Hakka network artifacts during
-prebuild. Hakka does not require plist or manifest mutations today, and iOS
-dependencies are handled by React Native autolinking and CocoaPods.
+The config plugin adds the Android debug/release Hakka network, performance, and
+UI artifacts during prebuild when native SDK support is enabled. iOS dependencies,
+including the canonical native UI, are handled by React Native autolinking and
+CocoaPods. The native inspector is opened with `Hakka.show({ as: 'bubble' | 'sheet'
+| 'fullscreen' })` after native or auto native capture starts.
 
 ```json
 {
@@ -86,30 +88,11 @@ npx expo start
 If you build development clients with EAS, use a development profile and then
 start Metro with `npx expo start`.
 
-## Optional JS Inspector UI
+## Native Inspector
 
-Core capture does not require Hakka's JS inspector UI. If you use
-`hakka-react-native/ui`, install the optional UI peers in the host Expo app:
-
-```bash
-npx expo install react-native-gesture-handler react-native-reanimated react-native-safe-area-context react-native-svg react-native-worklets
-```
-
-Add the Worklets Babel plugin last in `babel.config.js`:
-
-```js
-module.exports = function (api) {
-  api.cache(true)
-
-  return {
-    presets: ['babel-preset-expo'],
-    plugins: ['react-native-worklets/plugin'],
-  }
-}
-```
-
-If the app already has a Worklets or Reanimated setup, keep a single Worklets
-plugin entry and keep it last.
+The React Native package no longer exports `hakka-react-native/ui` or bundles a
+JS inspector and its UI-only peers. Capture, hooks, monitors, clipboard sharing,
+WebView support, and Rozenite remain available programmatically.
 
 ## Capture Mode Caveat
 
@@ -136,3 +119,11 @@ TurboModule/codegen bridge over native Android and Swift SDKs. A direct
 Swift-JSI layer is deferred until profiling shows Hakka needs high-frequency
 sync calls, host objects, or array-buffer style access across the JS/native
 boundary.
+
+### Android inspector packaging
+
+`androidUI` defaults to `true` and adds `hakka-ui` to debug builds. Set it to
+`false` for capture without the in-app inspector. Release builds use the network
+noop artifact and omit the UI; `androidPerformance: true` similarly selects the
+real debug collector and release noop. The iOS inspector is included in the RN
+pod. Use `await Hakka.show(...)` and check its boolean result.

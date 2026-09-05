@@ -54,10 +54,6 @@ const OPTIONAL_MODULES = new Set([
   'react-native-mmkv',
   '@react-native-clipboard/clipboard',
   'expo-clipboard',
-  'expo-haptics',
-  'react-native-safe-area-context',
-  'react-native-device-info',
-  '@react-native-community/netinfo',
 ])
 
 /**

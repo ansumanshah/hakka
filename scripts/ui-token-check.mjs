@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 /**
  * Fails when an inspector style hardcodes a geometry number instead of reaching
- * for a design token. Covers five UI surfaces:
+ * for a design token. Covers four UI surfaces:
  *
- *   React Native  packages/hakka-react-native/src/ui   `height: 36,`
  *   Web (CSS)     packages/hakka-browser/src/ui        `height: 36px;`
  *   SwiftUI       ios/Sources/UI                       `.padding(16)`
  *   Android       android/hakka-ui/src/main/kotlin     `setPadding(dp(16), …)`
@@ -31,7 +30,6 @@ import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
-const RN_ROOT = join(repoRoot, 'packages/hakka-react-native/src/ui')
 const WEB_ROOT = join(repoRoot, 'packages/hakka-browser/src/ui')
 const IOS_ROOT = join(repoRoot, 'ios/Sources/UI')
 const ANDROID_ROOT = join(repoRoot, 'android/hakka-ui/src/main/kotlin/com/noodleapps/hakka/ui')
@@ -52,6 +50,8 @@ const SKIP_FILES = new Set([
   'Helpers/Metrics.swift',
 ])
 
+// Same properties, kebab-cased, terminated by `;` — matches both a CSS rule in
+// styles.ts and an inline `style="..."` attribute in a .tsx.
 const PROPS = [
   'padding',
   'paddingTop',
@@ -76,10 +76,6 @@ const PROPS = [
   'fontSize',
 ]
 
-const RN_VIOLATION = new RegExp(`^\\s*(${PROPS.join('|')}):\\s*(-?\\d+(?:\\.\\d+)?)\\s*,`)
-
-// Same properties, kebab-cased, terminated by `;` — matches both a CSS rule in
-// styles.ts and an inline `style="..."` attribute in a .tsx.
 const CSS_PROPS = PROPS.map((p) => p.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`))
 const CSS_VIOLATION = new RegExp(`(?:^|[;"'{\\s])(${CSS_PROPS.join('|')}):\\s*([^;"'}]+)`, 'g')
 
@@ -165,18 +161,6 @@ async function* walk(dir, exts) {
 
 const violations = []
 
-for await (const file of walk(RN_ROOT, /\.tsx?$/)) {
-  if (SKIP_FILES.has(relative(RN_ROOT, file))) continue
-  const rnLines = readFileSync(file, 'utf8').split('\n')
-  rnLines.forEach((line, i) => {
-    if (suppressed(rnLines, i)) return
-    const match = RN_VIOLATION.exec(line)
-    if (!match) return
-    if (ALLOWED_VALUES.has(match[2])) return
-    violations.push({ file: relative(repoRoot, file), line: i + 1, text: line.trim() })
-  })
-}
-
 for await (const file of walk(WEB_ROOT, /\.(tsx?|css)$/)) {
   if (SKIP_FILES.has(relative(WEB_ROOT, file))) continue
   const cssLines = readFileSync(file, 'utf8').split('\n')
@@ -258,7 +242,7 @@ for await (const file of walk(ANDROID_ROOT, /\.kt$/)) {
 }
 
 if (violations.length === 0) {
-  console.log('ui-token-check: no hardcoded geometry in the React Native, web, iOS, macOS, or Android inspector styles')
+  console.log('ui-token-check: no hardcoded geometry in the web, iOS, macOS, or Android inspector styles')
   process.exit(0)
 }
 

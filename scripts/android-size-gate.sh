@@ -6,8 +6,12 @@ ANDROID_DIR="$ROOT_DIR/android"
 
 # Budgets are based on minified release APK deltas measured 2026-09-05.
 #
-#   base SDK: 27.7 KB (28,392 bytes), budget 40 KB
-#   UI over base SDK: 254.9 KB (260,995 bytes), budget 270 KB
+#   base SDK: 27.7 KB (28,404 bytes), budget 40 KB
+#   UI over base SDK: 245.4 KB (251,295 bytes), budget 270 KB
+#
+# RN-only reflection entry points are retained by the RN package consumer rules;
+# native-only hosts can shrink unused bridge methods without losing native UI.
+# These deltas measure native SDK artifacts, not a React Native host APK.
 #
 # The `android/size-gate` app's `baseline` flavor now performs the same
 # `client.newCall(...).execute()` OkHttp call as every Hakka flavor

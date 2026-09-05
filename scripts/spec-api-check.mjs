@@ -21,9 +21,9 @@ const specDir = join(root, 'docs/src/content/docs/spec')
 
 /**
  * Import specifier → the entry file whose exports it resolves to. Subpaths are
- * listed explicitly: `hakka-react-native/ui` and `/monitors` are separate
+ * listed explicitly: `hakka-react-native/monitors` is a separate
  * entries, and conflating them with the root is exactly the mistake this
- * catches — two spec cards documented `HakkaInspector` and the storage
+ * catches — spec cards documented inspector and storage
  * monitors as root imports when they ship on subpaths.
  */
 const packageEntries = {
@@ -34,7 +34,6 @@ const packageEntries = {
   'hakka-node/ci': 'packages/hakka-node/src/ci/index.ts',
   'hakka-bridge': 'packages/hakka-bridge/src/index.ts',
   'hakka-react-native': 'packages/hakka-react-native/src/index.ts',
-  'hakka-react-native/ui': 'packages/hakka-react-native/src/ui.ts',
   'hakka-react-native/monitors': 'packages/hakka-react-native/src/monitors.ts',
 }
 

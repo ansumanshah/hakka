@@ -4,7 +4,9 @@
 import Foundation
 import os
 #if canImport(HakkaCommon)
+#if canImport(HakkaCommon)
 import HakkaCommon
+#endif
 #endif
 
 // MARK: - HakkaOSLogBridge

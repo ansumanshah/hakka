@@ -160,42 +160,6 @@ declare module 'react-native/Libraries/TurboModule/TurboModuleRegistry' {
   export function getEnforcing<T>(name: string): T
 }
 
-declare module 'react-native-svg' {
-  import type { ComponentType } from 'react'
-  export const Svg: ComponentType<any>
-  export const Path: ComponentType<any>
-  export const Circle: ComponentType<any>
-  export const Rect: ComponentType<any>
-  export const Line: ComponentType<any>
-  export const G: ComponentType<any>
-  export const Defs: ComponentType<any>
-  export const ClipPath: ComponentType<any>
-  export default Svg
-}
-
-declare module 'react-native-reanimated' {
-  const _default: any
-  export default _default
-  export const useAnimatedStyle: any
-  export const useSharedValue: any
-  export const cancelAnimation: any
-  export const withDelay: any
-  export const withRepeat: any
-  export const withSpring: any
-  export const withTiming: any
-  export const withSequence: any
-  export const runOnJS: any
-  export const interpolate: any
-  export const Extrapolate: any
-}
-
-declare module 'react-native-gesture-handler' {
-  import type { ComponentType } from 'react'
-  export const GestureDetector: ComponentType<any>
-  export const Gesture: any
-  export const GestureHandlerRootView: ComponentType<any>
-}
-
 declare module 'react-native-mmkv' {
   export class MMKV {
     constructor(config?: { id?: string })

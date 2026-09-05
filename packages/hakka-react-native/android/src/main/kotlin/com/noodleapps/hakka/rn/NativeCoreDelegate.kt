@@ -20,6 +20,7 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.UUID
+import kotlin.jvm.functions.Function0
 
 /**
  * Delegate that holds ALL hakka-network references.
@@ -200,6 +201,7 @@ class NativeCoreDelegate(
     fun initialize(listenerCount: AtomicInteger) {
         val listener = createListener(listenerCount)
         rebuildInterceptor(listener)
+        attachNativeUI()
         // Auto-register OkHttpClientFactory so RN's fetch uses our interceptor
         try {
             HakkaOkHttpClientFactory.initialize()
@@ -324,6 +326,7 @@ class NativeCoreDelegate(
         val next = builder.build()
         for (log in existingLogs) next.logStore.add(log)
         retireOrClose(replaceInterceptor(next))
+        attachNativeUI()
     }
 
     /**
@@ -332,61 +335,33 @@ class NativeCoreDelegate(
      * to report failure instead of doing nothing.
      */
     fun isUIAvailable(): Boolean = try {
-        Class.forName("com.noodleapps.hakka.ui.HakkaActivity")
+        Class.forName("com.noodleapps.hakka.ui.HakkaUI")
         true
     } catch (_: ClassNotFoundException) {
         false
     }
 
-    fun showUI(context: Context, mode: String) {
+    fun showUI(context: Context, mode: String, onResult: (Boolean) -> Unit) {
         try {
             val activity = context as? android.app.Activity
                 ?: (context as? com.facebook.react.bridge.ReactApplicationContext)
                     ?.currentActivity
                 ?: run {
                     android.util.Log.w("Hakka", "showUI($mode) had no effect — no current Activity")
+                    onResult(false)
                     return
                 }
-
-            when (mode) {
-                "fullscreen" -> {
-                    // Launch full-screen inspector activity
-                    val intent = android.content.Intent(activity, Class.forName("com.noodleapps.hakka.ui.HakkaActivity"))
-                    activity.startActivity(intent)
-                }
-                "sheet" -> {
-                    try {
-                        val sheetClass = Class.forName("com.noodleapps.hakka.ui.HakkaBottomSheet")
-                        val constructor = sheetClass.getConstructor(
-                            android.app.Activity::class.java,
-                            Class.forName("com.noodleapps.hakka.LogStore"),
-                        )
-                        val sheet = constructor.newInstance(activity, currentInterceptor().logStore)
-                        sheetClass.getMethod("show").invoke(sheet)
-                    } catch (_: ClassNotFoundException) {
-                        // hakka-ui not on classpath — no UI to show
-                        android.util.Log.w("Hakka", "showUI($mode) had no effect — hakka-ui is not on the classpath")
-                    }
-                }
-                else -> {
-                    // Default: show floating bubble
-                    try {
-                        val bubbleClass = Class.forName("com.noodleapps.hakka.ui.HakkaBubble")
-                        // getInstance() is a no-arg @JvmStatic companion function — do not
-                        // pass Context, it throws NoSuchMethodException.
-                        val getInstance = bubbleClass.getMethod("getInstance")
-                        val bubble = getInstance.invoke(null)
-                        val showMethod = bubbleClass.getMethod("show", android.app.Activity::class.java, Class.forName("com.noodleapps.hakka.LogStore"))
-                        showMethod.invoke(bubble, activity, currentInterceptor().logStore)
-                    } catch (_: ClassNotFoundException) {
-                        // hakka-ui not on classpath — no UI to show
-                        android.util.Log.w("Hakka", "showUI($mode) had no effect — hakka-ui is not on the classpath")
-                    }
-                }
-            }
+            attachNativeUI()
+            val uiClass = Class.forName("com.noodleapps.hakka.ui.HakkaUI")
+            val ui = uiClass.getMethod("getInstance", Context::class.java).invoke(null, context)
+            uiClass.getMethod("present", android.app.Activity::class.java, String::class.java, kotlin.jvm.functions.Function1::class.java)
+                .invoke(ui, activity, mode, object : kotlin.jvm.functions.Function1<Boolean, Unit> {
+                    override fun invoke(result: Boolean) = onResult(result)
+                })
         } catch (e: Exception) {
             // SDK must never crash the host app
             android.util.Log.w("Hakka", "showUI($mode) had no effect: ${e.javaClass.simpleName}")
+            onResult(false)
         }
     }
 
@@ -554,6 +529,27 @@ class NativeCoreDelegate(
         val next = builder.build()
         for (log in existingLogs) next.logStore.add(log)
         retireOrClose(replaceInterceptor(next))
+        attachNativeUI()
+    }
+
+    /** Attaches the RN interceptor to hakka-ui without making the optional UI a hard dependency. */
+    private fun attachNativeUI() {
+        try {
+            val uiClass = Class.forName("com.noodleapps.hakka.ui.HakkaUI")
+            val ui = uiClass.getMethod("getInstance", Context::class.java).invoke(null, reactContext)
+            val interceptor = currentInterceptor()
+            uiClass.getMethod("attach", Class.forName("com.noodleapps.hakka.LogStore"))
+                .invoke(ui, interceptor.logStore)
+            uiClass.getMethod("attachInterceptor", HakkaInterceptor::class.java).invoke(ui, interceptor)
+            uiClass.getMethod("attachPluginProvider", Function0::class.java).invoke(ui, object : Function0<List<com.noodleapps.hakka.HakkaPlugin>> {
+                override fun invoke(): List<com.noodleapps.hakka.HakkaPlugin> =
+                    currentInterceptor().plugins.registeredPlugins()
+            })
+        } catch (_: ClassNotFoundException) {
+            // hakka-ui is optional.
+        } catch (_: Exception) {
+            // Optional presentation must never prevent native capture.
+        }
     }
 
     private fun emitRequest(request: NetworkRequest) {

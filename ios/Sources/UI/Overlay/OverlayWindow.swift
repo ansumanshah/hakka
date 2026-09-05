@@ -22,6 +22,11 @@ import HakkaNetwork
 @MainActor
 public final class OverlayWindow {
 
+    private enum PresentationMode {
+        case sheet
+        case fullscreen
+    }
+
     // MARK: - Singleton
 
     public static let shared = OverlayWindow()
@@ -30,6 +35,7 @@ public final class OverlayWindow {
 
     private var presentingWindow: UIWindow?
     private weak var sheetController: UIViewController?
+    private var presentationMode: PresentationMode?
     /// Set synchronously the moment `hide()` calls `dismiss(animated:)`,
     /// cleared only in that dismissal's completion handler. `show()` /
     /// `showFullscreen()` / `showMonitor()` / `toggle()` all gate on this
@@ -57,12 +63,22 @@ public final class OverlayWindow {
     // MARK: - Public API
 
     /// Show the inspector sheet.
-    public func show() {
-        if isDismissing || sheetController?.presentingViewController != nil { return }
+    public func show(completion: ((Bool) -> Void)? = nil) {
+        if sheetController?.presentingViewController != nil {
+            completion?(presentationMode == .sheet)
+            return
+        }
+        if isDismissing {
+            completion?(false)
+            return
+        }
 
         guard let windowScene = UIApplication.shared.activeWindowScene,
             let rootVC = windowScene.keyWindow?.rootViewController
-        else { return }
+        else {
+            completion?(false)
+            return
+        }
 
         var topVC = rootVC
         while let presented = topVC.presentedViewController {
@@ -84,8 +100,9 @@ public final class OverlayWindow {
 
         hostingController.presentationController?.delegate = SheetDismissDelegate.shared
         BubbleWindow.shared.setHiddenForOverlay(true)
-        topVC.present(hostingController, animated: true)
+        topVC.present(hostingController, animated: true) { completion?(true) }
         self.sheetController = hostingController
+        self.presentationMode = .sheet
     }
 
     /// A host app's `.preferredColorScheme` cascades into every sheet it
@@ -98,8 +115,15 @@ public final class OverlayWindow {
     }
 
     /// Hide the inspector sheet.
-    public func hide() {
-        guard !isDismissing, let controller = sheetController else { return }
+    public func hide(completion: ((Bool) -> Void)? = nil) {
+        guard !isDismissing else {
+            completion?(false)
+            return
+        }
+        guard let controller = sheetController else {
+            completion?(true)
+            return
+        }
         // `isDismissing` is set here, synchronously, and only cleared in the
         // completion below — the `show()`/`showFullscreen()`/`showMonitor()`/
         // `toggle()` guards all read it to detect an in-flight dismissal.
@@ -115,17 +139,29 @@ public final class OverlayWindow {
             if self?.sheetController === controller {
                 self?.sheetController = nil
             }
+            self?.presentationMode = nil
             self?.isDismissing = false
+            completion?(true)
         }
     }
 
     /// Show the inspector as a fullscreen sheet (large detent only, no half-sheet).
-    public func showFullscreen() {
-        if isDismissing || sheetController?.presentingViewController != nil { return }
+    public func showFullscreen(completion: ((Bool) -> Void)? = nil) {
+        if sheetController?.presentingViewController != nil {
+            completion?(presentationMode == .fullscreen)
+            return
+        }
+        if isDismissing {
+            completion?(false)
+            return
+        }
 
         guard let windowScene = UIApplication.shared.activeWindowScene,
             let rootVC = windowScene.keyWindow?.rootViewController
-        else { return }
+        else {
+            completion?(false)
+            return
+        }
 
         var topVC = rootVC
         while let presented = topVC.presentedViewController {
@@ -147,8 +183,9 @@ public final class OverlayWindow {
 
         hostingController.presentationController?.delegate = SheetDismissDelegate.shared
         BubbleWindow.shared.setHiddenForOverlay(true)
-        topVC.present(hostingController, animated: true)
+        topVC.present(hostingController, animated: true) { completion?(true) }
         self.sheetController = hostingController
+        self.presentationMode = .fullscreen
     }
 
     /// Show the inspector directly on its Stats tab. Stats/Dashboard is a

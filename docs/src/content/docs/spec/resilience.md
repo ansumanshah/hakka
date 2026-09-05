@@ -13,14 +13,10 @@ Two behaviors keep the inspector a safe guest in a host app:
   renders inside the inspector's own shadow root. Reload is a real teardown: the
   entire crashed tree is disposed and a fresh one is mounted, rather than re-rendering
   inside a possibly-corrupted reactive root. Captured traffic survives the reload —
-  the store lives outside the UI tree (Web Worker / module singleton). RN mirrors this
-  with a React error boundary (`hakka-react-native/src/ui/CrashBoundary.tsx`, a class
-  component — React has no hooks-based equivalent) wrapped around the JS inspector
-  root in `HakkaInspector.tsx`'s `Wrapper`/`Standalone`. Reload bumps a `generation`
-  counter used as the wrapped children's `key`, forcing React to unmount the crashed
-  tree and mount a fresh one instead of retrying in place. Captured traffic survives
-  the reload the same way — `hakka-core`'s `Hakka` log store is a module-level
-  singleton outside the React tree.
+  the store lives outside the UI tree (Web Worker / module singleton). React Native
+  uses the native iOS and Android inspector surfaces, which follow the host app's
+  native exception model and do not add a JS error boundary. Captured traffic remains
+  in the module-level `hakka-core` store.
 - **Stale-body revalidation.** Switching rows in Detail keeps the previous request's
   body visible (dimmed) while the next body hydrates asynchronously, instead of
   flashing "No request/response body" mid-fetch. Superseded fetches are discarded, so

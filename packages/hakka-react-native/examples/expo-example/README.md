@@ -58,8 +58,8 @@ requests in the inspector with method, status, and timing.
 
 ## Metro and optional peers
 
-This example installs none of `hakka-react-native`'s optional peer dependencies (no
-gesture-handler, reanimated, mmkv, async-storage, and so on; see
+This example installs none of `hakka-react-native`'s optional capture and monitor peer dependencies (no
+mmkv, async-storage, and so on; see
 [`../../metro.js`](../../metro.js) for the full list). Those are `require()`d behind `try/catch` in
 `src/`, which Metro cannot honor: it resolves `require('<literal>')` statically at bundle time,
 before any of that guard code runs. Without help, an absent optional peer fails the whole bundle
@@ -88,12 +88,9 @@ bun run bundle
 
 ## What it doesn't cover
 
-- The `hakka-react-native/ui` overlay (`HakkaInspector.Wrapper`, bubble/shake-to-open UI). That
-  needs the UI peers (`react-native-gesture-handler`, `react-native-reanimated`,
-  `react-native-safe-area-context`, `react-native-svg`, `react-native-worklets`), which this
-  example deliberately skips to keep the "no optional peers installed" Metro scenario real. See
-  docs/react-native/expo.mdx's "Optional UI Peers" section for the install + Babel plugin steps if
-  you want to add it here.
+- The native inspector surface. This example focuses on Expo's no optional peer Metro scenario;
+  use a rebuilt development build with native SDK support and call `Hakka.show()` to exercise the
+  bubble, sheet, or fullscreen surface.
 - WebView capture, WebSocket capture, mock rules, throttle profiles, HAR/Postman/OTel export.
   All of that is covered by `../react-native-example` instead. This app's only job is proving the
   Expo path.

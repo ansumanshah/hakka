@@ -4,11 +4,6 @@
  *
  * Scope:
  *   packages/*\/src/ui/**\/*.{ts,tsx}         every package's UI source tree
- *   packages/hakka-react-native/src/ui/**    RN's UI tree, explicitly (today
- *                                             a subset of the line above —
- *                                             kept separate so a future
- *                                             non-ts/tsx RN UI source file
- *                                             doesn't silently escape the cap)
  *
  * The ALLOWLIST is meant to shrink, not grow. Every `TODO(#51)` entry is a
  * file already over the cap and already queued for splitting under that
@@ -23,19 +18,12 @@ import { fileURLToPath } from 'node:url'
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 const PACKAGES_ROOT = join(repoRoot, 'packages')
-const RN_UI_ROOT = join(repoRoot, 'packages/hakka-react-native/src/ui')
 
 const CAP = 500
 
 // Relative-to-repoRoot path (forward slashes) -> reason. Exact match only —
 // this is a list of specific files, not a pattern.
-const ALLOWLIST = [
-  ['packages/hakka-browser/src/ui/styles.ts', 'single CSS template by design'],
-  [
-    'packages/hakka-react-native/src/ui/screens/HakkaInspector.tsx',
-    'controller: sheet/gesture/imperative-handle state deliberately kept coupled (713 lines, split reviewed 2026-08-16)',
-  ],
-]
+const ALLOWLIST = [['packages/hakka-browser/src/ui/styles.ts', 'single CSS template by design']]
 const ALLOWLISTED = new Map(ALLOWLIST)
 
 // Generated files carry their line count by construction, never by hand — a
@@ -81,12 +69,6 @@ for (const pkg of await readdir(PACKAGES_ROOT, { withFileTypes: true })) {
     seen.add(file)
     files.push(file)
   }
-}
-
-for await (const file of walk(RN_UI_ROOT, TS_EXT)) {
-  if (seen.has(file)) continue
-  seen.add(file)
-  files.push(file)
 }
 
 const violations = []

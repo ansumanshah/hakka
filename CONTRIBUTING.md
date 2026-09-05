@@ -124,7 +124,7 @@ Release harness: `packages/hakka-react-native/examples/react-native-example`
 - Keep native capture off hot network paths. Capture minimal facts first, then redact/map/export from a processor queue.
 - Core packages stay dependency-light. `hakka-core` carries a single runtime dep (`fflate`, for gzip/deflate body decoding). Android core may use OkHttp (interception surface). iOS core stays Foundation-first.
 - Preserve the Hakka record contract across TypeScript, Kotlin, and Swift.
-- UI dependencies belong behind the RN UI subpath or native UI artifacts. Core SDK modules are UI-less.
+- Native UI dependencies belong behind native UI artifacts. Core SDK modules and the React Native capture API are UI-less.
 - `ios/Sources` is canonical; `packages/hakka-react-native/ios/Core` is generated via `just sync-ios`. Never hand-edit the generated copy.
 - Add tests when changing public contracts, redaction, filtering, capture timing, body limits, or bridge behavior.
 - Every directory under `packages/` is named for the package it publishes. Keep

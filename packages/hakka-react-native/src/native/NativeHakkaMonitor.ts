@@ -94,10 +94,10 @@ export interface Spec extends TurboModule {
   // Native UI — mode: 'bubble' (default), 'sheet', or 'fullscreen'
   /**
    * Synchronously reports whether the optional native UI package (HakkaUI on
-   * iOS, hakka-ui on Android) is linked — `showUI` silently no-ops without it.
+   * iOS, hakka-ui on Android) is linked. Presentation success is reported by showUI.
    */
   isUIAvailable(): boolean
-  showUI(mode: string): void
+  showUI(mode: string): Promise<boolean>
   hideUI(): void
 
   /** Return the full current log snapshot — used for startup sync. */

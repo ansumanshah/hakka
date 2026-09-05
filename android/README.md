@@ -102,20 +102,22 @@ flavor (see `NetworkExerciser` in `size-gate/src/main/`) — without that, R8 co
 own network layer out of `baseline` while every Hakka flavor kept it reachable through
 `HakkaInterceptor`, inflating the measured delta with OkHttp's own code, not Hakka's. Prints a
 per-module breakdown, writes a report to `android/size-gate/build/reports/size-gate/summary.txt`,
-and fails CI if the network or combined base SDK delta exceeds the budget (see
+and fails CI if the network, combined base SDK, or optional UI delta exceeds its budget (see
 `scripts/android-size-gate.sh` for the budget's derivation and how to re-measure it).
 
-Current measured APK deltas (2026-09-05):
+Current measured APK deltas (2026-09-05). These measure native Android SDK artifacts in the
+size fixture, not the total size of a React Native host app. RN-specific reflection rules ship
+with the RN package so native-only consumers can shrink unused bridge entry points.
 
 | Module                                   |     APK delta | Download delta |
 | ---------------------------------------- | ------------: | -------------: |
 | `hakka-network-noop`                     |     848 bytes |      944 bytes |
-| `hakka-network`                          |  26,004 bytes |   25,933 bytes |
+| `hakka-network`                          |  26,020 bytes |   25,846 bytes |
 | `hakka-performance-noop`                 |      84 bytes |      133 bytes |
 | `hakka-performance`                      |   1,832 bytes |    1,841 bytes |
-| `hakka-network + hakka-performance`      |  28,392 bytes |   28,212 bytes |
-| `hakka-ui` incremental over the base SDK | 260,995 bytes |  250,297 bytes |
-| `hakka-network + hakka-performance + UI` | 289,387 bytes |  278,509 bytes |
+| `hakka-network + hakka-performance`      |  28,404 bytes |   28,222 bytes |
+| `hakka-ui` incremental over the base SDK | 251,295 bytes |  240,863 bytes |
+| `hakka-network + hakka-performance + UI` | 279,699 bytes |  269,085 bytes |
 
 ## Contributing
 

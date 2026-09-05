@@ -323,6 +323,9 @@ jobs:
       - name: Metro bundle (optional peers absent on purpose)
         working-directory: packages/hakka-react-native/examples/react-native-example
         run: bun run bundle
+      - name: Assemble minified release APK (native inspector gateway)
+        working-directory: packages/hakka-react-native/examples/react-native-example/android
+        run: ./gradlew :app:assembleRelease -PhakkaMinifyRelease=true -PreactNativeArchitectures=arm64-v8a
 
   next-fullstack-example:
     name: Next.js Example (build + ci-gate test + Playwright E2E)

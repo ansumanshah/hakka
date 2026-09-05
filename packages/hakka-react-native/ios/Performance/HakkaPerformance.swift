@@ -13,7 +13,9 @@ import QuartzCore
 import UIKit
 #endif
 #if canImport(HakkaCommon)
+#if canImport(HakkaCommon)
 import HakkaCommon
+#endif
 #endif
 
 /// Configuration for iOS performance sampling.

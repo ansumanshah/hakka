@@ -12,7 +12,7 @@ import org.junit.Test
  * `storageSnapshotToWritableMap`) hand-mirrors [LogEntry.toJson] / [StorageSnapshot.toJson] field
  * for field, since those two methods aren't directly reachable from a `WritableMap`-based unit
  * test without a real RN/Android runtime (this module has no Robolectric setup — see
- * `HakkaMockEngineTest` for the existing precedent of testing only Android/RN-runtime-free
+ * Android/RN-runtime-free tests keep relay serialization independent of React Native runtime setup.
  * logic here). This file locks down the exact contract the relay mirrors: field names, the
  * lowercase `level` string, and category/metadata being omitted (not nulled) when absent —
  * matching `fixtures/console/` and `fixtures/storage/` exactly, same as

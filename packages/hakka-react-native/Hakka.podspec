@@ -10,12 +10,15 @@ Pod::Spec.new do |s|
   s.license      = package["license"]
   s.authors      = package["author"]
 
-  min_ios = defined?(min_ios_version_supported) ? min_ios_version_supported : "16.0"
+  # The canonical inspector uses iOS 16 SwiftUI APIs. Keep the RN pod aligned
+  # with ios/Package.swift without lowering a newer React Native requirement.
+  rn_min_ios = defined?(min_ios_version_supported) ? min_ios_version_supported : '16.0'
+  min_ios = [Gem::Version.new(rn_min_ios), Gem::Version.new('16.0')].max.to_s
   s.platforms    = { :ios => min_ios, :visionos => '1.0' }
   s.source       = { :git => "https://github.com/ansumanshah/hakka.git", :tag => "#{s.version}" }
 
   s.swift_version = "6.0"
-  s.frameworks = "Foundation"
+  s.frameworks = ["Foundation", "UIKit", "SwiftUI", "CoreMotion", "Network", "Security", "SystemConfiguration", "UserNotifications"]
   s.source_files = [
     "ios/**/*.{h,m,mm,cpp,swift}",
   ]

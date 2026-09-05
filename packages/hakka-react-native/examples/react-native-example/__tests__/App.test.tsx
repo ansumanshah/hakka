@@ -2,7 +2,9 @@
  * @format
  */
 
+import { Hakka } from 'hakka-react-native'
 import React from 'react'
+import { Alert } from 'react-native'
 import ReactTestRenderer from 'react-test-renderer'
 
 jest.mock('hakka-react-native', () => ({
@@ -12,7 +14,8 @@ jest.mock('hakka-react-native', () => ({
     isActive: true,
     pause: jest.fn(),
     resume: jest.fn(),
-    show: jest.fn(),
+    show: jest.fn().mockResolvedValue(true),
+    hide: jest.fn(),
     start: jest.fn(),
   },
   ThrottleEngine: { setProfile: jest.fn() },
@@ -22,26 +25,12 @@ jest.mock('hakka-react-native', () => ({
   useNetworkLogs: () => ({ logs: [], totalCount: 0 }),
 }))
 
-jest.mock('hakka-react-native/ui', () => ({
-  HakkaInspector: {
-    Wrapper: ({ children }: { children: unknown }) => children,
-  },
-}))
-
 jest.mock('hakka-rozenite', () => ({
   useHakkaRozeniteDevTools: jest.fn(),
 }))
 
-jest.mock('react-native-safe-area-context', () => ({
-  SafeAreaProvider: ({ children }: { children: unknown }) => children,
-}))
-
 jest.mock('../WebViewCaptureScreen', () => ({
   WebViewCaptureScreen: () => null,
-}))
-
-jest.mock('../WrapperModesScreen', () => ({
-  WrapperModesScreen: () => null,
 }))
 
 import App from '../App'
@@ -61,4 +50,26 @@ test('sends the demo GET request from the migrated app', async () => {
 
   fetchSpy.mockRestore()
   await ReactTestRenderer.act(async () => renderer!.unmount())
+})
+
+test('opens native modes, reports presentation failure, and dismisses the inspector', async () => {
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {})
+  let renderer!: ReactTestRenderer.ReactTestRenderer
+  await ReactTestRenderer.act(async () => {
+    renderer = ReactTestRenderer.create(<App />)
+  })
+  await ReactTestRenderer.act(async () => renderer.root.findByProps({ testID: 'demo-group-Tools' }).props.onPress())
+  await ReactTestRenderer.act(async () => renderer.root.findByProps({ testID: 'demo-request-Sheet' }).props.onPress())
+  expect(Hakka.show).toHaveBeenLastCalledWith({ as: 'sheet' })
+  jest.mocked(Hakka.show).mockResolvedValueOnce(false)
+  await ReactTestRenderer.act(async () =>
+    renderer.root.findByProps({ testID: 'demo-request-Fullscreen' }).props.onPress(),
+  )
+  expect(alert).toHaveBeenCalledWith('Native UI unavailable', expect.any(String))
+  await ReactTestRenderer.act(async () =>
+    renderer.root.findByProps({ testID: 'demo-request-Hide inspector' }).props.onPress(),
+  )
+  expect(Hakka.hide).toHaveBeenCalled()
+  await ReactTestRenderer.act(async () => renderer.unmount())
+  alert.mockRestore()
 })

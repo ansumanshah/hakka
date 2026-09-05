@@ -10,9 +10,9 @@ button of its own: a physical shake gesture, a persistent draggable bubble/FAB t
 to open (a tap just expands a quick summary in place, and a drag repositions it), a
 live system notification (Android's has a request inbox, iOS's is one-shot), and a programmatic
 `show()`/`hide()` API a host app can call directly (e.g. from a debug menu or a deep link). Each
-platform implements its own native detector and overlay window; RN additionally ships a pure-JS
-fallback path (`useShakeDetection`, the bubble/FAB inside `HakkaInspector.Wrapper`) so triggers
-work even when the optional native UI package isn't linked.
+platform implements its own native detector and overlay window. React Native uses the native
+iOS and Android trigger surfaces through the TurboModule bridge; JS capture and hooks remain
+available without native UI.
 
 ## Public API
 
@@ -21,25 +21,18 @@ Core (`hakka-core`, consumed by any JS host — RN today):
 ```ts
 import { Hakka } from 'hakka-core'
 
-Hakka.show(options?: { as?: 'bubble' | 'sheet' | 'fullscreen' }): boolean // false if no native UI module handled it
+Hakka.show(options?: { as?: 'bubble' | 'sheet' | 'fullscreen' }): Promise<boolean> // resolves after native presentation
 Hakka.hide(): void
 ```
 
-RN (`hakka-react-native` — `HakkaInspector.Wrapper` + its imperative namespace):
+RN (`hakka-react-native`):
 
 ```tsx
-import { HakkaInspector } from 'hakka-react-native/ui'
+import { Hakka } from 'hakka-react-native'
 
-<HakkaInspector.Wrapper mode="bubble" shake={{ enabled: true }} bubble={{ renderMode: 'js' }}>
-  <App />
-</HakkaInspector.Wrapper>
-
-HakkaInspector.isVisible(): boolean
-HakkaInspector.show(): void          // shows the bubble (bubble mode) or the inspector (other modes)
-HakkaInspector.hide(): void
-HakkaInspector.showInspector(): void // opens the modal/sheet directly, bypassing the bubble
-HakkaInspector.hideInspector(): void
-HakkaInspector.getVisibility(): InspectorVisibility | null // { bubbleVisible, inspectorVisible }
+Hakka.start({ mode: 'native' })
+await Hakka.show({ as: 'bubble' | 'sheet' | 'fullscreen' })
+Hakka.hide()
 ```
 
 iOS (Swift, `HakkaUI` target — `UIWindow`/singleton classes, all `@MainActor`):
@@ -77,20 +70,14 @@ by the FAB or a keyboard shortcut, never driven by a host page).
 
 Not part of `HakkaConfig` — configured per-call/per-component, not through shared config:
 
-| Platform | Key                                | Default                 | Notes                                                            |
-| -------- | ---------------------------------- | ----------------------- | ---------------------------------------------------------------- |
-| RN       | `shake.enabled`                    | `true`                  | `ShakeConfig`                                                    |
-| RN       | `shake.sensitivity`                | `1.2`                   | accepted, not read by `useShakeDetection` today                  |
-| RN       | `shake.minShakes`                  | `1`                     | accepted, not read by `useShakeDetection` today                  |
-| RN       | `shake.timeWindow`                 | `1000` ms               | debounce between accepted shakes                                 |
-| RN       | `bubble.showOnInit`                | `false`                 | `BubbleConfig`                                                   |
-| RN       | `bubble.size`                      | `56` px                 | clamped to a minimum of `56`                                     |
-| RN       | `bubble.renderMode`                | `'js'`                  | `'js' \| 'native'` — native delegates to `Hakka.show()`          |
-| iOS      | shake threshold / cooldown / count | `2.5` / `0.5` s / `2`   | `HakkaShakeDetector`, not configurable at the call site          |
-| iOS      | notification debounce              | immediate               | `NotificationTrigger` posts on `didEnterBackground`, no debounce |
-| Android  | shake threshold / cooldown / count | `12.0` / `500` ms / `2` | `ShakeDetector`, not configurable at the call site               |
-| Android  | notification debounce              | `300` ms                | `HakkaNotificationManager.scheduleUpdate`                        |
-| Android  | notification inbox size            | `8` lines               | `HakkaNotificationManager.INBOX_SIZE`                            |
+| Platform | Key                                | Default                 | Notes                                                              |
+| -------- | ---------------------------------- | ----------------------- | ------------------------------------------------------------------ |
+| RN       | `Hakka.show({ as })`               | —                       | `'bubble' \| 'sheet' \| 'fullscreen'`; resolves after presentation |
+| iOS      | shake threshold / cooldown / count | `2.5` / `0.5` s / `2`   | `HakkaShakeDetector`, not configurable at the call site            |
+| iOS      | notification debounce              | immediate               | `NotificationTrigger` posts on `didEnterBackground`, no debounce   |
+| Android  | shake threshold / cooldown / count | `12.0` / `500` ms / `2` | `ShakeDetector`, not configurable at the call site                 |
+| Android  | notification debounce              | `300` ms                | `HakkaNotificationManager.scheduleUpdate`                          |
+| Android  | notification inbox size            | `8` lines               | `HakkaNotificationManager.INBOX_SIZE`                              |
 
 ## Platform matrix
 
@@ -105,13 +92,13 @@ any existing §5 row name:
 | App launcher shortcut   | —   | —   | ○       | —   | ⊘       |
 | Imperative trigger API  | ●   | ●   | ●       | —   | ⊘       |
 
-- **Shake to open** — RN's `useShakeDetection` listens for RN's own `'shake'` `DeviceEventEmitter`
-  event (iOS/Android both fire it). iOS additionally wires `CMMotionManager` directly
+- **Shake to open** — RN delegates to the native iOS/Android detectors through the TurboModule.
+  iOS additionally wires `CMMotionManager` directly
   (`HakkaShakeDetector`) plus a `motionEnded(.motionShake)` override on `ShakeWindow` for
   Cmd+Ctrl+Z in Simulator. Android uses `SensorManager`/`TYPE_ACCELEROMETER` directly. Web ships
   no shake handling — there's no equivalent low-noise browser gesture API in use here.
 - **Draggable bubble / FAB** — a persistent, position-remembering, drag-to-edge entry point on
-  every platform: RN's `useBubbleDrag` hook inside `HakkaInspector.Wrapper`, iOS's `BubbleWindow`
+  every platform: RN's native surface, iOS's `BubbleWindow`
   (pan gesture, snap-to-edge, idle fade, hide zone), Android's `HakkaBubble`
   (`WindowManager`-hosted `FrameLayout`, same snap/hide-zone behavior), and web's `Inspector.tsx`
   draggable `.hakka-toggle` button (pointer events, persists position via `saveUiState`). All four
@@ -131,18 +118,15 @@ any existing §5 row name:
   `ShortcutManager` call, `shortcuts.xml`, or manifest `<meta-data>` for one exists anywhere in
   `android/`. Marked roadmap, not shipped — see Limits below.
 - **Imperative trigger API** — `Hakka.show()`/`Hakka.hide()` (`hakka-core`, consumed directly by
-  RN), `HakkaInspector.show()`/`.hide()`/`.showInspector()`/`.hideInspector()` (RN's own
-  component-level API, independent of native linking), iOS's `OverlayWindow`/`BubbleWindow`
+  RN), iOS's `OverlayWindow`/`BubbleWindow`
   singletons, and Android's `HakkaUI.show()`/`.hide()`/`.showSheet()`. Web has no equivalent
   exported call — only the FAB and a keyboard shortcut open the panel.
 
 ## Wire format
 
 None — triggers are local UI/OS-integration features, not something serialized over the bridge or
-control-channel protocol. RN's shake event rides React Native's own `DeviceEventEmitter` (event
-name `'shake'`, no payload); `ShakeConfig`/`BubbleConfig`/`InspectorVisibility` (all in
-`packages/hakka-core/src/model/types.ts`) are the closest thing to a schema, and are plain in-process
-prop/option shapes, not wire messages.
+control-channel protocol. RN's `Hakka.show()` options are plain in-process values, not wire
+messages.
 
 ## Test anchors
 
@@ -159,10 +143,8 @@ No dedicated test exists for shake detection or the bubble/notification UI on RN
   `android/` creates one (no `ShortcutManager`/`ShortcutManagerCompat` call, no `shortcuts.xml`
   resource, no manifest `<shortcuts>` `<meta-data>`). Treat it as roadmap, not shipped, until code
   lands — this doc could not verify the SPEC.md claim against source.
-- RN's `ShakeConfig.sensitivity` and `.minShakes` are accepted by the type and threaded through
-  `HakkaInspector.Wrapper`'s props, but `useShakeDetection` never reads them — only `timeWindow`
-  (the debounce) has an effect. iOS/Android shake thresholds are hardcoded constants, not exposed
-  to the host app at all.
+- RN's former JS `ShakeConfig` and `BubbleConfig` props are removed. Shake thresholds remain native
+  platform details rather than React Native component options.
 - iOS's `NotificationTrigger` re-reads the live authorization state on every
   `didBecomeActive`, so a host app that already holds notification permission works without
   calling `requestAuthorization()` at all — call it only when you want Hakka to raise the

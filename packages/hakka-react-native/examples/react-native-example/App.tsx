@@ -6,14 +6,21 @@ import {
   ThrottleEngine,
   useNetworkLogs,
 } from 'hakka-react-native'
-import { HakkaInspector } from 'hakka-react-native/ui'
 import { useHakkaRozeniteDevTools } from 'hakka-rozenite'
-import React, { useState } from 'react'
-import { Alert, Pressable, ScrollView, StatusBar, StyleSheet, Text, View, useColorScheme } from 'react-native'
-import { SafeAreaProvider } from 'react-native-safe-area-context'
+import React, { useEffect, useState } from 'react'
+import {
+  Alert,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
+  useColorScheme,
+} from 'react-native'
 
 import { WebViewCaptureScreen } from './WebViewCaptureScreen'
-import { WrapperModesScreen } from './WrapperModesScreen'
 
 Hakka.start()
 console.log('[RN Demo] Hakka active:', Hakka.isActive)
@@ -29,18 +36,12 @@ function fire(url: string, options?: RequestInit) {
   })
 }
 
-// This demo app doesn't link the optional native Hakka module, so
-// Hakka.show({ as }) always falls back to a no-op here — `show()` returns
-// `false` in that case (see HakkaFacade.show()). Without checking it, the
-// "Sheet"/"Fullscreen" buttons silently did nothing, which reads as broken
-// rather than "native module not linked."
-function showNativeOrWarn(as: 'sheet' | 'fullscreen') {
-  const handled = Hakka.show({ as })
+async function showNativeOrWarn(as: 'bubble' | 'sheet' | 'fullscreen') {
+  const handled = await Hakka.show({ as })
   if (!handled) {
     Alert.alert(
       'Native UI unavailable',
-      'The native Hakka module is not linked in this build, so showUI() has no effect. ' +
-        'Install and link the hakka-react-native native modules to use this button.',
+      'Start native capture and link the native inspector, then try again while the app is active.',
     )
   }
 }
@@ -73,91 +74,79 @@ function DemoButton({ label, tone, onPress }: { label: string; tone: Tone; onPre
 
 function App() {
   useHakkaRozeniteDevTools()
+  useEffect(() => {
+    void Hakka.show({ as: 'bubble' })
+    return () => Hakka.hide()
+  }, [])
   const isDarkMode = useColorScheme() === 'dark'
   const [selectedGroup, setSelectedGroup] = useState<ScenarioGroup>('Traffic')
   const [showWebViewCapture, setShowWebViewCapture] = useState(false)
-  const [showWrapperModes, setShowWrapperModes] = useState(false)
   const { logs, totalCount } = useNetworkLogs({ limit: 5 })
   const latestLog = logs.find((log) => !log.url.includes('localhost')) ?? logs[0]
 
-  if (showWrapperModes) {
-    return (
-      <SafeAreaProvider>
-        <StatusBar barStyle="light-content" />
-        <WrapperModesScreen onClose={() => setShowWrapperModes(false)} />
-      </SafeAreaProvider>
-    )
-  }
-
   if (showWebViewCapture) {
     return (
-      <SafeAreaProvider>
+      <SafeAreaView style={{ flex: 1 }}>
         <StatusBar barStyle="light-content" />
         <WebViewCaptureScreen onClose={() => setShowWebViewCapture(false)} />
-      </SafeAreaProvider>
+      </SafeAreaView>
     )
   }
 
   return (
-    <SafeAreaProvider>
+    <SafeAreaView style={{ flex: 1 }}>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <HakkaInspector.Wrapper mode="bubble" bubble={{ showOnInit: true }} showExportButton>
-        <View style={styles.container}>
-          <ScrollView
-            contentContainerStyle={styles.content}
-            contentInsetAdjustmentBehavior="automatic"
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.hero}>
-              <View style={styles.heroIcon}>
-                <Text style={styles.heroIconText}>H</Text>
-              </View>
-              <View style={styles.heroText}>
-                <Text style={styles.title}>Hakka RN</Text>
-                <Text style={styles.subtitle}>Bare React Native capture demo</Text>
-              </View>
+      <View style={styles.container}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          contentInsetAdjustmentBehavior="automatic"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.hero}>
+            <View style={styles.heroIcon}>
+              <Text style={styles.heroIconText}>H</Text>
             </View>
-
-            <View style={styles.segmented}>
-              {groups.map((group) => {
-                const selected = selectedGroup === group
-                return (
-                  <Pressable
-                    key={group}
-                    accessibilityRole="button"
-                    style={({ pressed }) => [
-                      styles.segment,
-                      selected && styles.segmentSelected,
-                      pressed && { opacity: 0.78 },
-                    ]}
-                    onPress={() => setSelectedGroup(group)}
-                  >
-                    <Text style={[styles.segmentText, selected && styles.segmentTextSelected]}>{group}</Text>
-                  </Pressable>
-                )
-              })}
+            <View style={styles.heroText}>
+              <Text style={styles.title}>Hakka RN</Text>
+              <Text style={styles.subtitle}>Bare React Native capture demo</Text>
             </View>
+          </View>
 
-            <View accessibilityLabel={`Hakka captured ${totalCount} requests`} style={styles.runtimeStatus}>
-              <Text style={styles.runtimeStatusTitle}>Captured {totalCount} requests</Text>
-              <Text style={styles.runtimeStatusText} numberOfLines={1}>
-                {latestLog ? `${latestLog.method} ${latestLog.url}` : 'Waiting for request'}
-              </Text>
-            </View>
+          <View style={styles.segmented}>
+            {groups.map((group) => {
+              const selected = selectedGroup === group
+              return (
+                <Pressable
+                  key={group}
+                  testID={`demo-group-${group}`}
+                  accessibilityRole="button"
+                  style={({ pressed }) => [
+                    styles.segment,
+                    selected && styles.segmentSelected,
+                    pressed && { opacity: 0.78 },
+                  ]}
+                  onPress={() => setSelectedGroup(group)}
+                >
+                  <Text style={[styles.segmentText, selected && styles.segmentTextSelected]}>{group}</Text>
+                </Pressable>
+              )
+            })}
+          </View>
 
-            {selectedGroup === 'Traffic' ? <TrafficCommands /> : null}
-            {selectedGroup === 'States' ? <StateCommands /> : null}
-            {selectedGroup === 'Tools' ? (
-              <ToolCommands
-                onOpenWebViewCapture={() => setShowWebViewCapture(true)}
-                onOpenWrapperModes={() => setShowWrapperModes(true)}
-              />
-            ) : null}
-            {selectedGroup === 'SDK' ? <SdkCommands /> : null}
-          </ScrollView>
-        </View>
-      </HakkaInspector.Wrapper>
-    </SafeAreaProvider>
+          <View accessibilityLabel={`Hakka captured ${totalCount} requests`} style={styles.runtimeStatus}>
+            <Text style={styles.runtimeStatusTitle}>Captured {totalCount} requests</Text>
+            <Text style={styles.runtimeStatusText} numberOfLines={1}>
+              {latestLog ? `${latestLog.method} ${latestLog.url}` : 'Waiting for request'}
+            </Text>
+          </View>
+
+          {selectedGroup === 'Traffic' ? <TrafficCommands /> : null}
+          {selectedGroup === 'States' ? <StateCommands /> : null}
+          {selectedGroup === 'Tools' ? <ToolCommands onOpenWebViewCapture={() => setShowWebViewCapture(true)} /> : null}
+          {selectedGroup === 'SDK' ? <SdkCommands /> : null}
+        </ScrollView>
+      </View>
+    </SafeAreaView>
   )
 }
 
@@ -233,13 +222,7 @@ function StateCommands() {
   )
 }
 
-function ToolCommands({
-  onOpenWebViewCapture,
-  onOpenWrapperModes,
-}: {
-  onOpenWebViewCapture: () => void
-  onOpenWrapperModes: () => void
-}) {
+function ToolCommands({ onOpenWebViewCapture }: { onOpenWebViewCapture: () => void }) {
   return (
     <>
       <Section title="Edge cases" subtitle="Failures and unusual paths">
@@ -249,16 +232,20 @@ function ToolCommands({
       </Section>
 
       <Section title="Native UI" subtitle="Platform-native inspector via Hakka.show()">
+        <DemoButton
+          label="Bubble"
+          tone="info"
+          onPress={() => {
+            void showNativeOrWarn('bubble')
+          }}
+        />
+        <DemoButton label="Hide inspector" tone="neutral" onPress={() => Hakka.hide()} />
         <DemoButton label="Sheet" tone="info" onPress={() => showNativeOrWarn('sheet')} />
         <DemoButton label="Fullscreen" tone="info" onPress={() => showNativeOrWarn('fullscreen')} />
       </Section>
 
       <Section title="WebView" subtitle="Capture traffic inside an embedded WebView">
         <DemoButton label="Open WebView capture" tone="neutral" onPress={onOpenWebViewCapture} />
-      </Section>
-
-      <Section title="Display modes" subtitle="HakkaInspector.Wrapper's bubble, invisible, and fullscreen modes">
-        <DemoButton label="Open inspector modes" tone="neutral" onPress={onOpenWrapperModes} />
       </Section>
     </>
   )

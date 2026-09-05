@@ -34,12 +34,11 @@ sessions), see the [Architecture Decision Records](/contributing/adr/).
 - When optional advanced Android diagnostics are added, use nested ATrace sections with stable names: `hakka.capture`, `hakka.process`, `hakka.store`, `hakka.sink`, `hakka.export`, and `hakka.ui`.
 - **Trigger to implement:** Add markers only behind an opt-in diagnostics flag after measuring overhead in a release-like Android build.
 
-## React Native Monitor UI Default
+## React Native Inspector Surface
 
-- React Native UI is imported only from `hakka-react-native/ui`; the core `hakka-react-native` import stays UI-free.
-- `hakka-ui` is 149 KB APK; the base SDK (`hakka-network + hakka-performance`) is 76 KB APK over the OkHttp baseline.
-- **Decision:** Recommend the React Native JS Monitor UI as the default RN surface. Keep Android native `hakka-ui` optional for native Android apps that explicitly want a platform inspector.
-- **Trigger to revisit:** Change only if longer runtime sessions show JS UI lag that the native UI avoids, or if the JS peer graph becomes materially heavier than the measured native UI artifact.
+- React Native uses the native iOS and Android inspector surfaces through `Hakka.show()`; the core TypeScript import remains capture and API focused.
+- **Decision:** Remove the bundled React Native inspector, theme, renderer plugin, and UI-only peer graph. Native UI is linked with the native SDK artifacts and can be opened as a bubble, sheet, or fullscreen surface.
+- **Trigger to revisit:** Reconsider only if a supported native platform needs a new presentation or a native surface lacks a required inspector capability.
 
 ## V1 Runtime Collectors
 

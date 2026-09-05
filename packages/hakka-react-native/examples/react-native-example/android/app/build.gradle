@@ -1,11 +1,19 @@
 apply plugin: "com.android.application"
 apply plugin: "com.facebook.react"
+apply plugin: "org.jetbrains.kotlin.android"
 
 /**
  * This is the configuration block to customize your React Native Android app.
  * By default you don't need to apply any configuration, just uncomment the lines you need.
  */
 react {
+    // Resolve the compiler through React Native so isolated workspace installs work.
+    def hermesPackage = providers.exec {
+        workingDir rootDir.parentFile
+        commandLine "node", "--print", "require.resolve('hermes-compiler/package.json', { paths: [require.resolve('react-native/package.json')] })"
+    }.standardOutput.asText.get().trim()
+    def hermesBinary = System.getProperty("os.name").toLowerCase().contains("windows") ? "hermesc.exe" : "hermesc"
+    hermesCommand = new File(new File(hermesPackage).parentFile, "hermesc/%OS-BIN%/${hermesBinary}").absolutePath
     /* Folders */
     //   The root of your project, i.e. where "package.json" lives. Default is '../..'
     // root = file("../../")
@@ -56,7 +64,7 @@ react {
 /**
  * Set this to true to Run Proguard on Release builds to minify the Java bytecode.
  */
-def enableProguardInReleaseBuilds = false
+def enableProguardInReleaseBuilds = (findProperty("hakkaMinifyRelease") ?: "false").toBoolean()
 
 /**
  * The preferred build flavor of JavaScriptCore (JSC)
@@ -109,12 +117,10 @@ android {
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
-    debugImplementation("com.noodleapps.hakka:hakka-network:0.0.1")
-    debugImplementation("com.noodleapps.hakka:hakka-performance:0.0.1")
-    // Native inspector UI — enables Hakka.showUI() (bubble/sheet/fullscreen) from JS.
-    debugImplementation("com.noodleapps.hakka:hakka-ui:0.0.1")
-    releaseImplementation("com.noodleapps.hakka:hakka-network-noop:0.0.1")
-    releaseImplementation("com.noodleapps.hakka:hakka-performance-noop:0.0.1")
+    implementation("com.noodleapps.hakka:hakka-network:0.0.1")
+    implementation("com.noodleapps.hakka:hakka-performance:0.0.1")
+    // The sample exercises the same native inspector and capture path in every build type.
+    implementation("com.noodleapps.hakka:hakka-ui:0.0.1")
 
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
