@@ -21,6 +21,7 @@ struct FilterBar: View {
 
     @State private var isExpanded = false
     @State private var showPresets = false
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         Group {
@@ -64,21 +65,34 @@ struct FilterBar: View {
     // MARK: - Methods row + Filters disclosure trigger
 
     private var methodsRow: some View {
-        HStack(spacing: Theme.s8) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: Theme.s6) {
-                    ForEach(["GET", "POST", "PUT", "PATCH", "DELETE"], id: \.self) { method in
-                        HakkaChip(
-                            label: method,
-                            isActive: selectedMethods.contains(method),
-                            tone: Theme.methodColor(for: HttpMethod(rawValue: method) ?? .get)
-                        ) {
-                            toggleMethod(method)
-                        }
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: Theme.s6) {
+                    methodScroller
+                    filtersDisclosureTrigger
+                }
+            } else {
+                HStack(spacing: Theme.s8) {
+                    methodScroller
+                    filtersDisclosureTrigger
+                }
+            }
+        }
+    }
+
+    private var methodScroller: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: Theme.s6) {
+                ForEach(["GET", "POST", "PUT", "PATCH", "DELETE"], id: \.self) { method in
+                    HakkaChip(
+                        label: method,
+                        isActive: selectedMethods.contains(method),
+                        tone: Theme.methodColor(for: HttpMethod(rawValue: method) ?? .get)
+                    ) {
+                        toggleMethod(method)
                     }
                 }
             }
-            filtersDisclosureTrigger
         }
     }
 
@@ -205,7 +219,7 @@ struct FilterBar: View {
             .accessibilityLabel(Text("Filter presets"))
         }
         .padding(.horizontal, Theme.s12)
-        .frame(height: HakkaMetrics.ControlHeight.nav)
+        .frame(minHeight: HakkaMetrics.ControlHeight.nav)
         .hakkaGlassSurface(
             tint: hasActiveFilters ? Theme.accent.opacity(0.18) : Theme.controlTint,
             cornerRadius: Theme.radiusL,

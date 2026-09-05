@@ -14,29 +14,35 @@ import HakkaNetwork
 /// crammed into this row.
 struct StatsBar: View {
     let requests: [NetworkRequest]
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        let total = requests.count
-        let durations = requests.compactMap { $0.duration }
-        let errors = requests.filter { ($0.status ?? 0) >= 400 || $0.error != nil }.count
-
-        HStack(spacing: Theme.s6) {
-            dataText("\(total)", total == 1 ? "request" : "requests", color: errors > 0 ? Theme.warning : Theme.textSecondary)
-
-            Text("\u{00B7}").foregroundStyle(Theme.textTertiary)
-            dataText(avgLatencyText(durations), "average", color: durations.isEmpty ? Theme.textTertiary : Theme.info)
-
-            if errors > 0 {
-                Text("\u{00B7}").foregroundStyle(Theme.textTertiary)
-                dataText("\(errors)", errors == 1 ? "issue" : "issues", color: Theme.warning)
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: Theme.s2) { metrics }
+            } else {
+                HStack(spacing: Theme.s6) { metrics }
             }
         }
         .font(.caption)
-        // Never let a value clip mid-character: this bar reports its natural
-        // width rather than being squeezed/truncated — narrow by
-        // construction (3 short fields), verified at 375pt.
-        .fixedSize(horizontal: true, vertical: false)
     }
+
+    @ViewBuilder
+    private var metrics: some View {
+            dataText("\(total)", total == 1 ? "request" : "requests", color: errors > 0 ? Theme.warning : Theme.textSecondary)
+
+            if !dynamicTypeSize.isAccessibilitySize { Text("\u{00B7}").foregroundStyle(Theme.textTertiary) }
+            dataText(avgLatencyText(durations), "average", color: durations.isEmpty ? Theme.textTertiary : Theme.info)
+
+            if errors > 0 {
+                if !dynamicTypeSize.isAccessibilitySize { Text("\u{00B7}").foregroundStyle(Theme.textTertiary) }
+                dataText("\(errors)", errors == 1 ? "issue" : "issues", color: Theme.warning)
+            }
+    }
+
+    private var total: Int { requests.count }
+    private var durations: [Int64] { requests.compactMap(\.duration) }
+    private var errors: Int { requests.filter { ($0.status ?? 0) >= 400 || $0.error != nil }.count }
 
     /// Sampled metric — must never render a partial/truncated value.
     /// Renders an em dash until at least one real duration sample exists.

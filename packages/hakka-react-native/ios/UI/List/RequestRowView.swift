@@ -22,6 +22,7 @@ struct RequestRowView: View {
     var isPinned: Bool = false
     var isSelected: Bool = false
     var searchText: String = ""
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         HStack(spacing: 0) {
@@ -31,7 +32,10 @@ struct RequestRowView: View {
                 .fill(stripeColor ?? Color.clear)
                 .frame(width: 2)
 
-            HStack(alignment: .top, spacing: Theme.s6) {
+            if dynamicTypeSize.isAccessibilitySize {
+                accessibilityContent
+            } else {
+                HStack(alignment: .top, spacing: Theme.s6) {
                 VStack(alignment: .leading, spacing: Theme.s6) {
                     HStack(spacing: Theme.s6) {
                         MethodLabel(method: request.method)
@@ -89,9 +93,10 @@ struct RequestRowView: View {
                 }
                 .frame(minWidth: 52, alignment: .trailing)
             }
-            .padding(.leading, Theme.rowPadH)
-            .padding(.trailing, Theme.rowPadH)
-            .padding(.vertical, Theme.rowPadV)
+                .padding(.leading, Theme.rowPadH)
+                .padding(.trailing, Theme.rowPadH)
+                .padding(.vertical, Theme.rowPadV)
+            }
         }
         .frame(minHeight: Theme.rowH)
         .background(rowBackground, in: RoundedRectangle(cornerRadius: Theme.radiusL, style: .continuous))
@@ -100,6 +105,50 @@ struct RequestRowView: View {
                 .stroke(isSelected ? Theme.accent.opacity(0.45) : Theme.border.opacity(0.45), lineWidth: 0.5)
         }
         .contentShape(Rectangle())
+    }
+
+    private var accessibilityContent: some View {
+        VStack(alignment: .leading, spacing: Theme.s8) {
+            HStack(alignment: .firstTextBaseline, spacing: Theme.s8) {
+                MethodLabel(method: request.method)
+                SearchHighlightedText(
+                    text: pathComponent,
+                    searchText: searchText,
+                    font: .headline.weight(.medium),
+                    color: Theme.text,
+                    lineLimit: 2,
+                    truncationMode: .middle
+                )
+                if isPinned {
+                    Image(systemName: "pin.fill")
+                        .foregroundStyle(Theme.warning)
+                        .accessibilityHidden(true)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: Theme.s4) {
+                HStack(spacing: Theme.s6) {
+                    statusIndicator
+                    Text(hostText)
+                        .font(.body)
+                        .foregroundStyle(Theme.textTertiary)
+                        .lineLimit(2)
+                }
+                HStack(spacing: Theme.s8) {
+                    Text("Duration \(durationText)")
+                        .font(.body.monospacedDigit().weight(.medium))
+                        .foregroundStyle(durationColor)
+                    if request.responseBodySize > 0 {
+                        Text(formatBytes(request.responseBodySize))
+                            .font(.body.monospacedDigit())
+                            .foregroundStyle(Theme.textTertiary)
+                    }
+                }
+            }
+        }
+        .padding(.leading, Theme.rowPadH)
+        .padding(.trailing, Theme.rowPadH)
+        .padding(.vertical, Theme.rowPadV)
     }
 
     // MARK: - Status Indicator

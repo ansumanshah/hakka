@@ -37,6 +37,7 @@ struct DashboardView: View {
     @State var showDetails = true
     @State var selectedRequest: NetworkRequest?
     @State var requests: [NetworkRequest]
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     init(requests: [NetworkRequest], onSettings: @escaping () -> Void = {}) {
         self._requests = State(initialValue: requests)
@@ -64,6 +65,28 @@ struct DashboardView: View {
 
     /// Matches the other built-in tabs' toolbar shape (icon + title + gear).
     var toolbar: some View {
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: Theme.s6) {
+                    title
+                    Button(action: onSettings) {
+                        Label("Settings", systemImage: "gearshape")
+                    }
+                    .buttonStyle(.bordered)
+                    .frame(minHeight: Theme.tapMin)
+                }
+            } else {
+                HStack(spacing: Theme.s8) {
+                    title
+                    Spacer()
+                    settingsButton
+                }
+            }
+        }
+        .hakkaInspectorToolbar()
+    }
+
+    private var title: some View {
         HStack(spacing: Theme.s8) {
             Image(systemName: "chart.bar.fill")
                 .font(.caption.weight(.semibold))
@@ -71,17 +94,18 @@ struct DashboardView: View {
             Text("Stats")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(Theme.text)
-            Spacer()
-            Button(action: onSettings) {
-                Image(systemName: "gearshape")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(Theme.textSecondary)
-            }
-            .buttonStyle(.plain)
-            .hakkaIconTarget()
-            .accessibilityLabel("Settings")
         }
-        .hakkaInspectorToolbar()
+    }
+
+    private var settingsButton: some View {
+        Button(action: onSettings) {
+            Image(systemName: "gearshape")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Theme.textSecondary)
+        }
+        .buttonStyle(.plain)
+        .hakkaIconTarget()
+        .accessibilityLabel("Settings")
     }
 
     var dashboardScrollContent: some View {

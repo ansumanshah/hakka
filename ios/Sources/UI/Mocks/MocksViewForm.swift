@@ -53,13 +53,15 @@ extension MocksView {
                 Text("Action")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(Theme.text)
-                HStack(spacing: Theme.s6) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: Theme.s6) {
                     ForEach(Self.actionOptions, id: \.self) { a in
                         HakkaChip(label: a.rawValue, isActive: selectedAction == a, tone: actionColor(a), mono: false) {
                             selectedAction = a
                             Haptics.light()
                         }
                         .accessibilityLabel("Select action \(a.rawValue)")
+                    }
                     }
                 }
             }

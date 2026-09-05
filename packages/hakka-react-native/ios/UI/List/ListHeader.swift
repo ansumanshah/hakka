@@ -22,6 +22,7 @@ struct ListHeader: View {
     let onClose: () -> Void
     let onTogglePause: () -> Void
     let onSettings: () -> Void
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         Group {
@@ -37,15 +38,36 @@ struct ListHeader: View {
     }
 
     private var headerContent: some View {
-        HStack(alignment: .center, spacing: Theme.s10) {
-            VStack(alignment: .leading, spacing: Theme.s2) {
-                Label("Network", systemImage: "antenna.radiowaves.left.and.right")
-                    .font(.headline.weight(.semibold))
-                    .foregroundStyle(Theme.text)
-                StatsBar(requests: requests)
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: Theme.s8) {
+                    title
+                    HStack(spacing: Theme.s8) {
+                        controls
+                        Spacer(minLength: 0)
+                    }
+                    StatsBar(requests: requests)
+                }
+            } else {
+                HStack(alignment: .center, spacing: Theme.s10) {
+                    VStack(alignment: .leading, spacing: Theme.s2) {
+                        title
+                        StatsBar(requests: requests)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    controls
+                }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
 
+    private var title: some View {
+        Label("Network", systemImage: "antenna.radiowaves.left.and.right")
+            .font(.headline.weight(.semibold))
+            .foregroundStyle(Theme.text)
+    }
+
+    private var controls: some View {
             HStack(spacing: Theme.s12) {
                 // Session controls: grouped on one surface so they read as a
                 // single unit, distinct from the standalone gear/Close actions.
@@ -61,7 +83,6 @@ struct ListHeader: View {
                 headerButton("xmark", label: "Close", action: onClose)
             }
             .fixedSize(horizontal: true, vertical: false)
-        }
     }
 
     private var pauseButton: some View {

@@ -152,9 +152,11 @@ struct SettingsView: View {
     private var retentionRow: some View {
         VStack(alignment: .leading, spacing: Theme.s8) {
             labelStack("Retention", hint: "Drop captures older than this age")
-            HStack(spacing: Theme.s6) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: Theme.s6) {
                 ForEach(Self.retentionOptions, id: \.seconds) { option in
                     retentionChip(option)
+                }
                 }
             }
         }

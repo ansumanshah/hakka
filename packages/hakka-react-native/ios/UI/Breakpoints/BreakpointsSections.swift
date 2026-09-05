@@ -88,13 +88,15 @@ extension BreakpointsView {
                 Text("Pause on")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(Theme.text)
-                HStack(spacing: Theme.s6) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: Theme.s6) {
                     ForEach(Self.phaseOptions, id: \.rawValue) { p in
                         HakkaChip(label: p.rawValue, isActive: selectedPhase == p, tone: Theme.accent, mono: false) {
                             selectedPhase = p
                             Haptics.light()
                         }
                         .accessibilityLabel("Select phase \(p.rawValue)")
+                    }
                     }
                 }
             }
