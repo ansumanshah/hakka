@@ -81,7 +81,7 @@ internal class StatsTabController(private val activity: Activity) : TabControlle
         }
         val body = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(Theme.s16), dp(Theme.s12), dp(Theme.s16), dp(GeneratedMetrics.Spacing.xxxl))
+            setPadding(dp(GeneratedMetrics.Layout.gutter), dp(Theme.s12), dp(GeneratedMetrics.Layout.gutter), dp(GeneratedMetrics.Spacing.xxxl))
         }
         content = body
         buildPerformanceSection(body)

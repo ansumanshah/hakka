@@ -57,6 +57,53 @@ class MockEngineTest {
     }
 
     @Test
+    fun `regex flags preserve Unicode case insensitive matching`() {
+        MockEngine.shared.addRule(
+            MockRuleInput(
+                pattern = "https://example\\.test/ÄPI",
+                isRegex = true,
+                regexFlags = "i",
+                response = MockResponse(),
+            ),
+        )
+
+        assertNotNull(MockEngine.shared.match("https://example.test/äpi", "GET"))
+    }
+
+    @Test
+    fun `regex flags preserve multiline dotall and per-rule cache behavior`() {
+        MockEngine.shared.addRule(
+            MockRuleInput(
+                id = "plain",
+                pattern = "^line$",
+                isRegex = true,
+                response = MockResponse(),
+            ),
+        )
+        MockEngine.shared.addRule(
+            MockRuleInput(
+                id = "multiline",
+                pattern = "^line$",
+                isRegex = true,
+                regexFlags = "m",
+                response = MockResponse(),
+            ),
+        )
+        MockEngine.shared.addRule(
+            MockRuleInput(
+                id = "dotall",
+                pattern = "start.end",
+                isRegex = true,
+                regexFlags = "s",
+                response = MockResponse(),
+            ),
+        )
+
+        assertEquals("multiline", MockEngine.shared.match("before\nline\nafter", "GET")?.id)
+        assertEquals("dotall", MockEngine.shared.match("start\nend", "GET")?.id)
+    }
+
+    @Test
     fun `two calls without an id generate distinct ids`() {
         val id1 = MockEngine.shared.addRule(MockRuleInput(pattern = "/a", response = MockResponse()))
         val id2 = MockEngine.shared.addRule(MockRuleInput(pattern = "/b", response = MockResponse()))

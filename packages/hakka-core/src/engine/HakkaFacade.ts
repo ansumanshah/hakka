@@ -69,6 +69,8 @@ class HakkaImpl {
   private nativeListenerCount = 0
   private nativeSubscriptionCleanup: Teardown | null = null
   private nativeCaptureGeneration = 0
+  private nativeCaptureReady: Promise<void> | null = null
+  private presentationGeneration = 0
   private running = false
   private activeSinks: readonly RecordSink[] = []
   private paused = false
@@ -220,7 +222,7 @@ class HakkaImpl {
     if (useNative && this.native) {
       mockEngine.syncNativeRules()
       const generation = ++this.nativeCaptureGeneration
-      void this.startNativeCapture(this.native, generation)
+      this.nativeCaptureReady = this.startNativeCapture(this.native, generation)
     }
 
     if (useJs) {
@@ -263,6 +265,7 @@ class HakkaImpl {
 
   stop(): void {
     this.nativeCaptureGeneration += 1
+    this.nativeCaptureReady = null
     // Persist the final coalesced batch before tearing capture down.
     this.persistScheduler.flushPersist(this.logs)
 
@@ -319,9 +322,12 @@ class HakkaImpl {
     return noopTraceHandle('native startTrace did not return a trace id')
   }
 
-  /** Returns `true` when the native module handled the request, `false` on any no-op fallback. */
-  show(options?: { as?: 'bubble' | 'sheet' | 'fullscreen' }): boolean {
+  /** Resolves after native presentation, returning false when the inspector cannot open. */
+  async show(options?: { as?: 'bubble' | 'sheet' | 'fullscreen' }): Promise<boolean> {
+    if (this.config.mode === 'js' || this.config.mode === 'store' || !this.running) return false
     const mode = options?.as ?? 'bubble'
+    const generation = this.nativeCaptureGeneration
+    const presentation = ++this.presentationGeneration
     if (!this.native) {
       this.native = this.nativeAdapter?.getModule() ?? null
     }
@@ -330,6 +336,9 @@ class HakkaImpl {
       return false
     }
     try {
+      await this.nativeCaptureReady
+      if (!this.running || generation !== this.nativeCaptureGeneration || presentation !== this.presentationGeneration)
+        return false
       // The TurboModule can exist without the optional native UI package linked,
       // in which case showUI would silently no-op — probe first to report the truth.
       if (this.native.isUIAvailable?.() === false) {
@@ -341,15 +350,18 @@ class HakkaImpl {
         }
         return false
       }
-      this.native.showUI(mode)
-      return true
+      const shown = await this.native.showUI(mode)
+      return (
+        shown === true && presentation === this.presentationGeneration && generation === this.nativeCaptureGeneration
+      )
     } catch {
-      // no-op: keep UI wrapper resilient
+      // Presentation failures must not crash the host app.
       return false
     }
   }
 
   hide(): void {
+    this.presentationGeneration += 1
     if (!this.native) {
       this.native = this.nativeAdapter?.getModule() ?? null
     }

@@ -3,6 +3,7 @@ package com.noodleapps.hakka
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.ReentrantReadWriteLock
+import java.util.regex.Pattern
 import kotlin.concurrent.read
 import kotlin.concurrent.write
 
@@ -211,6 +212,7 @@ data class MockRule(
     val failure: MockFailure? = null,
     val skipCount: Int = 0,
     val stopAfter: Int? = null,
+    val regexFlags: String? = null,
 ) {
     /**
      * True when this rule is served via the passthrough-then-transform path (issue the
@@ -244,6 +246,7 @@ data class MockRuleInput(
     val failure: MockFailure? = null,
     val skipCount: Int = 0,
     val stopAfter: Int? = null,
+    val regexFlags: String? = null,
 )
 
 /**
@@ -270,7 +273,7 @@ class MockEngine {
     private val lock = ReentrantReadWriteLock()
     private val idCounter = AtomicInteger(0)
 
-    private val regexCache = HashMap<String, Regex>()
+    private val regexCache = HashMap<Pair<String, String>, Pattern>()
 
     /**
      * `skipCount`/`stopAfter` bookkeeping, keyed by rule id — see
@@ -307,6 +310,7 @@ class MockEngine {
             failure = input.failure,
             skipCount = input.skipCount,
             stopAfter = input.stopAfter,
+            regexFlags = input.regexFlags,
         )
         lock.write {
             val existingIndex = rules.indexOfFirst { it.id == id }
@@ -387,10 +391,12 @@ class MockEngine {
             if (rule.method != null && !rule.method.equals(method, ignoreCase = true)) continue
 
             val matched = if (rule.isRegex) {
-                val regex = regexCache.getOrPut(rule.pattern) {
-                    runCatching { Regex(rule.pattern) }.getOrNull() ?: continue
-                }
-                regex.containsMatchIn(url)
+                val regex = runCatching {
+                    regexCache.getOrPut(rule.pattern to rule.regexFlags.orEmpty()) {
+                        Pattern.compile(rule.pattern, regexOptions(rule.regexFlags))
+                    }
+                }.getOrNull() ?: continue
+                regex.matcher(url).find()
             } else {
                 url.contains(rule.pattern)
             }
@@ -425,5 +431,14 @@ class MockEngine {
         if (stopAfter != null && appliedIndex > maxOf(0, stopAfter)) return false
 
         return true
+    }
+
+    private fun regexOptions(flags: String?): Int {
+        if (flags.isNullOrEmpty()) return 0
+        var options = 0
+        if (flags.contains('i')) options = options or Pattern.CASE_INSENSITIVE or Pattern.UNICODE_CASE
+        if (flags.contains('m')) options = options or Pattern.MULTILINE
+        if (flags.contains('s')) options = options or Pattern.DOTALL
+        return options
     }
 }

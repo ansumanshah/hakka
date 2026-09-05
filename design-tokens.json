@@ -1,5 +1,5 @@
 {
-  "$comment": "Canonical Hakka design tokens \u2014 single source of truth for COLORS across all platforms. Mirrored to RN (tokens.ts), iOS (Theme.swift), and Android (ViewHelpers.kt) by scripts/sync-design-tokens.mjs. Hex values are RRGGBB (no #). Identity: 'Wok Hei' \u2014 warm graphite ground, flame accent, jade/chili/turmeric semantics, heat-ramp timing (dns cold -> download hot). status/method/timing are single-valued (picked mid-luminance to survive both grounds); accent lives per-theme in dark/light. Spacing/radii/type stay per-platform (tuned to each layout) and are intentionally NOT unified here.",
+  "$comment": "Canonical Hakka color tokens shared by web, iOS, Android, and macOS through scripts/sync-design-tokens.mjs. Shared spacing, radii, typography, control heights, and layout metrics live in that generator. Hex values are RRGGBB (no #). Identity: Wok Hei - warm graphite ground, flame accent, jade/chili/turmeric semantics, heat-ramp timing (dns cold -> download hot). Status/method/timing are single-valued; accent lives per-theme in dark/light.",
   "status": {
     "success": "3AA981",
     "info": "6D9BC9",

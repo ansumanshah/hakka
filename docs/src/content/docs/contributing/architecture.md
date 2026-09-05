@@ -149,7 +149,7 @@ in `Sources/Core`.
 - TypeScript API surface
 - TurboModule bridge to native SDKs
 - JS fallback capture for fetch, XHR, and WebSocket
-- optional JS inspector UI
+- native inspector presentation through the TurboModule bridge
 - optional monitors for React Query and storage
 
 The RN package must not define the canonical storage model, privacy model, or

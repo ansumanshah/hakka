@@ -2,6 +2,14 @@ package com.noodleapps.hakka.rn
 
 import com.facebook.react.bridge.*
 import com.facebook.react.module.annotations.ReactModule
+import com.facebook.react.bridge.UiThreadUtil
+import com.noodleapps.hakka.MockEngine
+import com.noodleapps.hakka.MockFailure as NetworkMockFailure
+import com.noodleapps.hakka.MockFailureCode as NetworkMockFailureCode
+import com.noodleapps.hakka.MockResponse as NetworkMockResponse
+import com.noodleapps.hakka.MockRuleInput
+import com.noodleapps.hakka.MockRuleModify as NetworkMockRuleModify
+import com.noodleapps.hakka.ThrottleEngine
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -258,18 +266,17 @@ class HakkaMonitorModule(private val reactContext: ReactApplicationContext) :
     // -- Simulation --
 
     override fun simulateSlowNetwork(delayMs: Double) {
-        HakkaMockEngine.setGlobalDelay(delayMs)
+        ThrottleEngine.shared.setCustom(delayMs.coerceAtLeast(0.0).toLong())
     }
 
     override fun blockRequests(pattern: String) {
         synchronized(blockLock) {
             if (blockedRules.containsKey(pattern)) return
-            val id = HakkaMockEngine.addBlockRule(
-                pattern = pattern,
-                status = 503,
-                headers = mapOf("Content-Type" to "application/json"),
-                body = "{\"error\":\"Blocked by Hakka\"}",
-            )
+            val id = MockEngine.shared.addRule(MockRuleInput(
+                pattern = pattern.ifBlank { ".*" }, isRegex = true,
+                response = NetworkMockResponse(status = 503, headers = mapOf("Content-Type" to "application/json"), body = "{\"error\":\"Blocked by Hakka\"}"),
+                block = true,
+            ))
             blockedRules[pattern] = id
         }
     }
@@ -279,21 +286,21 @@ class HakkaMonitorModule(private val reactContext: ReactApplicationContext) :
             blockedRules.remove(pattern)
         }
         if (id != null) {
-            HakkaMockEngine.removeRule(id)
+            MockEngine.shared.removeRule(id)
         }
     }
 
     override fun addMockRule(rule: ReadableMap) {
         val id = readString(rule, "id") ?: return
         val pattern = readString(rule, "pattern") ?: return
-        val response = HakkaMockResponse(
+        val response = NetworkMockResponse(
             status = readInt(rule, "status") ?: 200,
             headers = readStringMap(rule.getMapOrNull("headers")),
             headerValues = readStringArrayMap(rule.getMapOrNull("headerValues")),
             body = readString(rule, "body") ?: "",
             delayMs = readLong(rule, "delayMs") ?: 0L,
         )
-        HakkaMockEngine.addRule(
+        MockEngine.shared.addRule(MockRuleInput(
             id = id,
             pattern = pattern,
             isRegex = readBoolean(rule, "isRegex") ?: false,
@@ -303,31 +310,35 @@ class HakkaMonitorModule(private val reactContext: ReactApplicationContext) :
             enabled = readBoolean(rule, "enabled") ?: true,
             redirectTo = readString(rule, "redirectTo"),
             block = readBoolean(rule, "block") ?: false,
-            modify = readMockRuleModify(rule.getMapOrNull("modify")),
-            failure = readMockFailure(rule.getMapOrNull("failure")),
+            modify = readNetworkMockRuleModify(rule.getMapOrNull("modify")),
+            failure = readNetworkMockFailure(rule.getMapOrNull("failure")),
             skipCount = readNonNegativeInt(rule, "skipCount") ?: 0,
             stopAfter = readNonNegativeInt(rule, "stopAfter"),
-        )
+        ))
     }
 
     override fun removeMockRule(id: String) {
-        HakkaMockEngine.removeRule(id)
+        MockEngine.shared.removeRule(id)
     }
 
     override fun setMockRuleEnabled(id: String, enabled: Boolean) {
-        HakkaMockEngine.setRuleEnabled(id, enabled)
+        if (enabled) MockEngine.shared.enableRule(id) else MockEngine.shared.disableRule(id)
     }
 
     // -- Native UI --
 
     override fun isUIAvailable(): Boolean = native?.isUIAvailable() ?: false
 
-    override fun showUI(mode: String) {
-        native?.showUI(reactContext, mode)
+    override fun showUI(mode: String, promise: Promise) {
+        UiThreadUtil.runOnUiThread {
+            native?.showUI(reactContext, mode) { promise.resolve(it) } ?: promise.resolve(false)
+        }
     }
 
     override fun hideUI() {
-        native?.hideUI(reactContext)
+        UiThreadUtil.runOnUiThread {
+            native?.hideUI(reactContext)
+        }
     }
 
     // -- Snapshot --
@@ -421,11 +432,11 @@ class HakkaMonitorModule(private val reactContext: ReactApplicationContext) :
     override fun invalidate() {
         listenerCount.set(0)
         native?.shutdown()
-        HakkaMockEngine.clearRules()
+        MockEngine.shared.clearRules()
         synchronized(blockLock) {
             blockedRules.clear()
         }
-        HakkaMockEngine.setGlobalDelay(0.0)
+        ThrottleEngine.shared.setProfile(com.noodleapps.hakka.ThrottleProfile.NONE)
     }
 
     private fun emptyHealthReport(): WritableMap =
@@ -493,7 +504,7 @@ class HakkaMonitorModule(private val reactContext: ReactApplicationContext) :
 
     /**
      * Parses `headerValues` — the additive multi-value widening of `headers`
-     * (see [HakkaMockRule.headerValues]'s doc). Fail-open like
+     * (see [com.noodleapps.hakka.MockResponse.headerValues]'s contract). Fail-open like
      * [readStringMap]: a malformed entry (non-array value, non-string item)
      * is dropped rather than rejecting the whole rule, since a bad
      * `headerValues` entry should degrade to "no multi-value headers", not
@@ -527,11 +538,11 @@ class HakkaMonitorModule(private val reactContext: ReactApplicationContext) :
      * Unknown/missing `code` drops the whole block — a rule never ends up "failure-shaped"
      * with no actual code to throw.
      */
-    private fun readMockFailure(raw: ReadableMap?): MockFailure? {
+    private fun readNetworkMockFailure(raw: ReadableMap?): NetworkMockFailure? {
         if (raw == null) return null
         val codeString = readString(raw, "code") ?: return null
-        val code = MockFailureCode.fromWireValue(codeString) ?: return null
-        return MockFailure(code)
+        val code = NetworkMockFailureCode.fromWireValue(codeString) ?: return null
+        return NetworkMockFailure(code)
     }
 
     /**
@@ -551,7 +562,7 @@ class HakkaMonitorModule(private val reactContext: ReactApplicationContext) :
      * that field — the rest of the rule is still added, matching this file's permissive style
      * for other optional fields (e.g. `regexFlags`, `method`).
      */
-    private fun readMockRuleModify(raw: ReadableMap?): MockRuleModify? {
+    private fun readNetworkMockRuleModify(raw: ReadableMap?): NetworkMockRuleModify? {
         if (raw == null) return null
         var malformed = false
 
@@ -617,7 +628,7 @@ class HakkaMonitorModule(private val reactContext: ReactApplicationContext) :
             }
         }
 
-        var replaceBody: List<MockRuleModify.BodyReplacement>? = null
+        var replaceBody: List<NetworkMockRuleModify.BodyReplacement>? = null
         if (raw.hasKey("replaceBody") && !raw.isNull("replaceBody")) {
             if (raw.getType("replaceBody") != ReadableType.Array) {
                 malformed = true
@@ -626,7 +637,7 @@ class HakkaMonitorModule(private val reactContext: ReactApplicationContext) :
                 if (arr == null) {
                     malformed = true
                 } else {
-                    val out = mutableListOf<MockRuleModify.BodyReplacement>()
+                    val out = mutableListOf<NetworkMockRuleModify.BodyReplacement>()
                     outer@ for (i in 0 until arr.size()) {
                         if (arr.getType(i) != ReadableType.Map) {
                             malformed = true
@@ -647,7 +658,7 @@ class HakkaMonitorModule(private val reactContext: ReactApplicationContext) :
                             malformed = true
                             break@outer
                         }
-                        out.add(MockRuleModify.BodyReplacement(find, replace))
+                        out.add(NetworkMockRuleModify.BodyReplacement(find, replace))
                     }
                     if (!malformed) replaceBody = out
                 }
@@ -656,7 +667,7 @@ class HakkaMonitorModule(private val reactContext: ReactApplicationContext) :
 
         if (malformed) return null
 
-        return MockRuleModify(
+        return NetworkMockRuleModify(
             setRequestHeaders = setRequestHeaders,
             removeRequestHeaders = removeRequestHeaders,
             setQueryParams = setQueryParams,

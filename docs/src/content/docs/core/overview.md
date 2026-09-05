@@ -59,29 +59,24 @@ Hakka.stop() // tear down interceptors and plugins
 ### Inspector UI
 
 ```ts
-Hakka.show({ as: 'bubble' }) // 'bubble' | 'sheet' | 'fullscreen' — returns boolean
+Hakka.show({ as: 'bubble' }) // 'bubble' | 'sheet' | 'fullscreen' — returns Promise<boolean>
 Hakka.hide()
 ```
 
-`show()` returns `true` when the native module actually handled the request, and
-`false` when it fell back to a no-op — either because no native module is linked
-at all, or because the TurboModule exists but the **optional native UI package**
-(`HakkaUI` on iOS, `hakka-ui` on Android) isn't linked into this app target. A dev
-build logs a console warning either way, but that's invisible outside the Metro
-console — callers that need to surface "native UI unavailable" to the end user
-(rather than silently doing nothing) should check the return value:
+`show()` resolves to `true` after native presentation and `false` when the native
+module or native UI package (`HakkaUI` on iOS, `hakka-ui` on Android) is unavailable.
+Native UI is unavailable in JS, store, or stopped capture modes. Callers that need
+to surface "native UI unavailable" should check the result:
 
 ```ts
-if (!Hakka.show({ as: 'bubble' })) {
-  // No native UI linked — fall back to the JS inspector, or show your own notice.
+if (!(await Hakka.show({ as: 'bubble' }))) {
+  // Native UI is unavailable; show an app-specific debug notice if needed.
 }
 ```
 
-`hide()` stays `void` — there's nothing useful to report on the way out. Both are
-no-ops in JS-only mode (no native module at all). This `Hakka.show()`/`hide()`
-pair is the native-module path only — a JS-rendered inspector such as React
-Native's `<HakkaInspector.Wrapper>` manages its own visibility through its own
-imperative handle (`HakkaInspector.show()`/`hide()`), not through these.
+`hide()` dismisses the native surface. The React Native package no longer ships
+a JS-rendered inspector or `hakka-react-native/ui` entry point; hooks, monitors,
+and other programmatic APIs remain available independently.
 
 ### Store access
 

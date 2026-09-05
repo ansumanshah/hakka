@@ -4,13 +4,8 @@ import { Alert, Pressable, SafeAreaView, StatusBar, StyleSheet, Text, View } fro
 
 Hakka.start()
 
-// This example links the native Hakka module through the `hakka-react-native`
-// config plugin (see app.json's `plugins` array and `bun run prebuild`), so
-// Hakka.show() opens the real inspector overlay here. That's different from
-// the bare RN example, which never links native and always falls back to the
-// warning path below.
-function showInspector() {
-  const handled = Hakka.show({ as: 'sheet' })
+async function showInspector() {
+  const handled = await Hakka.show({ as: 'sheet' })
   if (!handled) {
     Alert.alert(
       'Native module not linked',

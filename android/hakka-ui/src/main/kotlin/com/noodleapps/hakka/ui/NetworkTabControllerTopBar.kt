@@ -2,49 +2,53 @@ package com.noodleapps.hakka.ui
 
 import android.view.Gravity
 import android.view.View
+import android.widget.PopupMenu
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 
 // ── Top bar ──────────────────────────────────────────────────────────
-// Row 1: capture stats. Row 2: action icons — Pause/Resume + Share + Trash + Select.
-// Close lives in HakkaActivity's shared header.
+// Capture stats + the frequent pause control share one compact row. Less frequent
+// session actions stay in the overflow so the request list starts near the chrome.
 
 internal fun NetworkTabController.buildNormalTopBar() {
     topBarContainer.removeAllViews()
     topBarContainer.addView(LinearLayout(activity).apply {
-        orientation = LinearLayout.VERTICAL
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
         setBackgroundColor(Theme.surface(activity))
-        setPadding(dp(Theme.s16), dp(Theme.s10), dp(Theme.s16), dp(Theme.s8))
+        setPadding(dp(GeneratedMetrics.Layout.gutter), dp(Theme.s10), dp(GeneratedMetrics.Layout.gutter), dp(Theme.s6))
 
-        // Row 1: capture stats
         statsLabel = TextView(activity).apply {
             textSize = GeneratedMetrics.FontSize.sm.toFloat(); setTextColor(Theme.textSecondary(activity))
+            layoutParams = LinearLayout.LayoutParams(0, WC, 1f)
         }
         addView(statsLabel)
 
-        // Row 2: action buttons — Pause/Resume (the one frequent, always-relevant
-        // toggle) stays permanently docked; Select is contextual entry into
-        // selection mode rather than another docked action.
-        addView(LinearLayout(activity).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, dp(Theme.s8), 0, 0)
-            val pauseLabel = HakkaUI.getInstance(activity).logStore?.isPaused == true
-            addView(topBarButton(if (pauseLabel) "Resume" else "Pause") { togglePause() }.also {
-                it.tag = "pauseBtn"
-            })
-            addView(View(activity), LinearLayout.LayoutParams(0, 1, 1f))
-            addView(iconButton(activity, activity.resources, R.drawable.hakka_ic_share, "Share report") {
-                shareReport(allRequests.take(20))
-            })
-            // Destructive — chili tint, per Wok Hei accent discipline.
-            addView(iconButton(activity, activity.resources, R.drawable.hakka_ic_trash, "Clear requests", Theme.error) {
-                clearRequests()
-            })
-            addView(iconButton(activity, activity.resources, R.drawable.hakka_ic_check, "Select requests") {
-                enterSelectionMode()
-            })
-        })
+        val paused = HakkaUI.getInstance(activity).logStore?.isPaused == true
+        addView(iconButton(
+            activity,
+            activity.resources,
+            if (paused) R.drawable.hakka_ic_play else R.drawable.hakka_ic_pause,
+            if (paused) "Resume capture" else "Pause capture",
+            Theme.accent(activity),
+        ) { togglePause() }.also { it.tag = "pauseBtn" })
+        val moreActions = iconButton(activity, activity.resources, R.drawable.hakka_ic_more, "More session actions") {}
+        moreActions.setOnClickListener {
+            PopupMenu(activity, moreActions).apply {
+                menu.add("Select requests").setOnMenuItemClickListener { enterSelectionMode(); true }
+                menu.add("Share report").setOnMenuItemClickListener { shareReport(allRequests.take(20)); true }
+                menu.add("Clear requests").setOnMenuItemClickListener { clearRequests(); true }
+                show()
+            }
+        }
+        addView(moreActions)
+        onOpenSettings?.let { openSettings ->
+            addView(iconButton(activity, activity.resources, R.drawable.hakka_ic_settings, "Settings", onClick = openSettings))
+        }
+        onCloseInspector?.let { closeInspector ->
+            addView(iconButton(activity, activity.resources, R.drawable.hakka_ic_close, "Close inspector", onClick = closeInspector))
+        }
     })
 }
 
@@ -68,6 +72,8 @@ internal fun NetworkTabController.buildSelectionTopBar() {
 
 private fun NetworkTabController.topBarButton(label: String, onClick: () -> Unit) = TextView(activity).apply {
     text = label; textSize = GeneratedMetrics.FontSize.sm.toFloat(); setTextColor(Theme.accent(activity))
-    setPadding(dp(Theme.s12), dp(Theme.s6), dp(Theme.s8), dp(Theme.s6))
+    gravity = Gravity.CENTER
+    minimumHeight = dp(48)
+    setPadding(dp(Theme.s10), 0, dp(Theme.s10), 0)
     setOnClickListener { onClick() }
 }

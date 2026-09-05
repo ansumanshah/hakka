@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(HakkaNative)
+import HakkaNative
+#endif
 #if canImport(HakkaCommon)
 import HakkaCommon
 #endif
@@ -15,6 +18,9 @@ public final class RNHakkaCoreBridge: NSObject, HakkaDelegate, @unchecked Sendab
     private let ruleLock = NSLock()
     private var blockedRuleIds: [String: String] = [:]
     private let performanceMonitor = RNHakkaPerformanceMonitor()
+    /// Invalidates asynchronous mode-switch continuations when a newer show
+    /// or hide request arrives. Accessed only from MainActor UI methods.
+    private var uiPresentationGeneration = 0
 
     // -- Observability context (session identity, tags, breadcrumbs, traces) --
     // JS calls aren't guaranteed serialized, so guard mutable context with a lock.
@@ -211,53 +217,65 @@ public final class RNHakkaCoreBridge: NSObject, HakkaDelegate, @unchecked Sendab
         }
     }
 
-    /// `true` when the optional HakkaUI package is linked into the host app
-    /// target — `showUI` silently no-ops without it, so `Hakka.show()` on the
-    /// JS side probes this first to report failure instead of doing nothing.
+    /// The React Native pod includes the canonical inspector in both binary and source builds.
     @objc public func isUIAvailable() -> Bool {
-        NSClassFromString("HakkaUI.OverlayWindow") != nil
-            || NSClassFromString("HakkaUI.BubbleWindow") != nil
+        true
     }
 
-    @objc public func showUI(_ mode: String) {
-        DispatchQueue.main.async {
-            let moduleNames = ["HakkaUI"]
+    @MainActor @objc public func showUI(_ mode: String, completion: @escaping (Bool) -> Void) {
+        guard interceptor.isRunning, ["bubble", "sheet", "fullscreen"].contains(mode) else {
+            completion(false)
+            return
+        }
+        uiPresentationGeneration += 1
+        let generation = uiPresentationGeneration
+        let isCurrentPresentation: () -> Bool = {
+            self.uiPresentationGeneration == generation && self.interceptor.isRunning
+        }
+        let finish: (Bool) -> Void = { presented in
+            completion(isCurrentPresentation() ? presented : false)
+        }
+        let presentOverlay: (@escaping (Bool) -> Void) -> Void = { done in
+            guard isCurrentPresentation() else {
+                finish(false)
+                return
+            }
             if mode == "fullscreen" {
-                for module in moduleNames {
-                    if Self.performSingletonSelector(
-                        className: "\(module).OverlayWindow",
-                        selectorName: "showFullscreen"
-                    ) { return }
-                }
-            } else if mode == "sheet" {
-                for module in moduleNames {
-                    if Self.performSingletonSelector(
-                        className: "\(module).OverlayWindow",
-                        selectorName: "show"
-                    ) { return }
-                }
+                OverlayWindow.shared.showFullscreen(completion: done)
             } else {
-                for module in moduleNames {
-                    if Self.performSingletonSelector(
-                        className: "\(module).BubbleWindow",
-                        selectorName: "show"
-                    ) { return }
+                OverlayWindow.shared.show(completion: done)
+            }
+        }
+        if mode == "fullscreen" {
+            OverlayWindow.shared.showFullscreen { isCorrectMode in
+                guard isCurrentPresentation() else { finish(false); return }
+                guard !isCorrectMode else { finish(true); return }
+                OverlayWindow.shared.hide { dismissed in
+                    guard isCurrentPresentation(), dismissed else { finish(false); return }
+                    presentOverlay(finish)
                 }
             }
-            #if DEBUG
-            print(
-                "[Hakka] showUI(\(mode)) had no effect — the optional HakkaUI "
-                    + "package is not linked into this app target."
-            )
-            #endif
+        } else if mode == "sheet" {
+            OverlayWindow.shared.show { isCorrectMode in
+                guard isCurrentPresentation() else { finish(false); return }
+                guard !isCorrectMode else { finish(true); return }
+                OverlayWindow.shared.hide { dismissed in
+                    guard isCurrentPresentation(), dismissed else { finish(false); return }
+                    presentOverlay(finish)
+                }
+            }
+        } else {
+            OverlayWindow.shared.hide { dismissed in
+                guard isCurrentPresentation(), dismissed else { finish(false); return }
+                BubbleWindow.shared.show(completion: finish)
+            }
         }
     }
 
-    @objc public func hideUI() {
-        DispatchQueue.main.async {
-            _ = Self.performSingletonSelector(className: "HakkaUI.OverlayWindow", selectorName: "hide")
-            _ = Self.performSingletonSelector(className: "HakkaUI.BubbleWindow", selectorName: "hide")
-        }
+    @MainActor @objc public func hideUI() {
+        uiPresentationGeneration += 1
+        OverlayWindow.shared.hide()
+        BubbleWindow.shared.hide()
     }
 
     @objc public func getSnapshot() -> [[String: Any]] {
@@ -357,19 +375,6 @@ public final class RNHakkaCoreBridge: NSObject, HakkaDelegate, @unchecked Sendab
         }
     }
 
-    private static func performSingletonSelector(className: String, selectorName: String) -> Bool {
-        guard let cls = NSClassFromString(className) else { return false }
-        let classObject = cls as AnyObject
-        let sharedSelector = NSSelectorFromString("shared")
-        guard classObject.responds(to: sharedSelector),
-              let shared = classObject.perform(sharedSelector)?.takeUnretainedValue() as AnyObject?
-        else { return false }
-        let selector = NSSelectorFromString(selectorName)
-        guard shared.responds(to: selector) else { return false }
-        _ = shared.perform(selector)
-        return true
-    }
-
     @objc public func enableNativeWebSocket() {
         interceptor.enableNativeWebSocket()
     }
@@ -410,7 +415,7 @@ public final class RNHakkaCoreBridge: NSObject, HakkaDelegate, @unchecked Sendab
         if let body = request.requestBody { payload["requestBody"] = body }
         if let body = request.responseBody { payload["responseBody"] = body }
         if let error = request.error { payload["error"] = error }
-        if let contentType = request.responseHeaders.firstValue("Content-Type") {
+        if let contentType = request.responseHeaders.first(where: { $0.key.lowercased() == "content-type" })?.value.first {
             payload["contentType"] = contentType
         }
         if let protocolName = request.networkProtocol {

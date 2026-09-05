@@ -1,8 +1,7 @@
 # react-native-example
 
 Local dev harness for testing `hakka-react-native` against the native Android and iOS SDKs. This is
-a **bare React Native app** (no Expo) and deliberately does **not** link the optional native Hakka
-module — see "What it doesn't cover" below.
+a **bare React Native app** (no Expo) with the optional native Hakka modules linked.
 
 ## Setup
 
@@ -38,16 +37,29 @@ bun run ios
 bun run android
 ```
 
-Both routes run the same thing — the justfile recipes just `cd` into this directory and call these
-scripts. There is no Expo CLI here; `npx expo run:ios`/`run:android` do not apply to this app.
+`just dev-android` publishes the current Android artifacts to Maven Local before launching. When
+running the package script directly, publish them first so Gradle does not reuse an older local
+`0.0.1` artifact. There is no Expo CLI here; `npx expo run:ios`/`run:android` do not apply to this
+app.
+
+## Android minified validation
+
+From the repository root, build the JS packages and publish the current Android SDK artifacts,
+then assemble the minified example:
+
+```bash
+bun run build
+cd android && ./gradlew publishToMavenLocal && cd -
+cd packages/hakka-react-native/examples/react-native-example/android
+./gradlew -PhakkaMinifyRelease=true :app:assembleRelease
+```
 
 ## What it covers
 
-- Capture mode switching: `native` (throws in this build — see below), `js`, `auto`, and
+- Capture mode switching: `native`, `js`, `auto`, and
   pause/resume via `enabled: false` (a separate flag from `mode`, not a fourth mode value)
-- `HakkaInspector.Wrapper`'s three display modes — `bubble` (used by the main screen), `invisible`,
-  and `fullscreen` — side by side in the "Inspector modes" screen (Tools tab)
-- HAR/Postman/OTel export, via the Wrapper's `showExportButton`
+- Native inspector presentation through `Hakka.show()` when native SDK artifacts are linked
+- HAR/Postman/OTel export through the capture APIs
 - Mock rules and throttle profiles (`mockEngine`, `ThrottleEngine`), seeded from the SDK tab —
   breakpoints are configured live in the Rules tab itself, not from app code
 - WebSocket capture (a real `wss://` echo round trip) and GraphQL detection (a named query against
@@ -58,10 +70,6 @@ scripts. There is no Expo CLI here; `npx expo run:ios`/`run:android` do not appl
 
 ## What it doesn't cover
 
-- **Native-mode capture.** This example never links the native Hakka iOS/Android SDK, so
-  `Hakka.show()` (Sheet/Fullscreen buttons) and `mode: 'native'` capture (SDK tab) both report
-  "native module not linked" rather than doing anything — that's the real behavior of an app that
-  hasn't linked the native module, not a bug in the demo.
 - **AsyncStorage / MMKV / TanStack Query monitors** (`hakka-react-native/monitors`:
   `useAsyncStorageMonitor`, `useMMKVMonitor`, `useQueryMonitor`, `useReactQueryDevTools`). These
   hooks are real and no-op safely when their optional peer dependency isn't installed, which is

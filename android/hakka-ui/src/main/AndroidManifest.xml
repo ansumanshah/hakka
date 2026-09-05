@@ -11,7 +11,7 @@
     <application>
         <activity
             android:name=".HakkaActivity"
-            android:exported="true"
+            android:exported="false"
             android:label="Hakka"
             android:launchMode="singleTask"
             android:taskAffinity="com.noodleapps.hakka.inspector"

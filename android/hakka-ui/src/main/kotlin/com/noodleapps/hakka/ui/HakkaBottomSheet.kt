@@ -4,8 +4,8 @@ import android.animation.ValueAnimator
 import android.app.Activity
 import android.app.Dialog
 import android.content.Context
+import android.content.Intent
 import android.graphics.Color
-import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.MotionEvent
@@ -16,7 +16,6 @@ import android.view.Window
 import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
 import android.widget.FrameLayout
-import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.noodleapps.hakka.LogStore
@@ -73,7 +72,11 @@ class HakkaBottomSheet(
 
     private val controllers: Map<NavTab, TabController> by lazy {
         mapOf(
-            NavTab.NETWORK to NetworkTabController(activity),
+            NavTab.NETWORK to NetworkTabController(
+                activity,
+                onOpenSettings = { activity.startActivity(Intent(activity, SettingsActivity::class.java)) },
+                onCloseInspector = ::hide,
+            ),
             NavTab.STATS to StatsTabController(activity),
             NavTab.LOGS to LogsTabController(activity),
             NavTab.RULES to RulesTabController(activity),
@@ -83,7 +86,7 @@ class HakkaBottomSheet(
     private val tabViews = mutableMapOf<NavTab, View>()
     private var currentTab: NavTab? = null
     private lateinit var panelContainer: FrameLayout
-    private val tabLabelViews = mutableMapOf<NavTab, TextView>()
+    private lateinit var tabBar: InspectorNavBar
 
     fun show() {
         try {
@@ -97,6 +100,8 @@ class HakkaBottomSheet(
     fun hide() {
         try { dismissWithAnimation() } catch (_: Exception) {}
     }
+
+    internal fun isShowing(): Boolean = dialog?.isShowing == true
 
     fun toggle() {
         if (dialog?.isShowing == true) hide() else show()
@@ -201,9 +206,9 @@ class HakkaBottomSheet(
     }
 
     /**
-     * Compact top tab strip (Network / Stats / Logs / Rules / Storage) + a panel
-     * container that swaps in whichever [TabController]'s view is selected — the
-     * sheet's presentation of the exact same content [HakkaActivity]'s bottom nav
+     * Bottom tab bar (Network / Stats / Logs / Rules / Storage) + a panel container
+     * that swaps in whichever [TabController]'s view is selected — the sheet's
+     * presentation of the exact same content [HakkaActivity]'s bottom nav
      * hosts. Each controller's view is built once and kept alive for the sheet's
      * lifetime (mirrors [HakkaActivity]'s tabViews cache), so switching tabs inside
      * one sheet session preserves scroll/filter state the same way.
@@ -214,35 +219,12 @@ class HakkaBottomSheet(
             setBackgroundColor(Theme.bg(ctx))
         }
 
-        val tabStrip = LinearLayout(ctx).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setBackgroundColor(Theme.surface(ctx))
-            setPadding(dp(ctx, Theme.s8).toInt(), dp(ctx, 2).toInt(), dp(ctx, Theme.s8).toInt(), 0)
-        }
-        val tabScroll = HorizontalScrollView(ctx).apply {
-            isHorizontalScrollBarEnabled = false
-            addView(tabStrip)
-        }
-        root.addView(tabScroll, LinearLayout.LayoutParams(MP, WC))
-
         panelContainer = FrameLayout(ctx)
         root.addView(panelContainer, LinearLayout.LayoutParams(MP, 0, 1f))
-
-        for (tab in NavTab.entries) {
-            val tv = TextView(ctx).apply {
-                text = tab.label.uppercase()
-                textSize = GeneratedMetrics.FontSize.sm.toFloat()
-                setTypeface(Typeface.MONOSPACE, Typeface.BOLD)
-                letterSpacing = 0.03f
-                setPadding(dp(ctx, Theme.s12).toInt(), dp(ctx, Theme.s10).toInt(),
-                    dp(ctx, Theme.s12).toInt(), dp(ctx, Theme.s10).toInt())
-                isClickable = true; isFocusable = true
-                addRipple(ctx)
-                setOnClickListener { selectTab(tab) }
-            }
-            tabLabelViews[tab] = tv
-            tabStrip.addView(tv)
-        }
+        // The dialog extends behind gesture navigation, so reserve the same bottom
+        // inset as fullscreen; otherwise the tab labels sit beneath the system bar.
+        tabBar = InspectorNavBar(ctx, ::selectTab, navigationBarInsetPx(ctx.resources))
+        root.addView(tabBar.view)
 
         selectTab(NavTab.NETWORK)
         return root
@@ -253,18 +235,11 @@ class HakkaBottomSheet(
         if (tab == currentTab) return
         currentTab?.let { controllers.getValue(it).onHide() }
         currentTab = tab
-        restyleTabLabels()
+        tabBar.select(tab)
         val view = tabViews.getOrPut(tab) { controllers.getValue(tab).buildView() }
         panelContainer.removeAllViews()
         panelContainer.addView(view, FrameLayout.LayoutParams(MP, MP))
         controllers.getValue(tab).onShow()
-    }
-
-    private fun restyleTabLabels() {
-        for ((tab, tv) in tabLabelViews) {
-            val active = tab == currentTab
-            tv.setTextColor(if (active) Theme.accent(activity) else Theme.textSecondary(activity))
-        }
     }
 
     private fun dismissWithAnimation() {

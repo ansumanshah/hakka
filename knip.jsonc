@@ -36,7 +36,6 @@
   "ignoreFiles": [
     "packages/hakka-react-native/react-native.config.js",
     "packages/hakka-react-native/src/monitors/index.ts",
-    "packages/hakka-react-native/src/ui/index.ts",
     "packages/hakka-react-native/src/utils/index.ts",
     // CLI tools invoked by the justfile (knip can't see justfile recipes).
     "scripts/benchmark-artifact-metadata.mjs",
@@ -90,16 +89,12 @@
     "expo",
     "jest-environment-node",
     "react-native-builder-bob",
-    "react-native-gesture-handler",
     "react-native-mmkv",
-    "react-native-reanimated",
-    "react-native-safe-area-context",
     // tsdown loads this optional peer while evaluating its config on Node 22.
     "unrun",
     // Optional peers referenced only behind runtime guards (try/catch dynamic require,
     // or an optional-native-module check) — same "referenced optional peer, not a real
     // devDependency" pattern as the RN entries above.
-    "expo-haptics",
     // CSS @import in docs/src/styles/starlight.css, not a JS import.
     "@fontsource-variable/jetbrains-mono",
     "@fontsource-variable/manrope",
@@ -119,18 +114,11 @@
     "packages/hakka-browser/src/plugin/rspack.ts": ["duplicates"],
     "packages/hakka-react-native/src/native/NativeHakkaMonitor.ts": ["exports", "types"],
     // Generated token mirror — full export set is intentional (not all consumed by RN yet).
-    "packages/hakka-react-native/src/ui/styles/tokens.generated.ts": ["exports"],
     // Mandated design-system kit awaiting screen migration.
-    "packages/hakka-react-native/src/ui/components/primitives.tsx": ["exports", "types"],
     // MV-pattern viewmodel barrel: each VM's State/Intents interfaces are the package's
     // public embedding contract (mirrors hakka-browser's viewmodel pattern) — consumers
     // destructure these shapes even though nothing in-repo imports them yet.
-    "packages/hakka-react-native/src/ui/viewModels/SettingsViewModel.ts": ["types"],
-    "packages/hakka-react-native/src/ui/viewModels/StatsViewModel.ts": ["types"],
     // Barrel tracked separately from declarations — see FilterViewModel.ts/SelectionViewModel.ts.
-    "packages/hakka-react-native/src/ui/viewModels/FilterViewModel.ts": ["types"],
-    "packages/hakka-react-native/src/ui/viewModels/SelectionViewModel.ts": ["types"],
-    "packages/hakka-react-native/src/ui/viewModels/index.ts": ["types"],
     // Browser is the original of the MV contract RN mirrors — same public-embedding-contract
     // reasoning as the RN viewmodel suppressions above.
     "packages/hakka-browser/src/ui/viewModels/index.ts": ["types"],

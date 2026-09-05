@@ -102,7 +102,7 @@ public final class BubbleWindow {
 
     // MARK: - Public API
 
-    public func show() {
+    public func show(completion: ((Bool) -> Void)? = nil) {
         lifecycleGeneration += 1
 
         // A hide() is mid-animation: window/bubbleView are still alive, so
@@ -115,11 +115,18 @@ public final class BubbleWindow {
             bubble.layer.removeAllAnimations()
             effectView?.layer.removeAllAnimations()
             finishShowing(bubble)
+            DispatchQueue.main.async { completion?(true) }
             return
         }
 
-        guard window == nil else { return }
-        guard let windowScene = UIApplication.shared.activeWindowScene else { return }
+        guard window == nil else {
+            completion?(true)
+            return
+        }
+        guard let windowScene = UIApplication.shared.activeWindowScene else {
+            completion?(false)
+            return
+        }
 
         let win = PassthroughWindow(windowScene: windowScene)
         win.windowLevel = .alert + 1
@@ -150,6 +157,7 @@ public final class BubbleWindow {
         win.resignKey()
 
         finishShowing(bubble)
+        DispatchQueue.main.async { completion?(true) }
     }
 
     /// Entrance animation plus the post-show setup calls, shared by a fresh

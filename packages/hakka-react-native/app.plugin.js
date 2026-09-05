@@ -32,6 +32,7 @@ function normalizeAndroidOptions(options) {
   return {
     version: String(options.androidMavenVersion ?? android.mavenVersion ?? DEFAULT_ANDROID_MAVEN_VERSION),
     performance: Boolean(options.androidPerformance ?? android.performance),
+    ui: Boolean(options.androidUI ?? android.ui ?? true),
   }
 }
 
@@ -43,6 +44,10 @@ function addHakkaAndroidDependencies(contents, options) {
 
   if (options.performance) {
     dependencies.push(['debugImplementation', 'hakka-performance'], ['releaseImplementation', 'hakka-performance-noop'])
+  }
+
+  if (options.ui) {
+    dependencies.push(['debugImplementation', 'hakka-ui'])
   }
 
   const missing = dependencies

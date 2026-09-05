@@ -4,7 +4,9 @@
 import Foundation
 import Security
 #if canImport(HakkaCommon)
+#if canImport(HakkaCommon)
 import HakkaCommon
+#endif
 #endif
 
 /// `HakkaURLProtocol` is a `URLProtocol` subclass that intercepts all

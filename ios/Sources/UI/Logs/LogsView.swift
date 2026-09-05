@@ -79,10 +79,7 @@ struct LogsView: View {
             .disabled(entries.isEmpty)
             .accessibilityLabel("Clear logs")
         }
-        .padding(.horizontal, Theme.s16)
-        .padding(.top, Theme.s10)
-        .padding(.bottom, Theme.s6)
-        .background(Theme.surface)
+        .hakkaInspectorToolbar()
     }
 
     // MARK: - Filter Bar

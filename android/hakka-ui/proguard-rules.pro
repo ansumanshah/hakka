@@ -1,17 +1,22 @@
 # Hakka UI ProGuard Consumer Rules
-# Activities, BroadcastReceivers, and UI classes must survive R8.
+# Android components launched outside static call paths must survive R8.
 
 # Activities launched via Intent
--keep class com.noodleapps.hakka.ui.HakkaActivity { *; }
--keep class com.noodleapps.hakka.ui.DetailActivity { *; }
--keep class com.noodleapps.hakka.ui.SettingsActivity { *; }
+-keep,allowoptimization class com.noodleapps.hakka.ui.HakkaActivity {
+    public <init>();
+}
+-keep,allowoptimization class com.noodleapps.hakka.ui.DetailActivity {
+    public <init>();
+}
+-keep,allowoptimization class com.noodleapps.hakka.ui.SettingsActivity {
+    public <init>();
+}
 
 # BroadcastReceiver registered in manifest
--keep class com.noodleapps.hakka.ui.HakkaNotificationReceiver { *; }
-
-# Public API entry points
--keep class com.noodleapps.hakka.ui.HakkaUI { *; }
--keep class com.noodleapps.hakka.ui.HakkaUILogListener { *; }
+-keep,allowoptimization class com.noodleapps.hakka.ui.HakkaNotificationReceiver {
+    public <init>();
+    public void onReceive(android.content.Context, android.content.Intent);
+}
 
 # Timber is compileOnly — the host app provides it, and the Timber bridge
 # (HakkaTimberTree) is an optional convenience. A consumer that does not use

@@ -1,18 +1,18 @@
 # hakka-react-native
 
-Local-first network inspector for React Native. Captures HTTP traffic via native OkHttp/NSURLSession hooks or JS fetch/XHR/WebSocket interception, with an optional in-app inspector UI.
+Local-first network inspector for React Native. Captures HTTP traffic via native OkHttp/NSURLSession hooks or JS fetch/XHR/WebSocket interception, with the native iOS and Android inspector opened through the TypeScript API.
 
 ## Install
 
 ```bash
-npm install hakka-react-native @react-native-clipboard/clipboard
+npm install hakka-react-native
 cd ios && pod install
 ```
 
-`@react-native-clipboard/clipboard` is an optional peer, recommended so Hakka's share/copy
-actions work. Without it, copy falls back to `expo-clipboard` when present, and otherwise
-reports failure while everything else keeps working — the SDK has no required native
-dependencies beyond React Native itself.
+No clipboard package or React Native UI peer is required. The native inspector uses
+the platform clipboard directly. Only the optional JavaScript `copyToClipboard` and
+`useShakeToShare` helpers need `@react-native-clipboard/clipboard` or `expo-clipboard`
+for their clipboard-copy step.
 
 ## Quick Start
 
@@ -20,20 +20,6 @@ dependencies beyond React Native itself.
 import { Hakka } from 'hakka-react-native'
 
 Hakka.start({ mode: 'auto' })
-```
-
-Optional in-app inspector UI (install UI peers first — see below):
-
-```tsx
-import { HakkaInspector } from 'hakka-react-native/ui'
-
-export function App() {
-  return (
-    <HakkaInspector.Wrapper mode="bubble">
-      <YourApp />
-    </HakkaInspector.Wrapper>
-  )
-}
 ```
 
 ## Capture Modes
@@ -52,41 +38,25 @@ Hakka.start({ mode: 'js' })
 
 Native capture observes traffic made through platform networking APIs. JS capture cannot see traffic made directly by native SDKs.
 
-## Optional Inspector UI
-
-The UI is behind `hakka-react-native/ui` and tree-shaken when unused. Install peers only if you import it:
-
-```bash
-npm install react-native-gesture-handler react-native-reanimated react-native-safe-area-context react-native-svg react-native-worklets
-```
-
-Add `react-native-worklets/plugin` last in `babel.config.js`:
-
-```js
-module.exports = function (api) {
-  api.cache(true)
-  return {
-    presets: ['babel-preset-expo'],
-    plugins: ['react-native-worklets/plugin'],
-  }
-}
-```
-
 ## Native Inspector Surface
 
-When native UI artifacts are linked, open native surfaces without bundling the JS inspector:
+The inspector is provided by the native iOS and Android SDKs. Open it from a debug menu, a
+shake gesture, or another app action:
 
 ```ts
-Hakka.show({ as: 'sheet' }) // iOS sheet / Android bottom sheet
-Hakka.show({ as: 'bubble' }) // floating bubble
-Hakka.show({ as: 'fullscreen' }) // fullscreen inspector
+Hakka.start({ mode: 'native' })
+const didOpen = await Hakka.show({ as: 'sheet' }) // 'bubble' | 'sheet' | 'fullscreen'
+Hakka.hide()
 ```
 
-`Hakka.show()` returns a `boolean` — `false` when the native module isn't linked at
-all, or when the TurboModule is present but the optional native UI package
-(`HakkaUI` on iOS, `hakka-ui` on Android) isn't on the classpath. Check the return
-value if you need to react to "no native UI available" instead of assuming it
-opened.
+`Hakka.show()` resolves to a `boolean` after native presentation. It resolves `false` when the
+native module or native UI artifact is unavailable. Native UI requires native or auto native
+capture and is unavailable in `js`, `store`, or stopped mode.
+
+The package no longer exports `hakka-react-native/ui`, and it no longer brings the JS inspector,
+theme, renderer plugin, or their UI-only peers into an app. Session APIs, hooks, capture,
+clipboard shake-to-share, WebView support, storage and query monitors, and Rozenite remain
+available programmatically when the native surface does not expose a matching control.
 
 ## Optional Monitors
 
@@ -108,7 +78,7 @@ Expo Go is not supported. Use a development build:
 
 ```bash
 npm install hakka-react-native
-npx expo install @react-native-clipboard/clipboard expo-dev-client
+npx expo install expo-dev-client
 ```
 
 Add the config plugin:

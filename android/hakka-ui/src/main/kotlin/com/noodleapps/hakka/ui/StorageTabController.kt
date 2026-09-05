@@ -58,7 +58,7 @@ internal class StorageTabController(private val activity: Activity) : TabControl
     private fun buildHeader() = LinearLayout(activity).apply {
         orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
         setBackgroundColor(Theme.surface(activity))
-        setPadding(dp(Theme.s8), dp(Theme.s10), dp(Theme.s8), dp(Theme.s10))
+        setPadding(dp(GeneratedMetrics.Layout.gutter), dp(Theme.s10), dp(GeneratedMetrics.Layout.gutter), dp(Theme.s10))
 
         countLabel = TextView(activity).apply {
             textSize = GeneratedMetrics.FontSize.sm.toFloat(); setTextColor(Theme.textSecondary(activity))

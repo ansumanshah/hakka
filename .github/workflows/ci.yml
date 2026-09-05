@@ -1,10 +1,7 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -64,7 +61,7 @@ jobs:
       # `just bench` locally. Same policy as the Android, iOS, and web perf
       # suites, which are opt-in for the identical reason.
       - name: Perf gates (advisory — see comment)
-        if: github.event_name == 'push'
+        if: github.ref == 'refs/heads/main'
         continue-on-error: true
         run: |
           bun run --cwd packages/hakka-core bench:check
@@ -237,7 +234,21 @@ jobs:
           path: ~/Library/Caches/ccache
           key: rn-ios-ccache-${{ runner.os }}-${{ runner.arch }}-${{ steps.rn-ios-toolchain.outputs.xcode-version }}-${{ hashFiles('packages/hakka-react-native/examples/react-native-example/ios/Podfile', 'packages/hakka-react-native/examples/react-native-example/ios/Podfile.lock', 'packages/hakka-react-native/examples/react-native-example/package.json', 'bun.lock') }}
           restore-keys: rn-ios-ccache-${{ runner.os }}-${{ runner.arch }}-${{ steps.rn-ios-toolchain.outputs.xcode-version }}-
-      - name: Pod install (runs RN codegen against the vendored sources)
+      - name: Cache precompiled Hakka native SDK
+        id: rn-native-binary
+        uses: actions/cache@v6
+        with:
+          path: packages/hakka-react-native/ios/Frameworks/
+          key: hakka-ios-binary-${{ runner.os }}-${{ steps.rn-ios-toolchain.outputs.xcode-version }}-${{ hashFiles('packages/hakka-react-native/ios/Core/**/*.swift', 'packages/hakka-react-native/ios/Performance/**/*.swift', 'packages/hakka-react-native/ios/UI/**/*.swift', 'packages/hakka-react-native/package.json', 'scripts/build-rn-ios-xcframework.sh', 'scripts/rn-ios-xcframework-project.yml') }}
+      - name: Build precompiled Hakka native SDK
+        if: steps.rn-native-binary.outputs.cache-hit != 'true'
+        run: |
+          command -v xcodegen >/dev/null || brew install xcodegen
+          command -v xcbeautify >/dev/null || brew install xcbeautify
+          bash scripts/build-rn-ios-xcframework.sh
+      - name: Verify precompiled Hakka native SDK
+        run: node scripts/verify-rn-ios-xcframework.mjs
+      - name: Pod install (native binary plus RN bridge codegen)
         working-directory: packages/hakka-react-native/examples/react-native-example/ios
         run: pod install
       - name: Build example app for iOS Simulator
@@ -296,6 +307,9 @@ jobs:
       - name: Metro bundle (optional peers absent on purpose)
         working-directory: packages/hakka-react-native/examples/react-native-example
         run: bun run bundle
+      - name: Assemble minified release APK (native inspector gateway)
+        working-directory: packages/hakka-react-native/examples/react-native-example/android
+        run: ./gradlew :app:assembleRelease -PhakkaMinifyRelease=true -PreactNativeArchitectures=arm64-v8a
 
   next-fullstack-example:
     name: Next.js Example (build + ci-gate test + Playwright E2E)

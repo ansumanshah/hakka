@@ -112,18 +112,17 @@ Defined in `hakka-core` ([`engine/plugins.ts`](./packages/hakka-core/src/engine/
 interface, public API, and test anchors are maintained in the
 [Plugins spec card](https://hakka.noodleapps.com/spec/plugins/), not duplicated here.
 `Hakka.use(plugin)` registers panels, body renderers, and context-menu items as platform-neutral
-descriptors; `Hakka.getPanels()` drives the host tab bar. Each host (web Solid, RN, SwiftUI,
-Compose) maps a panel `id` to its own renderer, so the panel set stays identical while rendering
-stays native.
+descriptors; `Hakka.getPanels()` drives the host tab bar. Each host (web Solid, SwiftUI, Compose)
+maps a panel `id` to its own renderer. React Native uses the native iOS and Android renderers
+through the TurboModule bridge, so the panel set stays identical while rendering stays native.
 
 ## 5. Parity matrix
 
 ● shipped · ◐ partial · ○ roadmap · — not offered · ⊘ out of scope
 
-**Reading the RN column.** RN cells describe the **React Native JS inspector**
-(`hakka-react-native/ui`). RN users who opt into the native inspector instead
-(`bubble.renderMode: 'native'`, or the imperative `Hakka.show()`) get the **iOS**
-and **Android** columns, not this one — the two are not interchangeable. See
+**Reading the RN column.** RN cells describe the native iOS and Android inspector
+surfaces opened through `Hakka.show()`. The removed `hakka-react-native/ui` JS
+inspector, theme, and renderer plugin surfaces are no longer part of the package. See
 [React Native package](https://hakka.noodleapps.com/react-native/package/).
 
 **Engine vs UI.** A `●` means the capability ships on that platform. That is not
@@ -229,7 +228,7 @@ Mac column whenever desktop work lands.
 
 ¹⁶ `FrameworkSpan.requestKind` (`'document' | 'rsc' | 'route-handler' | 'server-action'`) is classified per-trace by `classifyRequestKind()` in `spanProcessor.ts` from the `next.rsc` span attribute plus an inbound `server-action` header hint (`trace.ts`'s `requestKindHint`), then exposed as a segmented filter (`FilterBar.tsx`'s `requestKindFilter`) that narrows visible trace GROUPS by their root span's kind. Client-side only, shown while grouped by trace. Web only.
 
-¹⁸ The web overlay wraps the inspector in a root error boundary (`CrashBoundary.tsx`, Solid's `<Errored>`): a crashed inspector renders a compact "Inspector crashed — reload" bar inside its own shadow root instead of freezing or unstyling the host page, and Reload tears down the entire crashed tree and mounts a fresh one. Captured traffic survives the reload — the store lives outside the UI tree (Worker/singleton). RN wraps the JS inspector root the same way (`hakka-react-native/src/ui/CrashBoundary.tsx`, a class component — React has no hooks-based error boundary): `HakkaInspector.tsx`'s `Wrapper` and `Standalone` both mount `InspectorUI` inside it, a caught crash swaps in a compact "Inspector crashed — reload" bar built from the shared design tokens, and Reload bumps a `generation` counter used as the wrapped children's `key`, which forces React to fully unmount the crashed tree and mount a fresh one rather than re-rendering in place. Captured traffic survives — `hakka-core`'s `Hakka` log store is a module-level singleton outside the React tree, untouched by the remount. iOS/Android native panels ride the host app's native exception model — a boundary of this kind is not offered. Mac app is a standalone native application, not embedded in any host — it rides the same OS-level exception model as iOS/Android's native panels, so the same reasoning applies and no boundary of this kind is offered there either.
+¹⁸ The web overlay wraps the inspector in a root error boundary (`CrashBoundary.tsx`, Solid's `<Errored>`): a crashed inspector renders a compact "Inspector crashed — reload" bar inside its own shadow root instead of freezing or unstyling the host page, and Reload tears down the entire crashed tree and mounts a fresh one. Captured traffic survives the reload — the store lives outside the UI tree (Worker/singleton). React Native uses the native iOS and Android panels, which ride the host app's native exception model and do not offer a JS error boundary. Mac app is a standalone native application, not embedded in any host — it rides the same OS-level exception model as iOS/Android's native panels, so the same reasoning applies and no boundary of this kind is offered there either.
 ¹⁹ Switching rows in the web Detail keeps the previous request's body visible (dimmed while `isPending`) while the next body hydrates asynchronously, instead of flashing an empty state (`Detail.tsx` async memo + `<Loading>`). iOS/Android read bodies in-process with no async gap, so there is nothing to revalidate (out of scope by design). RN fetches bodies over the bridge (async) — roadmap. Mac app also reads bodies in-process from its own in-memory `TrafficStore` (`apps/hakka/Sources/Core/Traffic/TrafficStore.swift`) with no async gap — same reasoning as iOS/Android, out of scope by design.
 ¹⁷ All four platforms capture WebSocket connections and frames: RN and web through core's JS interceptor (`capture/websocket.ts`), iOS through `WebSocketMonitor.swift`, Android through `HakkaWebSocketWrapper.kt`. The sub-protocol frame-decoder registry (MQTT / Socket.IO / STOMP / graphql-ws) is now implemented on all four: `engine/wsDecoders.ts` in core-TS, ported to Swift in `ios/Sources/Common/BodyDecoders/WsFrameDecoders+*.swift` and to Kotlin in `android/hakka-common/.../{Mqtt,SocketIo,Stomp,GraphqlWs}WsDecoder.kt`, each verified against the TypeScript fixtures. Native panels render the decoded kind and payload summary, falling back to raw frame text when no decoder matches. Server-side outbound WebSocket capture (`hakka-node`) is not offered on any platform.
 

@@ -25,10 +25,10 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const CANON_ROOT = join(repoRoot, 'ios/Sources')
 const RN_ROOT = join(repoRoot, 'packages/hakka-react-native/ios')
 
-// Top-level ios/Sources dirs the RN bridge draws from. Other dirs (UI/* beyond
-// ShakeDetector, NetworkNoop, PerformanceNoop) belong to SPM products RN never
-// consumes and are out of scope for the coverage check below.
-const SCANNED_CANON_DIRS = ['Common', 'Network', 'Performance']
+// Top-level ios/Sources dirs the RN bridge draws from. The pod compiles these
+// canonical sources as one module, so the native inspector uses the same
+// interceptor, store, and control engines as the bridge.
+const SCANNED_CANON_DIRS = ['Common', 'Network', 'Performance', 'UI']
 
 // Canonical files inside SCANNED_CANON_DIRS deliberately not synced to RN.
 // Every entry needs a reason; anything else missing from MANIFEST fails the run.
@@ -36,60 +36,6 @@ const ALLOWLIST = new Map([
   [
     'Common/Headers.swift',
     'its `firstValue` extension is also defined in Network/RequestBuilder.swift; in a single module keeping both is a duplicate-symbol error',
-  ],
-  ['Common/OtelExport.swift', 'unused by the RN surface; keeps the bridge lean'],
-  ['Common/ManualCapture.swift', 'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)'],
-  ['Common/CookieParser.swift', 'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)'],
-  ['Common/GraphQLBodyParser.swift', 'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)'],
-  ['Common/HakkaConsole.swift', 'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)'],
-  ['Common/SearchQueryCompiler.swift', 'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)'],
-  ['Common/SearchQueryParser.swift', 'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)'],
-  ['Common/Export/PostmanExporter.swift', 'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)'],
-  ['Common/Export/URLSessionExporter.swift', 'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)'],
-  [
-    'Common/BodyDecoders/BodyDecoderRegistry.swift',
-    'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)',
-  ],
-  [
-    'Common/BodyDecoders/BodyDecoders+Builtins.swift',
-    'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)',
-  ],
-  ['Common/BodyDecoders/GrpcWebDecoder.swift', 'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)'],
-  [
-    'Common/BodyDecoders/GzipDeflateDecoders.swift',
-    'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)',
-  ],
-  ['Common/BodyDecoders/InflateSupport.swift', 'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)'],
-  ['Common/BodyDecoders/ProtoReader.swift', 'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)'],
-  ['Common/BodyDecoders/ProtobufDetectors.swift', 'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)'],
-  [
-    'Common/BodyDecoders/ProtobufWireDecoder.swift',
-    'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)',
-  ],
-  ['Common/BodyDecoders/SseDecoder.swift', 'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)'],
-  [
-    'Common/BodyDecoders/WsFrameDecoderRegistry.swift',
-    'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)',
-  ],
-  [
-    'Common/BodyDecoders/WsFrameDecoders+Builtins.swift',
-    'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)',
-  ],
-  [
-    'Common/BodyDecoders/WsFrameDecoders+GraphqlWs.swift',
-    'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)',
-  ],
-  [
-    'Common/BodyDecoders/WsFrameDecoders+Mqtt.swift',
-    'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)',
-  ],
-  [
-    'Common/BodyDecoders/WsFrameDecoders+SocketIO.swift',
-    'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)',
-  ],
-  [
-    'Common/BodyDecoders/WsFrameDecoders+Stomp.swift',
-    'not referenced by the RN bridge (RNHakkaCoreBridge.swift / Core/*)',
   ],
 ])
 
@@ -109,45 +55,12 @@ function walkFiles(dir, suffix) {
 
 // canonical path (under ios/Sources) -> RN path (under packages/hakka-react-native/ios)
 const MANIFEST = [
-  ['Common/BreakpointEngine.swift', 'Core/BreakpointEngine.swift'],
-  ['Common/BridgeClient.swift', 'Core/BridgeClient.swift'],
-  ['Common/BridgeClient+Encoding.swift', 'Core/BridgeClient+Encoding.swift'],
-  ['Common/BridgeDiscovery.swift', 'Core/BridgeDiscovery.swift'],
-  ['Common/NWBridgeHostBrowser.swift', 'Core/NWBridgeHostBrowser.swift'],
-  ['Common/BreakpointWireEdits.swift', 'Core/BreakpointWireEdits.swift'],
-  ['Common/ControlCommand.swift', 'Core/ControlCommand.swift'],
-  ['Common/RuntimeControlFrame.swift', 'Core/RuntimeControlFrame.swift'],
-  ['Common/RuntimeControlSession.swift', 'Core/RuntimeControlSession.swift'],
-  ['Common/ControlCommandApply.swift', 'Core/ControlCommandApply.swift'],
-  ['Common/ControlCommandParsing.swift', 'Core/ControlCommandParsing.swift'],
-  ['Common/ControlCommandParsingBreakpoint.swift', 'Core/ControlCommandParsingBreakpoint.swift'],
-  ['Common/ControlCommandParsingMock.swift', 'Core/ControlCommandParsingMock.swift'],
-  ['Common/Config.swift', 'Core/Config.swift'],
-  ['Common/Contract.swift', 'Core/Contract.swift'],
-  ['Common/Delegate.swift', 'Core/Delegate.swift'],
-  ['Common/Export/CurlExporter.swift', 'Core/Export/CurlExporter.swift'],
-  ['Common/Export/HarExporter.swift', 'Core/Export/HarExporter.swift'],
-  ['Common/Export/MockRuleBuilder.swift', 'Core/Export/MockRuleBuilder.swift'],
-  ['Common/Export/ReportBuilder.swift', 'Core/Export/ReportBuilder.swift'],
-  ['Common/Export/TextExporter.swift', 'Core/Export/TextExporter.swift'],
-  ['Common/HakkaLog.swift', 'Core/HakkaLog.swift'],
-  ['Common/HealthReportGenerator.swift', 'Core/HealthReportGenerator.swift'],
-  ['Common/JSONDepthGuard.swift', 'Core/JSONDepthGuard.swift'],
-  ['Common/LogStore.swift', 'Core/LogStore.swift'],
-  ['Common/MockEngine.swift', 'Core/MockEngine.swift'],
-  ['Common/MockEngineMatching.swift', 'Core/MockEngineMatching.swift'],
-  ['Common/MockFailure.swift', 'Core/MockFailure.swift'],
-  ['Common/MockRuleModify.swift', 'Core/MockRuleModify.swift'],
-  ['Common/MockRuleTypes.swift', 'Core/MockRuleTypes.swift'],
-  ['Common/NetworkRequest.swift', 'Core/NetworkRequest.swift'],
-  ['Common/Plugin.swift', 'Core/Plugin.swift'],
-  ['Common/PluginRegistry.swift', 'Core/PluginRegistry.swift'],
-  ['Common/RecordSink.swift', 'Core/RecordSink.swift'],
-  ['Common/RetentionPolicy.swift', 'Core/RetentionPolicy.swift'],
-  ['Common/StorageAdapter.swift', 'Core/StorageAdapter.swift'],
-  ['Common/StorageSnapshot.swift', 'Core/StorageSnapshot.swift'],
-  ['Common/ThrottleEngine.swift', 'Core/ThrottleEngine.swift'],
-  ['Common/UrlCodec.swift', 'Core/UrlCodec.swift'],
+  // A full inspector needs the Common utilities behind its Console, detail,
+  // export, and decoder panels. Headers.swift remains excluded because
+  // RequestBuilder owns the identical firstValue extension in this pod.
+  ...walkFiles(join(CANON_ROOT, 'Common'), '.swift')
+    .filter((rel) => rel !== 'Headers.swift')
+    .map((rel) => [`Common/${rel}`, `Core/${rel}`]),
   ['Network/CaptureProcessor.swift', 'Core/CaptureProcessor.swift'],
   ['Network/Interceptor.swift', 'Core/Interceptor.swift'],
   ['Network/InterceptorPluginContext.swift', 'Core/InterceptorPluginContext.swift'],
@@ -157,8 +70,11 @@ const MANIFEST = [
   ['Network/URLProtocol.swift', 'Core/URLProtocol.swift'],
   ['Network/URLSessionSwizzle.swift', 'Core/URLSessionSwizzle.swift'],
   ['Network/WebSocketMonitor.swift', 'Core/WebSocketMonitor.swift'],
-  ['UI/ShakeDetector.swift', 'Core/ShakeDetector.swift'],
   ['Performance/HakkaPerformance.swift', 'Performance/HakkaPerformance.swift'],
+  // Keep the complete inspector in the pod. This is deliberately generated
+  // from the canonical HakkaUI target rather than maintaining an RN-specific
+  // UI fork.
+  ...walkFiles(join(CANON_ROOT, 'UI'), '.swift').map((rel) => [`UI/${rel}`, `UI/${rel}`]),
 ]
 
 // RN-owned files that are NOT generated (used to flag stray Core files).
@@ -172,7 +88,16 @@ function header(canonRel) {
 }
 
 function expectedContent(canonRel) {
-  return header(canonRel) + readFileSync(join(CANON_ROOT, canonRel), 'utf8')
+  // SPM compiles Common, Network, Performance, and UI as separate modules.
+  // CocoaPods compiles their generated copies into one Hakka module. Preserve
+  // each canonical import for SPM, but make it conditional in the pod so
+  // same-module symbols remain directly available without an impossible
+  // self-import.
+  const source = readFileSync(join(CANON_ROOT, canonRel), 'utf8').replace(
+    /^import (HakkaCommon|HakkaNetwork|HakkaPerformance)\n/gm,
+    (_, module) => `#if canImport(${module})\nimport ${module}\n#endif\n`,
+  )
+  return header(canonRel) + source
 }
 
 const check = process.argv.includes('--check')

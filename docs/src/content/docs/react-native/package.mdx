@@ -10,7 +10,7 @@ import { Tabs, TabItem, Steps, Aside, Card, CardGrid, LinkCard, Badge } from '@a
   trigger a call, shake the device or long-press the bubble, and see it. No proxy, no certificate, no cloud account.
 </Aside>
 
-`hakka-react-native` is the app-facing package for React Native. It provides a TypeScript API, a TurboModule bridge to the native Hakka SDKs, JS-layer fallback capture, optional monitors, and optional inspector UI.
+`hakka-react-native` is the app-facing package for React Native. It provides a TypeScript API, a TurboModule bridge to the native Hakka SDKs, JS-layer fallback capture, and optional monitors. The inspector is rendered by the native iOS and Android SDKs.
 
 <Badge text="Beta" variant="caution" /> Fully working and on npm. It has less production soak time than the web and
 Next.js SDKs.
@@ -28,16 +28,19 @@ Next.js SDKs.
 
 ## Setup
 
+The native inspector needs no clipboard package or React Native UI peers. It uses
+the platform clipboard directly.
+
 <Steps>
 
-1.  **Install the package and clipboard peer**
+1.  **Install the package**
 
           <Tabs syncKey="pkg-manager">
 
     <TabItem label="npm">
 
     ```bash title="Terminal"
-    npm install hakka-react-native @react-native-clipboard/clipboard
+    npm install hakka-react-native
     ```
 
           </TabItem>
@@ -45,7 +48,7 @@ Next.js SDKs.
     <TabItem label="pnpm">
 
     ```bash title="Terminal"
-    pnpm add hakka-react-native @react-native-clipboard/clipboard
+    pnpm add hakka-react-native
     ```
 
           </TabItem>
@@ -53,7 +56,7 @@ Next.js SDKs.
     <TabItem label="yarn">
 
     ```bash title="Terminal"
-    yarn add hakka-react-native @react-native-clipboard/clipboard
+    yarn add hakka-react-native
     ```
 
           </TabItem>
@@ -61,7 +64,7 @@ Next.js SDKs.
     <TabItem label="bun">
 
     ```bash title="Terminal"
-    bun add hakka-react-native @react-native-clipboard/clipboard
+    bun add hakka-react-native
     ```
 
           </TabItem>
@@ -90,73 +93,25 @@ Next.js SDKs.
 
     `mode: 'auto'` is the right default. See [Capture Modes](/react-native/capture-modes/) for the full option set.
 
-3.  **Add the inspector UI** (optional but recommended for development)
+3.  **Open the native inspector**
 
-    First install the UI peers:
+    Start native capture, then open a surface from a debug menu, deep link, or another app action:
 
-          <Tabs syncKey="pkg-manager">
-
-    <TabItem label="npm">
-
-    ```bash title="Terminal"
-    npm install react-native-gesture-handler react-native-reanimated react-native-safe-area-context react-native-svg react-native-worklets
+    ```ts title="debug-menu.ts"
+    Hakka.start({ mode: 'native' })
+    const didOpen = await Hakka.show({ as: 'bubble' })
+    // 'bubble' | 'sheet' | 'fullscreen'; Hakka.hide() dismisses it.
     ```
 
-          </TabItem>
-
-    <TabItem label="pnpm">
-
-    ```bash title="Terminal"
-    pnpm add react-native-gesture-handler react-native-reanimated react-native-safe-area-context react-native-svg react-native-worklets
-    ```
-
-          </TabItem>
-
-    <TabItem label="yarn">
-
-    ```bash title="Terminal"
-    yarn add react-native-gesture-handler react-native-reanimated react-native-safe-area-context react-native-svg react-native-worklets
-    ```
-
-          </TabItem>
-
-    <TabItem label="bun">
-
-    ```bash title="Terminal"
-    bun add react-native-gesture-handler react-native-reanimated react-native-safe-area-context react-native-svg react-native-worklets
-    ```
-
-          </TabItem>
-
-    </Tabs>
-
-    Then wrap your app root:
-
-    ```tsx title="App.tsx"
-    import { HakkaInspector } from 'hakka-react-native/ui'
-
-    export function App() {
-      return (
-        <HakkaInspector.Wrapper mode="bubble">
-          <YourApp />
-        </HakkaInspector.Wrapper>
-      )
-    }
-    ```
-
-    The UI peer graph is entirely optional. The core capture API works without it.
-
-    <Aside type="note" title="Reanimated / Worklets babel plugin">
-      If your project uses `react-native-reanimated`, ensure the Reanimated babel plugin is listed **last** in your
-      `babel.config.js` plugins array. `react-native-worklets` follows the same rule. Both packages patch the babel
-      transform pipeline and must run after other plugins.
-    </Aside>
+    `Hakka.show()` resolves to `true` after native presentation and `false` when the native module
+    or native UI artifact is unavailable. Native UI requires native or auto native capture; it is
+    unavailable in `js`, `store`, or stopped mode.
 
 4.  **Verify it works**
 
-    Trigger any network call in your app (an API fetch, an image load, anything). Then open the inspector — long-press the bubble overlay or shake the device (a tap just expands a quick summary in place). The request should appear with method, URL, status, and timing.
-
-    ![The Hakka inspector on iOS showing a captured request: GET https://httpbin.org/get, status 200, 840ms, with Mock this / Export / Replay actions and Overview / Request / Response / Timing tabs. The floating bubble above shows live request, error, UI-FPS and JS-FPS counters.](../../../assets/screenshots/hakka-rn-bubble.png)
+    Trigger any network call in your app (an API fetch, an image load, anything). Then open the native
+    inspector with the bubble or shake gesture. The request should appear with method, URL, status,
+    and timing.
 
 </Steps>
 
@@ -168,91 +123,34 @@ Next.js SDKs.
 | `maxRequests` | `number`                                   | `500`    | Maximum requests kept in the in-memory store. Oldest are evicted. |
 | `maxBodySize` | `number`                                   | `262144` | Maximum body size to capture per request/response, in bytes.      |
 
-## Inspector UI
+## Native inspector
 
-`<HakkaInspector.Wrapper>` defaults to `theme="dark"`, not `"system"` — a bare
-system default would follow the _device's_ light/dark setting, which frequently
-disagrees with a host app's own (often hardcoded-dark) visual theme and opens the
-inspector in a jarring light/cream theme inside a dark app. Pass `theme="system"`
-explicitly to opt back into following the device setting, or `theme="light"` to
-force light:
+The native surfaces provide the platform inspector, including the bubble, sheet, and fullscreen
+presentations. iOS's canonical UI is included in the React Native pod automatically; Android apps
+add `hakka-network` and `hakka-performance` as needed, plus `hakka-ui` for the inspector.
 
-```tsx
-<HakkaInspector.Wrapper mode="bubble" theme="system">
-  <YourApp />
-</HakkaInspector.Wrapper>
+The package no longer exports `hakka-react-native/ui` or ships a React Native inspector, theme, or
+renderer plugin surface.
+Native controls can vary by platform. Session APIs, hooks, capture, clipboard shake-to-share,
+WebView support, storage and query monitors, and Rozenite remain available programmatically when a
+native surface does not expose a matching control.
+
+## Prebuilt iOS SDK
+
+Release npm packages include `HakkaNative.xcframework` with iOS device and simulator slices.
+CocoaPods links the precompiled native capture engine and inspector; the React Native bridge
+remains source so it builds against your app's React Native version. No separate download is
+needed during `pod install`.
+
+To edit the native SDK in a local checkout, install pods in source mode:
+
+```bash
+HAKKA_IOS_USE_SOURCE=1 pod install
 ```
 
-Other inspector details:
-
-- The header tab strip has **five destinations: Network, Stats, Logs, Rules,
-  Storage** — the same five, in the same order, as the native iOS and Android
-  inspectors. **Console is not a separate tab**; it lives inside Logs as a
-  Console/Structured switch.
-- The strip is **persistent**: it stays visible on all five tabs with the current
-  one underlined, and those pages have no back button. Only Settings and the
-  request detail are drill-downs, and only they push a back button.
-- The filter bar collapses to search + method chips + a **"Filters +n"**
-  disclosure, matching the web overlay — status/domain chips and sort/group live
-  behind it, with **Select multiple** and **Reset** in its footer.
-- **Pause capture** sits in the filter bar, next to the Filters disclosure —
-  it freezes the list it shares a row with. **Clear all** lives in Settings,
-  beside session export/import.
-- Request-detail search (headers/body) is an icon-only button that expands into
-  a search field in place, rather than a fixed-width "Search" label competing
-  with the detail tabs for space.
-- **Settings is not a tab.** It is reachable from the gear icon in the inspector
-  header and the gear on the floating bubble — so you don't have to
-  open the full inspector first just to reach it.
-- Request rows are 64pt minimum, two-line (method + path, then status + host).
-
-## Two ways to render the inspector
-
-The React Native package gives you a choice of inspector UI, and it is a real
-architectural fork — not a cosmetic one.
-
-**1. The React Native inspector (default).** `<HakkaInspector.Wrapper>` renders
-the inspector in JS. It is the most feature-complete surface — session
-export/import and the widest copy-as snippet set live here. It pulls in the UI
-peer dependencies (Reanimated 4 + Worklets,
-`@gorhom/bottom-sheet`, FlashList) and ships in your JS bundle.
-
-**2. The native inspector.** Delegate to the SwiftUI (iOS) and Kotlin (Android)
-inspectors instead, so no JS inspector is bundled at all. Either flip the bubble
-to native rendering:
-
-```tsx
-<HakkaInspector.Wrapper mode="bubble" bubble={{ renderMode: 'native' }}>
-  <YourApp />
-</HakkaInspector.Wrapper>
-```
-
-or drive the native surfaces imperatively, with no `Wrapper` at all:
-
-```ts
-Hakka.show({ as: 'sheet' }) // iOS sheet / Android bottom sheet
-Hakka.show({ as: 'bubble' }) // floating bubble
-Hakka.show({ as: 'fullscreen' }) // fullscreen inspector
-```
-
-`renderMode` is `'js' | 'native'` and defaults to `'js'` — the same vocabulary
-`Hakka.start`'s `mode` uses for capture. It only applies in `mode="bubble"`.
-
-**Requirements and failure mode.** The native path needs the optional native UI
-artifacts linked — the `HakkaUI` product on iOS, `com.noodleapps.hakka:hakka-ui`
-on Android. `Hakka.show()` returns a `boolean`: `false` when the TurboModule
-isn't linked at all, _or_ when it is linked but the native UI package isn't on
-the classpath. Check the return value rather than assuming a surface opened.
-
-**Which to pick.** Choose native when you want to keep the JS bundle and the
-Reanimated/bottom-sheet peers out of your app, or when you want one inspector
-that looks identical to what your native iOS and Android teammates see. Choose
-the React Native inspector when you want the fullest feature set — the native
-surfaces are a subset today. Session export/import is React Native only, and
-the copy-as snippet set is widest there (cURL, HTTPie, OkHttp, URLSession)
-where each native surface ships cURL plus its own platform snippet. Mock-rule
-management is no longer a gap: iOS and Android both ship a Mocks screen in
-their Rules tab.
+A checkout without the XCFramework also uses source automatically. Run `pod install` again
+when changing modes. The binary supports iOS 16 and later, arm64 devices, and arm64/x86_64
+simulators. The declared visionOS target continues to compile from source.
 
 ## Optional monitors
 

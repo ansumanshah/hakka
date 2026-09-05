@@ -102,10 +102,7 @@ struct SettingsView: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Close")
         }
-        .padding(.horizontal, Theme.s16)
-        .padding(.top, Theme.s10)
-        .padding(.bottom, Theme.s6)
-        .background(Theme.surface)
+        .hakkaInspectorToolbar()
     }
 
     // MARK: - Max Records Row

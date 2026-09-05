@@ -3,7 +3,9 @@
 
 import Foundation
 #if canImport(HakkaCommon)
+#if canImport(HakkaCommon)
 import HakkaCommon
+#endif
 #endif
 
 /// Immutable handoff from URLProtocol callbacks to the capture processing queue.

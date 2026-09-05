@@ -34,7 +34,7 @@ React Native owns:
 - TypeScript API ergonomics
 - TurboModule bridge
 - JS fallback capture
-- optional JS inspector UI
+- native inspector presentation through the TurboModule bridge
 - JavaScript-only monitors
 
 ## Local First
@@ -79,9 +79,9 @@ or large parser libraries. Optional surfaces belong in separate imports,
 artifacts, or adapters.
 
 Do not add Nitro, Compose, Material, or other large UI dependencies to core
-Hakka modules. JS UI stays behind `hakka-react-native/ui`; native UI stays in
-`hakka-ui` (Android) and `HakkaUI` (iOS). Measure Android size before changing
-default UI artifacts.
+Hakka modules. Native UI stays in `hakka-ui` (Android) and `HakkaUI` (iOS), and
+React Native opens those surfaces through the bridge. Keep capture and programmatic
+APIs usable without loading an inspector.
 
 ## One Vocabulary
 

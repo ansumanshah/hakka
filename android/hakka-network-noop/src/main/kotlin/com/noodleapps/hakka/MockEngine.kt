@@ -7,9 +7,29 @@ package com.noodleapps.hakka
 data class MockResponse(
     val status: Int = 200,
     val headers: Map<String, String> = emptyMap(),
+    val headerValues: Map<String, List<String>> = emptyMap(),
     val body: String? = null,
     val delayMs: Long = 0,
 )
+
+/** No-op counterpart of the network mock failure codes. */
+enum class MockFailureCode(val wireValue: String) {
+    TIMEOUT("timeout"),
+    NO_CONNECTION("noConnection"),
+    CANNOT_FIND_HOST("cannotFindHost"),
+    CANNOT_CONNECT_TO_HOST("cannotConnectToHost"),
+    CONNECTION_LOST("connectionLost"),
+    SECURE_CONNECTION_FAILED("secureConnectionFailed"),
+    CANCELLED("cancelled"),
+    UNKNOWN("unknown");
+
+    companion object {
+        fun fromWireValue(value: String): MockFailureCode? = entries.firstOrNull { it.wireValue == value }
+    }
+}
+
+/** No-op counterpart of a transport-failure mock rule. */
+data class MockFailure(val code: MockFailureCode)
 
 /**
  * Declarative request/response edits — same shape as the real `MockRuleModify` in
@@ -58,6 +78,10 @@ data class MockRule(
     val redirectTo: String? = null,
     val block: Boolean = false,
     val modify: MockRuleModify? = null,
+    val failure: MockFailure? = null,
+    val skipCount: Int = 0,
+    val stopAfter: Int? = null,
+    val regexFlags: String? = null,
 ) {
     val isRewrite: Boolean get() = redirectTo != null || modify != null
 }
@@ -72,6 +96,10 @@ data class MockRuleInput(
     val redirectTo: String? = null,
     val block: Boolean = false,
     val modify: MockRuleModify? = null,
+    val failure: MockFailure? = null,
+    val skipCount: Int = 0,
+    val stopAfter: Int? = null,
+    val regexFlags: String? = null,
 )
 
 /**

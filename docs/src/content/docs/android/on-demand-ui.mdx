@@ -1,0 +1,131 @@
+---
+title: On-demand Android inspector
+description: Ship capture in the base app and download the native inspector for internal users.
+---
+
+For an internal production build, keep `hakka-network` and optionally
+`hakka-performance` in the base app. Put `hakka-ui` in an app-owned
+[on-demand dynamic feature](https://developer.android.com/guide/playcore/feature-delivery/on-demand).
+The inspector then adds no UI code or resources to the initial install. Google
+Play downloads the feature before the app opens the inspector. This is an
+integration recipe; the repository does not yet include an end-to-end tested
+Play delivery fixture.
+
+A dynamic feature depends on its base application, so Hakka cannot publish one
+universal feature module. Each consuming app owns the small delivery module and
+places the published `hakka-ui` library inside it.
+
+## Base application
+
+Register the feature in the application module and keep capture in the base:
+
+```groovy
+android {
+    dynamicFeatures = [":hakkaInspector"]
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+        }
+    }
+}
+
+dependencies {
+    implementation("com.noodleapps.hakka:hakka-network:0.0.1")
+    implementation("com.noodleapps.hakka:hakka-performance:0.0.1")
+    implementation("com.google.android.play:feature-delivery:2.1.0")
+}
+```
+
+The base app also owns the authorization check and the download UI. Request the
+module only after confirming that the signed-in user may access captured data.
+
+```kotlin
+val manager = SplitInstallManagerFactory.create(context)
+val moduleName = "hakkaInspector"
+
+if (moduleName in manager.installedModules) {
+    // Call an app-owned entry point in the installed feature.
+    openInstalledInspector()
+} else {
+    val request = SplitInstallRequest.newBuilder()
+        .addModule(moduleName)
+        .build()
+    manager.startInstall(request)
+}
+```
+
+Wait for `SplitInstallSessionStatus.INSTALLED` before invoking the feature entry
+point. Configure SplitCompat as described in the Android delivery guide. Inside
+the feature, attach the base app's capture store to `HakkaUI` before presenting
+the inspector. React Native integration still requires shared-store and
+presentation verification; downloading the feature alone does not prove it works.
+
+## Feature module
+
+Create `hakkaInspector/build.gradle`:
+
+```groovy
+plugins {
+    id "com.android.dynamic-feature"
+    id "org.jetbrains.kotlin.android"
+}
+
+android {
+    namespace "com.example.app.hakkainspector"
+    compileSdk rootProject.ext.compileSdkVersion
+
+    defaultConfig {
+        minSdk rootProject.ext.minSdkVersion
+    }
+}
+
+dependencies {
+    implementation project(":app")
+    implementation("com.noodleapps.hakka:hakka-ui:0.0.1")
+}
+```
+
+Configure its manifest for on-demand delivery:
+
+```xml
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:dist="http://schemas.android.com/apk/distribution">
+    <dist:module
+        dist:instant="false"
+        dist:title="@string/hakka_inspector_title">
+        <dist:delivery>
+            <dist:on-demand />
+        </dist:delivery>
+        <dist:fusing dist:include="false" />
+    </dist:module>
+    <application />
+</manifest>
+```
+
+Define `hakka_inspector_title` in the base application's resources. Publish an
+Android App Bundle; ordinary APK installation does not exercise Play Feature
+Delivery.
+
+## Verification
+
+Use Internal App Sharing for the final test. For local testing, build a bundle
+and let `bundletool` emulate module installation:
+
+```bash
+./gradlew :app:bundleRelease
+bundletool build-apks \
+  --bundle app/build/outputs/bundle/release/app-release.aab \
+  --output /tmp/app.apks \
+  --local-testing
+bundletool install-apks --apks /tmp/app.apks
+```
+
+Verify both paths:
+
+1. The base app captures traffic before the inspector module is installed.
+2. The app handles an unavailable inspector before installation.
+3. The module downloads for an authorized internal account.
+4. Bubble, sheet, and fullscreen presentation can read the existing capture store.
+5. The base split contains no `com.noodleapps.hakka.ui` classes or Hakka UI resources.

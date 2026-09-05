@@ -2,7 +2,7 @@
  * Shared storage-value redaction.
  *
  * Used by both the monkey-patch storage monitors (`monitors/storage.ts`) and
- * the live Storage tab / bridge publisher (`ui/screens/StorageViewer.tsx`,
+ * the desktop bridge publisher (
  * `core/HakkaBridge.ts`) so a value never leaves the device unredacted
  * regardless of which path reads it — one shared implementation instead of
  * each call site rolling its own.

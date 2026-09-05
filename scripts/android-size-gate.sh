@@ -4,12 +4,14 @@ set -eu
 ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 ANDROID_DIR="$ROOT_DIR/android"
 
-# Budget = re-baselined "network + perf" (base SDK) delta, measured 2026-08-01,
-# plus ~20% headroom, rounded to a clean number.
+# Budgets are based on minified release APK deltas measured 2026-09-05.
 #
-#   network delta:          131.7 KB (134,832 bytes)
-#   base SDK delta (gates): 148.9 KB (152,448 bytes)  <- the binding number
-#   budget:                 180.0 KB (184,320 bytes)  -> 31,872 bytes headroom (~21%)
+#   base SDK: 27.7 KB (28,404 bytes), budget 40 KB
+#   UI over base SDK: 245.4 KB (251,295 bytes), budget 270 KB
+#
+# RN-only reflection entry points are retained by the RN package consumer rules;
+# native-only hosts can shrink unused bridge methods without losing native UI.
+# These deltas measure native SDK artifacts, not a React Native host APK.
 #
 # The `android/size-gate` app's `baseline` flavor now performs the same
 # `client.newCall(...).execute()` OkHttp call as every Hakka flavor
@@ -27,7 +29,8 @@ ANDROID_DIR="$ROOT_DIR/android"
 # If a real feature addition pushes the base SDK delta past budget, re-baseline
 # this comment (not just the number) with the new measurement and rationale —
 # don't silently widen the budget to whatever makes the build green.
-BUDGET_BYTES=${HAKKA_ANDROID_SIZE_BUDGET_BYTES:-184320}
+BUDGET_BYTES=${HAKKA_ANDROID_SIZE_BUDGET_BYTES:-40960}
+UI_BUDGET_BYTES=${HAKKA_ANDROID_UI_SIZE_BUDGET_BYTES:-276480}
 
 find_apkanalyzer() {
     if command -v apkanalyzer >/dev/null 2>&1; then
@@ -158,7 +161,7 @@ performance_delta=$((performance_bytes - baseline_bytes))
 performance_over_network_delta=$((base_sdk_bytes - network_bytes))
 base_sdk_delta=$((base_sdk_bytes - baseline_bytes))
 full_delta=$((full_bytes - baseline_bytes))
-ui_delta=$((full_bytes - network_bytes))
+ui_delta=$((full_bytes - base_sdk_bytes))
 
 baseline_download=$(download_size "$baseline_apk")
 noop_download=$(download_size "$noop_apk")
@@ -175,11 +178,12 @@ performance_download_delta=$(download_delta "$performance_download" "$baseline_d
 performance_over_network_download_delta=$(download_delta "$base_sdk_download" "$network_download")
 base_sdk_download_delta=$(download_delta "$base_sdk_download" "$baseline_download")
 full_download_delta=$(download_delta "$full_download" "$baseline_download")
-ui_download_delta=$(download_delta "$full_download" "$network_download")
+ui_download_delta=$(download_delta "$full_download" "$base_sdk_download")
 
 printf '\nAndroid APK size gate\n'
 printf 'Baseline: host app with OkHttp linked, no Hakka artifacts.\n'
 printf 'Budget: base SDK delta <= %s (%s bytes)\n\n' "$(human_bytes "$BUDGET_BYTES")" "$BUDGET_BYTES"
+printf 'UI budget: UI delta over base SDK <= %s (%s bytes)\n\n' "$(human_bytes "$UI_BUDGET_BYTES")" "$UI_BUDGET_BYTES"
 printf '%-16s %10s %12s %s\n' "Variant" "APK size" "Download" "APK"
 print_variant_row baseline "$baseline_apk" "$baseline_bytes" "$baseline_download"
 print_variant_row noop "$noop_apk" "$noop_bytes" "$noop_download"
@@ -197,8 +201,8 @@ print_module_row "hakka-perf-noop" "$performance_noop_delta" "$performance_noop_
 print_module_row "hakka-performance" "$performance_delta" "$performance_download_delta" "performance artifact alone"
 print_module_row "perf over network" "$performance_over_network_delta" "$performance_over_network_download_delta" "incremental over hakka-network"
 print_module_row "network + perf" "$base_sdk_delta" "$base_sdk_download_delta" "base SDK budget target"
-print_module_row "hakka-ui" "$ui_delta" "$ui_download_delta" "incremental over hakka-network"
-print_module_row "network + ui" "$full_delta" "$full_download_delta" "total optional native inspector"
+print_module_row "hakka-ui" "$ui_delta" "$ui_download_delta" "incremental over base SDK"
+print_module_row "base SDK + UI" "$full_delta" "$full_download_delta" "total optional native inspector"
 
 report_dir="$ANDROID_DIR/size-gate/build/reports/size-gate"
 mkdir -p "$report_dir"
@@ -254,4 +258,11 @@ if [ "$base_sdk_delta" -gt "$BUDGET_BYTES" ]; then
     exit 1
 fi
 
-printf '\nPASS: network and base SDK deltas are within budget. Report: %s/summary.txt\n' "$report_dir"
+ui_gate_delta=$ui_delta
+
+if [ "$ui_gate_delta" -gt "$UI_BUDGET_BYTES" ]; then
+    printf '\nFAIL: UI delta exceeds budget. See %s/summary.txt\n' "$report_dir" >&2
+    exit 1
+fi
+
+printf '\nPASS: base SDK and UI deltas are within budget. Report: %s/summary.txt\n' "$report_dir"

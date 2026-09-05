@@ -39,9 +39,10 @@ export type NativeHakkaModule = {
   setTraceAttribute?: (traceId: string, key: string, value: string) => void
   setTraceMetric?: (traceId: string, key: string, value: number) => void
   finishTrace?: (traceId: string) => void
-  /** Synchronous probe: `true` when the optional native UI package is linked (`showUI` silently no-ops otherwise). */
+  /** Synchronous probe for the linked native inspector. */
   isUIAvailable?: () => boolean
-  showUI: (mode: string) => void
+  /** Legacy void results are accepted at the bridge boundary but never treated as successful presentation. */
+  showUI: (mode: string) => Promise<boolean> | boolean | void
   clearLogs: () => void
   /** Pause the native capture engine (native-mode RN). */
   pause?: () => void

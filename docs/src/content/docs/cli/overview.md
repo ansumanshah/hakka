@@ -111,12 +111,11 @@ The plugin auto-injects the overlay in dev builds only. No files are created on 
 npm i hakka-react-native
 ```
 
-```tsx
-import { HakkaMonitor } from 'hakka-react-native/ui'
-// ...
-{
-  __DEV__ && <HakkaMonitor />
-}
+```ts
+import { Hakka } from 'hakka-react-native'
+
+Hakka.start({ mode: 'auto' })
+await Hakka.show({ as: 'bubble' })
 ```
 
 The CLI also notes that the Expo config plugin wires native capture during `prebuild`.
@@ -131,14 +130,15 @@ Same snippet as Expo, without the config-plugin note:
 npm i hakka-react-native
 ```
 
-```tsx
-import { HakkaMonitor } from 'hakka-react-native/ui'
-{
-  __DEV__ && <HakkaMonitor />
-}
+```ts
+import { Hakka } from 'hakka-react-native'
+
+Hakka.start({ mode: 'auto' })
+await Hakka.show({ as: 'bubble' })
 ```
 
-No files are created on disk. Shake the device or long-press the bubble to open the inspector; a tap expands a quick summary in place.
+No files are created on disk. Native UI requires native or auto native capture; `js`, `store`, and
+stopped modes cannot present it.
 
 ## Web (drop-in)
 

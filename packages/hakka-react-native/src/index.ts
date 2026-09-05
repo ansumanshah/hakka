@@ -1,8 +1,7 @@
 /**
  * hakka-react-native — Public API (core only)
  *
- * UI components are in 'hakka-react-native/ui' — import separately to avoid bundling
- * when using native UI only.
+ * Open the platform-native inspector with await Hakka.show().
  *
  * Monitors are in 'hakka-react-native/monitors' — import separately to avoid bundling
  * when not using storage/query monitoring.
@@ -117,3 +116,5 @@ export function enableJsLayerCapture(): void {
 
 export { mockEngine } from 'hakka-core'
 export type { MockRule, MockRuleInput, MockResponse } from 'hakka-core'
+
+export type { UseNetworkLogsResult } from './hooks/useNetworkLogs'

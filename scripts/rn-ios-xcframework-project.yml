@@ -1,0 +1,30 @@
+name: HakkaNative
+options:
+  deploymentTarget:
+    iOS: '16.0'
+settings:
+  base:
+    BUILD_LIBRARY_FOR_DISTRIBUTION: YES
+    DEFINES_MODULE: YES
+    IPHONEOS_DEPLOYMENT_TARGET: '16.0'
+    SKIP_INSTALL: NO
+    SWIFT_VERSION: '6.0'
+targets:
+  HakkaNative:
+    type: framework.static
+    platform: iOS
+    deploymentTarget: '16.0'
+    sources:
+      - path: packages/hakka-react-native/ios/Core
+      - path: packages/hakka-react-native/ios/Performance
+      - path: packages/hakka-react-native/ios/UI
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.noodleapps.hakka.native
+        PRODUCT_MODULE_NAME: HakkaNative
+        MACH_O_TYPE: staticlib
+        BUILD_LIBRARY_FOR_DISTRIBUTION: YES
+        DEFINES_MODULE: YES
+        IPHONEOS_DEPLOYMENT_TARGET: '16.0'
+        SKIP_INSTALL: NO
+        SWIFT_VERSION: '6.0'

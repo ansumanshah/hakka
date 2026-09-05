@@ -13,7 +13,7 @@ Android Maven artifacts and an iOS Swift Package. The macOS app lives in `apps/h
 packages/
   hakka-core/           hakka-core — platform-neutral capture engine (one dep: fflate)
                          + /test subpath — assert-on-captured-traffic test helpers
-  hakka-react-native/   hakka-react-native — RN SDK + native bridge + UI + example app
+  hakka-react-native/   hakka-react-native — RN SDK + native bridge + example app
   hakka-browser/        hakka-browser — browser overlay (Solid, Shadow DOM, Web Worker store)
                          + /elements/* subpaths — standalone inspector pieces as custom elements
                          + /react subpath — thin React wrappers over the elements

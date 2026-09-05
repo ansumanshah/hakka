@@ -155,8 +155,8 @@ enum Theme {
 
     // MARK: - Row
 
-    static let rowPadH: CGFloat = 14
-    static let rowPadV: CGFloat = 9
+    static let rowPadH = HakkaMetrics.Spacing.ll
+    static let rowPadV = HakkaMetrics.Spacing.ml
 
     /// Two-line list row baseline height — the height at the default Dynamic
     /// Type size, used as a *minimum* so rows grow rather than clip under
@@ -167,16 +167,14 @@ enum Theme {
 
     // MARK: - Control Heights
     //
-    // One height rule (DESIGN.md): every small interactive control (chips) is
-    // `ctlH`; action-bar buttons ("Filters +n", header overflow, toggles' row)
-    // are `ctlHLg`; the minimum touch target for any control — including ones
+    // One height rule (DESIGN.md): chips use `ctlH`; action-bar controls
+    // use `ctlHLg`; the minimum touch target for any control — including ones
     // whose visual glyph is smaller — is `tapMin`, via padding, never by
-    // shrinking the tap zone itself. Matches web's `--hakka-ctl-h` (26px) /
-    // `--hakka-ctl-h-lg` (32px).
+    // shrinking the tap zone itself.
 
-    static let ctlH: CGFloat = 26
-    static let ctlHLg: CGFloat = 32
-    static let tapMin: CGFloat = 44
+    static let ctlH = HakkaMetrics.ControlHeight.chip
+    static let ctlHLg = HakkaMetrics.ControlHeight.md
+    static let tapMin = HakkaMetrics.ControlHeight.bar
 
     // MARK: - Functions
 
@@ -242,6 +240,16 @@ extension View {
         self
             .padding(.horizontal, Theme.panePadH)
             .padding(.vertical, Theme.s16)
+    }
+
+    /// Shared inspector toolbar chrome. All inspector destinations use the
+    /// same page edge, vertical rhythm, and surface treatment.
+    func hakkaInspectorToolbar() -> some View {
+        self
+            .padding(.horizontal, HakkaMetrics.Layout.gutter)
+            .padding(.top, HakkaMetrics.Spacing.ml)
+            .padding(.bottom, HakkaMetrics.Spacing.sm)
+            .background(Theme.surface)
     }
 }
 

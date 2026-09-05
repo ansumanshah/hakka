@@ -3,7 +3,9 @@
 
 import Foundation
 #if canImport(HakkaCommon)
+#if canImport(HakkaCommon)
 import HakkaCommon
+#endif
 #endif
 
 /// Extracts timing/header/body metadata from a completed `URLSessionTask` and

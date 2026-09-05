@@ -34,12 +34,11 @@ sessions), see the [Architecture Decision Records](/contributing/adr/).
 - When optional advanced Android diagnostics are added, use nested ATrace sections with stable names: `hakka.capture`, `hakka.process`, `hakka.store`, `hakka.sink`, `hakka.export`, and `hakka.ui`.
 - **Trigger to implement:** Add markers only behind an opt-in diagnostics flag after measuring overhead in a release-like Android build.
 
-## React Native Monitor UI Default
+## React Native Inspector Surface
 
-- React Native UI is imported only from `hakka-react-native/ui`; the core `hakka-react-native` import stays UI-free.
-- `hakka-ui` is 149 KB APK; the base SDK (`hakka-network + hakka-performance`) is 76 KB APK over the OkHttp baseline.
-- **Decision:** Recommend the React Native JS Monitor UI as the default RN surface. Keep Android native `hakka-ui` optional for native Android apps that explicitly want a platform inspector.
-- **Trigger to revisit:** Change only if longer runtime sessions show JS UI lag that the native UI avoids, or if the JS peer graph becomes materially heavier than the measured native UI artifact.
+- React Native uses the native iOS and Android inspector surfaces through `Hakka.show()`; the core TypeScript import remains capture and API focused.
+- **Decision:** Remove the bundled React Native inspector, theme, renderer plugin, and UI-only peer graph. Native UI is linked with the native SDK artifacts and can be opened as a bubble, sheet, or fullscreen surface.
+- **Trigger to revisit:** Reconsider only if a supported native platform needs a new presentation or a native surface lacks a required inspector capability.
 
 ## V1 Runtime Collectors
 
@@ -76,8 +75,7 @@ Expo SDK 56 introduced a more direct Apple native-module path built around Swift
 - **Decision:** Ship `hakka-react-native/app.plugin.js` as an Expo config plugin that adds `hakka-network` for debug builds and `hakka-network-noop` for release builds during Expo prebuild.
 - **Decision:** Keep Android performance collectors opt-in through the `androidPerformance` plugin option.
 - **Decision:** Keep `expo` as an optional peer dependency. Bare React Native users should not need to install Expo.
-- **Decision:** Keep `@react-native-clipboard/clipboard` as a required peer for this release because share/copy helpers are still exported from the core package surface.
-- **Reversed (2026-08-17, pre-publish):** clipboard is now an **optional** peer, resolved at runtime behind a guarded require (falling back to `expo-clipboard`, else copy reports failure) — the same optional-peer pattern every other native module already uses. With it, the SDK has zero required native dependencies beyond React Native. Install commands still recommend it, since copy actions are core to the product.
+- **Reversed (2026-08-17, pre-publish):** clipboard is now an **optional** peer, resolved at runtime behind a guarded require (falling back to `expo-clipboard`, else copy reports failure) — the same optional-peer pattern every other native module already uses. With it, the SDK has zero required native dependencies beyond React Native. The native inspector uses platform clipboard APIs directly, so install commands do not require or recommend a clipboard package. The optional peer only supports JavaScript clipboard helpers.
 - **Trigger to revisit:** Replace Gradle-file insertion with a more structured native dependency mechanism if Expo exposes one for Maven artifacts, or if Hakka's Android artifact graph changes.
 
 ## Full-Stack (Server + Client) Request Inspection for Next.js

@@ -24,14 +24,14 @@ import { Tabs, TabItem, Steps, Aside, CardGrid, LinkCard } from '@astrojs/starli
   <TabItem label="bun">```bash bun add hakka-react-native ```</TabItem>
 </Tabs>
 
-Then install the recommended Expo peers:
+Then install the Expo development client:
 
 ```bash title="Terminal"
-npx expo install @react-native-clipboard/clipboard expo-dev-client
+npx expo install expo-dev-client
 ```
 
-Clipboard is optional — if your app already uses `expo-clipboard`, Hakka's
-copy actions use it automatically and you can skip the community package.
+The native inspector uses the platform clipboard directly. No clipboard package or
+React Native UI peer is required.
 
 ## Setup
 
@@ -47,7 +47,11 @@ copy actions use it automatically and you can skip the community package.
    }
    ```
 
-   The plugin adds Android debug/release Hakka network artifacts during prebuild. iOS dependencies are handled by React Native autolinking and CocoaPods.
+   The plugin adds `hakka-network` and `hakka-ui` to Android debug builds. Set
+   `androidUI: false` to omit the inspector. Release builds use `hakka-network-noop`
+   and omit the UI; enabling `androidPerformance` adds real performance capture in
+   debug and its noop artifact in release. iOS includes the canonical native UI in
+   the React Native pod through autolinking and CocoaPods.
 
 2. **Opt in to Android performance collectors** _(optional)_
 
@@ -73,8 +77,6 @@ copy actions use it automatically and you can skip the community package.
 
    Shake the device or press `m` in the Expo CLI to open the dev menu, then open the Hakka overlay. Make any network request in your app — you should see it appear in the inspector with method, status, and timing.
 
-   ![The Hakka inspector on iOS showing a captured request: GET https://httpbin.org/get, status 200, 840ms, with Mock this / Export / Replay actions and Overview / Request / Response / Timing tabs. The floating bubble above shows live request, error, UI-FPS and JS-FPS counters.](../../../assets/screenshots/hakka-rn-bubble.png)
-
 </Steps>
 
 ## Day-to-Day Development
@@ -87,26 +89,12 @@ npx expo start
 
 You only need to rebuild (`npx expo run:ios` / `npx expo run:android`) when you change native dependencies or plugin configuration.
 
-## Optional UI Peers
+## Native inspector
 
-If you import `hakka-react-native/ui`, install the UI peers:
-
-```bash title="Terminal"
-npx expo install react-native-gesture-handler react-native-reanimated react-native-safe-area-context react-native-svg react-native-worklets
-```
-
-Then add the Worklets Babel plugin **last** in `babel.config.js`:
-
-```js title="babel.config.js"
-module.exports = function (api) {
-  api.cache(true)
-
-  return {
-    presets: ['babel-preset-expo'],
-    plugins: ['react-native-worklets/plugin'],
-  }
-}
-```
+The native inspector is opened from the app through `Hakka.show({ as: 'bubble' | 'sheet' | 'fullscreen' })`
+after starting native or auto native capture. It returns a promise resolving to `true` after native
+presentation, or `false` when native UI is unavailable. `Hakka.hide()` dismisses it. The removed
+`hakka-react-native/ui` entry point and its React Native UI peers are not part of Expo setup.
 
 ## SDK 56 Note
 
