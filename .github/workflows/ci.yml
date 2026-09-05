@@ -299,6 +299,8 @@ jobs:
       - name: Assemble debug APK (compiles the RN bridge Kotlin)
         working-directory: packages/hakka-react-native/examples/react-native-example/android
         run: ./gradlew assembleDebug -PreactNativeArchitectures=arm64-v8a
+      - name: Build Rozenite workspace dependency
+        run: bun run --cwd packages/hakka-rozenite build
       # Drift catcher. assembleDebug and the iOS job both skip JS bundling, so
       # neither can see a Metro resolution failure. Hakka's optional peer deps
       # are require()d behind try/catch, which guards runtime but NOT Metro's
