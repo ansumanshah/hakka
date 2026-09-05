@@ -230,7 +230,7 @@ export function enableXHRInterceptor(
     const xhr = this
 
     // Per-request opt-out: `(xhr as any)._noHakka = true` before send() bypasses all capture.
-    if ((xhr as Record<string, unknown>)._noHakka === true) {
+    if ((xhr as unknown as Record<string, unknown>)._noHakka === true) {
       // eslint-disable-next-line prefer-rest-params
       savedSend.apply(xhr, arguments as unknown as Parameters<typeof savedSend>)
       return

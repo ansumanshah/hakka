@@ -6,7 +6,7 @@ import { defineConfig } from 'vite'
  * the `VITE_ROZENITE_TARGET` env var to decide what to bundle. */
 export default defineConfig({
   root: __dirname,
-  plugins: [rozenitePlugin()],
+  plugins: rozenitePlugin(),
   base: './',
   build: {
     outDir: './dist',

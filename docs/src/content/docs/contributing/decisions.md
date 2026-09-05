@@ -17,7 +17,7 @@ sessions), see the [Architecture Decision Records](/contributing/adr/).
 
 ## React Native Support Floor
 
-- The package peer range is `react-native >=0.78.0`; the local runtime validation app runs React Native 0.85.3.
+- The package peer range is `react-native >=0.78.0`; both local runtime validation apps run React Native 0.86.3, the exact version required by Expo 57. React Native 0.87 is deferred because its generated `StyleSheet` types require a broader UI style-typing migration.
 - The package prefers the New Architecture TurboModule path, but the TypeScript surface and optional JS fallback do not require a newer RN version.
 - **Decision:** Keep `react-native >=0.78.0` until a compatibility matrix proves a higher minimum or a required codegen/API dependency forces the change.
 - **Trigger to revisit:** Raise the peer floor only with explicit validation for the new minimum, the latest stable RN, and both Android/iOS example smoke checks.

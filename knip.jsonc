@@ -23,7 +23,6 @@
       "entry": ["examples/framework-servers/*.mjs", "examples/otel-spans/*.mjs", "examples/prod-cohort/demo.mjs"],
     },
     "packages/hakka-rozenite": {
-      "entry": ["examples/fixed-dev-flow.rozenite.config.ts"],
       // Rozenite maps react-native imports to this renderer in its web build.
       "ignoreDependencies": ["react-native-web"],
     },

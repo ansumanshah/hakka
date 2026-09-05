@@ -31,29 +31,19 @@
   ],
   "type": "module",
   "sideEffects": false,
-  "main": "./dist/react-native/index.cjs",
-  "module": "./dist/react-native/index.js",
-  "types": "./dist/react-native/index.d.ts",
+  "main": "./dist/react-native/cjs/react-native.js",
+  "module": "./dist/react-native/react-native.js",
+  "types": "./dist/react-native/react-native.d.ts",
   "exports": {
     ".": {
-      "import": {
-        "types": "./dist/react-native/index.d.ts",
-        "default": "./dist/react-native/index.js"
-      },
-      "require": {
-        "types": "./dist/react-native/index.d.cts",
-        "default": "./dist/react-native/index.cjs"
-      }
+      "types": "./dist/react-native/react-native.d.ts",
+      "import": "./dist/react-native/react-native.js",
+      "require": "./dist/react-native/cjs/react-native.js"
     },
     "./react-native": {
-      "import": {
-        "types": "./dist/react-native/index.d.ts",
-        "default": "./dist/react-native/index.js"
-      },
-      "require": {
-        "types": "./dist/react-native/index.d.cts",
-        "default": "./dist/react-native/index.cjs"
-      }
+      "types": "./dist/react-native/react-native.d.ts",
+      "import": "./dist/react-native/react-native.js",
+      "require": "./dist/react-native/cjs/react-native.js"
     },
     "./package.json": "./package.json"
   },
@@ -70,12 +60,13 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@rozenite/plugin-bridge": "^1.13.0",
+    "@rozenite/plugin-bridge": "^2.4.0",
     "hakka-browser": "0.0.1",
     "hakka-core": "0.0.1"
   },
   "devDependencies": {
-    "@rozenite/vite-plugin": "^1.13.0",
+    "@rozenite/testing": "^2.4.0",
+    "@rozenite/vite-plugin": "^2.4.0",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.7",
     "hakka-react-native": "0.0.1",
@@ -83,8 +74,8 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native-web": "0.21.2",
-    "rozenite": "^1.13.0",
-    "typescript": "^6.0.3",
+    "rozenite": "^2.4.0",
+    "typescript": "~5.9.3",
     "vite": "^7.3.6",
     "vitest": "^5.0.0"
   },

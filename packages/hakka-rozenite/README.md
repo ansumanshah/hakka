@@ -2,17 +2,11 @@
 
 > **Experimental.** Rozenite's plugin API is young and still moving (see
 > "Rozenite version" below): treat this package's shape as likely to change
-> alongside it, not a stable contract. Built and tested against Rozenite
-> `1.13.0`. As of 2026-08-29 the build output has been checked against
-> Rozenite's real plugin-discovery mechanism (source, not just docs), and the
-> compiled panel has been driven live (mounted, rendered, and round-tripped a
-> real `request` message) inside Rozenite's own no-device dev harness. What's
-> still unverified is the one piece that needs a physical or simulated device:
-> Metro's plugin auto-discovery scanning a real app's dependency tree, and the
-> CDP-domain transport React Native DevTools uses on the device side. See
-> "Verification status" below for the full breakdown, including a confirmed
-> (and fixed-in-testing, not yet applied) bug in this package's own
-> `rozenite.config.ts` dev flow.
+> alongside it, not a stable contract. Built and tested against the complete
+> Rozenite `2.4.0` family and Vite `7.3.6`. The repository's React Native
+> example now exercises Metro discovery during its Rozenite-enabled bundle,
+> while the real DevTools sidebar and device-side CDP transport still need a
+> simulator or physical device. See "Verification status" below.
 
 Hakka's network inspector as a panel inside **React Native DevTools**, via
 [Rozenite](https://rozenite.dev). Renders the same
@@ -24,20 +18,18 @@ capture stream.
 
 ## Rozenite version this was built against
 
-Studied and implemented against the Rozenite monorepo at commit
-`3d7ab5307da9256e183d3a8dfd4e9bca00ce2960` (2026-06-24), which matches the
-`1.13.0` release published to npm for
-`rozenite`, `@rozenite/vite-plugin`, `@rozenite/plugin-bridge`, and
-`@rozenite/metro` (verified via `npm view <pkg> version` at the time this
-package was built). This package depends on `@rozenite/plugin-bridge@^1.13.0`
-and builds against `rozenite@^1.13.0`/`@rozenite/vite-plugin@^1.13.0`.
+The package uses the coordinated Rozenite `2.4.0` release for `rozenite`,
+`@rozenite/vite-plugin`, `@rozenite/plugin-bridge`, `@rozenite/metro`, and
+`@rozenite/testing`. `@rozenite/vite-plugin@2.4.0` declares Vite `^7.3.1`, so
+the workspace uses Vite `7.3.6` rather than the incompatible Vite 8 line.
 
 The plugin contract this package relies on, confirmed by reading Rozenite's
 own docs (`website/src/docs/plugin-development/*.md`) and two official
 plugins (`packages/mmkv-plugin`, `packages/network-activity-plugin`) rather
 than assuming it from the getting-started guide alone:
 
-- **Package shape**: `rozenite.config.ts` (`panels: [{ name, source }]`),
+- **Package shape**: `rozenite.config.ts` (`panels: [{ name, source }]` and
+  `integrations: ['react-native']`),
   an optional `react-native.ts` entry point, a `vite.config.ts` using
   `rozenitePlugin()` from `@rozenite/vite-plugin`. `rozenite build` runs
   `vite build` once per detected target (panels always; `react-native.ts`/
@@ -172,7 +164,7 @@ one page share state with zero configuration" behavior documented in
 since this plugin's store is never `hakka-browser/elements`' own default
 (`hakka-browser`-worker-backed) singleton.
 
-## Setup (once wired into an app)
+## Setup
 
 ```ts
 // In your app, alongside useHakka():
@@ -190,15 +182,19 @@ Requires Rozenite configured in the app's Metro/Re.Pack config (see
 this package doesn't configure that for you, the same way every other
 Rozenite plugin doesn't.
 
+The repository's bare React Native example is a working reference. Its Metro
+configuration enables `@rozenite/metro` when `WITH_ROZENITE=true` and limits
+discovery to `hakka-rozenite`; `bun run start:rozenite` sets the matching
+development-mode environment.
+
 ## Verification status
 
-Three tiers, from "runs in a test sandbox" to "runs on a real device." Full
-reproduction steps and a working fix for the one confirmed bug below are in
-[`examples/`](./examples).
+Three tiers, from "runs in a test sandbox" to "runs on a real device." The
+no-device reproduction steps are in [`examples/`](./examples).
 
 ### 1. Unit-tested
 
-`bun run --cwd packages/hakka-rozenite test` uses happy-dom + vitest, 19/19
+`bun run --cwd packages/hakka-rozenite test` uses happy-dom + vitest, 20/20
 passing:
 
 - `react-native/bridge.test.ts`: the pure backlog-flush/live-forward/
@@ -214,18 +210,19 @@ passing:
   that all three custom elements mount and register, that selecting a row in
   the list shows it in the detail pane, and that unmounting tears down the
   store's message-listener subscriptions.
+- `shared/rozeniteTransport.test.ts`: connects the real Rozenite 2.4 plugin
+  clients through `@rozenite/testing`; verifies captured traffic reaches the
+  panel store and the panel's clear control reaches the RN-side bridge.
 
-### 2. Verified 2026-08-29 without a device: build output plus the compiled panel, driven live
+### 2. Verified 2026-09-05 without a device: build output, transport, and Metro discovery
 
-Checked against the actual installed `rozenite`/`@rozenite/middleware`/
-`@rozenite/plugin-bridge`/`@rozenite/vite-plugin` packages (all `1.13.0`,
-their published `dist/*.js`, unpacked from the real npm tarballs), not just
-their docs.
+Checked against the installed Rozenite `2.4.0` family and Vite `7.3.6`.
 
 **Build output matches Rozenite's real discovery mechanism.**
 `bun run --cwd packages/hakka-rozenite build` succeeds and produces
-`dist/rozenite.json` (`{"panels":[{"name":"Hakka","source":"/devtools/App.html"}]}`)
-next to `dist/devtools/App.html` and `dist/react-native/index.{js,cjs,d.ts,d.cts}`.
+`dist/rozenite.json` with the Hakka panel and React Native integration next to
+`dist/devtools/App.html`, `dist/react-native/react-native.{js,d.ts}`, and the
+CommonJS device entry under `dist/react-native/cjs/`.
 `@rozenite/middleware`'s own plugin discovery (`tryExtractPlugin` in its
 published `dist/index.js`) is exactly `fs.accessSync(path.join(packagePath,
 'dist', 'rozenite.json'))` against every package name in the host app's
@@ -259,46 +256,15 @@ real browser tab:
   `client.onMessage('request', upsert)`), exercised end-to-end against the
   real compiled artifact and the real transport, not a unit-test mock.
 
-**Confirmed bug, not fatal to production use: `rozenite.config.ts`'s own dev
-flow never simulates the RN side.** `dev.flows[0]` (`rozenite.config.ts:19-26`)
-exists to auto-populate the panel with fake traffic when you run `rozenite
-dev` without a device attached; its name is "Request snapshot" and its
-comment says it "asks the ... React Native side to resend its backlog." Live
-in the Dev Host it does nothing: `get-snapshot` fires (once from the panel on
-mount, once from this flow), no `request`/`cleared` ever follows, and the
-panel sits on "No requests captured yet" indefinitely. Root cause has two
-independent parts, isolated by testing each fix in a local, reverted edit to
-`rozenite.config.ts`:
-
-1. **Wrong direction.** `run({ send })` calling `send('get-snapshot', {})`
-   sends `get-snapshot` _from_ the dev-host _into_ the panel
-   (`@rozenite/vite-plugin`'s `flowContext.send` always posts into the panel
-   iframe, confirmed in its published `src/dev-host/flow-runtime.ts` and
-   `App.tsx`). But `get-snapshot` is `panel -> RN` only, per this package's
-   own `shared/protocol.ts`, and the panel never listens for it inbound
-   (`ui/panelStore.ts` only subscribes to `'request'`/`'cleared'`): the
-   flow's `send` lands on a listener that doesn't exist.
-2. **Wrong lifetime, even after fixing (1).** Swapping to
-   `onMessage('get-snapshot', respond)` still did nothing: `@rozenite/vite-plugin`'s
-   `useFlowRunner` tears down every listener a flow registered the instant
-   that flow's own `run()` promise resolves (`flow-runtime.ts`'s
-   `cleanupRun()`, called from `runFlow()`'s `.finally()`). An `async run()`
-   that calls `onMessage(...)` with no `await` after it resolves immediately,
-   so the listener is gone before any message can reach it.
-
-Both fixes together (`onMessage('get-snapshot', ...)` _and_ keeping `run()`
-pending on an unresolved promise gated on the `signal` the flow context
-provides) were verified live: the panel auto-populated a fake request the
-instant it loaded, with zero manual interaction. The tested replacement is in
-[`examples/`](./examples); not applied to `rozenite.config.ts` in this pass
-(outside this change's file scope).
+**The old no-device snapshot flow is fixed.** Rozenite 2 replaces the
+short-lived listener API with typed `waitForMessage`. The current flow waits
+for the panel's `get-snapshot` message and responds with a sample request.
 
 ### 3. Still unverified: needs a real device
 
-- Metro's actual plugin auto-discovery scanning a real app's dependency tree
-  (`@rozenite/metro`'s `withRozenite`): this package has no dependency on
-  `@rozenite/metro` and no app in this repo has it configured, so the scan
-  itself has never run against this plugin.
+- Mounting the discovered plugin in a real React Native DevTools sidebar.
+  The bare example's Rozenite-enabled Metro bundle found exactly
+  `hakka-rozenite`, but no simulator/device DevTools session was started.
 - The CDP-domain transport on the RN side
   (`global.__FUSEBOX_REACT_DEVTOOLS_DISPATCHER__`), which only exists inside
   a real Hermes/JSC runtime under React Native DevTools. `@rozenite/plugin-bridge`
@@ -315,21 +281,17 @@ instant it loaded, with zero manual interaction. The tested replacement is in
 calling the device-side integration done; everything else above is already
 confirmed):
 
-1. In a Rozenite-enabled RN app (or the Rozenite monorepo's own playground
-   app), `npm link`/`bun link` this package (and `hakka-browser/react`/
-   `hakka-browser/elements`/`hakka-core`/`hakka-react-native` alongside it).
-2. Call `useHakkaRozeniteDevTools()` once in the app, alongside `useHakka()`.
-3. `ROZENITE_DEV_MODE=hakka-rozenite npx react-native start` (or `expo
-start`), per Rozenite's own dev-mode docs, to load this plugin's panel
-   from `rozenite dev`'s live dev server instead of a built `dist/`.
-4. Open React Native DevTools; confirm a "Hakka" panel appears in the
+1. From the repository root, run
+   `bun run --cwd packages/hakka-react-native/examples/react-native-example start:rozenite`.
+2. Build and open that example on a simulator or device.
+3. Open React Native DevTools; confirm a "Hakka" panel appears in the
    sidebar; this is the one step that exercises Metro's auto-discovery,
    never run against this plugin before.
-5. Trigger some network requests in the app; confirm they appear in the
+4. Trigger some network requests in the app; confirm they appear in the
    panel's request list live. (The panel/detail-pane/filter-bar behavior
    itself is already confirmed (see tier 2 above); this step is about the
    device-side CDP transport delivering them.)
-6. Click "Clear" in the panel; confirm `Hakka.getLogCount()` in the app goes
+5. Click "Clear" in the panel; confirm `Hakka.getLogCount()` in the app goes
    to zero too (not just the panel's own view).
 
 ## Known limitations

@@ -33,6 +33,7 @@ node_modules
 
 # Caches
 **/.expo/
+**/.rozenite/
 **/.astro/
 **/.bundle/
 **/Pods/
