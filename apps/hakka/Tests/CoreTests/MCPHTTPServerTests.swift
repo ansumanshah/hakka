@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 import Testing
 
@@ -68,4 +69,75 @@ struct MCPHTTPServerTests {
         #expect(await server.isRunning == false)
         #expect(await server.boundPort == nil)
     }
+    @Test("a fixed port already in use fails before reporting the server running")
+    func occupiedFixedPortFailsStartup() async throws {
+        let socket = Darwin.socket(AF_INET, SOCK_STREAM, 0)
+        #expect(socket >= 0)
+        defer { Darwin.close(socket) }
+        var address = sockaddr_in()
+        address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        address.sin_family = sa_family_t(AF_INET)
+        address.sin_addr.s_addr = inet_addr("127.0.0.1")
+        let bound = withUnsafePointer(to: &address) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                Darwin.bind(socket, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
+            }
+        }
+        #expect(bound == 0)
+        #expect(Darwin.listen(socket, 1) == 0)
+        var length = socklen_t(MemoryLayout<sockaddr_in>.size)
+        let inspected = withUnsafeMutablePointer(to: &address) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { getsockname(socket, $0, &length) }
+        }
+        #expect(inspected == 0)
+        let handler = MCPRequestHandler(registry: MCPToolRegistry())
+        let server = MCPHTTPServer(handler: handler, port: UInt16(bigEndian: address.sin_port))
+        await #expect(throws: (any Error).self) { try await server.start() }
+        #expect(await server.isRunning == false)
+        #expect(await server.boundPort == nil)
+        await server.stop()
+    }
+
+    @Test("stop revokes a connected client that has not sent its request yet")
+    func stopClosesAcceptedConnections() async throws {
+        let (server, port) = try await startServer()
+        defer { Task { await server.stop() } }
+        let socket = Darwin.socket(AF_INET, SOCK_STREAM, 0)
+        #expect(socket >= 0)
+        defer { Darwin.close(socket) }
+        var noSignal: Int32 = 1
+        _ = setsockopt(socket, SOL_SOCKET, SO_NOSIGPIPE, &noSignal, socklen_t(MemoryLayout<Int32>.size))
+        var timeout = timeval(tv_sec: 2, tv_usec: 0)
+        _ = setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
+        var address = sockaddr_in()
+        address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        address.sin_family = sa_family_t(AF_INET)
+        address.sin_port = port.bigEndian
+        address.sin_addr.s_addr = inet_addr("127.0.0.1")
+        let connected = withUnsafePointer(to: &address) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                Darwin.connect(socket, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
+            }
+        }
+        #expect(connected == 0)
+        for _ in 0..<200 {
+            if await server.activeConnectionCount == 1 { break }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        try #require(await server.activeConnectionCount == 1)
+        await server.stop()
+
+        let body = #"{"jsonrpc":"2.0","id":1,"method":"tools/list"}"#
+        let request = Data("POST / HTTP/1.1\r\nHost: 127.0.0.1:\(port)\r\nContent-Length: \(body.utf8.count)\r\n\r\n\(body)".utf8)
+        let received: Int = await withCheckedContinuation { continuation in
+            DispatchQueue.global().async {
+                _ = request.withUnsafeBytes { Darwin.send(socket, $0.baseAddress, $0.count, 0) }
+                var buffer = [UInt8](repeating: 0, count: 128)
+                continuation.resume(returning: Darwin.recv(socket, &buffer, buffer.count, 0))
+            }
+        }
+        #expect(received <= 0, "disabled MCP must close already accepted clients before they can request data")
+        #expect(await server.activeConnectionCount == 0)
+    }
+
 }

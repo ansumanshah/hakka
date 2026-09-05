@@ -1,50 +1,48 @@
 import Foundation
 import Network
 
-/// One accepted HTTP connection: read a full request (headers + body sized
-/// by `Content-Length`), hand the body to `MCPRequestHandler`, write the
-/// response, close. No keep-alive — every response is `Connection: close`,
-/// which keeps this parser's job to "read exactly one request" instead of
-/// needing to track request boundaries across a reused socket. An MCP
-/// client issuing one `tools/call` per HTTP request pays one TCP handshake
-/// each time; that cost is irrelevant on loopback and buys a much smaller
-/// parser.
-///
-/// `@unchecked Sendable` for the same reason as `BridgeConnection`: every
-/// callback that touches `buffer` runs serialized on the single
-/// `DispatchQueue` this connection was started on (Network.framework's own
-/// threading contract), so there is no concurrent-mutation hazard the
-/// compiler can see but cannot disprove either.
-///
-/// Every closure here captures `self` strongly, deliberately, matching
-/// `BridgeConnection`'s documented rationale: `NWListener.newConnectionHandler`
-/// is the only place this object is created, and it keeps no reference
-/// after returning — a `[weak self]` receive closure would let this object
-/// deallocate before a single byte arrived, while `NWConnection` itself (kept
-/// alive by the framework for as long as it has outstanding work) would
-/// still complete its handshake and then silently have nowhere to deliver
-/// bytes to. `close()` is what breaks the resulting retain cycle.
+/// Mutable state is confined to queue; close cancels the socket before queuing state cleanup.
 final class MCPHTTPConnection: @unchecked Sendable {
     private let connection: NWConnection
     private let handler: MCPRequestHandler
     private var buffer = Data()
-    /// Same cap as `BridgeWireLimits.maxFrameBytes` — no reason for this
-    /// transport to accept a larger single request body than the bridge
-    /// accepts for a single frame.
+    private let queue: DispatchQueue
+    private let onClose: @Sendable () -> Void
+    private var isClosed = false
+    private var requestTask: Task<Void, Never>?
     private let maxBodyBytes = BridgeWireLimits.maxFrameBytes
 
-    init(connection: NWConnection, handler: MCPRequestHandler) {
+    init(connection: NWConnection, handler: MCPRequestHandler, queue: DispatchQueue, onClose: @escaping @Sendable () -> Void) {
         self.connection = connection
         self.handler = handler
+        self.queue = queue
+        self.onClose = onClose
     }
 
-    func start(on queue: DispatchQueue) {
+    func start() {
+        connection.stateUpdateHandler = { [self] state in
+            if case .failed = state { close() }
+            if case .cancelled = state { close() }
+        }
         connection.start(queue: queue)
         receiveNext()
     }
 
+    func close() {
+        connection.cancel()
+        queue.async { [self] in
+            guard !isClosed else { return }
+            isClosed = true
+            requestTask?.cancel()
+            requestTask = nil
+            connection.stateUpdateHandler = nil
+            onClose()
+        }
+    }
+
     private func receiveNext() {
         connection.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) { content, _, isComplete, error in
+            guard !self.isClosed else { return }
             if let content, !content.isEmpty {
                 guard self.buffer.count + content.count <= self.maxBodyBytes else {
                     self.respondPlain(status: "413 Payload Too Large", body: "Request body too large")
@@ -58,6 +56,9 @@ final class MCPHTTPConnection: @unchecked Sendable {
                     self.dispatch(parsed)
                     return
                 }
+            } catch MCPHTTPRequestParser.ParseError.forbidden {
+                self.respondPlain(status: "403 Forbidden", body: "Only native loopback clients are allowed")
+                return
             } catch {
                 self.respondPlain(status: "400 Bad Request", body: "Invalid HTTP request framing")
                 return
@@ -68,7 +69,7 @@ final class MCPHTTPConnection: @unchecked Sendable {
             // A partial request with no more bytes coming can never become
             // complete.
             if error != nil || isComplete {
-                self.connection.cancel()
+                self.close()
                 return
             }
             self.receiveNext()
@@ -80,12 +81,18 @@ final class MCPHTTPConnection: @unchecked Sendable {
             respondPlain(status: "405 Method Not Allowed", body: "This endpoint only accepts POST")
             return
         }
-        Task {
-            switch await self.handler.handle(request.body) {
-            case let .response(data):
-                self.respondJSON(body: data)
-            case .noResponse:
-                self.respondEmpty(status: "202 Accepted")
+        requestTask = Task {
+            guard !Task.isCancelled else { return }
+            let result = await self.handler.handle(request.body)
+            guard !Task.isCancelled else { return }
+            self.queue.async {
+                guard !self.isClosed else { return }
+                switch result {
+                case let .response(data):
+                    self.respondJSON(body: data)
+                case .noResponse:
+                    self.respondEmpty(status: "202 Accepted")
+                }
             }
         }
     }
@@ -116,7 +123,7 @@ final class MCPHTTPConnection: @unchecked Sendable {
     private func send(_ data: Data) {
         connection.send(
             content: data, isComplete: true,
-            completion: .contentProcessed { _ in self.connection.cancel() }
+            completion: .contentProcessed { _ in self.close() }
         )
     }
 }

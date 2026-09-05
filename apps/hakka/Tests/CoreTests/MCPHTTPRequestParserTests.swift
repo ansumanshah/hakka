@@ -6,7 +6,7 @@ import Testing
 @Suite("MCP HTTP request framing")
 struct MCPHTTPRequestParserTests {
     private func request(headers: String, body: String = "") -> Data {
-        Data("POST /mcp HTTP/1.1\r\n\(headers)\r\n\r\n\(body)".utf8)
+        Data("POST /mcp HTTP/1.1\r\nHost: localhost\r\n\(headers)\r\n\r\n\(body)".utf8)
     }
 
     @Test("invalid lengths are rejected without slicing the body", arguments: [
@@ -58,7 +58,7 @@ struct MCPHTTPRequestParserTests {
             let parsed = try #require(try MCPHTTPRequestParser.parse(request(headers: headers)))
             #expect(parsed.body.isEmpty)
         }
-        let parsed = try #require(try MCPHTTPRequestParser.parse(Data("POST /mcp HTTP/1.1\r\n\r\n".utf8)))
+        let parsed = try #require(try MCPHTTPRequestParser.parse(Data("POST /mcp HTTP/1.1\r\nHost: localhost\r\n\r\n".utf8)))
         #expect(parsed.body.isEmpty)
     }
 
