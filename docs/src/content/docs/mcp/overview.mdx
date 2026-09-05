@@ -99,6 +99,8 @@ Twenty-one tools, grouped by what they do. The see and diagnose tools only obser
 | `clear`           | Empty the in-memory store. Does not disconnect the bridge or stop capture.                                                                                                      |
 | `get_trace`       | Full request+span trace for one correlated operation (`requestId` or `correlationId`), assembled from both stores.                                                              |
 
+Use `list_requests` with `{ "summary": true, "limit": 50 }` to select requests without loading headers or bodies into agent context. Each summary includes `id`, scrubbed `url`, `method`, and available `status`, `duration`, and `runtime` fields. Pagination and redaction metadata stay the same. Omit `summary` or set it to `false` for full records, then use `get_request` with an `id` for individual details. `unredacted: true` also applies to summary URLs.
+
 ### Diagnose
 
 | Tool           | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
