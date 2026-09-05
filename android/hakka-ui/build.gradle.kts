@@ -1,7 +1,7 @@
 plugins {
     id("com.android.library")
     kotlin("android")
-    id("com.vanniktech.maven.publish") version "0.36.0"
+    id("com.vanniktech.maven.publish") version "0.37.0"
 }
 
 group = "com.noodleapps.hakka"
@@ -44,13 +44,13 @@ dependencies {
     // classpath (see HakkaTimberTree.kt / Hakka.plantTimber()).
     compileOnly("com.jakewharton.timber:timber:5.0.1")
 
-    testImplementation("org.junit.jupiter:junit-jupiter:6.0.3")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher:6.0.3")
+    testImplementation("org.junit.jupiter:junit-jupiter:6.1.3")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher:6.1.3")
     testImplementation("com.squareup.okhttp3:okhttp:4.12.0")
     testImplementation("com.jakewharton.timber:timber:5.0.1")
     // Real org.json impl for JVM unit tests — Android's compileSdk stub throws "Stub!" at
     // runtime. Same test-only dependency hakka-network already uses; never bundled.
-    testImplementation("org.json:json:20231013")
+    testImplementation("org.json:json:20260719")
 }
 
 tasks.withType<Test> {

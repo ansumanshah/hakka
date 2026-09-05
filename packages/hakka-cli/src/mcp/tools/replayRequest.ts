@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import { scrubNetworkRequestForShare } from 'hakka-core'
 import { z } from 'zod'
 
 import type { RequestStore } from '../RequestStore.js'
@@ -18,7 +19,7 @@ export function registerReplayRequestTool(server: McpServer, store: RequestStore
     {
       description:
         'Re-issue a previously captured request as a real network call inside the connected app, then wait for ' +
-        'it to be recaptured and return the new result. Useful for "did my fix actually work" without a manual ' +
+        'it to be recaptured and return the share-scrubbed result. Useful for "did my fix actually work" without a manual ' +
         'repro. Refuses websocket and server/edge-captured (Next.js) requests immediately with a structured ' +
         'error instead of timing out — see runtime_not_replayable.',
       inputSchema: {
@@ -56,7 +57,7 @@ export function registerReplayRequestTool(server: McpServer, store: RequestStore
         return textResult({ error: 'timeout', message: `No replay landed within ${timeoutMs}ms` }, true)
       }
 
-      return textResult({ replayed })
+      return textResult({ replayed: scrubNetworkRequestForShare(replayed).request })
     },
   )
 }

@@ -111,6 +111,58 @@ describe('list_requests', () => {
     await closeAll()
   })
 
+  it('summary preserves page metadata and selection fields while omitting captured detail', async () => {
+    store.add(makeRequest())
+    const selected = makeRequest({
+      runtime: 'server',
+      requestBody: '{"name":"sample"}',
+      responseBody: '{"ok":true}',
+      responseHeaderValues: { 'content-type': ['application/json'] },
+    })
+    store.add(selected)
+    store.add(makeRequest())
+
+    const payload = await call('list_requests', { summary: true, limit: 1, offset: 1 })
+
+    expect(payload).toMatchObject({ total: 3, offset: 1, count: 1, redaction: { applied: true } })
+    expect(payload.requests).toEqual([
+      {
+        id: selected.id,
+        url: selected.url,
+        method: selected.method,
+        status: selected.status,
+        duration: selected.duration,
+        runtime: 'server',
+      },
+    ])
+    const full = await call('list_requests', { limit: 1, offset: 1 })
+    expect((full.requests as NetworkRequest[])[0]).toMatchObject({
+      requestBody: selected.requestBody,
+      responseBody: selected.responseBody,
+      requestHeaders: {},
+      responseHeaders: {},
+      responseHeaderValues: selected.responseHeaderValues,
+    })
+    await closeAll()
+  })
+
+  it('summary scrubs secret URLs by default and respects explicit unredacted selection', async () => {
+    const secret = 'sk-live-summary-secret-123456789'
+    const request = makeRequest({ url: `https://api.example.com/data?api_key=${secret}`, responseBody: secret })
+    store.add(request)
+
+    const payload = await call('list_requests', { summary: true })
+    expect(JSON.stringify(payload)).not.toContain(secret)
+    expect(payload.redaction).toMatchObject({ applied: true })
+    expect((payload.redaction as { removed: string[] }).removed.length).toBeGreaterThan(0)
+
+    const raw = await call('list_requests', { summary: true, unredacted: true })
+    expect((raw.requests as NetworkRequest[])[0].url).toBe(request.url)
+    expect((raw.requests as NetworkRequest[])[0]).not.toHaveProperty('responseBody')
+    expect(raw.redaction).toEqual({ applied: false, removed: [] })
+    await closeAll()
+  })
+
   it('an offset past the end yields an empty page, not an error', async () => {
     store.add(makeRequest())
 

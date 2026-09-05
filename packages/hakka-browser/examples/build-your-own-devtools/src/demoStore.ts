@@ -36,7 +36,7 @@
 import { DEFAULT_CONFIG, enableFetchInterceptor, enableXHRInterceptor } from 'hakka-core'
 import type { AdvancedQuery, NetworkRequest } from 'hakka-core'
 
-export interface DemoBodyPair {
+interface DemoBodyPair {
   requestBody: string | null
   responseBody: string | null
 }

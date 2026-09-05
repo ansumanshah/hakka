@@ -283,10 +283,14 @@ describe('RingBuffer — iterators', () => {
     expect([...rb.reversed()].map((r) => r.id)).toEqual(['d', 'c', 'b'])
   })
 
-  test('getAll() delegates to reversed — preserves newest-first and all existing behaviour', () => {
-    const rb = new RingBuffer(4)
-    for (const id of ['a', 'b', 'c']) rb.add(req(id))
-    expect(rb.getAll().map((r) => r.id)).toEqual(['c', 'b', 'a'])
+  test('getAll returns an independent array without changing retained entries', () => {
+    const rb = new RingBuffer(3)
+    for (const id of ['a', 'b', 'c', 'd']) rb.add(req(id))
+    const snapshot = rb.getAll()
+    snapshot.reverse()
+    snapshot.pop()
+    expect(rb.getAll().map((r) => r.id)).toEqual(['d', 'c', 'b'])
+    expect(rb.size).toBe(3)
   })
 
   test('empty buffer — iterators yield nothing', () => {

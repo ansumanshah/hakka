@@ -133,8 +133,11 @@ export class RingBuffer {
 
   getAll(): NetworkRequest[] {
     const result: NetworkRequest[] = []
-    for (const item of this.reversed()) {
-      result.push(item)
+    // Materialize directly to avoid a generator result allocation per entry.
+    for (let i = 0; i < this._size; i++) {
+      const idx = (this.head - 1 - i + this.capacity) % this.capacity
+      const item = this.buffer[idx]
+      if (item) result.push(item)
     }
     return result
   }

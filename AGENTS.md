@@ -5,23 +5,23 @@ React Native, the web, Next.js, Android, and iOS. Use the Hakka name everywhere
 in public code, docs, tests, and APIs.
 
 Pre-1.0, not yet published. The first release publishes 7 npm packages plus
-Android Maven artifacts and an iOS Swift Package.
+Android Maven artifacts and an iOS Swift Package. The macOS app lives in `apps/hakka/`.
 
 ## Packages
 
 ```
 packages/
-  core/                 hakka-core — platform-neutral capture engine (one dep: fflate)
+  hakka-core/           hakka-core — platform-neutral capture engine (one dep: fflate)
                          + /test subpath — assert-on-captured-traffic test helpers
-  react-native-hakka/   hakka-react-native — RN SDK + native bridge + UI + example app
-  web/                  hakka-browser — browser overlay (Solid, Shadow DOM, Web Worker store)
+  hakka-react-native/   hakka-react-native — RN SDK + native bridge + UI + example app
+  hakka-browser/        hakka-browser — browser overlay (Solid, Shadow DOM, Web Worker store)
                          + /elements/* subpaths — standalone inspector pieces as custom elements
                          + /react subpath — thin React wrappers over the elements
   hakka-node/           hakka-node — server-side capture for Node backends (Express/Fastify/Hono/raw http)
                          + /next, /next/server, /next/client subpaths — full-stack Next.js capture
-  bridge/               hakka-bridge — desktop WebSocket hub for cross-runtime capture
+  hakka-bridge/         hakka-bridge — desktop WebSocket hub for cross-runtime capture
   hakka-rozenite/       hakka-rozenite — EXPERIMENTAL React Native DevTools panel via Rozenite
-  cli/                  hakka-cli — `npx hakka-cli init` framework-aware setup
+  hakka-cli/            hakka-cli — `npx hakka-cli init` framework-aware setup
                          + /mcp subpath, `hakka mcp` — MCP server exposing live traffic to AI agents
                          + /cdp subpath, `hakka cdp` — Chrome DevTools Protocol capture (Playwright/Puppeteer/raw CDP)
 android/                Kotlin SDK modules (Gradle) — see Android Notes
@@ -60,7 +60,7 @@ CI-essential scripts live in root `package.json`; day-to-day developer workflows
 live in the `justfile` (run `just` to list all recipes).
 
 ```bash
-bun install
+bun install --frozen-lockfile
 
 # JS/TS (root package.json — these are what CI runs)
 bun run typecheck            # all 7 packages
@@ -84,7 +84,7 @@ bun run docs:build
 # Release gates
 bun run phase:verify:ci      # CI-safe release confidence path
 bun run phase:verify         # local phase handoff confidence path
-bun run phase:verify:full    # fails until physical benchmark artifacts exist
+bun run phase:verify:full    # full build/test gate; physical benchmarks are separate
 ```
 
 Local convenience (justfile):
@@ -184,11 +184,14 @@ typecheck. Fix failures before committing — never skip hooks.
 
 Public: `README.md`, `CONTRIBUTING.md`, `.github/`, `docs/`, all package `README`s.
 
-Never commit: `.claude/`, `.codex/`, `.ramen/`, `.stitch/`, `.references/`,
+Never commit: `.agent/`, `.claude/`, `.codex/`, `.ramen/`, `.stitch/`, `.references/`,
 `artifacts/`, `CLAUDE.md`.
 
 Internal local-agent state (plans, memory, handoffs, research notes) belongs in
-`.claude/` or `.claude/memory/` and must not be committed.
+`.agent/` and must not be committed. Both Codex and Claude use this shared
+folder; keep tool settings, hooks, and skills in their tool-specific folders.
+Reusable project instructions belong here in tracked `AGENTS.md`; contributor
+commands belong in `CONTRIBUTING.md`. See its worktree and verification workflow.
 
 ## Research Workflow
 
