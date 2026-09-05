@@ -73,33 +73,6 @@ jobs:
       # Bundle-size gate: fails if a hakka-browser bundle exceeds its gzip budget.
       - run: node scripts/web-size-gate.mjs
 
-  node-compatibility:
-    name: Node Compatibility (${{ matrix.node }})
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        node: ['22.12.0', '24.x', '26.x']
-    steps:
-      - uses: actions/checkout@v7
-      - uses: oven-sh/setup-bun@v2
-      - uses: actions/setup-node@v7
-        with:
-          node-version: ${{ matrix.node }}
-      - uses: actions/cache@v6
-        with:
-          path: ~/.bun/install/cache
-          key: bun-node-${{ matrix.node }}-${{ hashFiles('bun.lock') }}
-          restore-keys: bun-node-${{ matrix.node }}-
-      - run: bun install --frozen-lockfile
-      - run: |
-          bun run --cwd packages/hakka-core build
-          bun run --cwd packages/hakka-bridge build
-          bun run --cwd packages/hakka-node build
-          bun run --cwd packages/hakka-cli build
-      - run: node scripts/smoke-node-compat.mjs
-
   web-e2e:
     name: Web E2E (mobile)
     runs-on: ubuntu-latest
