@@ -1,6 +1,9 @@
 package com.noodleapps.hakka.ui
 
 import android.app.Activity
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -49,6 +52,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.noodleapps.hakka.LogEntry
 import com.noodleapps.hakka.NetworkRequest
+import com.noodleapps.hakka.compileSearchQuery
+import com.noodleapps.hakka.parseSearchTokens
 import kotlinx.coroutines.delay
 
 /** Compose-first inspector shell shared by the fullscreen host and bottom sheet. */
@@ -118,7 +123,7 @@ private fun NetworkPage(activity: Activity, onClose: () -> Unit) {
     val requests = remember(revision, query, method, statusClass) {
         (logStore?.all() ?: emptyList()).asReversed()
             .filter { request ->
-                (query.isBlank() || request.url.contains(query, true) || request.method.name.contains(query, true)) &&
+                (query.isBlank() || compileSearchQuery(parseSearchTokens(query))(request)) &&
                     (method == null || request.method.name == method) &&
                     (statusClass == null || request.status?.div(100)?.toString() == statusClass)
             }
@@ -176,6 +181,8 @@ private fun RequestCard(activity: Activity, request: NetworkRequest) = Card(
 @Composable private fun LogsPage(activity: Activity) {
     var console by remember { mutableStateOf(false) }
     var revision by remember { mutableStateOf(0) }
+    var query by remember { mutableStateOf("") }
+    var level by remember { mutableStateOf<String?>(null) }
     val entries = remember(revision) { HakkaConsole.all() }
     val structured = remember(revision) { HakkaUI.getInstance(activity).hakkaLogStore.getEntries().asReversed() }
     Column(Modifier.fillMaxSize()) {
@@ -185,14 +192,19 @@ private fun RequestCard(activity: Activity, request: NetworkRequest) = Card(
             Spacer(Modifier.weight(1f))
             IconButton(onClick = { if (console) HakkaConsole.clear() else HakkaUI.getInstance(activity).hakkaLogStore.clear(); revision++ }) { Icon(painterResource(R.drawable.hakka_ic_trash), "Clear logs") }
         }
-        if (!console && structured.isEmpty()) EmptyState("No structured logs", "Structured logs appear when your app sends them to Hakka.")
-        else if (!console) LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { items(structured, key = { it.id }) { StructuredLogCard(it) } }
+        OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth().padding(horizontal = 16.dp), singleLine = true, label = { Text("Search logs") })
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("All", "DEBUG", "INFO", "WARN", "ERROR").forEach { option -> FilterChip(level == option.takeUnless { it == "All" }, { level = option.takeUnless { it == "All" } }, { Text(option) }) } }
+        val visibleStructured = structured.filter { (query.isBlank() || it.message.contains(query, true) || it.category?.contains(query, true) == true) && (level == null || it.level.name == level) }
+        val visibleConsole = entries.filter { (query.isBlank() || it.message.contains(query, true) || it.tag.contains(query, true)) && (level == null || it.level.name == level) }
+        if (!console && visibleStructured.isEmpty()) EmptyState("No structured logs", "Structured logs appear when your app sends them to Hakka.")
+        else if (!console) LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { items(visibleStructured, key = { it.id }) { StructuredLogCard(activity, it) } }
         else if (entries.isEmpty()) EmptyState("No console logs", "Console output will appear here.")
-        else LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { items(entries, key = { it.id }) { entry -> Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) { Text(entry.tag, fontWeight = FontWeight.Bold); Text(entry.message, style = MaterialTheme.typography.bodySmall) } } } }
+        else LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { items(visibleConsole, key = { it.id }) { entry -> Card(Modifier.fillMaxWidth().clickable { copyLog(activity, "${entry.tag}: ${entry.message}") }) { Column(Modifier.padding(16.dp)) { Text(entry.tag, fontWeight = FontWeight.Bold); Text(entry.message, style = MaterialTheme.typography.bodySmall); Text(java.text.DateFormat.getTimeInstance().format(java.util.Date(entry.timestampMs)), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium) } } } }
     }
 }
 
-@Composable private fun StructuredLogCard(entry: LogEntry) = Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) { Text(entry.category ?: entry.level.name, fontWeight = FontWeight.Bold); Text(entry.message, style = MaterialTheme.typography.bodySmall); entry.metadata?.takeIf { it.isNotEmpty() }?.let { Text(it.entries.joinToString { (key, value) -> "$key: $value" }, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium) } } }
+private fun copyLog(activity: Activity, value: String) { (activity.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Hakka log", value)) }
+@Composable private fun StructuredLogCard(activity: Activity, entry: LogEntry) = Card(Modifier.fillMaxWidth().clickable { copyLog(activity, entry.message) }) { Column(Modifier.padding(16.dp)) { Text(entry.category ?: entry.level.name, fontWeight = FontWeight.Bold); Text(entry.message, style = MaterialTheme.typography.bodySmall); entry.metadata?.takeIf { it.isNotEmpty() }?.let { Text(it.entries.joinToString { (key, value) -> "$key: $value" }, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium) }; Text(java.text.DateFormat.getTimeInstance().format(java.util.Date(entry.timestamp)), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium) } }
 
 @Composable private fun Dashboard(title: String, metrics: List<Pair<String, String>>) = Column(Modifier.fillMaxSize().padding(16.dp)) { Text(title, style = MaterialTheme.typography.titleLarge); Spacer(Modifier.height(16.dp)); metrics.forEach { (label, value) -> Card(Modifier.fillMaxWidth().padding(bottom = 8.dp)) { Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) { Text(label, Modifier.weight(1f)); Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) } } } }
 @Composable private fun EmptyState(title: String, description: String) = Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text(title, style = MaterialTheme.typography.titleLarge); Spacer(Modifier.height(8.dp)); Text(description, color = MaterialTheme.colorScheme.onSurfaceVariant) } }
