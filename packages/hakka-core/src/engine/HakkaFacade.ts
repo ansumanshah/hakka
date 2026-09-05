@@ -750,4 +750,4 @@ class HakkaImpl {
   }
 }
 
-export const Hakka = new HakkaImpl()
+export const Hakka = /* @__PURE__ */ new HakkaImpl()
