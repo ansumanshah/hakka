@@ -135,7 +135,7 @@ export default defineConfig({
         },
         {
           label: 'Native SDKs',
-          items: ['android/sdk', 'ios/sdk'],
+          items: ['android/sdk', 'android/on-demand-ui', 'ios/sdk'],
         },
         {
           label: 'Features',

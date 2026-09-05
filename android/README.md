@@ -88,7 +88,9 @@ AGP 9.2.1 and Gradle 9.5.1 are intentionally deferred — do not bump them witho
 
 ## Size Policy
 
-Base artifacts (`hakka-network` + `hakka-performance`) must stay under 180 KB combined APK delta. `hakka-ui` is optional and exempt from the base budget.
+Base artifacts (`hakka-network` + `hakka-performance`) must stay under a 40 KB
+combined APK delta. The optional `hakka-ui` artifact has a separate 270 KB
+incremental budget.
 
 ```bash
 bun run size:android
@@ -103,17 +105,17 @@ per-module breakdown, writes a report to `android/size-gate/build/reports/size-g
 and fails CI if the network or combined base SDK delta exceeds the budget (see
 `scripts/android-size-gate.sh` for the budget's derivation and how to re-measure it).
 
-Current measured APK deltas (2026-08-01):
+Current measured APK deltas (2026-09-05):
 
-| Module                              |     APK delta | Download delta |
-| ----------------------------------- | ------------: | -------------: |
-| `hakka-network-noop`                |  87,000 bytes |   86,794 bytes |
-| `hakka-network`                     | 134,832 bytes |  134,418 bytes |
-| `hakka-performance-noop`            |      96 bytes |      132 bytes |
-| `hakka-performance`                 |   1,732 bytes |    1,847 bytes |
-| `hakka-network + hakka-performance` | 152,448 bytes |  151,946 bytes |
-| `hakka-ui` incremental over network | 330,699 bytes |  283,620 bytes |
-| `hakka-network + hakka-ui`          | 465,531 bytes |  418,038 bytes |
+| Module                                   |     APK delta | Download delta |
+| ---------------------------------------- | ------------: | -------------: |
+| `hakka-network-noop`                     |     848 bytes |      944 bytes |
+| `hakka-network`                          |  26,004 bytes |   25,933 bytes |
+| `hakka-performance-noop`                 |      84 bytes |      133 bytes |
+| `hakka-performance`                      |   1,832 bytes |    1,841 bytes |
+| `hakka-network + hakka-performance`      |  28,392 bytes |   28,212 bytes |
+| `hakka-ui` incremental over the base SDK | 260,995 bytes |  250,297 bytes |
+| `hakka-network + hakka-performance + UI` | 289,387 bytes |  278,509 bytes |
 
 ## Contributing
 
