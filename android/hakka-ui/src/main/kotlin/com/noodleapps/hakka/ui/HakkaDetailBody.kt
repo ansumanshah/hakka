@@ -47,7 +47,7 @@ internal fun DetailBody(raw: String, contentType: String?) {
     val json = remember(body) { body.trim().let { it.startsWith("{") || it.startsWith("[") } }
     var query by remember { mutableStateOf("") }
     var rawMode by remember { mutableStateOf(!json) }
-    val matches = remember(body, query) { findMatches(body, query) }
+    val matches = remember(body, query) { findBodyMatchOffsets(body, query) }
     var currentMatch by remember(query, matches.size) { mutableStateOf(0) }
     val bringIntoView = remember { BringIntoViewRequester() }
     var textLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
@@ -105,18 +105,6 @@ internal fun DetailBody(raw: String, contentType: String?) {
     }
 }
 
-private fun findMatches(body: String, query: String): List<Int> {
-    if (query.isBlank()) return emptyList()
-    val matches = mutableListOf<Int>()
-    var start = 0
-    while (start < body.length) {
-        val next = body.indexOf(query, start, ignoreCase = true)
-        if (next < 0) break
-        matches += next
-        start = next + query.length
-    }
-    return matches
-}
 
 private fun highlightedBody(
     body: String,
