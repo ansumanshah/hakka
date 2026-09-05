@@ -40,6 +40,7 @@ run_logged archive-device xcodebuild archive \
   -project "$project_path" \
   -scheme HakkaNative \
   -configuration Release \
+  -derivedDataPath "$build_root/DerivedData" \
   -destination 'generic/platform=iOS' \
   -archivePath "$build_root/HakkaNative-iOS.xcarchive" \
   CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' \
@@ -48,6 +49,7 @@ run_logged archive-simulator xcodebuild archive \
   -project "$project_path" \
   -scheme HakkaNative \
   -configuration Release \
+  -derivedDataPath "$build_root/DerivedData" \
   -destination 'generic/platform=iOS Simulator' \
   -archivePath "$build_root/HakkaNative-iOS-Simulator.xcarchive" \
   CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' \

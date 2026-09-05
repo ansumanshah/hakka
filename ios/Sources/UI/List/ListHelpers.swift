@@ -21,7 +21,10 @@ struct StatsBar: View {
             if dynamicTypeSize.isAccessibilitySize {
                 VStack(alignment: .leading, spacing: Theme.s2) { metrics }
             } else {
-                HStack(spacing: Theme.s6) { metrics }
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: Theme.s6) { metrics }
+                    VStack(alignment: .leading, spacing: Theme.s2) { metrics }
+                }
             }
         }
         .font(.caption)
@@ -53,7 +56,7 @@ struct StatsBar: View {
     }
 
     private func dataText(_ value: String, _ label: String, color: Color) -> some View {
-        HStack(spacing: Theme.s2) {
+        HStack(spacing: Theme.s6) {
             Text(value)
                 .fontWeight(.semibold)
                 .foregroundStyle(color)
@@ -62,6 +65,7 @@ struct StatsBar: View {
                     .foregroundStyle(Theme.textTertiary)
             }
         }
+        .fixedSize(horizontal: true, vertical: false)
     }
 }
 

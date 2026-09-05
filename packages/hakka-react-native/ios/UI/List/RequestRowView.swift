@@ -134,7 +134,7 @@ struct RequestRowView: View {
                         .foregroundStyle(Theme.textTertiary)
                         .lineLimit(2)
                 }
-                HStack(spacing: Theme.s8) {
+                VStack(alignment: .leading, spacing: Theme.s4) {
                     Text("Duration \(durationText)")
                         .font(.body.monospacedDigit().weight(.medium))
                         .foregroundStyle(durationColor)

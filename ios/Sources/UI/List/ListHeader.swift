@@ -42,13 +42,13 @@ struct ListHeader: View {
                     StatsBar(requests: requests)
                 }
             } else {
-                HStack(alignment: .center, spacing: Theme.s10) {
-                    VStack(alignment: .leading, spacing: Theme.s2) {
+                VStack(alignment: .leading, spacing: Theme.s6) {
+                    HStack(spacing: Theme.s10) {
                         title
-                        StatsBar(requests: requests)
+                        Spacer(minLength: 0)
+                        controls
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    controls
+                    StatsBar(requests: requests)
                 }
             }
         }

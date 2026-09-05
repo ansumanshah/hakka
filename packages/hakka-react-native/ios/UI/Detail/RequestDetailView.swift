@@ -268,6 +268,8 @@ struct RequestDetailView: View {
 
     private var tabBar: some View {
         HStack(spacing: HakkaMetrics.Spacing.xxs) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: HakkaMetrics.Spacing.xxs) {
             ForEach(visibleTabs, id: \.self) { tab in
                 let isActive = selectedTab == tab
                 Button(action: {
@@ -276,7 +278,8 @@ struct RequestDetailView: View {
                     VStack(spacing: HakkaMetrics.Spacing.xxs) {
                         Text(tabLabel(tab).uppercased())
                             .font(.system(size: HakkaMetrics.FontSize.sm, weight: isActive ? .bold : .medium, design: .monospaced))
-                            .kerning(0.6)
+                            .lineLimit(1)
+                            .fixedSize()
                             .foregroundStyle(isActive ? Theme.accent : Theme.textSecondary)
                         // Flame underline for the active tab.
                         Capsule()
@@ -285,10 +288,12 @@ struct RequestDetailView: View {
                     }
                     .padding(.horizontal, Theme.s10)
                     .padding(.top, Theme.s6)
+                    .frame(minHeight: Theme.tapMin)
                 }
                 .buttonStyle(.plain)
             }
-            Spacer()
+                }
+            }
 
             Button {
                 withAnimation(.easeInOut(duration: 0.2)) {
