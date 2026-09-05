@@ -27,7 +27,7 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter:6.1.3")
     testImplementation("com.squareup.okhttp3:okhttp:4.12.0")
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
-    testImplementation("org.json:json:20260719")
+    testImplementation("org.json:json:20260814")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher:6.1.3")
 }
 

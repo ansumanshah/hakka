@@ -50,7 +50,7 @@ dependencies {
     testImplementation("com.jakewharton.timber:timber:5.0.1")
     // Real org.json impl for JVM unit tests — Android's compileSdk stub throws "Stub!" at
     // runtime. Same test-only dependency hakka-network already uses; never bundled.
-    testImplementation("org.json:json:20260719")
+    testImplementation("org.json:json:20260814")
 }
 
 tasks.withType<Test> {
