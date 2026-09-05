@@ -64,6 +64,7 @@ jobs:
       # `just bench` locally. Same policy as the Android, iOS, and web perf
       # suites, which are opt-in for the identical reason.
       - name: Perf gates (advisory — see comment)
+        if: github.event_name == 'push'
         continue-on-error: true
         run: |
           bun run --cwd packages/hakka-core bench:check
@@ -149,14 +150,7 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
-      - uses: actions/cache@v6
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-            android/.gradle
-          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle', 'android/**/*.gradle.kts', 'android/**/*.properties', 'packages/hakka-react-native/android/build.gradle', 'packages/hakka-react-native/android/gradle.properties', 'packages/hakka-react-native/examples/react-native-example/android/build.gradle', 'packages/hakka-react-native/examples/react-native-example/android/gradle.properties', 'scripts/android-size-gate.sh') }}
-          restore-keys: gradle-${{ runner.os }}-
+      - uses: gradle/actions/setup-gradle@v6
       - run: ./gradlew :hakka-common:build :hakka-network:build :hakka-network-noop:build :hakka-performance:build :hakka-performance-noop:build :hakka-ui:build
       - run: ./gradlew :hakka-common:test :hakka-network:test :hakka-network-noop:test :hakka-performance:test :hakka-performance-noop:test :hakka-ui:test
       # Drift catcher, the Android mirror of the ios-demo-app job below. The demo
@@ -258,6 +252,18 @@ jobs:
         with:
           path: packages/hakka-react-native/examples/react-native-example/ios/Pods
           key: pods-${{ runner.os }}-${{ hashFiles('packages/hakka-react-native/examples/react-native-example/ios/Podfile', 'packages/hakka-react-native/examples/react-native-example/ios/Podfile.lock', 'packages/hakka-react-native/examples/react-native-example/package.json', 'bun.lock') }}
+      - name: Install ccache and identify the Xcode toolchain
+        id: rn-ios-toolchain
+        run: |
+          command -v ccache >/dev/null || brew install ccache
+          xcode_version=$(xcodebuild -version | shasum -a 256 | cut -d ' ' -f 1)
+          echo "xcode-version=$xcode_version" >> "$GITHUB_OUTPUT"
+      - name: Cache RN iOS compiler outputs
+        uses: actions/cache@v6
+        with:
+          path: ~/Library/Caches/ccache
+          key: rn-ios-ccache-${{ runner.os }}-${{ runner.arch }}-${{ steps.rn-ios-toolchain.outputs.xcode-version }}-${{ hashFiles('packages/hakka-react-native/examples/react-native-example/ios/Podfile', 'packages/hakka-react-native/examples/react-native-example/ios/Podfile.lock', 'packages/hakka-react-native/examples/react-native-example/package.json', 'bun.lock') }}
+          restore-keys: rn-ios-ccache-${{ runner.os }}-${{ runner.arch }}-${{ steps.rn-ios-toolchain.outputs.xcode-version }}-
       - name: Pod install (runs RN codegen against the vendored sources)
         working-directory: packages/hakka-react-native/examples/react-native-example/ios
         run: pod install
@@ -266,9 +272,11 @@ jobs:
         env:
           SKIP_BUNDLING: '1'
         run: |
+          ccache --zero-stats
           xcodebuild -workspace HakkaRNExample.xcworkspace -scheme HakkaRNExample \
             -configuration Debug -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO build
+          ccache --show-stats
 
   rn-example-android:
     name: RN Example (Android gradle)
@@ -281,19 +289,21 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
+      - uses: gradle/actions/setup-gradle@v6
       - uses: actions/cache@v6
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
           restore-keys: bun-${{ runner.os }}-
       - run: bun install --frozen-lockfile
-      - uses: actions/cache@v6
+      - name: Cache RN Android native build outputs
+        uses: actions/cache@v6
         with:
           path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-rnexample-${{ runner.os }}-${{ hashFiles('packages/hakka-react-native/examples/react-native-example/android/**/*.gradle', 'packages/hakka-react-native/android/build.gradle') }}
-          restore-keys: gradle-rnexample-${{ runner.os }}-
+            packages/hakka-react-native/examples/react-native-example/android/app/.cxx
+            node_modules/.bun/**/node_modules/**/android/.cxx
+          key: rn-android-cxx-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}-${{ hashFiles('packages/hakka-react-native/android/**/*.gradle', 'packages/hakka-react-native/android/**/*.properties', 'packages/hakka-react-native/android/src/**', 'packages/hakka-react-native/src/**', 'packages/hakka-react-native/examples/react-native-example/android/**/*.gradle', 'packages/hakka-react-native/examples/react-native-example/android/**/*.properties', 'packages/hakka-react-native/examples/react-native-example/android/app/src/**') }}
+          restore-keys: rn-android-cxx-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}-
       - name: Publish Android SDK to the local Maven repository
         run: cd android && ./gradlew publishToMavenLocal
       - name: Assemble debug APK (compiles the RN bridge Kotlin)
@@ -349,6 +359,12 @@ jobs:
         working-directory: examples/next-fullstack
         run: npm run build
 
+      - name: Cache Playwright browsers
+        id: next-playwright-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-next-${{ runner.os }}-${{ hashFiles('examples/next-fullstack/package-lock.json') }}
       # AFTER the npm install above, deliberately: `webServer` starts a real `next dev`,
       # and Turbopack rejects the symlinked package.json that bun's `file:` dep layout
       # produces, so running this against the bun install would fail on the install
@@ -358,9 +374,14 @@ jobs:
       # client + server rows the README claims, in a real browser. Unit tests cannot see
       # it: three bugs shipped past a green suite this cycle because they asserted on an
       # intermediate artifact instead of observable behaviour.
-      - name: Install Playwright Chromium
+      - name: Install Playwright Chromium (+ OS deps)
+        if: steps.next-playwright-cache.outputs.cache-hit != 'true'
         working-directory: examples/next-fullstack
         run: npx playwright install --with-deps chromium
+      - name: Install Playwright OS deps only (browser cached)
+        if: steps.next-playwright-cache.outputs.cache-hit == 'true'
+        working-directory: examples/next-fullstack
+        run: npx playwright install-deps chromium
       - name: Run the example's E2E suite
         working-directory: examples/next-fullstack
         run: npm run test:e2e
