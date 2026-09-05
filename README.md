@@ -30,7 +30,7 @@ One engine ([`hakka-core`](./packages/hakka-core)) powers every target, so the c
 
 | Package                                               | What it is                                                                                                                                                                                                                                                                                                                                                           | Status                                                |
 | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| [`hakka-react-native`](./packages/hakka-react-native) | React Native SDK: native iOS/Android capture + JS fallback, with the native iOS/Android inspector opened through the TypeScript API.                                                                                                                                                                                                                                 | ![Beta](https://img.shields.io/badge/beta-ee8320)     |
+| [`hakka-react-native`](./packages/hakka-react-native) | React Native SDK: native-only iOS/Android capture, with the native iOS/Android inspector opened through the TypeScript API.                                                                                                                                                                                                                                          | ![Beta](https://img.shields.io/badge/beta-ee8320)     |
 | [`hakka-browser`](./packages/hakka-browser)           | Drop-in browser overlay (Solid, Shadow DOM, Web Worker store). Also ships `hakka-browser/vite`, `/webpack`, `/rspack` (dev-time auto-inject plugins), `/elements/*` (six standalone inspector pieces as framework-agnostic custom elements — request list, detail, waterfall, filter bar, stats, JSON tree), and `/react` (thin React wrappers over those elements). | ![Stable](https://img.shields.io/badge/stable-3aa981) |
 | [`hakka-node`](./packages/hakka-node)                 | Framework-agnostic Node server capture (Express, Fastify, Hono, raw `http`) with client↔server trace correlation. Also ships `hakka-node/next` (+ `/next/server`, `/next/client`) — zero-config full-stack Next.js capture, server + client traffic in one UI.                                                                                                       | ![Stable](https://img.shields.io/badge/stable-3aa981) |
 
@@ -80,19 +80,19 @@ cd ios && pod install
 ```tsx
 import { Hakka } from 'hakka-react-native'
 
-Hakka.start({ mode: 'auto' })
+Hakka.start()
 ```
 
 Open the native inspector from a debug menu, shake gesture, or another app action:
 
 ```tsx
-Hakka.start({ mode: 'native' })
+Hakka.start()
 const didOpen = await Hakka.show({ as: 'bubble' }) // 'bubble' | 'sheet' | 'fullscreen'
 // Hakka.hide() dismisses the native surface.
 ```
 
 `Hakka.show()` resolves to `true` after native presentation and `false` when native UI is not
-available. Native UI requires native or auto native capture; it is unavailable in `js`, `store`,
+available. Native UI requires native capture; it is unavailable in `js`, `store`,
 or stopped mode. The React Native package no longer exports a bundled JS inspector or its UI-only
 peer graph. Hooks, capture, monitors, WebView support, clipboard shake-to-share, and Rozenite
 remain available programmatically.

@@ -10,21 +10,21 @@ import { Tabs, TabItem, Steps, Aside, Card, CardGrid, LinkCard, Badge } from '@a
   trigger a call, shake the device or long-press the bubble, and see it. No proxy, no certificate, no cloud account.
 </Aside>
 
-`hakka-react-native` is the app-facing package for React Native. It provides a TypeScript API, a TurboModule bridge to the native Hakka SDKs, JS-layer fallback capture, and optional monitors. The inspector is rendered by the native iOS and Android SDKs.
+`hakka-react-native` is the app-facing package for React Native. It provides a TypeScript API, a TurboModule bridge to the native Hakka SDKs and optional monitors. The inspector is rendered by the native iOS and Android SDKs.
 
 <Badge text="Beta" variant="caution" /> Fully working and on npm. It has less production soak time than the web and
 Next.js SDKs.
 
 ## What Hakka captures
 
-| Traffic type                      | Captured | Notes                                                                 |
-| --------------------------------- | -------- | --------------------------------------------------------------------- |
-| `fetch`                           | Auto     | JS-layer interception                                                 |
-| `XHR`                             | Auto     | JS-layer interception                                                 |
-| WebSocket frames                  | Auto     | JS monkey-patch; `auto` mode keeps this even when native handles HTTP |
-| Native HTTP (URLSession / OkHttp) | Auto     | Via TurboModule in `native` or `auto` mode                            |
-| Native WebSocket metadata         | Opt-in   | Message count + close code only; payloads require JS layer            |
-| GraphQL operation name            | Auto     | Parsed from request body                                              |
+| Traffic type                      | Captured | Notes                                                      |
+| --------------------------------- | -------- | ---------------------------------------------------------- |
+| `fetch`                           | Auto     | Through the configured native networking integration       |
+| `XHR`                             | Auto     | Through the configured native networking integration       |
+| WebSocket frames                  | No       | No JavaScript frame interceptor in native mode             |
+| Native HTTP (URLSession / OkHttp) | Auto     | Via TurboModule and the native SDK                         |
+| Native WebSocket metadata         | Opt-in   | Message count + close code only; payloads require JS layer |
+| GraphQL operation name            | Auto     | Parsed from request body                                   |
 
 ## Setup
 
@@ -85,27 +85,26 @@ the platform clipboard directly.
     import { Hakka } from 'hakka-react-native'
 
     Hakka.start({
-      mode: 'auto', // prefers native; JS fallback when native is absent
       maxRequests: 500,
       maxBodySize: 256 * 1024,
     })
     ```
 
-    `mode: 'auto'` is the right default. See [Capture Modes](/react-native/capture-modes/) for the full option set.
+    Native capture is the only mode and the default. See [Native Capture](/react-native/capture-modes/) for setup requirements and coverage.
 
 3.  **Open the native inspector**
 
     Start native capture, then open a surface from a debug menu, deep link, or another app action:
 
     ```ts title="debug-menu.ts"
-    Hakka.start({ mode: 'native' })
+    Hakka.start()
     const didOpen = await Hakka.show({ as: 'bubble' })
     // 'bubble' | 'sheet' | 'fullscreen'; Hakka.hide() dismisses it.
     ```
 
     `Hakka.show()` resolves to `true` after native presentation and `false` when the native module
-    or native UI artifact is unavailable. Native UI requires native or auto native capture; it is
-    unavailable in `js`, `store`, or stopped mode.
+    or native UI artifact is unavailable. Native UI requires native capture; it is
+    unavailable while capture is stopped.
 
 4.  **Verify it works**
 
@@ -117,11 +116,11 @@ the platform clipboard directly.
 
 ## `Hakka.start` options
 
-| Option        | Type                                       | Default  | Description                                                       |
-| ------------- | ------------------------------------------ | -------- | ----------------------------------------------------------------- |
-| `mode`        | `'auto' \| 'native' \| 'js' \| 'disabled'` | `'auto'` | Capture mode. `auto` prefers native, falls back to JS.            |
-| `maxRequests` | `number`                                   | `500`    | Maximum requests kept in the in-memory store. Oldest are evicted. |
-| `maxBodySize` | `number`                                   | `262144` | Maximum body size to capture per request/response, in bytes.      |
+| Option        | Type       | Default    | Description                                                       |
+| ------------- | ---------- | ---------- | ----------------------------------------------------------------- |
+| `mode`        | `'native'` | `'native'` | Native-only capture; omit this option.                            |
+| `maxRequests` | `number`   | `500`      | Maximum requests kept in the in-memory store. Oldest are evicted. |
+| `maxBodySize` | `number`   | `262144`   | Maximum body size to capture per request/response, in bytes.      |
 
 ## Native inspector
 
@@ -167,7 +166,7 @@ Monitors are add-ons — they annotate captured requests with React Query cache 
 
 ## New Architecture
 
-The package prefers TurboModule/codegen lookup when available. JS-layer fallback capture stays active for `fetch`, `XHR`, and WebSocket traffic when native capture is unavailable, or when the app explicitly sets `mode: 'js'`.
+The package requires its TurboModule/codegen bridge. Startup throws when it is missing; rebuild the native app after installation. There is no JavaScript fallback.
 
 ## Next steps
 
@@ -175,7 +174,7 @@ The package prefers TurboModule/codegen lookup when available. JS-layer fallback
   <LinkCard
     title="Capture modes"
     href="/react-native/capture-modes/"
-    description="Choose between auto, native, js, and disabled — and understand WebSocket frame capture."
+    description="Understand native capture, startup requirements, and WebSocket coverage."
   />
   <LinkCard
     title="Breakpoints"

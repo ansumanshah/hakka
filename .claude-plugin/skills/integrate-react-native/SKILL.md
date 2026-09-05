@@ -22,10 +22,10 @@ Install Hakka in a React Native app, start capture, and open the native iOS or A
 
    ```ts
    import { Hakka } from 'hakka-react-native'
-   Hakka.start({ mode: 'auto' })
+   Hakka.start()
    ```
 
-   `auto` prefers native capture and falls back to JS capture when the native module is unavailable.
+   Native capture is the only mode and the default. Startup throws if the native module is unavailable; rebuild the app with Hakka linked.
 
 4. Open the native inspector from an app action or debug menu:
 
@@ -35,6 +35,6 @@ Install Hakka in a React Native app, start capture, and open the native iOS or A
    Hakka.hide()
    ```
 
-   No React wrapper is needed. Native UI requires native capture and returns `false` when unavailable, including JS-only capture.
+   No React wrapper is needed. Native UI requires native capture and returns `false` when unavailable.
 
 5. Fire a test request, open the inspector, and verify its method, URL, status, and timing. Confirm `Hakka.isActive` and inspect `Hakka.getLogs()` when debugging capture.

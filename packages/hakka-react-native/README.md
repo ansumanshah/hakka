@@ -1,6 +1,6 @@
 # hakka-react-native
 
-Local-first network inspector for React Native. Captures HTTP traffic via native OkHttp/NSURLSession hooks or JS fetch/XHR/WebSocket interception, with the native iOS and Android inspector opened through the TypeScript API.
+Local-first network inspector for React Native. Captures HTTP traffic via native OkHttp/NSURLSession hooks, with the native iOS and Android inspector opened through the TypeScript API.
 
 ## Install
 
@@ -19,24 +19,16 @@ for their clipboard-copy step.
 ```ts
 import { Hakka } from 'hakka-react-native'
 
-Hakka.start({ mode: 'auto' })
+Hakka.start()
 ```
 
-## Capture Modes
+## Native Capture
 
-| Mode         | Behavior                                                       |
-| ------------ | -------------------------------------------------------------- |
-| `'auto'`     | Native capture when available, JS fallback otherwise (default) |
-| `'native'`   | Native only — fails fast if the native module is missing       |
-| `'js'`       | JS intercept of fetch, XHR, WebSocket only                     |
-| `'disabled'` | No capture                                                     |
+Native is the only capture mode and the default. `Hakka.start()` is equivalent to
+`Hakka.start({ mode: 'native' })`. It throws if the native module is missing; rebuild
+your app after installing Hakka. There is no JavaScript fallback.
 
-```ts
-Hakka.start({ mode: 'native' })
-Hakka.start({ mode: 'js' })
-```
-
-Native capture observes traffic made through platform networking APIs. JS capture cannot see traffic made directly by native SDKs.
+Use `Hakka.stop()` or `Hakka.configure({ enabled: false })` to disable capture.
 
 ## Native Inspector Surface
 
@@ -44,14 +36,14 @@ The inspector is provided by the native iOS and Android SDKs. Open it from a deb
 shake gesture, or another app action:
 
 ```ts
-Hakka.start({ mode: 'native' })
+Hakka.start()
 const didOpen = await Hakka.show({ as: 'sheet' }) // 'bubble' | 'sheet' | 'fullscreen'
 Hakka.hide()
 ```
 
 `Hakka.show()` resolves to a `boolean` after native presentation. It resolves `false` when the
-native module or native UI artifact is unavailable. Native UI requires native or auto native
-capture and is unavailable in `js`, `store`, or stopped mode.
+native module or native UI artifact is unavailable. Native UI requires native
+capture and is unavailable while capture is stopped.
 
 The package no longer exports `hakka-react-native/ui`, and it no longer brings the JS inspector,
 theme, renderer plugin, or their UI-only peers into an app. Session APIs, hooks, capture,

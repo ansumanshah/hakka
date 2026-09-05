@@ -42,7 +42,7 @@ hakka/
   packages/
     hakka-core/              hakka-core — platform-neutral capture engine (one dep: fflate)
                              + /test — capture-assertion helpers
-    hakka-react-native/      hakka-react-native — RN SDK + native bridge + JS fallback + UI + monitors
+    hakka-react-native/      hakka-react-native — RN SDK + native-only bridge + native UI + monitors
     hakka-browser/           hakka-browser — browser overlay (Solid, Shadow DOM, Web Worker)
                              + /elements/*, /react — standalone elements + React wrappers
     hakka-node/              hakka-node — framework-agnostic Node server capture

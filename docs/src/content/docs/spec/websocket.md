@@ -66,8 +66,11 @@ capture" / "JS capture" rows:
 | Capability       | RN  | iOS | Android | Web | Mac app |
 | ---------------- | --- | --- | ------- | --- | ------- |
 | Native capture   | ●   | ●   | ●       | —   | —       |
-| JS capture       | ●   | —   | —       | ●   | —       |
+| JS capture       | —   | —   | —       | ●   | —       |
 | WebSocket frames | ●   | ●   | ●       | ●   | ●       |
+
+React Native does not install a JavaScript frame interceptor. Its native panels can
+display frames supplied by explicit native WebSocket instrumentation.
 
 iOS ships `WebSocketMonitor.swift`; Android ships `HakkaWebSocketWrapper.kt`. The sub-protocol
 frame-decoder registry (MQTT/Socket.IO/STOMP/graphql-ws) exists on all four platforms:

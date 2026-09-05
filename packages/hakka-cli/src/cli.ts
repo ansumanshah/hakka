@@ -108,11 +108,7 @@ function initReactNative(expo: boolean, skipInstall: boolean): void {
   log(`Detected ${c.bold(expo ? 'Expo' : 'React Native')}.\n`)
   install(['hakka-react-native'], { skip: skipInstall })
   log(`Render the monitor near your app root (dev only):\n`)
-  log(
-    c.dim(
-      `  import { Hakka } from 'hakka-react-native'\n  Hakka.start({ mode: 'native' })\n  await Hakka.show({ as: 'bubble' })\n`,
-    ),
-  )
+  log(c.dim(`  import { Hakka } from 'hakka-react-native'\n  Hakka.start()\n  await Hakka.show({ as: 'bubble' })\n`))
   if (expo) {
     log(`Expo config plugin (native capture wired at prebuild):\n`)
     log(c.dim(`  // app.json / app.config.js\n  { "plugins": ["hakka-react-native"] }\n`))

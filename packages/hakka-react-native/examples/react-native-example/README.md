@@ -56,14 +56,13 @@ cd packages/hakka-react-native/examples/react-native-example/android
 
 ## What it covers
 
-- Capture mode switching: `native`, `js`, `auto`, and
-  pause/resume via `enabled: false` (a separate flag from `mode`, not a fourth mode value)
+- Native-only capture with start/stop controls
 - Native inspector presentation through `Hakka.show()` when native SDK artifacts are linked
 - HAR/Postman/OTel export through the capture APIs
 - Mock rules and throttle profiles (`mockEngine`, `ThrottleEngine`), seeded from the SDK tab —
   breakpoints are configured live in the Rules tab itself, not from app code
-- WebSocket capture (a real `wss://` echo round trip) and GraphQL detection (a named query against
-  a public GraphQL API)
+- A WebSocket echo request generator (native mode does not intercept JS frame payloads)
+  and GraphQL detection through native HTTP capture
 - WebView traffic capture, bridged to the same desktop hub as the RN app itself
 - Desktop streaming to Hakka on port 8989
 - Localhost bridge traffic exclusion (self-capture prevention)

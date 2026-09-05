@@ -47,6 +47,9 @@ Hakka.start({
 | `'js'`             | JS monkey-patches only (`fetch` / XHR / WebSocket). No native module needed.                                                                                         |
 | `'store'`          | No interceptors installed. The engine aggregates requests fed externally via `ingest()` / `update()`. Used by `hakka-browser` to host the store inside a Web Worker. |
 
+React Native restricts this shared engine to `native` capture and defaults to it.
+The other modes above are shared-core APIs, not React Native SDK options.
+
 ### Lifecycle
 
 ```ts

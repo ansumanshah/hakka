@@ -7,10 +7,10 @@
  * when not using storage/query monitoring.
  */
 
-import './bootstrap'
-import { Hakka } from 'hakka-core'
+import { Hakka } from './hakka'
 
 export { Hakka }
+export type { HakkaConfig } from './HakkaConfig'
 
 // Core bridge — the singleton is the API; the class is exported type-only so
 // `new HakkaBridge()` never becomes accidental public surface to semver-lock.
@@ -22,7 +22,7 @@ export { useNetworkLogs } from './hooks/useNetworkLogs'
 export { useHakka } from './hooks/useHakka'
 export { useShakeToShare } from './hooks/useShakeToShare'
 
-export type { NetworkRequest, HakkaConfig, HttpMethod, RequestType, RequestListener, ReadonlyRecord } from 'hakka-core'
+export type { NetworkRequest, HttpMethod, RequestType, RequestListener, ReadonlyRecord } from 'hakka-core'
 
 export { RequestStatus, getRequestStatus } from 'hakka-core'
 
@@ -93,25 +93,10 @@ export function enableNativeCapture(): void {
 }
 
 /**
- * Switch capture to JS-only mode and restart an active session.
- * Equivalent to `Hakka.start({ mode: 'js' })`.
- */
-export function enableJsCapture(): void {
-  Hakka.enableJsCapture()
-}
-
-/**
  * Backward-compatible alias for `enableNativeCapture()`.
  */
 export function enableNativeLayerCapture(): void {
   Hakka.enableNativeCapture()
-}
-
-/**
- * Backward-compatible alias for `enableJsCapture()`.
- */
-export function enableJsLayerCapture(): void {
-  Hakka.enableJsCapture()
 }
 
 export { mockEngine } from 'hakka-core'

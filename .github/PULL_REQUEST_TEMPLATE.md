@@ -6,7 +6,7 @@
 
 - [ ] Tested on iOS simulator / device
 - [ ] Tested on Android emulator / device
-- [ ] Tested RN bridge (TurboModule / JS fallback)
+- [ ] Tested RN native bridge (TurboModule)
 - [ ] Expo prebuild validated
 - [ ] Docs reflect the change (if public behavior changed)
 

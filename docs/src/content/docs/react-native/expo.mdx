@@ -92,7 +92,7 @@ You only need to rebuild (`npx expo run:ios` / `npx expo run:android`) when you 
 ## Native inspector
 
 The native inspector is opened from the app through `Hakka.show({ as: 'bubble' | 'sheet' | 'fullscreen' })`
-after starting native or auto native capture. It returns a promise resolving to `true` after native
+after starting native capture. It returns a promise resolving to `true` after native
 presentation, or `false` when native UI is unavailable. `Hakka.hide()` dismisses it. The removed
 `hakka-react-native/ui` entry point and its React Native UI peers are not part of Expo setup.
 
@@ -106,7 +106,7 @@ Expo SDK 56's Apple native-module improvements do not change Hakka's current int
   <LinkCard
     title="Capture modes"
     href="/react-native/capture-modes/"
-    description="Choose between auto, native, and JS capture for your setup."
+    description="Native capture setup and platform coverage."
   />
   <LinkCard
     title="Production safety"

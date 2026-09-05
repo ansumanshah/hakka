@@ -1,11 +1,4 @@
-import {
-  Hakka,
-  enableJsCapture,
-  enableNativeCapture,
-  mockEngine,
-  ThrottleEngine,
-  useNetworkLogs,
-} from 'hakka-react-native'
+import { Hakka, mockEngine, ThrottleEngine, useNetworkLogs } from 'hakka-react-native'
 import { useHakkaRozeniteDevTools } from 'hakka-rozenite'
 import React, { useEffect, useState } from 'react'
 import {
@@ -252,46 +245,7 @@ function ToolCommands({ onOpenWebViewCapture }: { onOpenWebViewCapture: () => vo
 }
 
 function SdkCommands() {
-  // Local, not read from Hakka on every render — `Hakka.getConfig()`/`isActive`
-  // aren't reactive, so this mirrors what the buttons below actually did rather
-  // than polling. Seeded once from real state so the label is right on first
-  // mount even if a previous screen already changed it.
-  const [captureMode, setCaptureMode] = useState<string>(() => Hakka.getConfig().mode ?? 'auto')
   const [captureActive, setCaptureActive] = useState(() => Hakka.isActive)
-
-  const setAutoCapture = () => {
-    Hakka.stop()
-    Hakka.start({ mode: 'auto' })
-    setCaptureMode('auto')
-    setCaptureActive(Hakka.isActive)
-  }
-
-  const setJsOnlyCapture = () => {
-    enableJsCapture()
-    setCaptureMode('js')
-    setCaptureActive(Hakka.isActive)
-  }
-
-  // This example never links the native Hakka module (see README "What it
-  // doesn't cover"), so `enableNativeCapture()` throws here — same real
-  // failure `HakkaFacade.start({mode:'native'})` throws for any app that
-  // hasn't linked it. It already called `Hakka.stop()` before throwing, so
-  // capture would be left dark without the recovery restart below.
-  const setNativeOnlyCapture = () => {
-    try {
-      enableNativeCapture()
-      setCaptureMode('native')
-    } catch (e: unknown) {
-      Hakka.start({ mode: 'auto' })
-      setCaptureMode('auto')
-      const message = e instanceof Error ? e.message : String(e)
-      Alert.alert(
-        'Native module unavailable',
-        `${message}\n\nThis example doesn't link the native Hakka module, so "native" mode has nothing to capture with. Capture mode was restored to "auto".`,
-      )
-    }
-    setCaptureActive(Hakka.isActive)
-  }
 
   const togglePause = () => {
     if (Hakka.isActive) {
@@ -339,10 +293,7 @@ function SdkCommands() {
 
   return (
     <>
-      <Section title="Capture mode" subtitle={`Currently: ${captureMode}${captureActive ? '' : ' (paused)'}`}>
-        <DemoButton label="Auto" tone="neutral" onPress={setAutoCapture} />
-        <DemoButton label="JS only" tone="info" onPress={setJsOnlyCapture} />
-        <DemoButton label="Native only" tone="danger" onPress={setNativeOnlyCapture} />
+      <Section title="Native capture" subtitle={captureActive ? 'Capturing' : 'Stopped'}>
         <DemoButton label={captureActive ? 'Pause' : 'Resume'} tone="warning" onPress={togglePause} />
       </Section>
 

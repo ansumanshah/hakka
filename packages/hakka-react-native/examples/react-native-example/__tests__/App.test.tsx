@@ -19,7 +19,6 @@ jest.mock('hakka-react-native', () => ({
     start: jest.fn(),
   },
   ThrottleEngine: { setProfile: jest.fn() },
-  enableJsCapture: jest.fn(),
   enableNativeCapture: jest.fn(),
   mockEngine: { clear: jest.fn() },
   useNetworkLogs: () => ({ logs: [], totalCount: 0 }),
