@@ -160,6 +160,9 @@
       "optional": true
     }
   },
+  "engines": {
+    "node": "^22.12.0 || ^24.0.0"
+  },
   "codegenConfig": {
     "name": "HakkaMonitorSpec",
     "type": "modules",

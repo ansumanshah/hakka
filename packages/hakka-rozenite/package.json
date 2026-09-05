@@ -82,5 +82,8 @@
   "peerDependencies": {
     "hakka-react-native": "0.0.1",
     "react": ">=19.2.3"
+  },
+  "engines": {
+    "node": "^22.12.0 || ^24.0.0"
   }
 }
