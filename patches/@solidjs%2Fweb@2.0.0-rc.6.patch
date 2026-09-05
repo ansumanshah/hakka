@@ -1,0 +1,76 @@
+--- a/dist/dev.cjs
++++ b/dist/dev.cjs
+@@ -1633,9 +1633,15 @@
+   const t = typeof value,
+     multi = marker !== undefined;
+   if (t === "string" || t === "number") {
++    // Keep renderer state aligned with hosts that do not create a text node for 0.
++    if (t === "number") {
++      value = "" + value;
++      if (value === current) return value;
++    }
+     const tc = typeof current;
+     if (tc === "string" || tc === "number") {
+-      parent.firstChild.data = value;
++      // Empty text has no child node, so recreate it before the next non-empty update.
++      if (parent.firstChild) parent.firstChild.data = value;else parent.appendChild(document.createTextNode(value));
+     } else {
+       if (ownsAllChildren(parent, current)) parent.textContent = value;else {
+         removeOwnedChildren(parent, current);
+--- a/dist/dev.js
++++ b/dist/dev.js
+@@ -1632,9 +1632,15 @@
+   const t = typeof value,
+     multi = marker !== undefined;
+   if (t === "string" || t === "number") {
++    // Keep renderer state aligned with hosts that do not create a text node for 0.
++    if (t === "number") {
++      value = "" + value;
++      if (value === current) return value;
++    }
+     const tc = typeof current;
+     if (tc === "string" || tc === "number") {
+-      parent.firstChild.data = value;
++      // Empty text has no child node, so recreate it before the next non-empty update.
++      if (parent.firstChild) parent.firstChild.data = value;else parent.appendChild(document.createTextNode(value));
+     } else {
+       if (ownsAllChildren(parent, current)) parent.textContent = value;else {
+         removeOwnedChildren(parent, current);
+--- a/dist/web.cjs
++++ b/dist/web.cjs
+@@ -1546,9 +1546,15 @@
+   const t = typeof value,
+     multi = marker !== undefined;
+   if (t === "string" || t === "number") {
++    // Keep renderer state aligned with hosts that do not create a text node for 0.
++    if (t === "number") {
++      value = "" + value;
++      if (value === current) return value;
++    }
+     const tc = typeof current;
+     if (tc === "string" || tc === "number") {
+-      parent.firstChild.data = value;
++      // Empty text has no child node, so recreate it before the next non-empty update.
++      if (parent.firstChild) parent.firstChild.data = value;else parent.appendChild(document.createTextNode(value));
+     } else {
+       if (ownsAllChildren(parent, current)) parent.textContent = value;else {
+         removeOwnedChildren(parent, current);
+--- a/dist/web.js
++++ b/dist/web.js
+@@ -1545,9 +1545,15 @@
+   const t = typeof value,
+     multi = marker !== undefined;
+   if (t === "string" || t === "number") {
++    // Keep renderer state aligned with hosts that do not create a text node for 0.
++    if (t === "number") {
++      value = "" + value;
++      if (value === current) return value;
++    }
+     const tc = typeof current;
+     if (tc === "string" || tc === "number") {
+-      parent.firstChild.data = value;
++      // Empty text has no child node, so recreate it before the next non-empty update.
++      if (parent.firstChild) parent.firstChild.data = value;else parent.appendChild(document.createTextNode(value));
+     } else {
+       if (ownsAllChildren(parent, current)) parent.textContent = value;else {
+         removeOwnedChildren(parent, current);
