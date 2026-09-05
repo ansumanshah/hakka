@@ -1,11 +1,10 @@
 package com.noodleapps.hakka.ui
 
-import android.app.Activity
 import android.os.Bundle
-import androidx.compose.ui.platform.ComposeView
+import androidx.activity.ComponentActivity
 
 /** Fullscreen Compose host for the Hakka inspector. Public activity identity is retained. */
-class HakkaActivity : Activity() {
+class HakkaActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val token = intent.getLongExtra(HakkaUI.FULLSCREEN_REQUEST_TOKEN, Long.MIN_VALUE)
@@ -16,9 +15,7 @@ class HakkaActivity : Activity() {
             }
             window.navigationBarColor = Theme.bg(this)
             applySystemStatusBar(window, this)
-            setContentView(ComposeView(this).apply {
-                setContent { HakkaInspectorCompose(this@HakkaActivity, ::finish) }
-            })
+            setContent { HakkaInspectorCompose(this@HakkaActivity, ::finish) }
         } catch (_: Exception) {
             HakkaUI.getInstance(this).rejectInspector(token)
             finish()

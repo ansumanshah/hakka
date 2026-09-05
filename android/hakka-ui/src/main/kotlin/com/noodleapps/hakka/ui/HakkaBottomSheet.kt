@@ -19,6 +19,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.compose.ui.platform.ComposeView
+import androidx.activity.ComponentDialog
 import com.noodleapps.hakka.LogStore
 
 /**
@@ -112,7 +113,7 @@ class HakkaBottomSheet(
         val ctx = activity
         currentHeight = mediumHeight
 
-        dialog = Dialog(ctx, android.R.style.Theme_Translucent_NoTitleBar).apply {
+        dialog = ComponentDialog(ctx, android.R.style.Theme_Translucent_NoTitleBar).apply {
             requestWindowFeature(Window.FEATURE_NO_TITLE)
             setCancelable(true)
             setCanceledOnTouchOutside(true)

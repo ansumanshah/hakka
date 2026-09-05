@@ -1,16 +1,15 @@
 package com.noodleapps.hakka.ui
 
-import android.app.Activity
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.widget.LinearLayout
 import android.widget.ScrollView
-import androidx.compose.ui.platform.ComposeView
+import androidx.activity.ComponentActivity
 import com.noodleapps.hakka.NetworkRequest
 
 /** Full-screen Compose detail screen for one captured Hakka request. */
-class DetailActivity : Activity() {
+class DetailActivity : ComponentActivity() {
     // Kept while old, unused detail extensions remain source-compatible.
     internal lateinit var contentLayout: LinearLayout
     internal lateinit var scrollView: ScrollView
@@ -32,9 +31,7 @@ class DetailActivity : Activity() {
         request = captured
         window.navigationBarColor = Theme.bg(this)
         applySystemStatusBar(window, this)
-        setContentView(ComposeView(this).apply {
-            setContent { HakkaDetailCompose(this@DetailActivity, captured, ::finish) }
-        })
+        setContent { HakkaDetailCompose(this@DetailActivity, captured, ::finish) }
     }
     companion object { const val EXTRA_REQUEST_ID = "request_id" }
 }

@@ -83,7 +83,7 @@ internal fun HakkaInspectorCompose(activity: Activity, onClose: () -> Unit) {
             Box(Modifier.fillMaxSize().padding(padding)) {
                 when (tab) {
                     NavTab.NETWORK -> NetworkPage(activity, onClose)
-                    NavTab.STATS -> StatsPage(activity)
+                    NavTab.STATS -> ComposeStatsPage(activity)
                     NavTab.LOGS -> LogsPage(activity)
                     NavTab.RULES -> ComposeRulesPage(activity)
                     NavTab.STORAGE -> ComposeStoragePage(activity)
@@ -172,12 +172,6 @@ private fun RequestCard(activity: Activity, request: NetworkRequest) = Card(
     }
 }
 
-@Composable private fun StatsPage(activity: Activity) {
-    val requests = HakkaUI.getInstance(activity).logStore?.all().orEmpty()
-    val errors = requests.count { it.error != null || (it.status ?: 0) >= 400 }
-    Dashboard("Session statistics", listOf("Requests" to requests.size.toString(), "Errors" to errors.toString(), "Average" to requests.mapNotNull { it.durationMs }.average().takeIf { !it.isNaN() }?.let { fmtDuration(it.toLong()) }.orEmpty()))
-}
-
 @Composable private fun LogsPage(activity: Activity) {
     var console by remember { mutableStateOf(false) }
     var revision by remember { mutableStateOf(0) }
@@ -206,5 +200,4 @@ private fun RequestCard(activity: Activity, request: NetworkRequest) = Card(
 private fun copyLog(activity: Activity, value: String) { (activity.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Hakka log", value)) }
 @Composable private fun StructuredLogCard(activity: Activity, entry: LogEntry) = Card(Modifier.fillMaxWidth().clickable { copyLog(activity, entry.message) }) { Column(Modifier.padding(16.dp)) { Text(entry.category ?: entry.level.name, fontWeight = FontWeight.Bold); Text(entry.message, style = MaterialTheme.typography.bodySmall); entry.metadata?.takeIf { it.isNotEmpty() }?.let { Text(it.entries.joinToString { (key, value) -> "$key: $value" }, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium) }; Text(java.text.DateFormat.getTimeInstance().format(java.util.Date(entry.timestamp)), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium) } }
 
-@Composable private fun Dashboard(title: String, metrics: List<Pair<String, String>>) = Column(Modifier.fillMaxSize().padding(16.dp)) { Text(title, style = MaterialTheme.typography.titleLarge); Spacer(Modifier.height(16.dp)); metrics.forEach { (label, value) -> Card(Modifier.fillMaxWidth().padding(bottom = 8.dp)) { Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) { Text(label, Modifier.weight(1f)); Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) } } } }
 @Composable private fun EmptyState(title: String, description: String) = Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text(title, style = MaterialTheme.typography.titleLarge); Spacer(Modifier.height(8.dp)); Text(description, color = MaterialTheme.colorScheme.onSurfaceVariant) } }
