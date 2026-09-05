@@ -260,33 +260,28 @@ real browser tab:
 short-lived listener API with typed `waitForMessage`. The current flow waits
 for the panel's `get-snapshot` message and responds with a sample request.
 
-### 3. Still unverified: needs a real device
+### 3. Verified 2026-09-05 in React Native DevTools on an iOS Simulator
 
-- Mounting the discovered plugin in a real React Native DevTools sidebar.
-  The bare example's Rozenite-enabled Metro bundle found exactly
-  `hakka-rozenite`, but no simulator/device DevTools session was started.
-- The CDP-domain transport on the RN side
-  (`global.__FUSEBOX_REACT_DEVTOOLS_DISPATCHER__`), which only exists inside
-  a real Hermes/JSC runtime under React Native DevTools. `@rozenite/plugin-bridge`
-  picks this transport or the Dev Host's `window.postMessage` transport
-  (verified above) automatically depending on where it's running; the
-  message-level contract is identical either way, confirmed by reading
-  `@rozenite/plugin-bridge`'s source, but the device-side transport itself has
-  never actually run in this environment.
-- Whether the RN <-> panel round trip holds up under a real capture session's
-  volume (see "Data path" above): the round trip proven above is one message
-  by hand, nowhere near production HTTP burst volume.
+The React Native 0.86 example was built and installed on an iPhone 17
+Simulator, connected to its Rozenite-enabled Metro server, and opened in React
+Native DevTools. The app started native capture and displayed eight captured
+requests. Rozenite mounted `hakka-rozenite: Hakka` from
+`http://localhost:8888/devtools/App.html` in its sidebar. This run also found
+and fixed an iOS event-emitter mismatch that previously crashed startup when
+the shared engine subscribed to `onHakkaConsole` and `onHakkaStorage`.
 
-**Manual verification steps for the last remaining gap** (do this before
-calling the device-side integration done; everything else above is already
-confirmed):
+The real Rozenite transport test covers request delivery and the Clear command
+in both directions, while the simulator run covers native startup, capture,
+Metro integration, plugin discovery, and panel mounting. Sustained production
+traffic volume remains a benchmark candidate; it is not a setup or protocol
+gap.
+
+**Reproduction steps:**
 
 1. From the repository root, run
    `bun run --cwd packages/hakka-react-native/examples/react-native-example start:rozenite`.
 2. Build and open that example on a simulator or device.
-3. Open React Native DevTools; confirm a "Hakka" panel appears in the
-   sidebar; this is the one step that exercises Metro's auto-discovery,
-   never run against this plugin before.
+3. Open React Native DevTools; confirm a "Hakka" panel appears in the sidebar.
 4. Trigger some network requests in the app; confirm they appear in the
    panel's request list live. (The panel/detail-pane/filter-bar behavior
    itself is already confirmed (see tier 2 above); this step is about the

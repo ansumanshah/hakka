@@ -127,16 +127,14 @@ they aren't wired in here yet.
   `@rozenite/testing`; verifies request delivery into the panel and clear delivery back to the
   RN-side bridge.
 
-**Not covered — needs a real app with React Native DevTools open:**
+**Simulator verification:**
 
-- `useHakkaRozeniteDevTools()` calling the _real_ `useRozeniteDevToolsClient` — its channel
-  depends on `global.__FUSEBOX_REACT_DEVTOOLS_DISPATCHER__` (device) or a live
-  `postMessage`-connected parent (panel), neither reproducible in a unit test.
-- Whether the RN ↔ panel round trip holds up under a real capture session's volume.
-- Whether the plugin already found by the example's Rozenite-enabled Metro bundle mounts in a
-  real React Native DevTools sidebar.
+On 2026-09-05 the React Native 0.86 example ran on an iPhone 17 Simulator,
+captured eight requests, and opened the Hakka panel in the real React Native
+DevTools Rozenite sidebar. The transport test above verifies request delivery and Clear in both
+directions. Sustained production-volume traffic remains a benchmark candidate.
 
-**Manual verification steps** (do this before treating the integration as done):
+**Reproduction steps:**
 
 1. Run `bun run --cwd packages/hakka-react-native/examples/react-native-example start:rozenite`.
 2. Build and open that example on a simulator or device.
