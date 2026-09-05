@@ -248,14 +248,29 @@ final class MiniWebSocketServer: @unchecked Sendable {
     /// `LiveCaptureTests`'s deadline-poll idiom rather than a continuation —
     /// this server has multiple, sequentially-arriving frames to observe,
     /// not one single event.
-    func waitForFrames(count: Int, timeout: TimeInterval = 8) async -> [String] {
+    func waitForFrames(count: Int, timeout: TimeInterval = 8, type: String? = nil) async -> [String] {
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
-            let snapshot = framesSnapshot()
+            let snapshot = framesSnapshot().filter { frame in
+                guard let type else { return true }
+                let object = try? JSONSerialization.jsonObject(with: Data(frame.utf8)) as? [String: Any]
+                return object?["type"] as? String == type
+            }
             if snapshot.count >= count { return snapshot }
             try? await Task.sleep(nanoseconds: 20_000_000)
         }
         return framesSnapshot()
+    }
+
+    func send(_ raw: String) {
+        lock.lock()
+        let live = connections
+        lock.unlock()
+        let metadata = NWProtocolWebSocket.Metadata(opcode: .text)
+        let context = NWConnection.ContentContext(identifier: "runtime-control-test", metadata: [metadata])
+        for connection in live {
+            connection.send(content: Data(raw.utf8), contentContext: context, isComplete: true, completion: .contentProcessed { _ in })
+        }
     }
 
     private func accept(_ connection: NWConnection) {
@@ -322,8 +337,29 @@ struct HakkaBridgeClientSocketTests {
 
         client.send(makeRequest(id: "direct"))
 
-        let frames = try #require(await server.waitForFrames(count: 1).first)
+        let frames = try #require(await server.waitForFrames(count: 1, type: "request").first)
         #expect(frames.contains("\"direct\""))
+    }
+
+    @Test func nativeRuntimeAdvertisesAndAcknowledgesOverSocket() async throws {
+        let server = try MiniWebSocketServer()
+        let port = try server.start()
+        defer { server.stop() }
+        let client = HakkaBridgeClient(url: URL(string: "ws://127.0.0.1:\(port)")!)
+        client.start()
+        defer { client.stop() }
+        let hello = try #require(await server.waitForFrames(count: 1, type: "runtime.hello").first)
+        guard case .hello(_, let runtime, let capabilities) = parseRuntimeControlFrame(hello) else {
+            Issue.record("missing hello"); return
+        }
+        #expect(runtime == "ios")
+        #expect(capabilities == RuntimeControlFrame.nativeCapabilities)
+        server.send(#"{"type":"runtime.welcome","payload":{"targetId":"target-a"}}"#)
+        server.send(#"{"type":"control.request","payload":{"commandId":"socket-command","targetId":"target-a","timeoutMs":5000,"command":{"kind":"mock.clear"}}}"#)
+        let raw = try #require(await server.waitForFrames(count: 1, type: "control.result").first)
+        guard case .result(let result) = parseRuntimeControlFrame(raw) else { Issue.record("missing result"); return }
+        #expect(result.commandId == "socket-command")
+        #expect(result.status == "applied")
     }
 
     /// Reproduces the exact failure the SimInject spike (commit `57c9ba92`)
@@ -360,7 +396,7 @@ struct HakkaBridgeClientSocketTests {
         interceptor.flushCaptureProcessing()
 
         let frames = try #require(
-            await server.waitForFrames(count: 1).first,
+            await server.waitForFrames(count: 1, type: "request").first,
             "a capture made while HakkaInterceptor's own request-capture swizzle is active never reached the hub"
         )
         #expect(frames.contains("\"via-interceptor\""))

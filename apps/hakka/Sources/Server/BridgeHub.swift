@@ -109,6 +109,7 @@ public actor BridgeHub {
     /// see `BridgeDeviceLabel.swift` for why this is the honest amount of
     /// identity the hub can offer.
     private var deviceLabeler = BridgeDeviceLabeler()
+    private var runtimeControl = RuntimeControlRouter()
 
     // Per-channel subscriber continuations, keyed by a subscription id
     // private to that one `subscribeX()` call. Declared here rather than in
@@ -127,6 +128,7 @@ public actor BridgeHub {
 
     public func addPeer(_ peer: any BridgeRelayPeer) {
         peers[peer.id] = peer
+        deliverRuntimeControl(runtimeControl.add(peer.id))
         for continuation in deviceEventSubscribers.values {
             continuation.yield(.connected(peer.id))
         }
@@ -138,6 +140,7 @@ public actor BridgeHub {
         // delivery (or an id that was never added) yielding a spurious
         // event the sidebar would have nothing to reconcile it against.
         guard peers.removeValue(forKey: id) != nil else { return }
+        deliverRuntimeControl(runtimeControl.remove(id))
         for continuation in deviceEventSubscribers.values {
             continuation.yield(.disconnected(id))
         }
@@ -161,6 +164,17 @@ public actor BridgeHub {
     /// is relayed to every peer other than the sender before this returns.
     @discardableResult
     public func ingest(_ raw: String, from senderID: BridgePeerID) -> BridgeIngestResult? {
+        if let frame = parseRuntimeControlFrame(raw) {
+            let deliveries = runtimeControl.receive(frame, raw: raw, from: senderID)
+            deliverRuntimeControl(deliveries)
+            if case .request(let request) = frame, deliveries.contains(where: { $0.1 == raw }) {
+                Task { [weak self] in
+                    try? await Task.sleep(for: .milliseconds(request.timeoutMs))
+                    await self?.expireRuntimeControl(request.commandId)
+                }
+            }
+            return nil
+        }
         guard let frame = parseBridgeFrame(raw) else { return nil }
 
         for (id, peer) in peers where id != senderID {
@@ -216,6 +230,14 @@ public actor BridgeHub {
             peer.send(raw)
         }
         return peers.count
+    }
+
+    private func deliverRuntimeControl(_ deliveries: [RuntimeControlRouter.Delivery]) {
+        for (id, raw) in deliveries { peers[id]?.send(raw) }
+    }
+
+    private func expireRuntimeControl(_ commandId: String) {
+        deliverRuntimeControl(runtimeControl.expire(commandId))
     }
 
     deinit {
