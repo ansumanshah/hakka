@@ -28,6 +28,9 @@ import com.noodleapps.hakka.export.OkHttpExporter
 import com.noodleapps.hakka.export.PostmanExporter
 import com.noodleapps.hakka.export.TextExporter
 import com.noodleapps.hakka.percentDecode
+import com.noodleapps.hakka.isUrlEncoded
+import com.noodleapps.hakka.parseRequestCookies
+import com.noodleapps.hakka.parseSetCookie
 import com.noodleapps.hakka.wsFrameDecoders
 
 private enum class DetailTab(val label: String) {
@@ -71,7 +74,7 @@ internal fun HakkaDetailCompose(activity: Activity, request: NetworkRequest, onC
                         DetailTab.RESPONSE -> ResponsePage(request)
                         DetailTab.TIMING -> TimingPage(request)
                         DetailTab.GRAPHQL -> GraphQlPage(request)
-                        DetailTab.FRAMES -> FramesPage(request)
+                        DetailTab.FRAMES -> FramesPage(activity, request)
                     } }
                 }
             }
@@ -110,14 +113,47 @@ internal fun HakkaDetailCompose(activity: Activity, request: NetworkRequest, onC
             if (decoded) percentDecode(key) to percentDecode(item) else key to item
         })
     }
-    request.requestHeaders.firstHeader("cookie")?.let { DetailSection("Cookies") { BodyText(it, null) } }
-    request.requestBody?.let { DetailSection("Body") { BodyText(it, request.requestHeaders.firstHeader("content-type")) } }
+    parseRequestCookies(request.requestHeaders.firstHeader("cookie")).takeIf { it.isNotEmpty() }?.let { cookies ->
+        DetailSection("Cookies (${cookies.size})") {
+            DetailRows(cookies.map { it.name to it.value })
+        }
+    }
+    request.requestBody?.let { body ->
+        val contentType = request.requestHeaders.firstHeader("content-type")
+        val formEncoded = contentType?.contains("application/x-www-form-urlencoded", true) == true
+        DetailSection("Body", trailing = if (formEncoded && isUrlEncoded(body)) {
+            { DecodeToggle(decoded, setDecoded) }
+        } else null) {
+            if (formEncoded) {
+                DetailRows(body.split('&').map { value ->
+                    val key = value.substringBefore('=')
+                    val item = value.substringAfter('=', "")
+                    if (decoded) percentDecode(key) to percentDecode(item) else key to item
+                })
+            } else BodyText(body, contentType)
+        }
+    }
         ?: run { if (query.isBlank()) Empty("No request body") }
 }
 
 @Composable private fun ResponsePage(request: NetworkRequest) = Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
     request.responseBody?.let { DetailSection("Body") { BodyText(it, request.responseHeaders.firstHeader("content-type")) } } ?: Empty("No response body")
-    request.responseHeaders.firstHeader("set-cookie")?.let { DetailSection("Set-Cookie") { BodyText(it, null) } }
+    val cookies = request.responseHeaders.headerValues("set-cookie").let(::parseSetCookie)
+    if (cookies.isNotEmpty()) DetailSection("Set-Cookie (${cookies.size})") {
+        cookies.forEach { cookie ->
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    DetailRows(listOf(cookie.name to cookie.value))
+                    cookie.domain?.let { DetailRows(listOf("Domain" to it)) }
+                    cookie.path?.let { DetailRows(listOf("Path" to it)) }
+                    cookie.expires?.let { DetailRows(listOf("Expires" to it)) }
+                    cookie.maxAge?.let { DetailRows(listOf("Max-Age" to it.toString())) }
+                    val flags = listOfNotNull(if (cookie.httpOnly) "HttpOnly" else null, if (cookie.secure) "Secure" else null, cookie.sameSite?.name)
+                    if (flags.isNotEmpty()) Text(flags.joinToString(" · "), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+    }
 }
 
 @Composable private fun TimingPage(request: NetworkRequest) = Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -127,7 +163,29 @@ internal fun HakkaDetailCompose(activity: Activity, request: NetworkRequest, onC
             "Sent" to fmtSize(estimateHeaderSize(request.requestHeaders) + request.requestBodySize).ifEmpty { "0 B" },
             "Received" to fmtSize(estimateHeaderSize(request.responseHeaders) + request.responseBodySize).ifEmpty { "0 B" },
         )) }
-        DetailSection("Phases") { DetailRows(phases.map { it.first to fmtDuration(it.second) }) }
+        val phaseTotal = phases.sumOf { it.second }.coerceAtLeast(1)
+        DetailSection("Waterfall") {
+            phases.forEach { (name, milliseconds) ->
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Row {
+                        Text(name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                        Text(fmtDuration(milliseconds), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
+                    }
+                    LinearProgressIndicator(
+                        progress = { milliseconds.toFloat() / phaseTotal },
+                        modifier = Modifier.fillMaxWidth(),
+                        color = Color(timingColor(name)),
+                    )
+                }
+            }
+        }
+        if (request.protocol != null || request.tlsVersion != null || request.cipherSuite != null) DetailSection("Network") {
+            DetailRows(listOfNotNull(
+                request.protocol?.let { "Protocol" to it.uppercase() },
+                request.tlsVersion?.let { "Encryption" to it },
+                request.cipherSuite?.let { "Cipher" to it },
+            ))
+        }
         request.durationMs?.let { DetailSection("Total") { Text(fmtDuration(it), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold) } }
     }
 }
@@ -140,14 +198,34 @@ internal fun HakkaDetailCompose(activity: Activity, request: NetworkRequest, onC
     meta.errors?.let { DetailSection("Errors") { Text(it, color = Color(Theme.error), fontFamily = FontFamily.Monospace) } }
 }
 
-@Composable private fun FramesPage(request: NetworkRequest) = Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+@Composable private fun FramesPage(activity: Activity, request: NetworkRequest) = Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
     request.wsProtocol?.let { DetailSection("Protocol") { DetailRows(listOf("Sub-protocol" to it)) } }
-    if (request.wsMessages.isEmpty()) Empty("No frames captured") else request.wsMessages.forEach { frame ->
+    var filter by remember { mutableStateOf("All") }
+    var expandedIndex by remember { mutableStateOf<Int?>(null) }
+    val visibleFrames = request.wsMessages.withIndex().filter { filter == "All" || (filter == "Sent") == it.value.sent }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        listOf("All", "Sent", "Received").forEach { option ->
+            FilterChip(filter == option, { filter = option }, { Text(option) })
+        }
+    }
+    if (visibleFrames.isEmpty()) Empty("No frames captured") else visibleFrames.forEach { indexed ->
+        val frame = indexed.value
+        val frameIndex = indexed.index
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
             Column(Modifier.padding(12.dp)) {
-                Row { Text(if (frame.sent) "Sent" else "Received", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f)); Text(fmtSize(frame.size).ifEmpty { "0 B" }, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                Row {
+                    Text(if (frame.sent) "Sent" else "Received", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    Text(fmtSize(frame.size).ifEmpty { "0 B" }, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Text("+${frame.timestampMs - request.startTimeMs}ms", color = MaterialTheme.colorScheme.onSurfaceVariant, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.labelSmall)
                 wsFrameDecoders.decode(frame, request.wsProtocol)?.let { Text(it.summary, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall) }
-                Text(frame.data?.take(500) ?: ("Binary payload (" + fmtSize(frame.size) + ")"), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
+                val payload = frame.data ?: ("Binary payload (" + fmtSize(frame.size) + ")")
+                val isExpanded = expandedIndex == frameIndex
+                Text(payload.take(if (isExpanded) payload.length else 500), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (payload.length > 500) FilterChip(isExpanded, { expandedIndex = if (isExpanded) null else frameIndex }, { Text(if (isExpanded) "Collapse" else "Expand") })
+                    FilterChip(false, { copyFramePayload(activity, payload) }, { Text("Copy") })
+                }
             }
         }
     }
@@ -157,9 +235,29 @@ internal fun HakkaDetailCompose(activity: Activity, request: NetworkRequest, onC
     Row(verticalAlignment = Alignment.CenterVertically) { Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f)); trailing?.invoke() }
     content()
 }
-@Composable private fun DetailRows(rows: List<Pair<String, String>>) = Column(verticalArrangement = Arrangement.spacedBy(4.dp)) { rows.forEach { (key, value) -> Row { Text(key, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(112.dp), style = MaterialTheme.typography.bodySmall); SelectionContainer { Text(value, fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall) } } } }
+@Composable
+private fun DetailRows(rows: List<Pair<String, String>>) = Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    rows.forEach { (key, value) ->
+        Row(verticalAlignment = Alignment.Top) {
+            Text(
+                key,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Spacer(Modifier.width(12.dp))
+            SelectionContainer {
+                Text(
+                    value,
+                    fontFamily = FontFamily.Monospace,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
+    }
+}
 @Composable private fun HeadersSection(title: String, headers: Map<String, List<String>>) { if (headers.isNotEmpty()) DetailSection(title) { headers.forEach { (key, values) -> values.forEach { DetailRows(listOf(key to it)) } } } }
-@Composable private fun BodyText(raw: String, type: String?) { SelectionContainer { Text(bodyDecoders.decode(raw, type, null), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall) } }
+@Composable private fun BodyText(raw: String, type: String?) = DetailBody(raw, type)
 @Composable private fun Empty(text: String) = Box(Modifier.fillMaxWidth().padding(vertical = 32.dp), contentAlignment = Alignment.Center) { Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant) }
 @Composable private fun DecodeToggle(decoded: Boolean, setDecoded: (Boolean) -> Unit) = Row { FilterChip(decoded, { setDecoded(true) }, { Text("Decoded") }); Spacer(Modifier.width(4.dp)); FilterChip(!decoded, { setDecoded(false) }, { Text("Raw") }) }
 
@@ -174,3 +272,16 @@ internal fun HakkaDetailCompose(activity: Activity, request: NetworkRequest, onC
 }
 
 private fun Map<String, List<String>>.firstHeader(name: String): String? = entries.firstOrNull { it.key.equals(name, true) }?.value?.firstOrNull()
+private fun Map<String, List<String>>.headerValues(name: String): List<String> = entries.filter { it.key.equals(name, true) }.flatMap { it.value }
+private fun timingColor(name: String): Int = when (name) {
+    "DNS lookup" -> Theme.timingDNS
+    "TCP handshake" -> Theme.timingTCP
+    "TLS handshake" -> Theme.timingTLS
+    "Waiting (TTFB)" -> Theme.timingTTFB
+    else -> Theme.timingDownload
+}
+private fun copyFramePayload(activity: Activity, payload: String) {
+    val clipboard = activity.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return
+    clipboard.setPrimaryClip(ClipData.newPlainText("WebSocket frame", payload))
+    Toast.makeText(activity, "Frame copied", Toast.LENGTH_SHORT).show()
+}
