@@ -295,9 +295,11 @@ jobs:
             ~/.gradle/wrapper
           key: gradle-rnexample-${{ runner.os }}-${{ hashFiles('packages/hakka-react-native/examples/react-native-example/android/**/*.gradle', 'packages/hakka-react-native/android/build.gradle') }}
           restore-keys: gradle-rnexample-${{ runner.os }}-
+      - name: Publish Android SDK to the local Maven repository
+        run: cd android && ./gradlew publishToMavenLocal
       - name: Assemble debug APK (compiles the RN bridge Kotlin)
         working-directory: packages/hakka-react-native/examples/react-native-example/android
-        run: ./gradlew assembleDebug
+        run: ./gradlew assembleDebug -PreactNativeArchitectures=arm64-v8a
       # Drift catcher. assembleDebug and the iOS job both skip JS bundling, so
       # neither can see a Metro resolution failure. Hakka's optional peer deps
       # are require()d behind try/catch, which guards runtime but NOT Metro's

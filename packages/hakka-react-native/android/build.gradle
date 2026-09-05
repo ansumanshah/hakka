@@ -9,7 +9,8 @@ buildscript {
   }
 
   dependencies {
-    classpath "com.android.tools.build:gradle:9.1.1"
+    // React Native 0.86's Gradle plugin is not compatible with AGP 9 yet.
+    classpath "com.android.tools.build:gradle:8.12.0"
     // noinspection DifferentKotlinGradleVersion
     classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${getExtOrDefault('kotlinVersion')}"
   }
@@ -17,6 +18,7 @@ buildscript {
 
 
 apply plugin: "com.android.library"
+apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
 def getExtOrIntegerDefault(name) {

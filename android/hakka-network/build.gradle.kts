@@ -1,6 +1,6 @@
 plugins {
     id("java-library")
-    id("org.jetbrains.kotlin.jvm") version "2.4.10"
+    id("org.jetbrains.kotlin.jvm") version "2.2.21"
     id("com.vanniktech.maven.publish") version "0.37.0"
 }
 
@@ -38,7 +38,9 @@ tasks.test {
 
 mavenPublishing {
     publishToMavenCentral()
-    signAllPublications()
+    if (providers.gradleProperty("signingInMemoryKey").isPresent) {
+        signAllPublications()
+    }
     coordinates("com.noodleapps.hakka", "hakka-network", "0.0.1")
     pom {
         name.set("Hakka Network")

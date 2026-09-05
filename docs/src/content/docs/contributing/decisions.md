@@ -8,12 +8,11 @@ pass — SDK floors, version pins, docs stack. For the larger architectural bets
 (trace correlation, production capture, embeddable components, remote
 sessions), see the [Architecture Decision Records](/contributing/adr/).
 
-## Android SDK Levels
+## Android Toolchains
 
-- Core Android modules compile and target SDK 35.
-- The React Native example app compiles and targets SDK 36.
-- **Decision:** Keep core Android modules at compile/target SDK 35 for the pre-1.0 base SDK.
-- **Trigger to revisit:** Move core modules to SDK 36 only when a public core dependency, Play policy, or Android Gradle Plugin requirement makes SDK 36 the lower-friction consumer baseline.
+- The standalone Android SDK compiles and targets SDK 37 with AGP 9.1.1, Gradle 9.3.1, and Kotlin 2.2.21.
+- The React Native example compiles and targets SDK 36 with AGP 8.12, Gradle 8.13, and Kotlin 2.1.20, matching React Native 0.86.3. The app consumes locally published Hakka artifacts so its supported host toolchain stays isolated from the standalone SDK's AGP 9 build.
+- **Decision:** Keep the React Native wrapper on its host framework's supported toolchain until React Native's Gradle plugin supports AGP 9. The wrapper still consumes the Android SDK artifacts and is verified as a real app build.
 
 ## React Native Support Floor
 
