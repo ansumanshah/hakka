@@ -70,7 +70,7 @@ describe('exportHarString — serialization', () => {
 
 // status -> statusText mapping (requestToHarEntry -> getStatusText, private —
 // exercised here through the public buildHar/exportHarString surface).
-// Ten canonical codes across the 2xx/3xx/4xx/5xx ranges, plus the "unknown
+// Canonical codes across the 2xx/3xx/4xx/5xx ranges, plus the "unknown
 // code" and "no status" fallbacks.
 describe('HAR status -> statusText mapping', () => {
   test.each([
@@ -81,9 +81,11 @@ describe('HAR status -> statusText mapping', () => {
     [304, 'Not Modified'],
     [400, 'Bad Request'],
     [401, 'Unauthorized'],
+    [403, 'Forbidden'],
     [404, 'Not Found'],
     [429, 'Too Many Requests'],
     [500, 'Internal Server Error'],
+    [502, 'Bad Gateway'],
   ] as const)('status %d maps to statusText %p', (status, statusText) => {
     const har = buildHar([makeRequest({ status })])
     expect(har.log.entries[0]!.response.statusText).toBe(statusText)

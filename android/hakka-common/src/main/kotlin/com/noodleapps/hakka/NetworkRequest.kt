@@ -42,7 +42,6 @@ data class WsMessage(
 
 /**
  * Immutable representation of a captured HTTP request/response pair.
- * No-op implementation: identical API, all values are discarded.
  */
 data class NetworkRequest(
     val id: String,

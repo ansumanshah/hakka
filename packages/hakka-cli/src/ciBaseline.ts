@@ -43,7 +43,7 @@ const log = (s = '') => process.stdout.write(s + '\n')
 const logErr = (s = '') => process.stderr.write(s + '\n')
 
 /** Load a `.hakka` session written by `hakka-node/ci`'s `startCiCapture`. Throws with a clear message on failure — deliberately narrower than `diagnose.ts`'s loader (no `.har` support): a CI capture is always a `.hakka` session, never a browser HAR export. */
-export function loadCiCapture(path: string): NetworkRequest[] {
+function loadCiCapture(path: string): NetworkRequest[] {
   let raw: string
   try {
     raw = readFileSync(path, 'utf8')
@@ -52,10 +52,6 @@ export function loadCiCapture(path: string): NetworkRequest[] {
     throw new Error(`could not read ${path}: ${reason}`)
   }
   return deserializeSession(raw).requests
-}
-
-export interface CiBaselineUsageError {
-  message: string
 }
 
 function usage(): void {

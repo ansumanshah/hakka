@@ -20,7 +20,7 @@ const MASK64 = 0xffff_ffff_ffff_ffffn
  * included) when it doesn't parse as an absolute URL — same fallback the
  * Swift converter uses.
  */
-export function patternFor(url: string): string {
+function patternFor(url: string): string {
   let parsed: URL
   try {
     parsed = new URL(url)
@@ -42,7 +42,7 @@ export function patternFor(url: string): string {
  * converter's `ruleID(for:)`, so the two surfaces compute the same id for
  * the same capture. Wire-safe characters only (`mck-<base36>`).
  */
-export function ruleIdFor(method: string, pattern: string): string {
+function ruleIdFor(method: string, pattern: string): string {
   const key = `${method} ${pattern}`
   let hash = FNV_OFFSET
   for (const byte of Buffer.from(key, 'utf8')) {
