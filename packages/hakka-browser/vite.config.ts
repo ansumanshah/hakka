@@ -200,13 +200,11 @@ export default defineConfig(({ mode }) => {
         formats: ['es', 'iife'],
         fileName: (format) => (format === 'iife' ? 'hakka-browser.global.js' : 'hakka-browser.js'),
       },
-      // terser beats esbuild by a few % on gzip for the shipped bundles —
-      // worth the extra build time for a library others embed. passes: 3
-      // (up from 2) squeezes a further ~0.3% gzip out of this bundle only —
-      // safe (no `unsafe_*`/`toplevel` flags, so no behavior or export-name
-      // risk), just more compress iterations against the same safe ruleset.
+      // Four safe compression passes keep the all-in-one bundle within its
+      // existing gzip budget under Node 24. The fourth pass removes residual
+      // expressions left after pass three; no unsafe or toplevel flags are used.
       minify: 'terser',
-      terserOptions: { compress: { passes: 3 } },
+      terserOptions: { compress: { passes: 4 } },
       sourcemap: SOURCEMAP_OFF,
       emptyOutDir: true,
       cssCodeSplit: false,
