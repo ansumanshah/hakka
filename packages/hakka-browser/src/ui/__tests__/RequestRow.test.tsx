@@ -6,9 +6,9 @@
  * pair squeezed the URL column into an unreadable ellipsis. These tests pin
  * the removal so the controls don't creep back into the row.
  */
-import { render } from '@solidjs/testing-library'
+import { fireEvent, render } from '@solidjs/testing-library'
 import type { NetworkRequest } from 'hakka-core'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { initStore, destroyStore } from '../../worker'
 import { RequestRow } from '../RequestRow'
@@ -40,6 +40,31 @@ describe('RequestRow — content', () => {
     expect(container.querySelector('.hakka-method-badge')?.textContent).toBe('POST')
     expect(container.querySelector('.hakka-row-path')?.textContent).toBe('/checkout')
     expect(container.querySelector('.hakka-row-host')?.textContent).toBe('api.example.com')
+  })
+
+  it('exposes row selection to keyboard users', () => {
+    const onSelect = vi.fn()
+    const { container } = render(() => <RequestRow req={req()} selected={false} onSelect={onSelect} />)
+    const row = container.querySelector('.hakka-row') as HTMLElement
+
+    expect(row.getAttribute('role')).toBe('button')
+    expect(row.tabIndex).toBe(0)
+    expect(row.getAttribute('aria-pressed')).toBe('false')
+
+    fireEvent.keyDown(row, { key: 'Enter' })
+    fireEvent.keyDown(row, { key: ' ' })
+    expect(onSelect).toHaveBeenCalledTimes(2)
+  })
+
+  it('exposes checked state in multi-select mode', () => {
+    const { container } = render(() => (
+      <RequestRow req={req()} selected={false} selectMode checked onSelect={() => {}} />
+    ))
+    const row = container.querySelector('.hakka-row') as HTMLElement
+
+    expect(row.getAttribute('role')).toBe('checkbox')
+    expect(row.getAttribute('aria-checked')).toBe('true')
+    expect(row.getAttribute('aria-pressed')).toBeNull()
   })
 })
 

@@ -341,6 +341,10 @@ demo-browser: build-browser
     @echo "Serving http://localhost:4173/examples/browser-demo/index.html (Ctrl-C to stop)"
     python3 -m http.server 4173
 
+# Send local traffic to an already-open Hakka for macOS; keep the server up for replay.
+demo-desktop: build-core build-bridge build-node
+    node examples/desktop-bridge/run.mjs
+
 # Start iOS Simulator preview via serve-sim at localhost:3200
 sim *args:
     scripts/serve_sim.sh {{args}}

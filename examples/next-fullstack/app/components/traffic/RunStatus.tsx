@@ -13,7 +13,9 @@ export function RunStatus({ state }: RunStatusProps) {
   if (state.phase !== 'done') return null
 
   return (
-    <p className={`demo-result ${state.ok ? 'demo-result-ok' : 'demo-result-err'}`}>
+    <p className={`demo-result ${state.ok ? 'demo-result-ok' : 'demo-result-err'}`} role="status" aria-live="polite">
+      <span className="demo-result-label">Finished</span>
+      {' · '}
       {state.status !== undefined && <span className="demo-mono">{state.status}</span>}
       {state.status !== undefined && ' · '}
       <span className="demo-mono">{state.durationMs}ms</span>

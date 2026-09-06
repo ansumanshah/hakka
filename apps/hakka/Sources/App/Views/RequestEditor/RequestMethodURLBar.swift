@@ -11,7 +11,7 @@ struct RequestMethodURLBar: View {
     @Binding var spec: RequestSpec
 
     var body: some View {
-        HStack(spacing: Spacing.md) {
+        HStack(spacing: Spacing.sm) {
             // `RequestSpec.method` has no meaning for a gRPC call (ADR
             // 0012 — target/service/method all ride the URL itself), so a
             // GET/POST/… picker next to a `grpc://` URL would only confuse;
@@ -23,11 +23,13 @@ struct RequestMethodURLBar: View {
                     }
                 }
                 .labelsHidden()
-                .frame(width: 100)
+                .controlSize(.small)
+                .frame(width: 76)
             }
 
             TextField("https://example.com/{{path}} or grpc://host:port/pkg.Service/Method", text: $spec.url)
                 .textFieldStyle(.roundedBorder)
+                .controlSize(.small)
                 // Claims paste for the field so a copied `curl …` command
                 // (Chrome/Safari "Copy as cURL", or one typed by hand)
                 // imports directly instead of dropping raw shell text into
@@ -53,9 +55,12 @@ struct RequestMethodURLBar: View {
                 }
             }
             .keyboardShortcut(.return, modifiers: .command)
+            .controlSize(.small)
+            .buttonStyle(.borderedProminent)
             .disabled(model.editor.isSending || spec.url.isEmpty)
         }
-        .padding(Spacing.lg)
+        .frame(height: ControlHeight.bar)
+        .padding(.horizontal, Layout.gutter)
     }
 
     /// Routes a paste into the URL field: a curl command imports through

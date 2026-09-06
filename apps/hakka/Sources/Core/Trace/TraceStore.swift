@@ -66,7 +66,11 @@ public actor TraceStore {
     public func addRequest(_ request: NetworkRequest) {
         guard let traceID = request.correlationId else { return }
         var trace = traces[traceID] ?? Trace(id: traceID)
-        trace.requests.append(request)
+        if let index = trace.requests.firstIndex(where: { $0.id == request.id }) {
+            trace.requests[index] = request
+        } else {
+            trace.requests.append(request)
+        }
         touch(traceID, with: trace)
     }
 

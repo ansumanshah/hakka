@@ -28,7 +28,7 @@ struct LiveTrafficListView: View {
                     EmptyStateView(
                         systemImage: "antenna.radiowaves.left.and.right",
                         title: "Waiting for traffic",
-                        message: "Requests captured from a connected Hakka SDK appear here as they arrive.",
+                        message: "Requests captured from a connected Hakka SDK appear here as they arrive."
                     )
                     .transition(.opacity)
                 } else {
@@ -36,12 +36,8 @@ struct LiveTrafficListView: View {
                         .transition(.opacity)
                 }
             } else if model.traffic.visibleRequests.isEmpty {
-                EmptyStateView(
-                    systemImage: "line.3.horizontal.decrease.circle",
-                    title: "No matching requests",
-                    message: emptyMessage,
-                )
-                .transition(.opacity)
+                noMatchesView
+                    .transition(.opacity)
             } else if model.traffic.displayMode == .table, #available(macOS 14.4, *) {
                 LiveTrafficTableView()
                     .transition(.opacity)
@@ -80,15 +76,16 @@ struct LiveTrafficListView: View {
             hasRequests: !model.traffic.requests.isEmpty,
             hasEverReceivedTraffic: model.traffic.hasEverReceivedTraffic,
             hasVisibleRequests: !model.traffic.visibleRequests.isEmpty,
-            displayMode: model.traffic.displayMode,
+            displayMode: model.traffic.displayMode
         )
     }
 
     private var listView: some View {
         List(selection: selectionBinding) {
             ForEach(model.traffic.visibleRequests, id: \.id) { request in
-                LiveTrafficRowView(request: request, deviceLabel: model.traffic.deviceLabel(for: request.id))
+                LiveTrafficRowView(request: request, deviceLabel: model.traffic.deviceLabel(for: request.id), isSelected: model.traffic.selectedRequestID == request.id)
                     .tag(request.id)
+                    .listRowInsets(EdgeInsets(top: 0, leading: Layout.gutter, bottom: 0, trailing: Layout.gutter))
                     .contextMenu {
                         Button("Save to Collection") { model.saveCaptured(request) }
                         Button("Compare with Selected") {
@@ -101,6 +98,8 @@ struct LiveTrafficListView: View {
             }
         }
         .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .background(Color(nsColor: .textBackgroundColor))
         .focused($listFocused)
         .onAppear { seedSelectionIfNeeded() }
         .onChange(of: model.traffic.visibleRequests.map(\.id)) { _, _ in seedSelectionIfNeeded() }
@@ -151,15 +150,26 @@ struct LiveTrafficListView: View {
         return isMuted ? "Unmute \(host)" : "Mute \(host)"
     }
 
-    /// Distinguishes "the search hides everything" from "the noise scope
-    /// hides everything" — the latter isn't a search problem, so telling the
-    /// developer to widen their search would be the wrong nudge.
-    private var emptyMessage: String {
-        let total = model.traffic.requests.count
-        let searchIsEmpty = model.traffic.searchText.trimmingCharacters(in: .whitespaces).isEmpty
-        if searchIsEmpty, model.traffic.noiseScope.isActive {
-            return "\(total) captured, all hidden by the current noise scope."
+    private var noMatchesView: some View {
+        VStack(spacing: Spacing.lg) {
+            Image(systemName: "line.3.horizontal.decrease.circle")
+                .font(.largeTitle)
+                .foregroundStyle(.secondary)
+            Text("No matching requests")
+                .font(.headline)
+            Text("\(model.traffic.requests.count) captured requests are hidden by the current filters.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            Button("Reset Filters") {
+                model.traffic.searchText = ""
+                model.traffic.errorsOnly = false
+                model.traffic.noiseScope.clear()
+            }
+            .buttonStyle(.bordered)
         }
-        return "\(total) captured, none match this search."
+        .padding(Layout.gutter)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .chromeMaterial(.panel)
     }
 }

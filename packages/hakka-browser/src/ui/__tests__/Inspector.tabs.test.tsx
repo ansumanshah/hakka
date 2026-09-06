@@ -90,6 +90,32 @@ describe('Inspector tab bar', () => {
     expect(q(container, '.hakka-list')).toBeNull()
   })
 
+  it('opens the Page tab and exposes selector lookup without leaving the inspector', async () => {
+    const target = document.createElement('main')
+    target.id = 'page-tab-target'
+    document.body.appendChild(target)
+    const { container } = render(() => <Inspector />)
+    fireEvent.contextMenu(q(container, '.hakka-toggle') as HTMLElement)
+    await flush()
+
+    const pageTab = Array.from(qa(container, '.hakka-tab')).find(
+      (tab) => tab.textContent?.trim() === 'Page',
+    ) as HTMLElement
+    fireEvent.click(pageTab)
+    await flush()
+
+    const input = await waitFor(() => {
+      const element = q(container, '[aria-label="Find page elements with a CSS selector"]') as HTMLInputElement | null
+      expect(element).toBeTruthy()
+      return element!
+    })
+    fireEvent.input(input, { target: { value: '#page-tab-target' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    await flush()
+    expect(container.textContent).toContain('#page-tab-target')
+    target.remove()
+  })
+
   it('clicking Storage tab switches to storage view', async () => {
     const { container } = render(() => <Inspector />)
     fireEvent.contextMenu(q(container, '.hakka-toggle') as HTMLElement)

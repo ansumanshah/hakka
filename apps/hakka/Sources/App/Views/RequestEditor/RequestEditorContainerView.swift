@@ -16,7 +16,8 @@ struct RequestEditorContainerView: View {
             RequestTabsView(activeTab: $activeTab)
             Divider()
             tabContent
-                .padding(Spacing.lg)
+                .padding(.horizontal, Layout.gutter)
+                .padding(.vertical, Spacing.lg)
         }
     }
 

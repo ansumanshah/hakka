@@ -1,0 +1,9 @@
+{
+  "mapLocal": [
+    {
+      "match": "^http://example\\.test/config$",
+      "file": "./fixtures/config.json"
+    }
+  ],
+  "mapRemote": []
+}

@@ -54,6 +54,23 @@ struct TraceStoreTests {
         #expect(await store.trace(forRequestID: "no-such-request") == nil)
     }
 
+    @Test func anUpdatedCaptureReplacesItsTraceRequest() async throws {
+        let store = TraceStore()
+        await store.addRequest(NetworkRequest(
+            id: "fetch-1", url: "https://x.test", method: .get, startTime: 1, correlationId: "trace-1"
+        ))
+        await store.addRequest(NetworkRequest(
+            id: "fetch-1", url: "https://x.test", method: .get, status: 200, startTime: 1,
+            duration: 12, correlationId: "trace-1"
+        ))
+
+        let found = await store.trace(id: "trace-1")
+        let trace = try #require(found)
+        #expect(trace.requests.count == 1)
+        #expect(trace.requests.first?.status == 200)
+        #expect(trace.requests.first?.duration == 12)
+    }
+
     /// Memory bound, mirroring `TrafficStore`'s ring buffer: the store never
     /// grows past `capacity`, evicting the least-recently-touched trace —
     /// this is this store's whole answer to "when is a trace abandoned"

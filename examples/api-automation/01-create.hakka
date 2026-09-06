@@ -1,0 +1,16 @@
+{
+  "seq": 0,
+  "spec": {
+    "id": "create-user",
+    "name": "Create user",
+    "method": "POST",
+    "url": "{{BASE_URL}}/users",
+    "headers": [],
+    "query": [],
+    "body": { "raw": { "text": "{\"name\": \"Ada\"}", "contentType": "application/json" } },
+    "auth": { "inherit": {} },
+    "assertions": [{ "id": "created", "target": { "status": {} }, "op": "equals", "expected": "201", "enabled": true }],
+    "captures": [{ "id": "user-id", "variable": "userId", "source": { "jsonPath": { "_0": "id" } }, "enabled": true }],
+    "followRedirects": true
+  }
+}

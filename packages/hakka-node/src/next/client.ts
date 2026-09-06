@@ -15,7 +15,11 @@
  * Next 16 + Turbopack before this was scoped. See `packages/hakka-node/package.json`.
  */
 export interface HakkaClientOptions {
-  /** Bridge hub URL the overlay connects to. Default `ws://localhost:8989`. */
+  /**
+   * Bridge hub URL the overlay connects to. Default `ws://localhost:8989`, or
+   * `NEXT_PUBLIC_HAKKA_BRIDGE_URL` when that Next.js public environment value
+   * is set. An explicit option wins over the environment.
+   */
   bridgeUrl?: string
   /** Options forwarded to `hakka-browser`'s `start()`. */
   start?: Record<string, unknown>
@@ -96,7 +100,10 @@ export function startHakkaClient(
         ],
         ...options.start,
       })
-      hakka.connect(options.bridgeUrl)
+      // A Next public env value lets a local app use a different hub from the
+      // desktop app (or another dev server) without replacing this one-line
+      // instrumentation-client import. Explicit API configuration still wins.
+      hakka.connect(options.bridgeUrl ?? process.env.NEXT_PUBLIC_HAKKA_BRIDGE_URL)
     })
     .catch((e: unknown) => {
       settled = true

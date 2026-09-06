@@ -24,19 +24,30 @@ const STEPS: string[] = [
 ]
 
 export function Checklist() {
+  const starterSteps = STEPS.slice(0, 4)
+  const exploreSteps = STEPS.slice(4)
+
   return (
     <section aria-labelledby="checklist-heading" className="demo-section">
       <h2 id="checklist-heading" className="demo-section-title">
         Try the inspector
       </h2>
       <p className="demo-section-desc">
-        {STEPS.length} steps, start to finish. Each one uses something you just generated.
+        Start with these four steps. The rest are there when you want to explore a specific tool.
       </p>
-      <ol className="demo-checklist">
-        {STEPS.map((step) => (
+      <ol className="demo-checklist demo-checklist-starter">
+        {starterSteps.map((step) => (
           <li key={step}>{step}</li>
         ))}
       </ol>
+      <details className="demo-more-steps">
+        <summary>More to explore: {exploreSteps.length} optional tasks</summary>
+        <ol className="demo-checklist demo-checklist-explore" start={starterSteps.length + 1}>
+          {exploreSteps.map((step) => (
+            <li key={step}>{step}</li>
+          ))}
+        </ol>
+      </details>
     </section>
   )
 }

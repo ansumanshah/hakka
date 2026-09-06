@@ -16,16 +16,12 @@ import Testing
 @Suite("TrafficModel devices")
 @MainActor
 struct TrafficModelDevicesTests {
-    /// Polls the actor's own `boundPort`, not `TrafficModel.boundPort` —
-    /// that field is a one-time snapshot taken right after `server.start()`
-    /// returns (`TrafficModel.swift`'s `start()`), which for an ephemeral
-    /// port (`0`, used here so this suite never fights another test for
-    /// `bridgeDefaultPort`) can still read `0` at that instant; the actor's
-    /// `boundPort` keeps resolving afterward the same way
-    /// `BridgeSocketTests.boundPort(of:)` polls it directly.
+    /// The model receives its ready-state port snapshot from `BridgeServer`
+    /// before `start()` marks it running. Poll only because the model's own
+    /// long-lived startup task is intentionally started in the background.
     private func boundPort(of model: TrafficModel) async -> UInt16? {
         for _ in 0..<100 {
-            if let port = await model.server.boundPort, port != 0 { return port }
+            if let port = model.boundPort, port != 0 { return port }
             try? await Task.sleep(for: .milliseconds(50))
         }
         return nil
@@ -45,6 +41,10 @@ struct TrafficModelDevicesTests {
 
     private func requestFrame(id: String, url: String) -> String {
         #"{"type":"request","payload":{"id":"\#(id)","url":"\#(url)","method":"GET","startTime":1}}"#
+    }
+
+    private func completedRequestFrame(id: String, url: String) -> String {
+        #"{"type":"request","payload":{"id":"\#(id)","url":"\#(url)","method":"GET","status":200,"startTime":1,"duration":8}}"#
     }
 
     private func openSocket(port: UInt16) -> URLSessionWebSocketTask {
@@ -108,5 +108,21 @@ struct TrafficModelDevicesTests {
             model.deviceLabel(for: "d-1") == deviceLabel,
             "the request must still be attributed to its device after the device disconnects"
         )
+    }
+
+    @Test func aCompletedFrameUpdatesItsExistingTrafficRow() async throws {
+        let model = TrafficModel(server: BridgeServer(options: BridgeServerOptions(port: 0, advertise: false)))
+        let runTask = Task { await model.start() }
+        defer { runTask.cancel() }
+        let port = try #require(await boundPort(of: model))
+        let client = openSocket(port: port)
+        defer { client.cancel(with: .goingAway, reason: nil) }
+
+        try await client.send(.string(requestFrame(id: "update-1", url: "https://update.test/items")))
+        try await client.send(.string(completedRequestFrame(id: "update-1", url: "https://update.test/items")))
+        let updated = await waitUntil { model.requests.count == 1 && model.requests.first?.status == 200 }
+
+        #expect(updated, "a later frame for one capture id must update its row, not create a duplicate")
+        #expect(model.requests.first?.duration == 8)
     }
 }

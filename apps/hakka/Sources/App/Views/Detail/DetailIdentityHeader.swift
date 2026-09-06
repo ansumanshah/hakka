@@ -32,8 +32,7 @@ struct DetailIdentityHeader: View {
                 .truncationMode(.middle)
                 .textSelection(.enabled)
         }
-        .padding(.horizontal, Spacing.xl)
         .padding(.vertical, Spacing.sm)
-        .background(.bar)
+        .background(Color(nsColor: .textBackgroundColor))
     }
 }

@@ -16,6 +16,21 @@ npm run dev   # http://localhost:3000
 
 That's it. No `hakka-bridge` process, no proxy, no CA cert.
 
+The example uses the default embedded hub at `ws://localhost:8989`. If that
+port belongs to Hakka for macOS or another local app, use a dedicated hub port
+for both server and browser peers:
+
+```bash
+HAKKA_BRIDGE_URL=ws://localhost:8990 \
+NEXT_PUBLIC_HAKKA_BRIDGE_URL=ws://localhost:8990 \
+npm run dev
+```
+
+`instrumentation.ts` reads `HAKKA_BRIDGE_URL`; the one-line
+`instrumentation-client.ts` import reads `NEXT_PUBLIC_HAKKA_BRIDGE_URL`. An
+explicit `bridgeUrl` option still takes precedence over either environment
+value.
+
 ## The demo page
 
 Open http://localhost:3000 and something is already happening: the page's own Server

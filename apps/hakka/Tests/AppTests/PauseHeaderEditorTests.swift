@@ -1,5 +1,5 @@
-import Testing
 @testable import HakkaApp
+import Testing
 
 /// Coverage for the header-list <-> wire-dictionary "edit merge" behind the
 /// pause editor: `PauseEditorView` edits headers as an ordered list (SwiftUI
@@ -38,5 +38,15 @@ struct PauseHeaderEditorTests {
         rows[0].value = "new"
 
         #expect(rows.asHeaders == ["auth": "new"])
+    }
+
+    @Test func repeatedHeaderEditsUseTheLastValueWithoutCrashing() {
+        let rows = [
+            PauseHeaderKV(name: "x-trace", value: "before"),
+            PauseHeaderKV(name: "x-trace", value: "after"),
+            PauseHeaderKV(name: "", value: "unfinished"),
+        ]
+
+        #expect(rows.asHeaders == ["x-trace": "after"])
     }
 }

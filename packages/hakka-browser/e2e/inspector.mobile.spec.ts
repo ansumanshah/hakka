@@ -46,3 +46,37 @@ test('panel fills the mobile viewport width', async ({ page }) => {
   // Phone layout: the panel spans (near) the full viewport width (bottom-sheet / full-screen).
   expect(box!.width).toBeGreaterThan(viewport!.width * 0.9)
 })
+
+test('detail actions stay on one row at phone width', async ({ page }) => {
+  await page.getByText('/graphql').first().click()
+  await expect(page.locator('.hakka-detail')).toBeVisible()
+
+  const actionRows = await page
+    .locator('.hakka-detail-status > *')
+    .evaluateAll((actions) => new Set(actions.map((action) => Math.round(action.getBoundingClientRect().top))).size)
+
+  expect(actionRows).toBe(1)
+  await expect(page.getByRole('button', { name: 'Agent' })).toBeVisible()
+})
+
+test('severity marker stays within every row boundary without shifting columns', async ({ page }) => {
+  const result = await page.locator('.hakka-row.is-error').evaluate((row) => {
+    const box = row.getBoundingClientRect()
+    const marker = getComputedStyle(row, '::before')
+    const markerBottoms = Array.from(document.querySelectorAll('.hakka-row'), (item) =>
+      Number.parseFloat(getComputedStyle(item, '::before').bottom),
+    )
+    return {
+      markerBottom: Number.parseFloat(marker.bottom),
+      markerBottoms,
+      markerColor: marker.backgroundColor,
+      markerLeft: Number.parseFloat(marker.left),
+      rowLeft: box.left,
+    }
+  })
+
+  expect(result.markerColor).not.toBe('rgba(0, 0, 0, 0)')
+  expect(result.markerBottom).toBe(0)
+  expect(result.markerBottoms.every((bottom) => bottom === 0)).toBe(true)
+  expect(result.markerLeft).toBe(result.rowLeft)
+})

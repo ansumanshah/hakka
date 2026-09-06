@@ -1,9 +1,9 @@
 /**
  * Traffic generators for the demo API in `server/demoApi.ts`. Nothing here
- * mentions Hakka — that's deliberate. `Hakka.start()` (called once in
- * `panel.ts` / `react-main.tsx`) patches `fetch`/`XMLHttpRequest` globally
- * before any of these run, so every call below is captured into the shared
- * store the six elements read from, with zero per-call wiring.
+ * mentions Hakka — that's deliberate. `createDemoStore()` patches
+ * `fetch`/`XMLHttpRequest` once before either entry point runs, so every call
+ * below is captured into the injected store the six elements read from, with
+ * zero per-call wiring.
  *
  * Each function resolves to a short, human-readable summary of what
  * happened — used for the on-page "last action" log, not by Hakka.

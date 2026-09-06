@@ -363,6 +363,11 @@ export {
   type ConsoleEntry,
 } from './capture/console'
 export { loadUiState, saveUiState, type UiState } from './ui/persist'
+// Page diagnostics are read-only and serializable, so a local agent or debug
+// menu can inspect the current document without relying on the visual panel.
+// They never evaluate a string or execute a command in the page context.
+export { describeElement, getPageInfo, getPageOutline, inspectPage, inspectPageElement } from './ui/pageDiagnostics'
+export type { PageElementSummary, PageInfo } from './ui/pageDiagnostics'
 // Theming — curated presets + panel opacity/height, applied across the Shadow
 // DOM boundary as --hakka-* CSS custom properties. See ui/presets.ts for the
 // full themable set and the host-page CSS-var override contract.

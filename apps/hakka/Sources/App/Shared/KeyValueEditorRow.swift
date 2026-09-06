@@ -14,23 +14,28 @@ struct KeyValueEditorRow: View {
     let onDelete: () -> Void
 
     var body: some View {
-        HStack(spacing: Spacing.md) {
+        HStack(spacing: Spacing.sm) {
             Toggle(isOn: $enabled) { EmptyView() }
                 .labelsHidden()
                 .toggleStyle(.checkbox)
+                .controlSize(.small)
             TextField(namePlaceholder, text: $name)
                 .textFieldStyle(.plain)
+                .controlSize(.small)
                 .frame(maxWidth: .infinity)
-            Divider()
+            Divider().frame(height: ControlHeight.md)
             valueField
                 .textFieldStyle(.plain)
+                .controlSize(.small)
                 .frame(maxWidth: .infinity)
             Button(action: onDelete) {
                 Image(systemName: "minus.circle")
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
+            .controlSize(.small)
         }
+        .frame(minHeight: ControlHeight.md)
         .opacity(enabled ? 1 : 0.5)
     }
 

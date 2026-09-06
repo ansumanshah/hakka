@@ -357,3 +357,6 @@ export type {
   RuntimeControlMessage,
 } from './contract/runtimeControl'
 export { RuntimeControlReceiver } from './contract/RuntimeControlReceiver'
+
+export { createRuleBundle, parseRuleBundle } from './engine/ruleBundle'
+export type { RuleBundle } from './engine/ruleBundle'

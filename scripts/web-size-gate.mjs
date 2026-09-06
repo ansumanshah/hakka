@@ -68,8 +68,12 @@ const NAMED = {
     // Re-baselined 2026-09-05 (143 -> 147 KB) after acknowledged runtime
     // control added the target receiver and protocol to the all-in-one build.
     // Measured 144.08 KB; the eager ESM entry remains below its existing cap.
+    // Re-baselined 2026-09-06 (147 -> 150 KB) for the phone-first Page
+    // diagnostics and explicit console runner. The prior checkout measured
+    // 146.84 KB; this feature measures 149.25 KB (+2.41 KB). The eager ESM
+    // launcher stays independently capped at 5 KB.
     label: 'IIFE (<script>)',
-    budget: Number(process.env.HAKKA_WEB_GLOBAL_BUDGET) || 147 * 1024,
+    budget: Number(process.env.HAKKA_WEB_GLOBAL_BUDGET) || 150 * 1024,
   },
   'worker.js': {
     // workerCapture.ts's own build (vite.config.ts's `worker` mode, `hakka-browser/worker`)
@@ -104,7 +108,10 @@ const NAMED = {
 // Re-baselined 2026-09-05 (154 -> 158 KB) for the coordinated Solid 2.0
 // rc.6 runtime/compiler update. Measured 155.41 KB; the eager entry stayed
 // at 3.20 KB and the IIFE remains within its existing cap.
-const LAZY_BUDGET = Number(process.env.HAKKA_WEB_LAZY_BUDGET) || 158 * 1024
+// Re-baselined 2026-09-06 (158 -> 160 KB) for phone-first Page diagnostics
+// and the explicit console runner. The fresh baseline was 156.14 KB and the
+// feature build measured 159.28 KB (+3.14 KB).
+const LAZY_BUDGET = Number(process.env.HAKKA_WEB_LAZY_BUDGET) || 160 * 1024
 
 const kb = (n) => `${(n / 1024).toFixed(2)} KB`
 const pad = (s, n) => String(s).padEnd(n)

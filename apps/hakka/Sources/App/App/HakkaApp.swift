@@ -9,7 +9,7 @@ struct HakkaApp: App {
         WindowGroup {
             ContentView()
                 .environment(model)
-                .frame(minWidth: 900, minHeight: 560)  // ui-token-check-ignore: window chrome
+                .frame(minWidth: 960, minHeight: 560) // ui-token-check-ignore: window chrome
                 .task {
                     // `AppDelegate` is constructed before `AppModel` exists
                     // (see its own doc comment), so the hand-off happens here.
@@ -33,7 +33,8 @@ struct HakkaApp: App {
                     await mirrorStorage
                 }
         }
-        .defaultSize(width: 1240, height: 780)  // ui-token-check-ignore: window chrome
+        .windowResizability(.contentMinSize)
+        .defaultSize(width: 1240, height: 780) // ui-token-check-ignore: window chrome
         .commands {
             AppCommands(model: model)
         }
@@ -41,9 +42,9 @@ struct HakkaApp: App {
         Window("Source Control", id: WindowID.sourceControl) {
             GitPaneView(directoryURL: model.collection.directoryURL)
                 .environment(model)
-                .frame(minWidth: 720, minHeight: 460)  // ui-token-check-ignore: window chrome
+                .frame(minWidth: 720, minHeight: 460) // ui-token-check-ignore: window chrome
         }
-        .defaultSize(width: 980, height: 640)  // ui-token-check-ignore: window chrome
+        .defaultSize(width: 980, height: 640) // ui-token-check-ignore: window chrome
 
         Settings {
             SettingsView()

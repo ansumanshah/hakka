@@ -36,6 +36,36 @@ async function flush(ms: number): Promise<void> {
 }
 
 describe('startHakkaClient — settle timeout', () => {
+  test('uses the public Next bridge URL when no explicit URL is supplied', async () => {
+    const originalBridgeUrl = process.env.NEXT_PUBLIC_HAKKA_BRIDGE_URL
+    process.env.NEXT_PUBLIC_HAKKA_BRIDGE_URL = 'ws://localhost:8990'
+    const connect = mock(() => {})
+    try {
+      startHakkaClient({ settleTimeoutMs: 30 }, () => Promise.resolve({ start: mock(() => {}), connect }))
+      await flush(80)
+      expect(connect).toHaveBeenCalledWith('ws://localhost:8990')
+    } finally {
+      if (originalBridgeUrl === undefined) delete process.env.NEXT_PUBLIC_HAKKA_BRIDGE_URL
+      else process.env.NEXT_PUBLIC_HAKKA_BRIDGE_URL = originalBridgeUrl
+    }
+  })
+
+  test('an explicit bridge URL takes precedence over the public Next bridge URL', async () => {
+    const originalBridgeUrl = process.env.NEXT_PUBLIC_HAKKA_BRIDGE_URL
+    process.env.NEXT_PUBLIC_HAKKA_BRIDGE_URL = 'ws://localhost:8990'
+    const connect = mock(() => {})
+    try {
+      startHakkaClient({ bridgeUrl: 'ws://localhost:8991', settleTimeoutMs: 30 }, () =>
+        Promise.resolve({ start: mock(() => {}), connect }),
+      )
+      await flush(80)
+      expect(connect).toHaveBeenCalledWith('ws://localhost:8991')
+    } finally {
+      if (originalBridgeUrl === undefined) delete process.env.NEXT_PUBLIC_HAKKA_BRIDGE_URL
+      else process.env.NEXT_PUBLIC_HAKKA_BRIDGE_URL = originalBridgeUrl
+    }
+  })
+
   test('starts the overlay and never warns when the loader resolves quickly', async () => {
     const start = mock(() => {})
     const connect = mock(() => {})

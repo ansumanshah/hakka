@@ -27,6 +27,18 @@ public actor TrafficStore {
         accumulator.insert(request)
     }
 
+    /// Inserts a new capture or replaces its later update from the same
+    /// runtime. Browser and Node capture often emit the initial request and
+    /// completed response as two frames sharing one id.
+    public func upsert(_ request: NetworkRequest) {
+        if let replaced = buffer.replaceFirst(where: { $0.id == request.id }, with: request) {
+            accumulator.remove(replaced)
+            accumulator.insert(request)
+        } else {
+            append(request)
+        }
+    }
+
     public func append(contentsOf requests: [NetworkRequest]) {
         for request in requests { append(request) }
     }

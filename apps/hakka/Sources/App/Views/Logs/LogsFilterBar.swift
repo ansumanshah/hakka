@@ -12,14 +12,16 @@ struct LogsFilterBar: View {
     @Bindable var logs: LogsModel
 
     var body: some View {
-        HStack(spacing: Spacing.sm) {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
             searchField
-            levelChip(nil, label: "All")
-            ForEach(LogLevel.allCases, id: \.rawValue) { level in
-                levelChip(level, label: level.label)
+            HStack(spacing: Spacing.sm) {
+                levelChip(nil, label: "All")
+                ForEach(LogLevel.allCases, id: \.rawValue) { level in
+                    levelChip(level, label: level.label)
+                }
             }
         }
-        .padding(.horizontal, Spacing.lg)
+        .padding(.horizontal, Layout.gutter)
         .padding(.bottom, Spacing.md)
     }
 
@@ -55,6 +57,7 @@ struct LogsFilterBar: View {
         } label: {
             Text(label)
                 .font(.caption2.weight(.semibold))
+                .fixedSize()
                 .padding(.horizontal, Spacing.sm)
                 .padding(.vertical, Spacing.xs)
                 .background(isActive ? chipColor(level).opacity(0.2) : Color.secondary.opacity(0.08), in: Capsule())

@@ -32,6 +32,19 @@ struct RingBuffer<Element> {
         return evicted
     }
 
+    /// Replaces the first buffered element satisfying `predicate`, preserving
+    /// its position. Returns the previous element when one was replaced.
+    @discardableResult
+    mutating func replaceFirst(where predicate: (Element) -> Bool, with element: Element) -> Element? {
+        for offset in 0 ..< count {
+            let index = (head + offset) % capacity
+            guard let previous = storage[index], predicate(previous) else { continue }
+            storage[index] = element
+            return previous
+        }
+        return nil
+    }
+
     /// All buffered elements, oldest first.
     var elements: [Element] {
         guard count > 0 else { return [] }

@@ -18,7 +18,7 @@ a POST that echoes its body, and a 404 for an unknown user id. Click a button, w
 ## Run it
 
 ```sh
-just build-browser   # or: bun run --cwd ../../packages build   (builds hakka-core + hakka-browser dist)
+just build-browser   # builds hakka-core + hakka-browser dist
 npm install           # see "Why npm" below
 npm run dev
 ```

@@ -84,12 +84,26 @@ public enum BridgeWireLimits {
     public static let maxFrameBytes = 8 * 1024 * 1024
 }
 
-/// Decodes just the `payload` of a `{"type":"request",...}` frame, so the
-/// `NetworkRequest` decode runs directly against the original wire bytes —
-/// no re-serialization round trip through `JSONSerialization`, which would
-/// risk quietly reformatting numbers.
+/// Decodes just the `payload` of a `{"type":"request",...}` frame.
 private struct BridgeRequestEnvelope: Decodable {
     let payload: NetworkRequest
+}
+
+/// JavaScript SDKs encode a header map as `Record<string, string>` while the
+/// native record contract preserves multiple values as `[String: [String]]`.
+/// Normalize only that bridge-boundary difference before decoding. Every
+/// non-string value remains untouched so malformed input still fails the
+/// strict `NetworkRequest` decode and is never invented into a record.
+private func normalizedBridgeRequestData(payload: Any) -> Data? {
+    guard var request = payload as? [String: Any] else { return nil }
+    for key in ["requestHeaders", "responseHeaders"] {
+        guard var headers = request[key] as? [String: Any] else { continue }
+        for (name, value) in headers where value is String {
+            headers[name] = [value]
+        }
+        request[key] = headers
+    }
+    return try? JSONSerialization.data(withJSONObject: ["payload": request])
 }
 
 /// Decodes just the `payload` of a `{"type":"span",...}` frame — same
@@ -167,7 +181,9 @@ public func parseBridgeFrame(_ raw: String, maxBytes: Int = BridgeWireLimits.max
     var decodedConsole: [LogEntry]?
     var decodedStorage: StorageSnapshot?
     if kind == .request {
-        decodedRequest = try? JSONDecoder().decode(BridgeRequestEnvelope.self, from: data).payload
+        if let requestData = normalizedBridgeRequestData(payload: payload) {
+            decodedRequest = try? JSONDecoder().decode(BridgeRequestEnvelope.self, from: requestData).payload
+        }
     } else if kind == .span {
         decodedSpan = try? JSONDecoder().decode(BridgeSpanEnvelope.self, from: data).payload
     } else if kind == .console {

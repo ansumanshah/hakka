@@ -20,8 +20,13 @@ final class EnvironmentModel {
     }
 
     var scope: VariableScope {
+        // Match RequestEnvironment.value(for:): the first enabled definition wins.
+        // Incomplete editor rows do not contribute a variable until named.
         let values = Dictionary(
-            uniqueKeysWithValues: (selected?.variables ?? []).filter(\.enabled).map { ($0.name, $0.value) }
+            (selected?.variables ?? [])
+                .filter { $0.enabled && !$0.name.isEmpty }
+                .map { ($0.name, $0.value) },
+            uniquingKeysWith: { first, _ in first }
         )
         return VariableScope(environment: values, runtime: runtime)
     }

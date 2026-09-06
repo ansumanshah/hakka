@@ -19,26 +19,40 @@ struct DetailActionBar: View {
     @State private var copiedLabel: String?
 
     var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            ViewThatFits(in: .horizontal) {
+                actions.labelStyle(.titleAndIcon).fixedSize(horizontal: true, vertical: false)
+                actions.labelStyle(.iconOnly)
+            }
+            .controlSize(.small)
+            .buttonStyle(.bordered)
+            if let note = mockNote ?? copiedLabel {
+                Text(note)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var actions: some View {
         HStack(spacing: Spacing.md) {
             Button(action: onReplay) {
                 Label("Replay", systemImage: "arrow.clockwise")
             }
+            .help("Replay request")
             copyAsMenu
             Button(action: onMock) {
                 Label("Mock", systemImage: "wand.and.stars")
             }
-            if let mockNote {
-                Text(mockNote)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .help(mockNote)
-            }
-            Spacer()
+            .help("Create mock from request")
             Button(action: onSave) {
-                Label("Save to Collection", systemImage: "square.and.arrow.down")
+                Label("Save", systemImage: "square.and.arrow.down")
             }
+            .accessibilityLabel("Save to Collection")
+            .help("Save to Collection")
         }
-        .font(.caption)
     }
 
     private var copyAsMenu: some View {
@@ -49,12 +63,10 @@ struct DetailActionBar: View {
                 }
             }
         } label: {
-            Label(
-                copiedLabel ?? "Copy as",
-                systemImage: copiedLabel == nil ? "doc.on.doc" : "checkmark"
-            )
+            Label("Copy as", systemImage: "doc.on.doc")
         }
-        .menuStyle(.borderlessButton)
+        .menuStyle(.borderedButton)
+        .help("Copy request as code")
         .fixedSize()
     }
 

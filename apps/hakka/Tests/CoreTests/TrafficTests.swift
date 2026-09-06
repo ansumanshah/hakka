@@ -36,6 +36,20 @@ struct TrafficStoreStatsTests {
         #expect(stats == TrafficStats(count: 0, errorCount: 0, p50DurationMs: nil, p95DurationMs: nil, totalBytes: 0))
         #expect(await store.count == 0)
     }
+
+    @Test
+    func upsertReplacesAnEarlierFrameWithTheSameCaptureID() async {
+        let store = TrafficStore(capacity: 10)
+        await store.upsert(NetworkRequest(id: "fetch-1", url: "https://api.test/items", method: .get, startTime: 1))
+        await store.upsert(NetworkRequest(
+            id: "fetch-1", url: "https://api.test/items", method: .get, status: 200, startTime: 1,
+            duration: 20, responseBodySize: 42
+        ))
+
+        #expect(await store.count == 1)
+        #expect(await store.all().first?.status == 200)
+        #expect(await store.stats().totalBytes == 42)
+    }
 }
 
 @Suite("TrafficQueryCompiler + TrafficSort")

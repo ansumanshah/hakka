@@ -13,6 +13,8 @@
         "examples/webpack-probe/{webpack.config.js,src/index.js}",
         "examples/cdp-playwright/{playwright.config.ts,fixtures/demo-server.ts,tests/*.spec.ts}",
         "examples/framework-servers/*.mjs",
+        "examples/desktop-bridge/run.mjs",
+        "examples/api-automation/run.mjs",
         "examples/otel-spans/*.mjs",
         "examples/prod-cohort/demo.mjs",
       ],

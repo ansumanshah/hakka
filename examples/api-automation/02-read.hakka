@@ -1,0 +1,16 @@
+{
+  "seq": 1,
+  "spec": {
+    "id": "read-user",
+    "name": "Read captured user",
+    "method": "GET",
+    "url": "{{BASE_URL}}/users/{{userId}}",
+    "headers": [],
+    "query": [],
+    "body": { "none": {} },
+    "auth": { "inherit": {} },
+    "assertions": [{ "id": "ok", "target": { "status": {} }, "op": "equals", "expected": "200", "enabled": true }],
+    "captures": [],
+    "followRedirects": true
+  }
+}
