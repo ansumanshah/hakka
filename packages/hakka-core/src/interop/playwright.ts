@@ -8,26 +8,12 @@
  * handler opens with a method guard (`if (route.request().method() !== '<METHOD>') return
  * route.fallback()`) so routes for the same URL coexist instead of one eating the other.
  *
- * URL matching is origin + pathname only, query dropped — same as `interop/msw.ts` (this file's
- * helpers mirror msw.ts's local copies rather than importing them, keeping `interop/`
- * independent of `codegen/`, which re-exports from both).
+ * URL matching uses origin + pathname, without the query string.
  */
+import { jsSingleQuote, looksLikeJson } from '../codegen/escaping'
 import type { Exporter } from '../contract/exporter'
 import type { NetworkRequest } from '../model/types'
 import { estimateBodySize } from '../utils/bodySizeLimit'
-
-// Helpers below mirror msw.ts's local copies — see file header for why they aren't imported.
-
-/** Escape a string for embedding inside a JS single-quoted string literal (mirrors codegen/escaping.ts). */
-function jsSingleQuote(s: string): string {
-  return `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n')}'`
-}
-
-/** True when the trimmed text looks like a JSON object/array (same heuristic as codegen/escaping.ts). */
-function looksLikeJson(body: string): boolean {
-  const t = body.trim()
-  return (t.startsWith('{') && t.endsWith('}')) || (t.startsWith('[') && t.endsWith(']'))
-}
 
 function isValidJson(text: string): boolean {
   try {

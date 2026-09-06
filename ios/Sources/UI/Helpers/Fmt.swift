@@ -26,21 +26,14 @@ enum Haptics {
 
 // MARK: - HeadersView
 
-/// Displays headers as key: value lines with optional body below.
-/// Tapping the body section triggers `onBodyTap` for full-screen viewing.
+/// Header rows with a shared key-column width.
 struct HeadersView: View {
     let headers: [String: [String]]
-    let content: String?
-    let bodySize: Int64
-    var onBodyTap: (() -> Void)? = nil
     var searchText: String = ""
-
-    // Shrink-to-fit key column, shared across every row in this list — the
-    // column takes only as much width as its widest key actually needs.
     @State private var keyColumnWidth: CGFloat = 0
 
     var body: some View {
-        if headers.isEmpty && content == nil {
+        if headers.isEmpty {
             Text("(empty)")
                 .font(.caption)
                 .foregroundStyle(Theme.textSecondary)
@@ -60,55 +53,8 @@ struct HeadersView: View {
                         }
                     }
                 }
-
-                if let content {
-                    Divider().overlay(Theme.border)
-                    bodyPreview(content)
-                } else if bodySize > 0 {
-                    Divider().overlay(Theme.border)
-                    Text("\(Fmt.formatBytes(bodySize)) (binary)")
-                        .font(.caption2)
-                        .foregroundStyle(Theme.textSecondary)
-                }
             }
             .onPreferenceChange(KeyColumnWidth.self) { keyColumnWidth = $0 }
-        }
-    }
-
-    @ViewBuilder
-    private func bodyPreview(_ content: String) -> some View {
-        if onBodyTap != nil {
-            Button(action: { onBodyTap?() }) {
-                VStack(alignment: .leading, spacing: Theme.s4) {
-                    SearchHighlightedText(
-                        text: content,
-                        searchText: searchText,
-                        font: .caption2.monospaced(),
-                        color: Theme.text,
-                        lineLimit: 8
-                    )
-                    .multilineTextAlignment(.leading)
-
-                    HStack(spacing: Theme.s4) {
-                        Image(systemName: "magnifyingglass")
-                        Text("Tap to view full body")
-                    }
-                    .font(.caption2)
-                    .foregroundStyle(Theme.info)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-        } else {
-            SearchHighlightedText(
-                text: content,
-                searchText: searchText,
-                font: .caption2.monospaced(),
-                color: Theme.text
-            )
-            .textSelection(.enabled)
-            .frame(maxHeight: 300)  // ui-token-check-ignore: multi-line editor bounds — content box, not a control
         }
     }
 
@@ -149,29 +95,6 @@ enum Fmt {
               let pretty = try? JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted, .sortedKeys])
         else { return nil }
         return String(data: pretty, encoding: .utf8)
-    }
-
-    static func statusColor(for code: Int?) -> Color {
-        Theme.statusColor(for: code)
-    }
-
-    static func reasonPhrase(for code: Int) -> String? {
-        switch code {
-        case 200: return "OK"
-        case 201: return "Created"
-        case 204: return "No Content"
-        case 301: return "Moved"
-        case 304: return "Not Modified"
-        case 400: return "Bad Request"
-        case 401: return "Unauthorized"
-        case 403: return "Forbidden"
-        case 404: return "Not Found"
-        case 429: return "Too Many Requests"
-        case 500: return "Server Error"
-        case 502: return "Bad Gateway"
-        case 503: return "Unavailable"
-        default: return nil
-        }
     }
 }
 // MARK: - Image Response Detection

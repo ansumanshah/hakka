@@ -65,16 +65,6 @@ final class CollectionModel {
         }
     }
 
-    func saveAll() async {
-        guard let directoryURL else { return }
-        do {
-            try await store.save(collection, to: directoryURL)
-            lastError = nil
-        } catch {
-            lastError = "Couldn't save collection: \(error.localizedDescription)"
-        }
-    }
-
     /// Narrower write for one edited request — used after Send/Save on the
     /// active editor so a keystroke elsewhere doesn't trigger a full-tree
     /// rewrite. No-op until a directory is bound.

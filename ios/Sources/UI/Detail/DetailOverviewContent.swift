@@ -146,13 +146,13 @@ extension RequestDetailView {
             let requestHeaders = headersWithoutCookies(request.requestHeaders)
             if !requestHeaders.isEmpty {
                 overviewCard("Request Headers") {
-                    HeadersView(headers: requestHeaders, content: nil, bodySize: 0, searchText: searchText)
+                    HeadersView(headers: requestHeaders, searchText: searchText)
                 }
             }
             let responseHeaders = headersWithoutCookies(request.responseHeaders)
             if !responseHeaders.isEmpty {
                 overviewCard("Response Headers") {
-                    HeadersView(headers: responseHeaders, content: nil, bodySize: 0, searchText: searchText)
+                    HeadersView(headers: responseHeaders, searchText: searchText)
                 }
             }
         }

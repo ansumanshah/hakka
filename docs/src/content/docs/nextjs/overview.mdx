@@ -164,6 +164,22 @@ export function HakkaOverlay() {
 
 Then render `<HakkaOverlay />` inside your root layout.
 
+## Server bundling
+
+For webpack builds, keep the server package chain external:
+
+```js title="next.config.js"
+module.exports = {
+  serverExternalPackages: ['hakka-node', 'hakka-bridge', 'hakka-core', 'ws'],
+}
+```
+
+This keeps optional native-addon probes out of the main server bundle. Next's
+separate instrumentation compilation may still bundle `ws`; Hakka disables its
+optional `bufferutil` probe automatically. Turbopack does not need that webpack
+workaround. Install `hakka-browser` whenever you import the client overlay:
+bundlers resolve that optional peer at build time.
+
 ## What Hakka captures
 
 | Traffic                                                     | Captured     | Body                                                      |
@@ -247,11 +263,13 @@ Passing `traceSpans: true` to `register`/`startServerCapture` bridges Next's own
 
 ```ts title="instrumentation.ts"
 import { registerOTel } from '@vercel/otel'
-import { hakkaSpanProcessor } from 'hakka-node'
 import { register as base } from 'hakka-node/next'
 
 export async function register() {
-  registerOTel({ spanProcessors: [hakkaSpanProcessor()] })
+  if (process.env.NEXT_RUNTIME === 'nodejs') {
+    const { hakkaSpanProcessor } = await import('hakka-node')
+    registerOTel({ spanProcessors: [hakkaSpanProcessor()] })
+  }
   await base({ traceSpans: true })
 }
 ```

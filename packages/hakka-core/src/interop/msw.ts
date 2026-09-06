@@ -13,6 +13,7 @@
  * through `parseMswHandlers` unchanged, and anything hand-written in that same shape parses too.
  * Full behavior: docs/src/content/docs/guides/msw.md.
  */
+import { jsSingleQuote, looksLikeJson } from '../codegen/escaping'
 import type { Exporter } from '../contract/exporter'
 import type { MockRule } from '../engine/MockEngine'
 import type { NetworkRequest } from '../model/types'
@@ -20,17 +21,6 @@ import { estimateBodySize } from '../utils/bodySizeLimit'
 
 const HTTP_METHODS = ['all', 'head', 'get', 'post', 'put', 'delete', 'patch', 'options'] as const
 type HttpMethodName = (typeof HTTP_METHODS)[number]
-
-/** Escape a string for embedding inside a JS single-quoted string literal (mirrors codegen/escaping.ts). */
-function jsSingleQuote(s: string): string {
-  return `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n')}'`
-}
-
-/** True when the trimmed text looks like a JSON object/array (same heuristic as codegen/escaping.ts). */
-function looksLikeJson(body: string): boolean {
-  const t = body.trim()
-  return (t.startsWith('{') && t.endsWith('}')) || (t.startsWith('[') && t.endsWith(']'))
-}
 
 function originOf(url: string): string {
   try {

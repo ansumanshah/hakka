@@ -1,15 +1,11 @@
 import { describe, expect, it } from 'bun:test'
 import { createHash } from 'node:crypto'
 
-import { TRACEPARENT_HEADER, buildTraceparent, deriveTraceId } from '../traceparent'
+import { buildTraceparent, deriveTraceId } from '../traceparent'
 
 const TRACEPARENT_RE = /^([0-9a-f]{2})-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})$/i
 
 describe('traceparent', () => {
-  it('exposes the W3C header name', () => {
-    expect(TRACEPARENT_HEADER).toBe('traceparent')
-  })
-
   describe('deriveTraceId', () => {
     it('strips dashes from a UUID-shaped correlationId', () => {
       expect(deriveTraceId('491a91c3-8b12-496a-94ab-d86bae71b8ed')).toBe('491a91c38b12496a94abd86bae71b8ed')
@@ -29,10 +25,11 @@ describe('traceparent', () => {
     it('preserves SHA-256 prefixes across padding boundaries, Unicode and cache eviction', () => {
       const ids = [
         '',
+        'abc',
         'network-r_1999',
         'é漢字🚀',
         '\ud800',
-        ...[55, 56, 63, 64, 65, 119, 120, 127, 128, 200].map((length) => 'x'.repeat(length)),
+        ...[55, 56, 63, 64, 65, 119, 120, 127, 128, 199, 200].map((length) => 'x'.repeat(length)),
         ...Array.from({ length: 600 }, (_, index) => `synthetic-${index}`),
       ]
       for (const id of [...ids, ...ids.toReversed()]) {
@@ -42,24 +39,6 @@ describe('traceparent', () => {
 
     it('different correlationIds derive different trace-ids', () => {
       expect(deriveTraceId('trace-a')).not.toBe(deriveTraceId('trace-b'))
-    })
-
-    // Known SHA-256 test vectors (FIPS 180-4) — the hash-fallback branch
-    // truncates the digest to its first 32 hex chars.
-    it('matches the known SHA-256 vector for the empty string', () => {
-      expect(deriveTraceId('')).toBe('e3b0c44298fc1c149afbf4c8996fb924')
-    })
-
-    it('matches the known SHA-256 vector for "abc"', () => {
-      expect(deriveTraceId('abc')).toBe('ba7816bf8f01cfea414140de5dae2223')
-    })
-
-    it('handles a >64-byte message needing two blocks the same as a short one (no length-dependent bug)', () => {
-      const long = 'x'.repeat(200)
-      const digest = deriveTraceId(long)
-      expect(digest).toMatch(/^[0-9a-f]{32}$/)
-      expect(deriveTraceId(long)).toBe(digest)
-      expect(digest).not.toBe(deriveTraceId('x'.repeat(199)))
     })
   })
 

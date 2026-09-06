@@ -113,65 +113,17 @@ function readGlobalBundle(): string {
 }
 
 /**
- * webpack / rspack: inject the overlay via html-webpack-plugin's `beforeEmit` hook.
- *
- * CONFIRMED with a real webpack + html-webpack-plugin build (see
- * `examples/webpack-probe`) — this comment used to record the risk as
- * unverified. Two distinct, real bugs, both fixed here:
- *
- * 1. THE PREDICTED ONE. webpack has no equivalent to Vite's `devHtmlHook`:
- *    `beforeEmit` fires at emit time, after the compilation is sealed, so a
- *    string spliced in here is never part of the module graph and never
- *    resolved. The probe confirmed the emitted HTML carried a literal
- *    `import { start } from 'hakka-browser'` inside an inline module script —
- *    the exact "Failed to resolve module specifier" failure Vite had, for
- *    every webpack/rspack consumer, unconditionally (not a rare
- *    misconfiguration). FIX: stop using an ESM `import` for these two
- *    adapters. Reuse the pre-built global bundle this package already ships
- *    for the no-bundler `<script>`-tag path (`readGlobalBundle` above) —
- *    emit it as a REAL compilation asset and inject two CLASSIC (non-module)
- *    `<script>` tags: one `src`-loads that asset (defines `window.Hakka`),
- *    one inline calls `Hakka.start(...)`. Classic scripts run synchronously
- *    in source order, so the loader always finishes before the starter runs —
- *    nothing here needs a module resolver, so there is nothing for
- *    webpack/rspack's missing HTML-transform step to break.
- *
- * 2. ONE THE PROBE SURFACED AS A SIDE EFFECT, and worse than #1: this
- *    function used to resolve the optional `html-webpack-plugin` peer with
- *    `createRequire(import.meta.url)`, i.e. relative to THIS FILE's own
- *    location. Node resolves `import.meta.url` through symlinks to the real
- *    path first, so for any symlink-based install of hakka-browser itself —
- *    `file:` deps (this repo's own `examples/*-app` convention), `npm
- *    link`/`yarn link`, or pnpm's node_modules (symlink-based by design, not
- *    only for local dev) — that lookup walks up from hakka-browser's OWN real
- *    location, never reaches the consuming app's `node_modules`, and fails.
- *    The old `catch { return }` swallowed it silently: no error, no injected
- *    tag, nothing — a harder-to-diagnose failure than #1 because it produces
- *    no clue in the browser either. Reproduced directly: a symlinked install
- *    of an otherwise-identical build produced no `data-hakka` tag at all,
- *    while a flat (tarball) install of the exact same build hit bug #1
- *    instead. FIX: anchor the lookup at `compiler.context` (the CONSUMING
- *    app's root), not this file's own location — that's where the app's own
- *    `html-webpack-plugin` devDependency actually lives, regardless of how
- *    hakka-browser itself got installed.
- *
- * Known limitation, not fixed here: the injected `src` is a bare relative
- * filename (`hakka-inject.js`), which resolves correctly when the HTML file
- * and the emitted asset land in the same output directory — true for the
- * default single-`HtmlWebpackPlugin`-instance setup this was verified
- * against. A multi-page app whose `HtmlWebpackPlugin` instances emit into
- * subdirectories (`filename: 'foo/index.html'`) would need a depth-aware or
- * publicPath-aware `src`; not implemented, since nothing here has verified it
- * one way or the other.
+ * Emit the global bundle and inject ordered classic scripts: beforeEmit cannot
+ * resolve ESM imports. Resolve html-webpack-plugin from the consuming app for
+ * linked and pnpm installs. The relative script path requires HTML and the asset
+ * in the same output directory; nested multi-page output is not supported.
  */
 function installHtmlHook(compiler: WebpackCompilerLike, options: HakkaPluginOptions, devOnly: boolean): void {
   if (devOnly && compiler.options.mode === 'production') return
   compiler.hooks.compilation.tap(PLUGIN_NAME, (compilation) => {
     let plugin: HtmlWebpackPluginStatic
     try {
-      // Optional peer, resolved from the APP's root — see bug #2 above.
-      // `noop.js` need not exist: createRequire only uses the path to derive
-      // a resolution directory, it never reads the file itself.
+      // createRequire uses this path's directory; noop.js need not exist.
       plugin = createRequire(join(compiler.context, 'noop.js'))('html-webpack-plugin') as HtmlWebpackPluginStatic
     } catch {
       return

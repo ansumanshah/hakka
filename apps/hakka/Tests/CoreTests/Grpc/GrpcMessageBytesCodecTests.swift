@@ -17,10 +17,6 @@ struct GrpcMessageBytesCodecTests {
     }
 
     @Test func fallsBackToBase64WhenNotValidHex() {
-        // "aGVsbG8=" base64-decodes to "hello"; it also happens to satisfy
-        // hex's character set were it not for the "=" and odd interpretation
-        // — this string in particular is not valid hex (odd non-hex chars),
-        // so it must fall through to base64.
         #expect(GrpcMessageBytesCodec.decode("aGVsbG8=") == Data("hello".utf8))
     }
 
@@ -34,10 +30,5 @@ struct GrpcMessageBytesCodecTests {
         // multiple of 4 with valid padding) — must return nil, not crash or
         // silently drop a nibble.
         #expect(GrpcMessageBytesCodec.decode("abc") == nil)
-    }
-
-    @Test func roundTripsThroughEncodeHex() {
-        let bytes = Data([0x00, 0xff, 0x10, 0x9a, 0x01])
-        #expect(GrpcMessageBytesCodec.decode(GrpcMessageBytesCodec.encodeHex(bytes)) == bytes)
     }
 }

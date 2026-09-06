@@ -35,10 +35,4 @@ enum GrpcMessageBytesCodec {
         }
         return Data(bytes)
     }
-
-    /// Hex text for display — the raw-mode editor's canonical round-trip
-    /// format regardless of how a value first arrived.
-    static func encodeHex(_ data: Data) -> String {
-        data.map { String(format: "%02x", $0) }.joined()
-    }
 }

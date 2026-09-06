@@ -2,14 +2,15 @@
   "name": "hakka-node-framework-servers-example",
   "version": "0.0.0",
   "private": true,
-  "description": "hakka-node's root export (register/startCapture) wired into Express, Fastify, Hono, and raw node:http — each demo prints its own captured records and proves x-hakka-trace correlation, no inspector UI required.",
+  "description": "Hakka capture and trace-correlation examples for Express, Fastify, Hono, node:http, and Bun.serve.",
   "type": "module",
   "scripts": {
     "demo": "node run-all.mjs",
     "demo:raw-http": "node raw-http.mjs",
     "demo:express": "node express.mjs",
     "demo:fastify": "node fastify.mjs",
-    "demo:hono": "node hono.mjs"
+    "demo:hono": "node hono.mjs",
+    "demo:bun": "bun bun.mjs"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.1",
@@ -22,5 +23,5 @@
     "hakka-bridge": "file:../../packages/hakka-bridge",
     "hakka-core": "file:../../packages/hakka-core"
   },
-  "//overrides": "The hakka-* packages aren't published yet, so hakka-node uses a file: dep and the transitive pair it depends on (hakka-core, hakka-bridge) is overridden to the same directories — same pattern as examples/next-fullstack. This example lives outside the root workspace on purpose (packages/* only matches direct children of packages/, not this nested examples/ dir), so it resolves hakka-node the way a real npm consumer would. Install with npm, not bun — bun lays file: deps out as per-file symlinks and next-fullstack's README flags the same issue for Turbopack; npm is the safer default here too."
+  "//overrides": "Unpublished Hakka dependencies resolve to local packages. This consumer fixture stays outside the Bun workspace; install it with npm."
 }

@@ -1,89 +1,107 @@
 ---
 title: Design Principles
-description: The core design constraints that guide all Hakka SDK decisions.
+description: Capture, privacy, performance, and interface rules for Hakka.
 ---
 
-Hakka is a diagnostics SDK that runs inside other people's apps. The design bar
-is different from a standalone tool: it must be small, quiet, local, and
-predictable.
+Hakka runs inside other applications. Capture must be accurate, bounded, and independent of the inspector UI.
 
-## Core First
+## Core first
 
-Backend/native SDK logic comes before UI.
+Android and iOS own capture, redaction, filters, body limits, storage, export,
+and noop behavior. React Native provides the TypeScript API, TurboModule
+bridge, native inspector presentation, and JavaScript-only monitors.
 
-The first-class product surface is capture correctness: what was requested,
-what returned, how long it took, what was redacted, and how records can be read
-without disturbing the host app. UI only becomes valuable when the record
-contract and processor boundaries are trustworthy.
+Interceptors collect raw facts and return promptly. Processors and snapshot
+readers handle normalization, redaction, export, and notifications.
 
-## Native Owns Capture
+## Local and bounded
 
-Android and iOS SDKs own:
-
-- network capture
-- redaction
-- filters
-- body limits
-- ring buffers
-- native exports
-- noop behavior
-- performance and size budgets
-
-React Native owns:
-
-- TypeScript API ergonomics
-- TurboModule bridge
-- native inspector presentation through the TurboModule bridge
-- JavaScript-only monitors
-
-## Local First
-
-Hakka must never upload captured data by default. Applications may attach sinks
-for analytics, Sentry, Firebase, OpenTelemetry, or private backends, but the
-base SDK remains local.
-
-## Bounded Everything
-
-- Fixed record count.
-- Fixed body preview size.
-- No unbounded persistence.
-- No per-event disk writes by default.
-- No unbounded sink queues.
-
-When capacity is reached, Hakka drops the oldest low-value local data rather
-than increasing memory use.
-
-## Privacy By Default
-
+Captured data stays local by default. Applications may attach their own sinks.
 Sensitive headers are redacted before records reach stores, UI, exports, or
-desktop streaming. Body capture is bounded and configurable. Host and URL filters
-run before expensive processing whenever possible.
+streaming. Apply host and URL filters before expensive processing.
 
-## Hot Paths Stay Thin
+Cap record counts, body previews, persistence, and sink queues. Evict old records
+when storage fills. Avoid per-event disk writes. See [Performance](/concepts/performance/)
+for measurements and the scripts that enforce runtime and size budgets.
 
-Interceptors should capture the raw facts and get out. Redaction, normalization,
-serialization, HAR export, desktop emission, and UI notifications belong on
-processor queues or snapshot readers.
+## Optional dependencies
 
-Budgets:
+Core modules stay free of UI frameworks, observability SDKs, storage engines,
+and large parsers. Optional features belong in separate imports or artifacts.
+Android Compose UI lives in `hakka-ui`; iOS SwiftUI lives in `HakkaUI`.
+React Native opens those inspectors through the bridge. Programmatic APIs work
+without loading an inspector.
 
-- interceptor return overhead should stay below 1 ms in normal cases
-- lock hold time should stay below 100 microseconds for store mutation
-- Android base APK delta must stay below 180 KB after minification
+## Identity and color
 
-## Optional Means Optional
+Use Hakka in public code, docs, records, tests, and examples. "Wok Hei" is an
+internal design name. In-app branding uses the bowl-and-broadcast mark.
 
-The core should not pull in UI frameworks, observability SDKs, storage engines,
-or large parser libraries. Optional surfaces belong in separate imports,
-artifacts, or adapters.
+The palette uses warm graphite surfaces, a flame accent, jade for success,
+chili for errors, turmeric for warnings, steel for information and 3xx, and
+plum for PATCH/GraphQL. The timing waterfall runs from steel for DNS to flame
+for download. Flame marks active, selected, focused, and primary controls.
 
-Do not add Nitro, Compose, Material, or other large UI dependencies to core
-Hakka modules. Native UI stays in `hakka-ui` (Android) and `HakkaUI` (iOS), and
-React Native opens those surfaces through the bridge. Keep capture and programmatic
-APIs usable without loading an inspector.
+Colors come from `design-tokens.json`, synchronized with `just sync-tokens`.
+Add colors there, then use generated tokens. Semantic colors must remain
+legible in both themes; surfaces and accents may use theme-specific values.
+Respect reduced motion when animating the capture indicator.
 
-## One Vocabulary
+## Controls and rows
 
-The project is Hakka. Public code, docs, records, tests, and examples should use
-Hakka names. Do not reintroduce old project names for models, events, files,
-or APIs.
+- Use outlined, method-colored mono chips where users choose a method. In list
+  rows, show methods as plain colored text in a fixed-width column.
+- Stateless toolbar actions use bare icons with accessible labels and native
+  touch targets: at least 44 pt on iOS and 48 dp on Android.
+- Rows use a 2 px severity stripe: chili for errors/5xx, turmeric for 4xx,
+  flame for selection. Selection uses the active background token.
+- Methods, statuses, counts, durations, sizes, IDs, and code use monospace.
+  Prose uses sans serif. Numeric columns use tabular figures and align right.
+- Use token font sizes and spacing. Web search inputs may use 16 px to prevent
+  iOS Safari from zooming on focus.
+- Reuse shared switches, count badges, chips, and buttons. Hover, active, and
+  border tints use named tokens.
+
+## One geometry
+
+Control heights use the generated scale: badge 18, chip 24, icon 28, field 36,
+nav 40, bar 44. Page edges use the gutter token (16). Visual size and touch-target
+size are separate. Interactive controls use the medium radius (6); small nested
+parts use 4, containers use the larger radius tokens, and passive badges may
+use pills. Circles are reserved for dots and the entry bubble.
+
+| Platform     | Tokens                                                                          |
+| ------------ | ------------------------------------------------------------------------------- |
+| Web          | `--hakka-ctl-h-*`, `--hakka-gutter`, spacing, radius, and font variables        |
+| iOS          | `HakkaMetrics.ControlHeight`, `.Layout`, `.Spacing`, `.Radius`, `.FontSize`     |
+| Android      | `GeneratedMetrics.ControlHeight`, `.Layout`, `.Spacing`, `.Radius`, `.FontSize` |
+| React Native | Uses the native iOS/Android inspectors                                          |
+
+`just ui-token-check` checks control geometry. Content-driven column widths and
+one-off drawing geometry are exceptions; annotate the latter with
+`ui-token-check-ignore: <reason>` or `ui-token-check-ignore-next-line`.
+
+## Panel sections
+
+The tab strip names the screen. Start each tab with its content, without a
+repeated title or description. Nested sections may have a sentence-case title
+and shared count badge. Explain features in empty states; use tooltips and
+accessibility labels for individual controls.
+
+Tab badges show state useful before switching tabs. Use an existing subscription
+for the count; avoid adding polling solely for a badge. On narrow screens, keep
+search, methods, and a filter disclosure visible. The web inspector uses a split
+list/detail layout at 900 px and wider.
+
+## Detail completeness
+
+Show captured sizes, protocol, encoding, redirects, retries, WebSocket frames,
+source/library, trace ID, request ID, and mocked/rewritten flags where available.
+Request actions include replay, copy as cURL/fetch, and creating a mock from the
+captured response. Check both themes and narrow/wide layouts for UI changes.
+
+## Text and icons
+
+Use short labels and concrete empty-state instructions. Product UI, docs,
+comments, and marketing use icons or plain words instead of emoji. Status tables
+may use ● shipped, ◐ partial, ○ roadmap, ⊘ out of scope.

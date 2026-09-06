@@ -69,11 +69,6 @@ describe('summarizeTraceGroup', () => {
     expect(summary.slowest?.durationMs).toBe(500)
   })
 
-  test('slowest is null when there are no requests or spans', () => {
-    const summary = summarizeTraceGroup([], [])
-    expect(summary.slowest).toBeNull()
-  })
-
   test('operationCount is exactly requests.length + spans.length', () => {
     const summary = summarizeTraceGroup(
       [req({ id: 'a' }), req({ id: 'b' }), req({ id: 'c' })],
@@ -105,6 +100,7 @@ describe('summarizeTraceGroup', () => {
     expect(summary.method).toBeNull()
     expect(summary.status).toBeNull()
     expect(summary.requestKind).toBeNull()
+    expect(summary.slowest).toBeNull()
   })
 
   test('requestKind comes from the root span (parentId === null)', () => {
@@ -116,5 +112,21 @@ describe('summarizeTraceGroup', () => {
       ],
     )
     expect(summary.requestKind).toBe('rsc')
+  })
+  test('keeps first roots and slowest on ties, and prefers duration over endTime', () => {
+    const summary = summarizeTraceGroup(
+      [
+        req({ id: 'first', method: 'POST', startTime: 1, duration: 25, endTime: 1000 }),
+        req({ id: 'tie', method: 'GET', startTime: 1, endTime: 26 }),
+      ],
+      [
+        span({ id: 'later', startTime: 5, requestKind: 'route-handler' }),
+        span({ id: 'root', startTime: 1, endTime: 26, requestKind: 'rsc' }),
+        span({ id: 'tie', startTime: 1, requestKind: 'server-action' }),
+      ],
+    )
+    expect(summary.method).toBe('POST')
+    expect(summary.requestKind).toBe('rsc')
+    expect(summary.slowest).toEqual({ label: '/users', durationMs: 25 })
   })
 })
