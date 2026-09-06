@@ -1,10 +1,9 @@
 import { render, waitFor } from '@solidjs/testing-library'
-import type { NetworkRequest, RequestGroup } from 'hakka-core'
-import { deriveTraceId, groupRequests } from 'hakka-core'
+import type { RequestGroup } from 'hakka-core'
 import { describe, it, expect } from 'vitest'
 
 import { RequestList } from '../RequestList'
-import { makeGroup, makeReq, makeSpan, makeTraceHop } from './requestListFixtures'
+import { makeGroup, makeReq, makeTraceHop } from './requestListFixtures'
 
 describe('RequestList trace waterfall (lazy)', () => {
   it('lazily renders TraceWaterfall for a trace group once traceView is on', async () => {

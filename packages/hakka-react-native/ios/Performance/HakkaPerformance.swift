@@ -288,26 +288,6 @@ public final class HakkaPerformance: @unchecked Sendable {
         }
     }
 
-    internal static func createForTest(
-        config: HakkaPerformanceConfig,
-        frameSource: FrameSource?,
-        memorySource: MemoryMetricSource?,
-        cpuSource: CpuMetricSource?,
-        runtimeStateSource: RuntimeStateMetricSource? = nil,
-        clock: PerformanceClock = SystemPerformanceClock(),
-        schedulePeriodicSampling: Bool = true
-    ) -> HakkaPerformance {
-        HakkaPerformance(
-            config: config,
-            frameSource: frameSource,
-            memorySource: memorySource,
-            cpuSource: cpuSource,
-            runtimeStateSource: runtimeStateSource,
-            clock: clock,
-            schedulePeriodicSampling: schedulePeriodicSampling
-        )
-    }
-
     private func collectorStatus(enabled: Bool, available: Bool, running: Bool) -> String {
         if !enabled { return "disabled" }
         if !available { return "unavailable" }

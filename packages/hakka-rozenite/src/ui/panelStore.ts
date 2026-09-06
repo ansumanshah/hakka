@@ -39,33 +39,20 @@ export interface PanelStore {
   destroy(): void
 }
 
-/**
- * Builds the panel-side capture mirror fed by `HakkaRozeniteEventMap`
- * messages from the RN side (`react-native/bridge.ts`), injected as the
- * `store` prop into `hakka-browser/react`'s `<RequestList>`/`<FilterBar>` in
- * `ui/App.tsx`. Deliberately not `hakka-browser/elements`' own shared store
- * singleton, which belongs to `hakka-browser`'s worker-backed engine this
- * plugin never touches — this is a separate mirror fed purely by Rozenite
- * messaging.
- *
- * Requests are newest-first, matching `hakka-core`'s `Hakka.getLogs()`
- * convention, and upsert by `id` so a later frame for an in-flight request
- * replaces its earlier entry rather than adding a duplicate row.
- */
+/** Newest-first request mirror. Updates retain their original insertion position. */
 export function createPanelStore(client: PanelStoreClientLike): PanelStore {
-  let requests: NetworkRequest[] = []
+  const requests = new Map<string, NetworkRequest>()
   const subscribers = new Set<(request: NetworkRequest) => void>()
   const clearListeners = new Set<() => void>()
 
   function upsert(request: NetworkRequest): void {
-    const index = requests.findIndex((r) => r.id === request.id)
-    requests = index >= 0 ? requests.map((r, i) => (i === index ? request : r)) : [request, ...requests]
+    requests.set(request.id, request)
     for (const subscriber of subscribers) subscriber(request)
   }
 
   const requestSubscription = client.onMessage('request', upsert)
   const clearedSubscription = client.onMessage('cleared', () => {
-    requests = []
+    requests.clear()
     for (const listener of clearListeners) listener()
   })
 
@@ -73,7 +60,12 @@ export function createPanelStore(client: PanelStoreClientLike): PanelStore {
   client.send('get-snapshot', {})
 
   return {
-    getSnapshot: () => Promise.resolve(requests),
+    async getSnapshot() {
+      const snapshot = new Array<NetworkRequest>(requests.size) // oxlint-disable-line unicorn/no-new-array
+      let index = snapshot.length
+      for (const request of requests.values()) snapshot[--index] = request
+      return snapshot
+    },
     subscribe(cb) {
       subscribers.add(cb)
       return () => subscribers.delete(cb)
@@ -83,14 +75,11 @@ export function createPanelStore(client: PanelStoreClientLike): PanelStore {
       return () => clearListeners.delete(cb)
     },
     clear() {
-      requests = []
+      requests.clear()
       client.send('clear', {})
     },
-    ingest(request) {
-      // "Load sample traffic" empty-state action — never forwarded to the
-      // device, this plugin has no synthetic demo-data source of its own.
-      upsert(request)
-    },
+    // Sample traffic stays in the local panel mirror.
+    ingest: upsert,
     destroy() {
       requestSubscription.remove()
       clearedSubscription.remove()

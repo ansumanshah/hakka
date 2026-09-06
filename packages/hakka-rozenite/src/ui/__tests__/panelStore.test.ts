@@ -79,6 +79,20 @@ describe('createPanelStore', () => {
     expect(snapshot[0]?.status).toBe(200)
   })
 
+  it('preserves ordering and earlier snapshots when an older request updates', async () => {
+    const client = createFakeClient()
+    const store = createPanelStore(client)
+    const a = makeRequest({ id: 'a', status: undefined })
+    const b = makeRequest({ id: 'b', status: 200 })
+    client.fire('request', a)
+    client.fire('request', b)
+    const earlier = await store.getSnapshot()
+    const updated = { ...a, status: 204 }
+    client.fire('request', updated)
+    await expect(store.getSnapshot()).resolves.toEqual([b, updated])
+    expect(earlier).toEqual([b, a])
+  })
+
   it('notifies subscribers with each incoming request', () => {
     const client = createFakeClient()
     const store = createPanelStore(client)

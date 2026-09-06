@@ -234,7 +234,7 @@ private fun PanelHeader(title: String, subtitle: String, addLabel: String, onAdd
 @Composable
 private fun MockRuleCard(rule: MockRule, onToggle: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit) = RuleCard(rule.enabled, onToggle, onEdit, onDelete) {
     Text(rule.pattern.ifBlank { "(any)" }, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.titleMedium)
-    Text("${rule.method ?: "ANY"} · ${actionLabel(actionOf(rule))} · ${detailText(rule, actionOf(rule))}", maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text("${rule.method ?: "ANY"} · ${actionOf(rule).name} · ${detailText(rule, actionOf(rule))}", maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     Text("${rule.hitCount} hit${if (rule.hitCount == 1) "" else "s"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 

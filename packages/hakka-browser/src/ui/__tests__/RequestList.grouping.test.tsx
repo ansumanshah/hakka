@@ -1,5 +1,5 @@
 import { render } from '@solidjs/testing-library'
-import type { NetworkRequest, RequestGroup } from 'hakka-core'
+import type { RequestGroup } from 'hakka-core'
 import { groupRequests } from 'hakka-core'
 import { describe, it, expect } from 'vitest'
 

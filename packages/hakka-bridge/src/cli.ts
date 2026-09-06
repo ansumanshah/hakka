@@ -32,10 +32,6 @@ function resolveAdvertise(argv: string[]): boolean {
   return true
 }
 
-function pad(value: string, width: number): string {
-  return value.length >= width ? value : value + ' '.repeat(width - value.length)
-}
-
 async function main(): Promise<void> {
   const argv = process.argv.slice(2)
   const port = resolvePort(argv)
@@ -48,7 +44,7 @@ async function main(): Promise<void> {
     onRecord: (request) => {
       const status = request.status != null ? String(request.status) : request.error ? 'ERR' : '...'
       const duration = request.duration != null ? `${Math.round(request.duration)}ms` : ''
-      console.log(`${pad(request.method, 6)} ${pad(status, 4)} ${request.url} ${duration}`.trimEnd())
+      console.log(`${request.method.padEnd(6)} ${status.padEnd(4)} ${request.url} ${duration}`.trimEnd())
     },
   })
   console.log(`hakka-bridge listening on ws://${host}:${server.port}`)

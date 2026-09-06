@@ -163,13 +163,6 @@ struct JSONTreeView: View {
 
 }
 
-// MARK: - JSON Detection
-
-func isValidJSON(_ string: String) -> Bool {
-    guard let data = string.data(using: .utf8) else { return false }
-    return (try? JSONSerialization.jsonObject(with: data)) != nil
-}
-
 #if DEBUG
 private let previewJSON = """
 {"users":[{"id":1,"name":"Alice","email":"alice@example.com","active":true},{"id":2,"name":"Bob","email":null}],"total":2,"page":1}

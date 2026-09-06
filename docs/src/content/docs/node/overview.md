@@ -41,6 +41,19 @@ capture.stop() // same as stopCapture()
 Both `register()` and `startCapture()` are idempotent — a second call while capture is already
 active returns the first call's handle.
 
+## Bun
+
+`hakka-node` also runs on Bun. Verified on Bun 1.4.2: outbound `fetch` and
+`node:http` capture, response bodies for fetch, header redaction, async trace
+context, and HAR export.
+
+Native `Bun.serve` handlers do not pass through the Node HTTP listener patched
+for incoming trace propagation. Use `parseIncomingTraceId` and `runInTraceContext`
+inside the handler to preserve incoming trace headers. The runnable example is
+[`examples/framework-servers/bun.mjs`](https://github.com/ansumanshah/hakka/blob/main/examples/framework-servers/bun.mjs).
+Bun's fetch does not emit undici diagnostics, so `undiciTiming` adds no connection
+measurements there. Outbound capture still works.
+
 ## What it captures
 
 - `globalThis.fetch` — full request + response body, up to `maxBodySize`.

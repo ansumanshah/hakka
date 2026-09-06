@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { setTimeout as sleep } from 'node:timers/promises'
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { analyzeRequests, scrubNetworkRequestForShare } from 'hakka-core'
@@ -12,10 +13,6 @@ import { awaitReplayResult, checkReplayable } from './replayHelpers.js'
 import { textResult } from './toolResult.js'
 
 const DEFAULT_TIMEOUT_MS = 5000
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
 
 // "Fix, then verify" in one call: mock via buildMockRuleFromArgs (shared with
 // create_mock), replay via replayHelpers (shared with replay_request), then

@@ -1,30 +1,7 @@
 /**
- * `Exporter` — the contract for a plugin-style export producer (ADR 0009).
- * Doc comments here are the authoritative spec; `exporterConformance.ts`
- * checks any implementation against them.
- *
- * ADR 0009 names this the second open axis: "one contract over
- * HAR/OTel/Postman/evidence-bundle." The twelve exporters wrapped onto it —
- * HAR, OTel JSON, Postman collection, cURL, agent context, agent evidence
- * (Markdown), evidence bundle (JSON), repro bundle, session snapshot,
- * Playwright route mocks, MSW handlers, test codegen — all predate the
- * contract and their real functions differ in shape: some take a batch of
- * requests, `buildCurl` takes exactly one; `recordsToOtelJson` takes
- * `ContractRecord[]`, a wider type than `NetworkRequest`;
- * `formatEvidenceBundleForAgent` takes an already-built `EvidenceBundle`, not
- * requests at all. This contract is the uniform SHAPE every wrapper adapts
- * its native function onto, not a rewrite of any of them: `export()` always
- * takes a snapshot of `NetworkRequest`s (ADR 0009 — "an exporter never
- * reaches into the store, it receives a snapshot") and always returns the
- * serialized file content as a string. Where a wrapped function needs
- * options its own callers care about (a Postman collection name, an
- * evidence byte budget), the wrapper factory takes them at construction
- * time, before the instance goes into a registry — the contract itself
- * carries no per-call options, so a share-sheet UI can invoke every
- * registered exporter identically without knowing any exporter's bespoke
- * options.
- *
- * Types only, zero runtime code; must never be imported from a hot path.
+ * Exporters serialize a request snapshot without reading the store (ADR 0009).
+ * Factories bind format-specific options; each export returns file content.
+ * Wrappers adapt existing generators to this shared interface.
  */
 
 import type { NetworkRequest } from '../model/types'

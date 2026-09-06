@@ -30,12 +30,6 @@ enum LoopbackHTTPParsing {
         return responseBytes(status: "200 OK", body: body)
     }
 
-    static func errorResponseBytes(message: String) -> Data {
-        let escaped = message.replacingOccurrences(of: "<", with: "&lt;")
-        let body = "<html><body><p>Sign-in failed: \(escaped)</p></body></html>"
-        return responseBytes(status: "400 Bad Request", body: body)
-    }
-
     private static func responseBytes(status: String, body: String) -> Data {
         let bodyData = Data(body.utf8)
         let headers = "HTTP/1.1 \(status)\r\n"

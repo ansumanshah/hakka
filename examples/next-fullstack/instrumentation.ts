@@ -1,86 +1,9 @@
 /**
- * Next.js server-boot hook. One line starts Hakka's server-side capture (Server
- * Components, Route Handlers, Server Actions) and embeds the bridge hub in-process
- * — so there is no separate `hakka-bridge` process to run. Dev-only.
- *
- * `undiciTiming` enriches server-side `fetch` records with DNS/TCP/TLS phase
- * timing from undici's diagnostics channels (best-effort — enrichment is
- * skipped when two identical in-flight requests make correlation ambiguous).
- * Without it those phases show as "—" for server fetches; `http`/`https`
- * module calls always carry them.
- *
- * `registerOTel()` (from `@vercel/otel`) MUST run BEFORE `hakkaRegister()` —
- * this is the ordering requirement Next Request Insights depends on.
- * `hakka-node`'s `traceSpans` option (on by default in dev — see
- * `hakka-node/next`'s `startServerCapture`) reads whatever `hakkaSpanProcessor()`
- * instance is passed into `spanProcessors` below; if none was passed and no
- * SDK-1.x provider is discoverable either, it fails open silently (no span
- * data, no error) rather than throwing. This file is the reference
- * integration other users copy — get this wrong and Next's own request-tree
- * spans (Server Components, Route Handlers, Server Actions) simply never show
- * up in the overlay, with no error to point at why.
- *
- * `HAKKA_PROD_CAPTURE=1` (production only — `instrumentation.prod.ts`) additionally
- * starts ADR 0002's cohort capture (`hakka-node/prod`), dynamically imported behind
- * the same `NEXT_RUNTIME === 'nodejs'` gate as `hakkaSpanProcessor` below so it never
- * reaches an Edge bundle. Unset (the default), this file's dev-path behavior is
- * unchanged — see `packages/hakka-node/README.md#production-capture-for-a-debug-cohort-hakka-nodeprod`
- * and `examples/next-fullstack/README.md`.
- *
- * `HAKKA_DESKTOP=1` switches from "embed a hub in this dev server" to
- * "stream into an already-running Hakka for macOS" — `embedBridge: false`
- * on `hakkaRegister()` (see `packages/hakka-node/README.md#desktop-mode`).
- * `bridgeUrl` is left at its default (`ws://localhost:8989`), the same port
- * the desktop app's own hub listens on, so no separate URL is needed. This
- * is dev-only convenience wiring for this example, not a `hakka-node`
- * feature of its own — `embedBridge`/`bridgeUrl` are the real config
- * surface; a real app would just pass them directly instead of adding an
- * env var like this one.
- *
- * The browser overlay (`app/hakka-overlay.tsx`) needs no change for this
- * mode: `startHakkaClient()` also defaults to `ws://localhost:8989`, so
- * with nothing embedding a hub server-side, it connects straight to the
- * desktop app's hub as a second peer — same one line, same file, either mode.
- *
- * `spanProcessors: [hakkaSpanProcessor()]` — NOT `[]`. `@opentelemetry/sdk-trace-base`
- * 2.x (what `@vercel/otel` 2.x uses) removed `TracerProvider.addSpanProcessor`,
- * so processors can only be attached at construction time now; hakka-node has
- * no way to reach in after the fact and attach its own. Passing
- * `hakkaSpanProcessor()` here — a plain object hakka-node hands you, with no
- * exporter attached — is what makes span data flow at all on SDK-2.x. It also
- * means the array is never empty even though there's still no OTLP exporter
- * configured: the default exporter POSTs to localhost:4318/v1/traces, and with
- * no collector running, every request would add a failed `POST /v1/traces` row
- * to the very inspector you're reading. Shipping telemetry for real? Add your
- * own exporter/processor alongside `hakkaSpanProcessor()` in this array —
- * Hakka rides alongside whatever else you configure.
- *
- * The `hakkaSpanProcessor` import below is DYNAMIC and gated on
- * `NEXT_RUNTIME === 'nodejs'`, not a plain top-level `import` the way
- * `hakkaRegister` is — `hakkaSpanProcessor` needs `hakka-node`'s Node-only
- * internals (trace propagation's `node:http`/`node:https` patch, the
- * embedded bridge's `node:os`/`node:crypto` use), and a static import of it
- * here would drag that whole graph into Next's edge-instrumentation compile
- * too (confirmed empirically: Turbopack resolves it even though it's
- * reached from a runtime-only branch), producing "Node.js module ... not
- * supported in the Edge Runtime" build warnings. `hakka-node/next`'s own
- * `register()` avoids exactly this by doing the same dynamic-import-behind-
- * `NEXT_RUNTIME` dance internally — this file just has to do it too for the
- * one extra Node-only symbol it needs directly.
- *
- * `sink: relayEdgeCapture` / `ignorePatterns` below wire up `app/api/demo/
- * edge/route.ts`, the one route in this example that runs on the Edge
- * runtime. Edge capture (`hakka-node/next`'s Edge branch, see `edgeCapture.ts`'s
- * module doc) has no embedded bridge of its own — the Edge sandbox can't use
- * `ws`/`node:crypto` — so without a sink, every Edge-tagged record is
- * captured then silently discarded and the README's "isolate client /
- * server / edge" runtime-filter claim would be a lie. `relayEdgeCapture`
- * forwards each one, same-origin, to `app/api/__hakka/edge-relay/route.ts`,
- * a plain Node-runtime route that hands it to the embedded hub. This
- * function runs on BOTH runtimes (Next calls `register()` once per runtime
- * it boots), so it guards on `req.runtime === 'edge'` — the nodejs branch's
- * own 'server' records already reach the hub directly and would otherwise
- * get relayed a second time.
+ * Dev capture embeds the bridge; HAKKA_DESKTOP=1 uses the desktop hub instead.
+ * Register OTel before Hakka and pass hakkaSpanProcessor at provider construction.
+ * Node-only imports stay behind NEXT_RUNTIME to keep them out of Edge bundles.
+ * Edge records relay to the Node route; ignore that relay to prevent a capture loop.
+ * Production cohort setup lives in instrumentation.prod.ts (HAKKA_PROD_CAPTURE=1).
  */
 import { registerOTel } from '@vercel/otel'
 import { register as hakkaRegister } from 'hakka-node/next'

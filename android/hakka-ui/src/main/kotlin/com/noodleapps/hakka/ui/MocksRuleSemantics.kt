@@ -16,18 +16,6 @@ internal fun actionOf(rule: MockRule): RuleAction = when {
     else -> RuleAction.MOCK
 }
 
-internal fun actionColor(action: RuleAction): Int = when (action) {
-    RuleAction.MOCK -> Theme.success
-    RuleAction.REDIRECT -> Theme.warning
-    RuleAction.BLOCK -> Theme.error
-}
-
-internal fun actionLabel(action: RuleAction): String = when (action) {
-    RuleAction.MOCK -> "MOCK"
-    RuleAction.REDIRECT -> "REDIRECT"
-    RuleAction.BLOCK -> "BLOCK"
-}
-
 internal fun detailText(rule: MockRule, action: RuleAction): String {
     val base = when (action) {
         RuleAction.MOCK -> {

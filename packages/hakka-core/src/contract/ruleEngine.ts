@@ -1,37 +1,8 @@
 /**
- * `RuleEngine` — the contract for a plugin-style request-interception engine
- * (ADR 0009, third axis: "mock/breakpoint/throttle behind one interception
- * contract — they already share the control-frame path"). Doc comments here
- * are the authoritative spec; `ruleEngineConformance.ts` checks any
- * implementation against them.
- *
- * @experimental — first slice off this axis. One first-party wrapper per
- * engine (`createMockRuleEngine`, `createThrottleRuleEngine`,
- * `createBreakpointRuleEngine`) ships alongside this contract, matching ADR
- * 0006's "wrap every existing implementation, not a sample" lesson, but the
- * shape stays `@experimental` and unfrozen until a genuinely third-party
- * consumer per the rule-of-three condition — see `captureSource.ts` for the
- * sibling axis that already completed that cycle.
- *
- * HOT PATH: this contract adds ZERO new dispatch to the interceptor hot
- * path. `capture/fetch.ts` and `capture/xhr.ts` call `mockEngine`,
- * `breakpointEngine`, and `ThrottleEngine` directly, by concrete singleton
- * reference — exactly as they did before this file existed, and unchanged by
- * it. `RuleEngine` exists for registration, introspection, and third-party
- * engines (a registry that lists "what rule engines are active", a devtools
- * panel that wants one uniform shape to render mock/breakpoint/throttle
- * state) — nothing that runs per request on a real interceptor call site is
- * typed against this interface. A future migration that made `fetch.ts`
- * dispatch through `RuleEngine` instead of calling the concrete engines
- * would be exactly the kind of hot-path regression ADR 0009 forbids; that is
- * NOT what shipped here.
- *
- * NO LIFECYCLE: unlike `CaptureSource`, this contract has no
- * `start()`/`stop()` and no `createCycleGuard()` use. `MockEngine`,
- * `ThrottleEngine`, and `BreakpointEngine` are always-live, process-wide
- * rule stores queried per request — none of them patch a global or hold
- * open/closed state the way a capture source does, so there is no cycle to
- * guard against.
+ * RuleEngine describes mock, breakpoint, and throttle engines (ADR 0009).
+ * Interceptors call concrete engines directly; this interface is for registration
+ * and introspection. Engines are always-live rule stores with no capture lifecycle.
+ * @experimental Pending validation by a third-party consumer.
  */
 
 import type { ReadonlyRecord } from '../model/types'

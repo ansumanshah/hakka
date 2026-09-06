@@ -132,7 +132,7 @@ import HakkaCommon
 
     @Test("Coordinator stops emitting while not running")
     func coordinatorSuppressesEmissionsWhenStopped() {
-        let performance = HakkaPerformance.createForTest(
+        let performance = HakkaPerformance(
             config: HakkaPerformanceConfig(
                 sampleIntervalMs: 1_000,
                 enableFrameMetrics: true,
@@ -169,7 +169,7 @@ import HakkaCommon
 
     @Test("Performance health report exposes collector status")
     func performanceHealthReportExposesCollectorStatus() {
-        let performance = HakkaPerformance.createForTest(
+        let performance = HakkaPerformance(
             config: HakkaPerformanceConfig(
                 sampleIntervalMs: 1_000,
                 sessionId: "configured-session",
@@ -212,7 +212,7 @@ import HakkaCommon
     func coordinatorCanCollectMultipleKinds() {
         let clock = FakeClock(nowMs: 1_000)
         let frameSource = FakeFrameSource(refreshRateHz: 60)
-        let performance = HakkaPerformance.createForTest(
+        let performance = HakkaPerformance(
             config: HakkaPerformanceConfig(
                 sampleIntervalMs: 1_000,
                 sessionId: "session",

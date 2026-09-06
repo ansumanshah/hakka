@@ -1,11 +1,20 @@
 name: CI
 
 on:
+  pull_request:
+    branches: [main]
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
   lint:
@@ -15,6 +24,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
+      - uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
       - run: bun install --frozen-lockfile
       - run: bunx oxlint .
       - run: bunx oxfmt --check .
@@ -35,39 +49,21 @@ jobs:
           key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
           restore-keys: bun-${{ runner.os }}-
       - run: bun install --frozen-lockfile
-      # Build BEFORE typecheck: workspace packages resolve each other's types
-      # through their dist declarations, which don't exist on a fresh runner.
+      # Build first so workspace imports can resolve dist declarations.
       - run: bun run build
       - run: bun run typecheck
-      # Cheap correctness gates, run right after build: spec-drift-check reads
-      # only markdown (docs/spec cards vs SPEC.md §5); smoke-control-roundtrip
-      # imports packages/{bridge,cli,core}/src directly under bun (it
-      # re-execs itself under bun when invoked via `node`), so neither needs
-      # `bun run build`'s dist output — placed after it only per convention.
       - run: node scripts/spec-drift-check.mjs
-      # spec-drift-check compares markdown to markdown, so it cannot catch a
-      # card documenting an API the code doesn't have. This reads the import
-      # blocks and checks each symbol against the package's real exports —
-      # it found two cards pointing at the wrong entry point.
       - run: node scripts/spec-api-check.mjs
       - run: node scripts/smoke-control-roundtrip.mjs
       - run: bun run test
-      # Perf gates run ADVISORY here, never blocking. Their budgets are
-      # sub-microsecond in places (RingBuffer.add at 700ns) and calibrated on a
-      # quiet dev machine; a shared 2-core runner cannot resolve that, so a red
-      # build would mean "the runner was busy", not "the code got slower". The
-      # numbers are still printed, so a genuine 2-3x regression is visible in
-      # the log — and the budgets stay enforced where they are measurable, via
-      # `just bench` locally. Same policy as the Android, iOS, and web perf
-      # suites, which are opt-in for the identical reason.
-      - name: Perf gates (advisory — see comment)
+      # Shared-runner timing is advisory; local benchmark budgets remain enforced.
+      - name: Perf gates (advisory)
         if: github.ref == 'refs/heads/main'
         continue-on-error: true
         run: |
           bun run --cwd packages/hakka-core bench:check
           bun run --cwd packages/hakka-node bench:check
           bun run --cwd packages/hakka-bench bench:check
-      # Bundle-size gate: fails if a hakka-browser bundle exceeds its gzip budget.
       - run: node scripts/web-size-gate.mjs
 
   web-e2e:
@@ -85,13 +81,7 @@ jobs:
       - run: bun install --frozen-lockfile
       - uses: extractions/setup-just@v4
         with:
-          # Unauthenticated release lookups rate-limit on shared runners
-          # ("no release for just matching version specifier").
           github-token: ${{ secrets.GITHUB_TOKEN }}
-      # Playwright's documented CI caching convention (playwright.dev/docs/ci#caching-browsers):
-      # cache ~/.cache/ms-playwright keyed on the lockfile, skip the browser
-      # download on a hit, but still run install-deps (fast, no download) so
-      # OS-level dependencies stay present on a fresh runner image.
       - name: Cache Playwright browsers
         id: playwright-cache
         uses: actions/cache@v6
@@ -121,13 +111,8 @@ jobs:
           distribution: temurin
           java-version: 17
       - uses: gradle/actions/setup-gradle@v6
-      - run: ./gradlew :hakka-common:build :hakka-network:build :hakka-network-noop:build :hakka-performance:build :hakka-performance-noop:build :hakka-ui:build
-      - run: ./gradlew :hakka-common:test :hakka-network:test :hakka-network-noop:test :hakka-performance:test :hakka-performance-noop:test :hakka-ui:test
-      # Drift catcher, the Android mirror of the ios-demo-app job below. The demo
-      # consumes the modules as a real app target, so it catches what :hakka-ui:build
-      # cannot: a public API that compiles inside the module but is unreachable from
-      # a consumer. Without this, android/example was built by nothing at all.
-      - run: ./gradlew :example:assembleDebug
+      # build includes unit tests and lint; the demo checks SDK consumer compilation.
+      - run: ./gradlew :hakka-common:build :hakka-network:build :hakka-network-noop:build :hakka-performance:build :hakka-performance-noop:build :hakka-ui:build :example:assembleDebug
       - run: ../scripts/android-size-gate.sh
 
   desktop-app:
@@ -141,8 +126,6 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/cache@v6
         with:
-          # Keyed on both manifests: apps/hakka consumes ios/ by path, so an
-          # ios/Package.swift change invalidates this build too.
           path: apps/hakka/.build
           key: spm-desktop-${{ runner.os }}-${{ hashFiles('apps/hakka/Package.swift', 'ios/Package.swift') }}
           restore-keys: spm-desktop-${{ runner.os }}-
@@ -164,16 +147,9 @@ jobs:
           key: spm-${{ runner.os }}-${{ hashFiles('ios/Package.swift') }}
           restore-keys: spm-${{ runner.os }}-
       - run: swift build
-      # --no-parallel: the BreakpointEngine tests exercise a blocking
-      # pause/resume API and park real threads by design. Run alongside the
-      # other 70 suites on a 3-core runner, those parked threads starve
-      # libdispatch and unrelated concurrency tests see none of their dispatched
-      # work run at all. Serialized, the suite is ~1s. See ios/Tests/HakkaTests/
-      # BlockingTestSupport.swift for the full story.
+      # Blocking pause/resume tests must not compete for runner threads.
       - run: swift test --no-parallel
-      # The RN package ships its own copy of these sources (synced from ios/Sources)
-      # and compiles them as one flattened module. Typecheck that here — nothing else
-      # in CI compiles the RN Swift, so drift used to ship silently to users.
+      # RN flattens the canonical SDK sources into a single module.
       - name: Typecheck RN iOS copy (flattened single module)
         run: |
           cd "$GITHUB_WORKSPACE"
@@ -181,12 +157,7 @@ jobs:
           find packages/hakka-react-native/ios/Core packages/hakka-react-native/ios/Performance -name '*.swift' -print0 \
             | xargs -0 xcrun swiftc -typecheck -sdk "$SDK" -target arm64-apple-ios16.0-simulator
 
-  # ── Example-app builds: the drift catchers. ─────────────────────────────────
-  # `swift build` targets macOS and skips every canImport(UIKit) file, so HakkaUI
-  # bugs ship invisibly without these. One session's worth of evidence: a missing
-  # HakkaCommon import, iOS-17-only APIs on an iOS-16 target, sync-manifest gaps,
-  # and an RN Android wrapper that never compiled — all caught only by example builds.
-
+  # macOS SwiftPM builds omit UIKit; compile the iOS consumer separately.
   ios-demo-app:
     name: iOS Demo App (HakkaUI on simulator)
     runs-on: macos-latest
@@ -264,6 +235,22 @@ jobs:
 
   rn-example-android:
     name: RN Example (Android gradle)
+    needs: rn-android-build
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require both Android variants
+        env:
+          RESULT: ${{ needs.rn-android-build.result }}
+        run: test "$RESULT" = success
+
+  rn-android-build:
+    name: RN Android (${{ matrix.variant }})
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [Debug, Release]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -286,30 +273,30 @@ jobs:
           path: |
             examples/react-native-example/android/app/.cxx
             node_modules/.bun/**/node_modules/**/android/.cxx
-          key: rn-android-cxx-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}-${{ hashFiles('packages/hakka-react-native/android/**/*.gradle', 'packages/hakka-react-native/android/**/*.properties', 'packages/hakka-react-native/android/src/**', 'packages/hakka-react-native/src/**', 'examples/react-native-example/android/**/*.gradle', 'examples/react-native-example/android/**/*.properties', 'examples/react-native-example/android/app/src/**') }}
-          restore-keys: rn-android-cxx-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}-
+          key: rn-android-cxx-${{ runner.os }}-${{ runner.arch }}-${{ matrix.variant }}-${{ hashFiles('bun.lock') }}-${{ hashFiles('packages/hakka-react-native/android/**/*.gradle', 'packages/hakka-react-native/android/**/*.properties', 'packages/hakka-react-native/android/src/**', 'packages/hakka-react-native/src/**', 'examples/react-native-example/android/**/*.gradle', 'examples/react-native-example/android/**/*.properties', 'examples/react-native-example/android/app/src/**') }}
+          restore-keys: rn-android-cxx-${{ runner.os }}-${{ runner.arch }}-${{ matrix.variant }}-${{ hashFiles('bun.lock') }}-
       - name: Publish Android SDK to the local Maven repository
-        run: cd android && ./gradlew publishToMavenLocal
-      - name: Assemble debug APK (compiles the RN bridge Kotlin)
-        working-directory: examples/react-native-example/android
-        run: ./gradlew assembleDebug -PreactNativeArchitectures=arm64-v8a
+        working-directory: android
+        run: ./gradlew :hakka-common:publishToMavenLocal :hakka-network:publishToMavenLocal :hakka-performance:publishToMavenLocal :hakka-ui:publishToMavenLocal
       - name: Build Rozenite workspace dependencies
         run: |
           bun run --cwd packages/hakka-core build
           bun run --cwd packages/hakka-browser build
           bun run --cwd packages/hakka-rozenite build
-      # Drift catcher. assembleDebug and the iOS job both skip JS bundling, so
-      # neither can see a Metro resolution failure. Hakka's optional peer deps
-      # are require()d behind try/catch, which guards runtime but NOT Metro's
-      # static bundle-time resolution: with none of them installed (as here),
-      # the bundle failed on `react-native-mmkv` and no CI job noticed.
-      # hakka-react-native/metro's withHakka() is what makes it pass.
+      # iOS development bundling complements Android's production release bundle.
       - name: Metro bundle (optional peers absent on purpose)
+        if: matrix.variant == 'Debug'
         working-directory: examples/react-native-example
         run: bun run bundle
-      - name: Assemble minified release APK (native inspector gateway)
+      - name: Prepare WebView demo asset
+        if: matrix.variant == 'Release'
+        run: node examples/react-native-example/scripts/ensure-webview-asset.js
+      # Separate runners avoid Gradle output/cache contention between variants.
+      - name: Assemble ${{ matrix.variant }} APK
         working-directory: examples/react-native-example/android
-        run: ./gradlew :app:assembleRelease -PhakkaMinifyRelease=true -PreactNativeArchitectures=arm64-v8a
+        env:
+          VARIANT: ${{ matrix.variant }}
+        run: ./gradlew ":app:assemble$VARIANT" -PhakkaMinifyRelease=true -PreactNativeArchitectures=arm64-v8a
 
   next-fullstack-example:
     name: Next.js Example (build + ci-gate test + Playwright E2E)
@@ -327,21 +314,17 @@ jobs:
           key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
           restore-keys: bun-${{ runner.os }}-
       - run: bun install --frozen-lockfile
-      # examples/next-fullstack consumes hakka-node and hakka-browser through
-      # `file:` deps that point at their dist/ output, so those must exist first.
+      # The example consumes workspace dist output as file dependencies.
       - run: bun run --cwd packages/hakka-core build
       - run: bun run --cwd packages/hakka-bridge build
       - run: bun run --cwd packages/hakka-node build
       - run: bun run --cwd packages/hakka-browser build
-      # The ci-gate example is not picked up by `bun test` in packages/hakka-node
-      # (it lives under examples/), so nothing ran it before this step.
       - name: Run the ci-gate example's test
         run: bun test examples/ci-gate/ciGate.test.ts
-      # npm, not bun: bun lays `file:` deps out as per-file symlinks and Turbopack
-      # rejects a symlinked package.json. See the example's own README.
+      # npm installs real file dependencies; Turbopack rejects Bun's symlink layout.
       - name: Install the example as a real consumer
         working-directory: examples/next-fullstack
-        run: npm install
+        run: npm ci
       - name: Build it
         working-directory: examples/next-fullstack
         run: npm run build
@@ -352,15 +335,6 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-next-${{ runner.os }}-${{ hashFiles('examples/next-fullstack/package-lock.json') }}
-      # AFTER the npm install above, deliberately: `webServer` starts a real `next dev`,
-      # and Turbopack rejects the symlinked package.json that bun's `file:` dep layout
-      # produces, so running this against the bun install would fail on the install
-      # shape rather than on anything the tests assert.
-      #
-      # This is the only coverage anywhere in this repo that a real click produces the
-      # client + server rows the README claims, in a real browser. Unit tests cannot see
-      # it: three bugs shipped past a green suite this cycle because they asserted on an
-      # intermediate artifact instead of observable behaviour.
       - name: Install Playwright Chromium (+ OS deps)
         if: steps.next-playwright-cache.outputs.cache-hit != 'true'
         working-directory: examples/next-fullstack

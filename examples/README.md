@@ -13,7 +13,7 @@ Build the SDK packages first with `bun run build` from the repository root.
 | [expo-example](expo-example/)                       | Expo development client                        | Follow its README                                    |
 | [rozenite](rozenite/)                               | DevTools panel verification and sample traffic | Follow its README                                    |
 | [next-fullstack](next-fullstack/)                   | Next.js server and browser capture             | Follow its README                                    |
-| [framework-servers](framework-servers/)             | HTTP, Express, Fastify, and Hono servers       | `npm install && npm run demo` in its folder          |
+| [framework-servers](framework-servers/)             | HTTP, Express, Fastify, Hono, and Bun servers  | `npm install && npm run demo` in its folder          |
 | [otel-spans](otel-spans/)                           | OpenTelemetry integration                      | `npm install && npm run demo` in its folder          |
 | [prod-cohort](prod-cohort/)                         | Opt-in production cohort capture               | `npm install && npm run demo` in its folder          |
 | [ci-gate](ci-gate/)                                 | Traffic assertions and baseline checks         | `bun test examples/ci-gate/ciGate.test.ts` from root |

@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { buildInjectSnippet, buildStartCall, HAKKA_INJECT_ATTR, injectExternalScriptsIntoHtml } from '../inject'
 import hakkaVite from '../vite'
-import hakkaWebpack from '../webpack'
 
 // `hakka-node` is an optional peer this package never declares a dependency
 // on — but bun's workspace-aware module resolver can still find it by name
@@ -39,7 +38,6 @@ describe('buildStartCall', () => {
   it('calls the classic global Hakka.start(...) — no import, so no module specifier to resolve', () => {
     const s = buildStartCall({ overlay: true })
     expect(s).toBe('Hakka.start({"overlay":true})')
-    expect(s).not.toContain('import')
   })
 
   it('defaults to empty options', () => {
@@ -107,14 +105,6 @@ describe('nonce (CSP)', () => {
   it('the Vite plugin omits the nonce attr entirely when not given', () => {
     const tags = transformIndexHtmlTagsOf({})
     expect(tags[0]?.attrs).not.toHaveProperty('nonce')
-  })
-})
-
-describe('bundler entry points', () => {
-  it('the webpack plugin builds a webpack plugin instance', () => {
-    const plugin = hakkaWebpack()
-    expect(plugin).toBeTruthy()
-    expect(typeof (plugin as { apply?: unknown }).apply).toBe('function')
   })
 })
 

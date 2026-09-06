@@ -53,10 +53,6 @@ function compileToken(token: SearchToken): CompiledToken {
   return { scope: token.scope, negate: token.negate, test }
 }
 
-function getUrlText(req: NetworkRequest): string {
-  return req.url
-}
-
 function getHeaderText(req: NetworkRequest): string {
   const parts: string[] = []
   for (const headers of [req.requestHeaders, req.responseHeaders]) {
@@ -73,13 +69,13 @@ function getBodyText(req: NetworkRequest): string {
 }
 
 function getAllText(req: NetworkRequest): string {
-  return [getUrlText(req), getHeaderText(req), getBodyText(req)].join('\n')
+  return [req.url, getHeaderText(req), getBodyText(req)].join('\n')
 }
 
 function getScopedText(req: NetworkRequest, scope: SearchScope): string {
   switch (scope) {
     case 'url':
-      return getUrlText(req)
+      return req.url
     case 'header':
       return getHeaderText(req)
     case 'body':

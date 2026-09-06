@@ -1,15 +1,4 @@
-/**
- * W3C `traceparent` derivation — platform-neutral, synchronous, no runtime
- * dependencies (pure JS/Web-Crypto only, since Node builtins can't enter a
- * browser bundle). The browser fetch/XHR interceptors and hakka-node's
- * server → upstream interceptors both derive a Hakka `correlationId` into a
- * 32-hex W3C trace-id segment, and MUST derive the exact same hex for the
- * exact same id — otherwise a browser-originated request's `traceparent` and
- * a Node-originated one diverge and OTel spans stop joining their
- * `NetworkRequest` group (see `model/types.ts`'s `FrameworkSpan` doc for the
- * join contract this backs). hakka-node delegates to this file rather than
- * keeping its own copy, so the two can never drift apart.
- */
+/** Shared synchronous trace-ID derivation for browser and Node correlation. */
 
 /** W3C trace-context header name. See https://www.w3.org/TR/trace-context/ */
 export const TRACEPARENT_HEADER = 'traceparent'
@@ -17,11 +6,8 @@ export const TRACEPARENT_HEADER = 'traceparent'
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const HEX32_RE = /^[0-9a-f]{32}$/i
 
-// Pure-JS synchronous SHA-256 (FIPS 180-4), implemented from scratch instead of
-// `crypto.subtle.digest` because
-// SubtleCrypto is async-only and this must stay synchronous (runs inline in
-// the fetch/http interceptor hot path). Only the hash-fallback branch of
-// `deriveTraceId` reaches this — the common UUID case does not.
+// Synchronous SHA-256 fallback: Web Crypto is async and Node builtins cannot
+// enter the browser bundle. UUID and hex IDs bypass hashing.
 
 const K = [
   0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5, 0xd807aa98,
@@ -39,8 +25,9 @@ function rotr(x: number, n: number): number {
 }
 
 let traceIdEncoder: TextEncoder | undefined
-// Hashing is synchronous; each block overwrites the schedule before reading it.
-const hashSchedule = new Uint32Array(64)
+// Signed 32-bit arithmetic avoids unsigned-number widening in the hash loop.
+// Each synchronous block overwrites the shared schedule before reading it.
+const hashSchedule = new Int32Array(64)
 const singleBlock = new Uint8Array(64)
 const singleBlockView = new DataView(singleBlock.buffer)
 
@@ -75,7 +62,7 @@ function sha256TraceId(message: string): string {
     for (let i = 16; i < 64; i++) {
       const s0 = rotr(w[i - 15], 7) ^ rotr(w[i - 15], 18) ^ (w[i - 15] >>> 3)
       const s1 = rotr(w[i - 2], 17) ^ rotr(w[i - 2], 19) ^ (w[i - 2] >>> 10)
-      w[i] = (w[i - 16] + s0 + w[i - 7] + s1) >>> 0
+      w[i] = (w[i - 16] + s0 + w[i - 7] + s1) | 0
     }
 
     let a = h0
@@ -90,36 +77,36 @@ function sha256TraceId(message: string): string {
     for (let i = 0; i < 64; i++) {
       const s1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25)
       const ch = (e & f) ^ (~e & g)
-      const temp1 = (h + s1 + ch + K[i] + w[i]) >>> 0
+      const temp1 = (h + s1 + ch + K[i] + w[i]) | 0
       const s0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22)
       const maj = (a & b) ^ (a & c) ^ (b & c)
-      const temp2 = (s0 + maj) >>> 0
+      const temp2 = (s0 + maj) | 0
 
       h = g
       g = f
       f = e
-      e = (d + temp1) >>> 0
+      e = (d + temp1) | 0
       d = c
       c = b
       b = a
-      a = (temp1 + temp2) >>> 0
+      a = (temp1 + temp2) | 0
     }
 
-    h0 = (h0 + a) >>> 0
-    h1 = (h1 + b) >>> 0
-    h2 = (h2 + c) >>> 0
-    h3 = (h3 + d) >>> 0
-    h4 = (h4 + e) >>> 0
-    h5 = (h5 + f) >>> 0
-    h6 = (h6 + g) >>> 0
-    h7 = (h7 + h) >>> 0
+    h0 = (h0 + a) | 0
+    h1 = (h1 + b) | 0
+    h2 = (h2 + c) | 0
+    h3 = (h3 + d) | 0
+    h4 = (h4 + e) | 0
+    h5 = (h5 + f) | 0
+    h6 = (h6 + g) | 0
+    h7 = (h7 + h) | 0
   }
 
   return (
-    h0.toString(16).padStart(8, '0') +
-    h1.toString(16).padStart(8, '0') +
-    h2.toString(16).padStart(8, '0') +
-    h3.toString(16).padStart(8, '0')
+    (h0 >>> 0).toString(16).padStart(8, '0') +
+    (h1 >>> 0).toString(16).padStart(8, '0') +
+    (h2 >>> 0).toString(16).padStart(8, '0') +
+    (h3 >>> 0).toString(16).padStart(8, '0')
   )
 }
 

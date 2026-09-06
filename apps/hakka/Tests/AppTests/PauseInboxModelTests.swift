@@ -3,8 +3,7 @@ import HakkaCore
 import Testing
 @testable import HakkaApp
 
-/// A `PauseControlChannel` fake standing in for `TrafficModel`, mirroring
-/// `RulesModelTests`'s `FakeControlChannel`.
+/// Records commands while using the real pause store.
 @MainActor
 private final class FakePauseChannel: PauseControlChannel {
     let pauses = PauseStore()
@@ -42,10 +41,7 @@ private func responsePause(id: String = "pause-2") -> PendingPause {
 @Suite("PauseInboxModel resume/abort")
 @MainActor
 struct PauseInboxModelResolveTests {
-    /// A resume for a request-phase pause must carry `requestEdits`, never
-    /// `responseEdits` — the "edit merge" the wire's `breakpoint.resume`
-    /// exposes is phase-scoped, and sending the wrong half would apply
-    /// edits the device has no matching phase to interpret.
+    /// Resume edits must match the pause phase.
     @Test func resumeOnARequestPhasePauseSendsRequestEditsOnly() async throws {
         let channel = FakePauseChannel()
         await channel.pauses.ingest(requestPause())
@@ -53,7 +49,7 @@ struct PauseInboxModelResolveTests {
         let edits = BreakpointRequestEdits(url: "https://api.test/edited", method: "POST")
 
         model.resume(requestPause(), requestEdits: edits)
-        try await Task.sleep(for: .milliseconds(50))
+        await model.lastActionTask?.value
 
         let sent = try #require(channel.sentCommands.first)
         guard case let .breakpointResume(pauseId, requestEdits, responseEdits) = sent else {
@@ -73,7 +69,7 @@ struct PauseInboxModelResolveTests {
         let edits = BreakpointResponseEdits(status: 404, body: "not found")
 
         model.resume(responsePause(), responseEdits: edits)
-        try await Task.sleep(for: .milliseconds(50))
+        await model.lastActionTask?.value
 
         let sent = try #require(channel.sentCommands.first)
         guard case let .breakpointResume(pauseId, requestEdits, responseEdits) = sent else {
@@ -93,13 +89,12 @@ struct PauseInboxModelResolveTests {
         let model = PauseInboxModel(channel: channel)
 
         model.resume(requestPause())
-        try await Task.sleep(for: .milliseconds(50))
+        await model.lastActionTask?.value
 
         #expect(await channel.pauses.pause(id: "pause-1") == nil)
     }
 
-    /// The send failed outright — the device never heard about it, so the
-    /// pause must stay in the inbox rather than vanish as if resolved.
+    /// Failed delivery leaves the pause available for retry.
     @Test func aFailedSendLeavesThePauseInTheStore() async throws {
         let channel = FakePauseChannel()
         await channel.pauses.ingest(requestPause())
@@ -107,56 +102,45 @@ struct PauseInboxModelResolveTests {
         let model = PauseInboxModel(channel: channel)
 
         model.abort(requestPause())
-        try await Task.sleep(for: .milliseconds(50))
+        await model.lastActionTask?.value
 
         #expect(await channel.pauses.pause(id: "pause-1") != nil)
         #expect(model.deliveryNote?.hasPrefix("Failed") == true)
     }
 
-    /// `ControlSender` returning `0` delivered ("no devices connected") is
-    /// not a send failure, but it must not read as a silent success either
-    /// — the developer needs to know the abort/resume may never have
-    /// reached the paused device.
-    @Test func zeroDevicesDeliveredIsNoteedHonestly() async throws {
+    /// Zero recipients must be reported without implying the device resumed.
+    @Test func zeroDevicesDeliveredIsReportedHonestly() async throws {
         let channel = FakePauseChannel()
         await channel.pauses.ingest(requestPause())
         channel.sendResult = .success(0)
         let model = PauseInboxModel(channel: channel)
 
         model.abort(requestPause())
-        // Deterministic: await the resolve Task itself — a fixed sleep here
-        // flaked under full-suite load (consistently at load average ~12+).
         await model.lastActionTask?.value
 
         #expect(model.deliveryNote == "No devices connected — the request may still be paused on the device")
     }
 
-    /// A failed send must not permanently strand the pause without its
-    /// auto-abort watchdog — `resolve()` cancels the existing watchdog
-    /// unconditionally before sending, so the catch branch must re-arm one
-    /// or a single transient failure leaves the device blocked on its
-    /// semaphore forever, with nothing left to ever wake it.
+    /// Failed delivery must re-arm the watchdog.
     @Test func aFailedResolveReschedulesTheAutoAbortWatchdog() async throws {
         let channel = FakePauseChannel()
         channel.sendResult = .failure(ControlWireError.encodingFailed("boom"))
         let model = PauseInboxModel(channel: channel, autoAbortTimeout: .milliseconds(30))
         let observeTask = Task { await model.observe() }
         await channel.pauses.ingest(requestPause())
-        try await Task.sleep(for: .milliseconds(10))
+        try await waitUntil { model.debugHasTimeoutSlotForTest("pause-1") }
 
         model.abort(requestPause())
-        try await Task.sleep(for: .milliseconds(20))
-        // Let the rescheduled watchdog's own auto-abort succeed so its
-        // effect (removal + "Timed out" note) is observable.
+        await model.lastActionTask?.value
+        // Let the retry succeed.
         channel.sendResult = .success(1)
-        // Same reason as the sibling test: wait for the rescheduled watchdog to
-        // land its second abort rather than betting a fixed 80ms on it.
         try await waitUntil {
             channel.sentCommands.filter { command in
                 if case .breakpointAbort(pauseId: "pause-1") = command { return true }
                 return false
             }.count >= 2
         }
+        await model.lastActionTask?.value
         observeTask.cancel()
 
         let abortsSent = channel.sentCommands.filter { command in
@@ -180,7 +164,7 @@ struct PauseInboxModelResolveTests {
         await channel.pauses.ingest(requestPause(id: "b", device: "iphone-b"))
         let model = PauseInboxModel(channel: channel)
         let observeTask = Task { await model.observe() }
-        try await Task.sleep(for: .milliseconds(50))
+        try await waitUntil { model.entries.count == 2 }
         observeTask.cancel()
 
         await model.abortAllForTermination()
@@ -193,24 +177,7 @@ struct PauseInboxModelResolveTests {
     }
 }
 
-/// Poll for a condition instead of sleeping a fixed span and hoping.
-///
-/// These tests inject a millisecond-scale `autoAbortTimeout` and used to
-/// `Task.sleep` a fixed 80ms for the watchdog to fire. That is a wall-clock
-/// bet: it holds on an idle machine and loses under load, because the
-/// watchdog Task simply is not scheduled in time. It failed inside the
-/// parallel `just verify` gate while passing three times standalone, which
-/// is the worst shape of flake, since a gate that cries wolf trains you to
-/// ignore it, and one "contention flake" this session turned out to be a
-/// real bug hiding behind that assumption.
-///
-/// Polling keeps the fast path fast (returns as soon as it is true) and
-/// gives a loaded machine room, so the only way to reach the deadline is
-/// the behavior genuinely never happening.
-/// `@MainActor` so the condition closure stays on the same actor as the model
-/// and channel state it reads. A nonisolated helper would force that closure
-/// across an isolation boundary, which the compiler correctly rejects as a
-/// data race rather than something to silence with `@unchecked Sendable`.
+/// Wait on MainActor state; fail if it never reaches the expected value.
 @MainActor
 private func waitUntil(
     _ deadline: Duration = .seconds(5),
@@ -221,11 +188,9 @@ private func waitUntil(
         if condition() { return }
         try await Task.sleep(for: .milliseconds(5))
     }
+    try #require(condition(), "Condition did not become true before the deadline")
 }
 
-/// DECISION 1 coverage: an unanswered pause resolves itself. The real
-/// default is 5 minutes; these inject a millisecond-scale timeout so the
-/// test doesn't wait on it.
 @Suite("PauseInboxModel timeout")
 @MainActor
 struct PauseInboxModelTimeoutTests {
@@ -234,17 +199,13 @@ struct PauseInboxModelTimeoutTests {
         let model = PauseInboxModel(channel: channel, autoAbortTimeout: .milliseconds(30))
         let observeTask = Task { await model.observe() }
         await channel.pauses.ingest(requestPause())
-        // Give `observe()`'s stream loop a moment to pick up the ingest and
-        // schedule the watchdog before the timeout would otherwise fire.
-        try await Task.sleep(for: .milliseconds(10))
-
-        // Wait for the watchdog to actually fire rather than betting 80ms on it.
         try await waitUntil {
             channel.sentCommands.contains { command in
                 if case .breakpointAbort(pauseId: "pause-1") = command { return true }
                 return false
             }
         }
+        await model.lastActionTask?.value
         observeTask.cancel()
 
         let aborted = channel.sentCommands.contains { command in
@@ -255,36 +216,19 @@ struct PauseInboxModelTimeoutTests {
         #expect(model.deliveryNote?.contains("Timed out") == true)
     }
 
-    /// Deferred-macos item #5: a pause that vanishes from the store WITHOUT
-    /// going through `resolve(_:command:reason:)` (simulated here via a
-    /// direct `pauses.remove`, standing in for any path that drops an entry
-    /// outside resume/abort) must not leak its `timeouts[pauseId]` slot. If
-    /// it leaked, `scheduleTimeoutIfNeeded`'s `timeouts[...] == nil` guard
-    /// would see the stale entry and silently skip arming a fresh watchdog
-    /// the next time the same pauseId is ingested — that second occurrence
-    /// would then never auto-abort. This proves the second occurrence still
-    /// gets its own watchdog.
+    /// Reusing a vanished pause ID must schedule a fresh watchdog.
     @Test func aVanishedPauseDoesNotLeakItsWatchdogSlot() async throws {
         let channel = FakePauseChannel()
         let model = PauseInboxModel(channel: channel, autoAbortTimeout: .milliseconds(30))
         let observeTask = Task { await model.observe() }
         await channel.pauses.ingest(requestPause())
-        try await Task.sleep(for: .milliseconds(10))
+        try await waitUntil { model.debugHasTimeoutSlotForTest("pause-1") }
 
-        // Vanish the pause outside `resolve` — the watchdog's own guard
-        // (`entries.first(where:)`) will find nothing when it fires.
         await channel.pauses.remove(pauseId: "pause-1")
-        // Wait for the now-stale watchdog to actually FIRE and clear its own
-        // slot before re-ingesting. A fixed sleep here raced: under load the
-        // stale watchdog woke after the re-ingest, found the NEW pause in
-        // `entries`, and aborted it, so the test saw 2 aborts and read a
-        // correct implementation as a leak. The cleared slot is the only
-        // observable that watchdog leaves, since its whole job on this path is
-        // to do nothing visible.
+        try await waitUntil { model.entries.isEmpty }
+        // Let the stale watchdog clear its slot before reusing the ID.
         try await waitUntil { !model.debugHasTimeoutSlotForTest("pause-1") }
 
-        // Re-ingest the same pauseId — a leaked slot silently blocks the
-        // new watchdog from ever being scheduled for it.
         await channel.pauses.ingest(requestPause())
         try await waitUntil {
             channel.sentCommands.contains { command in
@@ -304,16 +248,16 @@ struct PauseInboxModelTimeoutTests {
         )
     }
 
-    /// A pause the developer resolves before the timeout must not also fire
-    /// a redundant auto-abort afterward.
+    /// Manual resolution cancels the watchdog.
     @Test func aManuallyResolvedPauseDoesNotAlsoAutoAbort() async throws {
         let channel = FakePauseChannel()
         let model = PauseInboxModel(channel: channel, autoAbortTimeout: .milliseconds(30))
         let observeTask = Task { await model.observe() }
         await channel.pauses.ingest(requestPause())
-        try await Task.sleep(for: .milliseconds(10))
+        try await waitUntil { model.debugHasTimeoutSlotForTest("pause-1") }
 
         model.resume(requestPause())
+        await model.lastActionTask?.value
         try await Task.sleep(for: .milliseconds(80))
         observeTask.cancel()
 

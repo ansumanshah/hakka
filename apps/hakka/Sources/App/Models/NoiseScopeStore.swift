@@ -80,11 +80,6 @@ final class NoiseScopeStore {
         persist()
     }
 
-    func unfocus(_ rule: Rule) {
-        includeRules.removeAll { $0.id == rule.id }
-        persist()
-    }
-
     /// Clears every rule in one gesture — backs the toolbar pill's clear
     /// affordance.
     func clear() {
