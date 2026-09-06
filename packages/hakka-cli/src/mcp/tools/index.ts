@@ -10,6 +10,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 
 import type { RequestStore } from '../RequestStore.js'
 import type { SpanStore } from '../SpanStore.js'
+import { registerApplyRuleBundleTool } from './applyRuleBundle.js'
 import { registerClearTool } from './clear.js'
 import { registerClearMocksTool } from './clearMocks.js'
 import type { ControlSender } from './controlDispatch.js'
@@ -28,6 +29,7 @@ import { registerListRequestsTool } from './listRequests.js'
 import { registerListTargetsTool } from './listTargets.js'
 import { registerPromoteCaptureToMockTool } from './promoteCaptureToMock.js'
 import { registerReplayRequestTool } from './replayRequest.js'
+import { registerRunCollectionTool } from './runCollection.js'
 import { registerSearchRequestsTool } from './searchRequests.js'
 import { registerSetBreakpointTool } from './setBreakpoint.js'
 import { registerSetThrottleTool } from './setThrottle.js'
@@ -43,6 +45,8 @@ export function registerTools(
   spanStore: SpanStore,
 ): void {
   registerListTargetsTool(server, sender)
+  registerApplyRuleBundleTool(server, sender)
+  registerRunCollectionTool(server)
   registerListRequestsTool(server, store)
   registerGetRequestTool(server, store)
   registerSearchRequestsTool(server, store)

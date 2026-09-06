@@ -71,6 +71,55 @@ button, input, select, textarea {
   background: transparent;
 }
 
+/* ── Phone-first page tools: all layout remains inside the inspector shadow
+   root. The picker itself uses a temporary document listener in PageTab. ── */
+.hakka-repl,
+.hakka-page-tab {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: var(--hakka-space-md);
+  padding: var(--hakka-space-md);
+  overflow: hidden;
+}
+.hakka-repl-note { flex-shrink: 0; }
+.hakka-repl-results { flex: 1; min-height: 0; overflow: auto; }
+.hakka-repl-entry { padding: var(--hakka-space-sm) 0; border-bottom: 1px solid var(--hakka-border); }
+.hakka-repl-input,
+.hakka-repl-output { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--hakka-font-mono); font-size: var(--hakka-font-xs); line-height: 1.5; }
+.hakka-repl-input { color: var(--hakka-text-tertiary); }
+.hakka-repl-output { margin-top: var(--hakka-space-xs); }
+.hakka-repl-output.error, .hakka-page-error { color: var(--hakka-status-error); }
+.hakka-repl-composer,
+.hakka-page-search { display: flex; gap: var(--hakka-space-sm); align-items: stretch; flex-shrink: 0; }
+.hakka-repl-textarea { min-height: var(--hakka-ctl-h-tap); resize: vertical; flex: 1; }
+.hakka-page-search .hakka-input { min-width: 0; flex: 1; }
+.hakka-page-content { display: grid; grid-template-columns: minmax(120px, 0.8fr) minmax(0, 1.2fr); gap: var(--hakka-space-md); min-height: 0; flex: 1; }
+.hakka-page-outline,
+.hakka-page-detail { overflow: auto; min-width: 0; }
+.hakka-page-node { display: block; width: 100%; min-height: var(--hakka-ctl-h); border: 0; border-bottom: 1px solid var(--hakka-border); background: transparent; color: var(--hakka-text); text-align: left; font-family: var(--hakka-font-mono); font-size: var(--hakka-font-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hakka-page-node:hover { color: var(--hakka-accent); }
+.hakka-page-text { margin: var(--hakka-space-sm) 0; color: var(--hakka-text-tertiary); font-size: var(--hakka-font-sm); overflow-wrap: anywhere; }
+.hakka-page-grid { display: grid; grid-template-columns: minmax(84px, 0.8fr) minmax(0, 1.2fr); gap: var(--hakka-space-xs) var(--hakka-space-md); font-size: var(--hakka-font-xs); overflow-wrap: anywhere; }
+.hakka-page-grid code { color: var(--hakka-text-tertiary); font-family: var(--hakka-font-mono); }
+@media (max-width: 420px) {
+  .hakka-page-search { flex-wrap: wrap; }
+  .hakka-page-search .hakka-input { flex-basis: 100%; }
+  .hakka-page-content { grid-template-columns: 1fr; }
+  .hakka-page-outline { max-height: 120px; }
+}
+/* The list, detail, rules/settings panes, and palette are the inspector's
+   persistent scroll surfaces. Reserving their thin gutter prevents the right
+   edge of data from shifting when a long session first overflows. */
+.hakka-list,
+.hakka-tab-content,
+.hakka-pane,
+.hakka-palette-list {
+  scrollbar-color: color-mix(in srgb, var(--hakka-text-tertiary) 65%, transparent) transparent;
+  scrollbar-gutter: stable;
+}
+
 .hakka-toggle {
   position: fixed;
   bottom: 20px;
@@ -222,6 +271,35 @@ button, input, select, textarea {
   /* --hakka-panel-opacity is unset by default, so this var() fallback stays
      pixel-identical to the literal opacity(1) it replaces. */
   opacity: var(--hakka-panel-opacity, 1);
+}
+/* The inspector is layered over a live app, so its fixed chrome reads as one
+   quiet material instead of an opaque second page. The solid token fallback
+   above keeps the same contrast in browsers without backdrop filtering. */
+@supports (backdrop-filter: blur(1px)) {
+  .hakka-panel {
+    background: color-mix(in srgb, var(--hakka-bg) 92%, transparent);
+    backdrop-filter: blur(24px) saturate(130%);
+  }
+  .hakka-panel .hakka-header,
+  .hakka-panel .hakka-detail-header,
+  .hakka-panel .hakka-detail-status,
+  .hakka-panel .hakka-group-header {
+    background: color-mix(in srgb, var(--hakka-surface) 88%, transparent);
+    backdrop-filter: blur(18px) saturate(120%);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .hakka-panel {
+    background: var(--hakka-bg);
+    backdrop-filter: none;
+  }
+  .hakka-panel .hakka-header,
+  .hakka-panel .hakka-detail-header,
+  .hakka-panel .hakka-detail-status,
+  .hakka-panel .hakka-group-header {
+    background: var(--hakka-surface);
+    backdrop-filter: none;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .hakka-panel {
@@ -995,31 +1073,45 @@ button, input, select, textarea {
   text-transform: uppercase;
 }
 /* Left stripe encodes severity at a glance: chili = 5xx/error, turmeric = 4xx,
-   flame = selected. 2px inset, never a badge. */
+   flame = selected. It is a positioned layer instead of a border, so the
+   marker reaches the row separator without changing data-column alignment. */
 .hakka-row {
   display: flex;
   align-items: center;
   gap: var(--hakka-space-md);
   padding: var(--hakka-space-md) var(--hakka-space-xl);
-  padding-left: calc(var(--hakka-space-xl) - 2px);
   border-bottom: 1px solid color-mix(in srgb, var(--hakka-border) 55%, transparent);
-  border-left: 2px solid transparent;
   cursor: pointer;
+  position: relative;
   transition: background 0.1s;
   min-height: var(--hakka-ctl-h-tap);
+}
+.hakka-row::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2px; /* ui-token-check-ignore: severity marker thickness */
+  background: transparent;
 }
 .hakka-row:hover {
   background: var(--hakka-surface);
 }
 .hakka-row.is-error {
-  border-left-color: var(--hakka-status-error);
+  --hakka-row-marker: var(--hakka-status-error);
 }
 .hakka-row.is-warn {
-  border-left-color: var(--hakka-status-warning);
+  --hakka-row-marker: var(--hakka-status-warning);
 }
 .hakka-row.selected {
   background: color-mix(in srgb, var(--hakka-accent) var(--hakka-tint-hover), transparent);
-  border-left-color: var(--hakka-accent);
+  --hakka-row-marker: var(--hakka-accent);
+}
+.hakka-row.is-error::before,
+.hakka-row.is-warn::before,
+.hakka-row.selected::before {
+  background: var(--hakka-row-marker);
 }
 .hakka-method-badge {
   font-family: var(--hakka-font-mono);
@@ -2616,6 +2708,14 @@ textarea.hakka-input {
 /* ── Mobile (< 680px) — full-screen inspector ergonomics. Kept last so these
    win the cascade over the component rules above at equal specificity. ── */
 @media (max-width: 679px) {
+  /* Keep the request actions in one thumb-reachable row. At 375px the
+     default desktop inset makes the final Agent action wrap despite the bar
+     already supporting horizontal overflow; the narrower mobile inset keeps
+     the common five actions visible together. */
+  .hakka-detail-status {
+    padding-left: var(--hakka-space-lg);
+    padding-right: var(--hakka-space-lg);
+  }
   /* The filter zone keeps the base --hakka-ctl-h (26px) on phones too —
      every chip/select/button rides the one token, so the panel reads as one
      compact geometry; the section gaps provide the tap slack. */

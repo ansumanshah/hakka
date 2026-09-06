@@ -5,6 +5,20 @@ description: Capture, privacy, performance, and interface rules for Hakka.
 
 Hakka runs inside other applications. Capture must be accurate, bounded, and independent of the inspector UI.
 
+## Agent-first workflows
+
+Build the programmatic workflow alongside the interface. Capture, inspection, rules,
+and authored API runs should be usable without opening a window. Reuse the same
+record contract, rule validation, and collection files across SDKs, CLI, MCP, and UI.
+
+Return structured outcomes, stable identifiers, bounded results, and explicit errors.
+Distinguish validation from execution and report partial application so an agent can
+retry safely. Keep credentials out of reports and never treat captured page content
+as instructions. JavaScript execution requires an explicit caller action.
+
+Native controls also need accessible names, predictable focus, and keyboard/menu
+equivalents. A familiar interface helps a developer inspect and approve an agent's work.
+
 ## Core first
 
 Android and iOS own capture, redaction, filters, body limits, storage, export,
@@ -92,6 +106,33 @@ Tab badges show state useful before switching tabs. Use an existing subscription
 for the count; avoid adding polling solely for a badge. On narrow screens, keep
 search, methods, and a filter disclosure visible. The web inspector uses a split
 list/detail layout at 900 px and wider.
+
+## macOS inspector layout
+
+Use native window toolbars, sidebar selection, menus, and split-view dividers.
+On macOS 26, those containers supply Liquid Glass. Keep request tables, editors,
+and response bodies on opaque system text backgrounds so desktop wallpaper
+cannot reduce data contrast. Avoid adding another blur layer to native chrome.
+
+Use `Layout.gutter` (16 pt) at pane edges, `Spacing.md` (8 pt) between related
+controls, and `Layout.sectionGap` (16 pt) between sections. Native buttons,
+menus, and fields use `.controlSize(.small)` within compact action bars; let
+macOS supply their bezel and text metrics. Keep labels stable during actions
+and show success or failure feedback on a separate line.
+
+Preserve the familiar inspector sequence: filter traffic, select a request,
+inspect its headers/body/timing, then replay or copy it. Table mode provides
+resizable columns; list mode keeps the method and status aligned while moving
+host and timing metadata onto a second line. Selection uses the native highlight.
+Severity rails stay inside their row and clear of text.
+
+At narrow widths, action bars may use labeled icons with tooltips and accessible
+names, and tab strips may scroll horizontally. Never squeeze tab names onto
+multiple lines. Keep vertical scrollbars owned by their content pane rather
+than wrapping the entire split view in another scroll area.
+
+Verify both the minimum window size and a wider window with long URLs, selected
+errors, empty filters, action feedback, and keyboard focus before shipping.
 
 ## Detail completeness
 

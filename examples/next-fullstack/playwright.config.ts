@@ -31,6 +31,13 @@ export default defineConfig({
   webServer: {
     command: 'npm run dev',
     port: PORT,
+    // The desktop app and other Hakka examples use the default 8989 hub. A
+    // dedicated port makes this example's full-stack test independent of
+    // whatever is already running on the developer machine.
+    env: {
+      HAKKA_BRIDGE_URL: 'ws://localhost:8990',
+      NEXT_PUBLIC_HAKKA_BRIDGE_URL: 'ws://localhost:8990',
+    },
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
   },

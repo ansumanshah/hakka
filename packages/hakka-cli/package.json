@@ -50,7 +50,12 @@
       "types": "./dist/cdp/index.d.mts",
       "default": "./dist/cdp/index.mjs"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./proxy": {
+      "source": "./src/proxy/index.ts",
+      "types": "./dist/proxy/index.d.mts",
+      "default": "./dist/proxy/index.mjs"
+    }
   },
   "publishConfig": {
     "access": "public",

@@ -32,12 +32,13 @@ struct DeviceRowView: View {
         .buttonStyle(.plain)
         .foregroundStyle(isScoped ? Color.accentColor : .primary)
         .accessibilityLabel(accessibilityLabel)
+        .help(summary.device.label == nil ? "Connected to the bridge; no captured traffic received from this peer yet." : accessibilityLabel)
     }
 
     private var connectionDot: some View {
         Circle()
             .fill(summary.device.isConnected ? ThemeTokens.Status.success : ThemeTokens.Status.pending)
-            .frame(width: 6, height: 6)  // ui-token-check-ignore: connection status dot
+            .frame(width: 6, height: 6) // ui-token-check-ignore: connection status dot
             .accessibilityHidden(true)
     }
 

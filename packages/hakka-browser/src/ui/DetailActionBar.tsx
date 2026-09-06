@@ -127,7 +127,7 @@ export const DetailActionBar: Component<DetailActionBarProps> = (props) => {
   return (
     <div
       class="hakka-detail-status"
-      style="display:flex;flex-wrap:wrap;gap:var(--hakka-space-xs);align-items:center;overflow-x:auto;-webkit-overflow-scrolling:touch"
+      style="display:flex;flex-wrap:nowrap;gap:var(--hakka-space-xs);align-items:center;overflow-x:auto;-webkit-overflow-scrolling:touch"
     >
       <Show when={props.urlHasEncoding()}>
         {/* Solid 2.0 RC's dom-expressions drops `aria-*` attrs entirely on a

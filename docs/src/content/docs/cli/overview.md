@@ -1,6 +1,6 @@
 ---
 title: CLI
-description: npx hakka-cli init detects your framework and wires up Hakka with zero dependencies.
+description: Set up capture, inspect traffic, and automate Hakka workflows from the terminal.
 ---
 
 `npx hakka-cli init` reads your project's `package.json` and config files, detects the
@@ -11,10 +11,8 @@ to paste. No installs needed to run it.
 npx hakka-cli init
 ```
 
-The CLI has no runtime dependencies — it ships as a single ESM file built from
-`packages/hakka-cli/src/cli.ts`. `mcp` and `cdp` are dynamically imported inside their own
-command branches, so a plain `hakka init` never loads `@modelcontextprotocol/sdk`,
-`zod`, or `ws`.
+The package ships an ESM CLI with separate command modules. Proxy capture uses the
+optional external `mitmdump` executable; it is needed only for `hakka proxy`.
 
 ## Other commands
 
@@ -25,6 +23,8 @@ command branches, so a plain `hakka init` never loads `@modelcontextprotocol/sdk
 | `hakka diagnose <file.hakka\|file.har>`                  | Load a saved session or HAR capture from disk and pretty-print a ranked diagnosis to the terminal — the same `analyzeRequests` engine that backs the MCP `diagnose` tool. |
 | `hakka assert <file.hakka\|file.har>`                    | Same engine, built for CI gating: exits non-zero when configured thresholds (`--max-failures`, `--max-duration-ms`, `--fail-on-secrets`, `--budget-p95-ms`) are violated. |
 | `hakka ci-baseline check <capture.hakka> <baseline.txt>` | Compare captured traffic with a committed API baseline and fail on blocking drift or exfiltration risk.                                                                   |
+| `hakka run <collection>`                                 | Execute authored request files with datasets, assertions, captures, and JSON/JUnit reports. See [collection runner](/testing/collection-runner/).                         |
+| `hakka proxy`                                            | Capture routed HTTP/HTTPS traffic with an optional local sidecar. See [proxy capture](/proxy/overview/).                                                                  |
 | `hakka mcp`                                              | Start the stdio MCP server exposing captured traffic to AI agents. See [MCP overview](/mcp/overview/).                                                                    |
 | `hakka cdp`                                              | Attach to a Chrome DevTools Protocol debugging port and stream Network captures to a bridge hub — no Playwright/Puppeteer needed. See [CDP overview](/cdp/overview/).     |
 

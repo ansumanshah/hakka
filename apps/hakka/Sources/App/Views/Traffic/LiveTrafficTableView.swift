@@ -81,6 +81,8 @@ struct LiveTrafficTableView: View {
                 }
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(Color(nsColor: .textBackgroundColor))
     }
 
     /// Appends the bucket size to its label — "2xx Success · 12" — so a

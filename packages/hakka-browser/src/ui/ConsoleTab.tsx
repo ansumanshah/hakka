@@ -5,10 +5,11 @@ import type { Component } from 'solid-js'
 
 import { getConsoleEntries, onConsoleEntry, clearConsole } from '../capture/console'
 import type { ConsoleEntry } from '../capture/console'
+import { ConsoleRepl } from './ConsoleRepl'
 import { JsonViewer } from './LazyJsonViewer'
 
 type LevelFilter = 'all' | 'log' | 'warn' | 'error'
-type SourceView = 'console' | 'logs'
+type SourceView = 'console' | 'logs' | 'run'
 type StructuredLevelFilter = 'all' | LogLevel
 
 const LEVEL_FILTERS: LevelFilter[] = ['all', 'log', 'warn', 'error']
@@ -223,6 +224,14 @@ export const ConsoleTab: Component<ConsoleTabProps> = (props) => {
               <span class="hakka-count-badge sm outline">{logStore.size()}</span>
             </Show>
           </button>
+          <button
+            class={`hakka-seg-btn${view() === 'run' ? ' on' : ''}`}
+            role="tab"
+            aria-selected={view() === 'run' ? 'true' : 'false'}
+            onClick={() => setView('run')}
+          >
+            Run
+          </button>
         </div>
       </div>
 
@@ -288,6 +297,10 @@ export const ConsoleTab: Component<ConsoleTabProps> = (props) => {
             </For>
           </Show>
         </div>
+      </Show>
+
+      <Show when={view() === 'run'}>
+        <ConsoleRepl />
       </Show>
 
       <Show when={view() === 'logs'}>

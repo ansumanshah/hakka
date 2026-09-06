@@ -20,11 +20,23 @@ struct TrafficFilterChipsView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        // Parsed once per render rather than once per chip — nine tokens'
-        // worth of redundant `TrafficQueryParser.parse` calls otherwise,
-        // since a chip's active state and its neighbours' all come from the
-        // same `searchText`.
         let query = TrafficQueryParser.parse(searchText)
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: Spacing.sm) {
+                methodChips(query)
+                Divider().frame(height: ControlHeight.chip)
+                statusChips(query)
+            }
+            .fixedSize(horizontal: true, vertical: false)
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                methodChips(query)
+                statusChips(query)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func methodChips(_ query: TrafficQuery) -> some View {
         HStack(spacing: Spacing.sm) {
             ForEach(TrafficFilterChips.methods, id: \.self) { method in
                 chip(method, isActive: TrafficFilterChips.activeMethod(in: query) == method, tone: Fmt.methodColor(for: method)) {
@@ -32,7 +44,11 @@ struct TrafficFilterChipsView: View {
                 }
                 .accessibilityLabel("\(method) method filter")
             }
-            Divider().frame(height: ControlHeight.chip)
+        }
+    }
+
+    private func statusChips(_ query: TrafficQuery) -> some View {
+        HStack(spacing: Spacing.sm) {
             ForEach(TrafficFilterChips.statusClasses, id: \.self) { statusClass in
                 chip(statusClass, isActive: TrafficFilterChips.activeStatusClass(in: query) == statusClass, tone: Self.statusTone(statusClass)) {
                     searchText = TrafficFilterChips.togglingStatusClass(statusClass, in: searchText)
@@ -55,7 +71,8 @@ struct TrafficFilterChipsView: View {
     private func chip(_ label: String, isActive: Bool, tone: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(label)
-                .font(.caption2.monospaced().weight(.bold))
+                .font(.caption.monospaced().weight(.semibold))
+                .fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(isActive ? tone : .secondary)
                 .padding(.horizontal, Spacing.sm)
                 .frame(height: ControlHeight.chip)
@@ -164,7 +181,9 @@ enum TrafficFilterChips {
         for character in text {
             if let open = quote {
                 current.append(character)
-                if character == open { quote = nil }
+                if character == open {
+                    quote = nil
+                }
             } else if character == "\"" || character == "'" {
                 quote = character
                 current.append(character)
@@ -177,7 +196,9 @@ enum TrafficFilterChips {
                 current.append(character)
             }
         }
-        if !current.isEmpty { results.append(current) }
+        if !current.isEmpty {
+            results.append(current)
+        }
         return results
     }
 }

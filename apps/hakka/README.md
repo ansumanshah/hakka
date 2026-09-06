@@ -3,19 +3,30 @@
 A native API client and live traffic inspector in one app. No proxy, no CA certificate —
 the traffic comes from Hakka's SDK running inside your own app.
 
-**In development.** The core is tested (113 tests), the app builds, bundles, and launches —
-verified: three-pane window, collection tree, live-traffic section, native menu bar. What it
-does not have yet is a signed, notarized release build.
+**In development.** The app includes an API client, live traffic inspector, collection
+Git tools, and an opt-in local MCP server. Build and test it from source; a signed,
+notarized release is not available yet.
 Design and scope: [ADR 0008](../../docs/src/content/docs/contributing/adr/0008-desktop-plugin-products.md).
 
 ```bash
-swift build     # macOS 14+, Swift 6 toolchain
+swift build     # macOS 15+, Swift 6.1+ toolchain
 swift test
 
 # Bundle and run it as a real .app
 ./Scripts/package_app.sh debug
 open Hakka.app
 ```
+
+## Try live traffic
+
+After opening the app, run `node examples/desktop-bridge/run.mjs` from the repository
+root (build the JS packages first with `bun run build`). It creates four local requests,
+checks that the desktop bridge relays redacted captures, and keeps the local server
+alive for replay. See the [walkthrough](../../examples/desktop-bridge/README.md).
+
+The desktop bridge listens on port 8989 and accepts local connections by default.
+Stop a separate Node bridge before opening Hakka. In your Node app use
+`register({ embedBridge: false })`; in the Next.js example use `HAKKA_DESKTOP=1`.
 
 ## Layout
 

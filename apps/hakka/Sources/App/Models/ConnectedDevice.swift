@@ -17,10 +17,14 @@ struct ConnectedDevice: Identifiable, Equatable {
     var label: BridgeDeviceLabel?
     var isConnected: Bool
 
-    var id: BridgePeerID { peerID }
+    var id: BridgePeerID {
+        peerID
+    }
 
     /// What the sidebar row shows in place of a label that doesn't exist
     /// yet — never invents a number, since that number is the one honesty
     /// guarantee this feature has to keep.
-    var displayName: String { label ?? "Connecting…" }
+    var displayName: String {
+        label ?? (isConnected ? "Connected peer" : "Disconnected peer")
+    }
 }

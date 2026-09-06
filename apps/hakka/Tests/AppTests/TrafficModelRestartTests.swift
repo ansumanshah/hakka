@@ -16,7 +16,7 @@ import Testing
 struct TrafficModelRestartTests {
     private func boundPort(of model: TrafficModel) async -> UInt16? {
         for _ in 0..<100 {
-            if let port = await model.server.boundPort, port != 0 { return port }
+            if let port = model.boundPort, port != 0 { return port }
             try? await Task.sleep(for: .milliseconds(50))
         }
         return nil

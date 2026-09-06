@@ -70,7 +70,8 @@ struct RulesView: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.small)
         }
-        .padding(Spacing.lg)
+        .padding(.horizontal, Layout.gutter)
+        .padding(.vertical, Spacing.md)
     }
 
     private var pushedText: String {
@@ -80,12 +81,11 @@ struct RulesView: View {
 
     private var throttleSection: some View {
         RulesSection(title: "Network Conditions", isEmpty: false, empty: nil) {
-            HStack(spacing: Spacing.ml) {
+            VStack(alignment: .leading, spacing: Spacing.sm) {
                 ThrottlePillRow(selection: throttleBinding)
                 Text(Fmt.throttleReadout(model.rules.throttleProfile))
                     .font(.caption2.monospaced())
                     .foregroundStyle(.secondary)
-                Spacer()
             }
             Text("Applies to every connected device until set back to Off.")
                 .font(.caption2)

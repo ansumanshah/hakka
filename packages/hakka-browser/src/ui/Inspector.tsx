@@ -28,8 +28,9 @@ Hakka.use({
     { id: 'stats', title: 'Stats', order: 1 },
     { id: 'rules', title: 'Rules', order: 2 },
     { id: 'console', title: 'Logs', order: 3 },
-    { id: 'storage', title: 'Storage', order: 4 },
-    { id: 'settings', title: 'Settings', order: 5 },
+    { id: 'page', title: 'Page', order: 4 },
+    { id: 'storage', title: 'Storage', order: 5 },
+    { id: 'settings', title: 'Settings', order: 6 },
   ],
 })
 

@@ -1,9 +1,9 @@
 ---
 title: Hakka for macOS
-description: A native desktop app that is an API client and a live traffic inspector in one, with no proxy and no CA certificate.
+description: A native API client and live traffic inspector for SDK and proxy captures.
 ---
 
-**Status: in development.** The core is built and tested (500 tests) and
+**Status: in development.** The app has automated core, bridge, and app-model tests, and
 `Scripts/package_app.sh` produces a runnable `Hakka.app`, but there is no signed release
 yet. Track [ADR 0008](/contributing/adr/0008-desktop-plugin-products/) for the design
 and scope.
@@ -18,23 +18,23 @@ Hakka for macOS is two tools that usually have nothing to do with each other:
 They are one app because of the move that neither half can do alone: see a real request
 your app just made, and save it as a request you can re-run, tweak, and commit.
 
-## Why not a proxy
+## SDK and proxy capture
 
-Proxyman and Charles see every app's traffic because you install a CA certificate and
-route your machine through them. That is a large amount of trust and a recurring
-setup tax, and it is why those tools cannot be part of a normal project's onboarding.
+SDK capture observes calls inside your app and sends the records to the desktop over
+Hakka’s bridge. It needs no system proxy or CA certificate.
 
-Hakka sees _your_ app's traffic because the SDK is inside it. Smaller scope, no
-certificate, nothing to install on the system. The desktop app receives what the SDK
-already captured, over the same bridge the CLI and MCP server use.
+For apps you cannot instrument, [proxy capture](/proxy/overview/) runs an optional
+local mitmproxy sidecar and streams records to the same bridge. Configure the target
+app or device to route traffic through it; HTTPS requires trusting that sidecar’s CA.
+Certificate pinning and traffic that bypasses the proxy can prevent capture.
 
-The trade is explicit: Hakka cannot inspect an app you do not build. If that is what
-you need, a proxy is the right tool and Proxyman is a good one.
+`hakka sim attach` is another, narrower path that injects the SDK into an installed
+iOS Simulator app at launch. See [ADR 0014](/contributing/adr/0014-simulator-injection-capture/)
+for its scope.
 
-The one exception is `hakka sim attach`, a separate, narrower path that injects the
-SDK into an already-installed iOS Simulator app at process launch, still with no
-certificate; see [ADR 0014](/contributing/adr/0014-simulator-injection-capture/) for
-exactly what it reaches and where it stops.
+Use the toolbar or Inspector menu to place detail on the right, below traffic, or
+hide it. The placement persists between launches. Native splitters resize each pane;
+Command-Shift-I selects the right inspector and Command-Option-I selects the bottom.
 
 ## What it is made of
 
@@ -99,5 +99,30 @@ swift build
 swift test
 ```
 
-Requires macOS 14 or later and a Swift 6 toolchain. The package consumes `ios/` by
+Requires macOS 15 or later and a Swift 6.1 or newer toolchain. The package consumes `ios/` by
 path; there is no separate checkout to clone.
+
+## Verify local capture
+
+Build the JavaScript packages with `bun run build`, then bundle and open the desktop:
+
+```bash
+cd apps/hakka
+./Scripts/package_app.sh debug
+open Hakka.app
+cd ../..
+node examples/desktop-bridge/run.mjs
+```
+
+The demo sends four requests to a local server and verifies that the bridge relays
+the captures with redacted credentials and trace correlation. In **Live Traffic**,
+inspect the POST body and the 503 response, then save a request to a collection
+and send it again. The server stays up until Ctrl-C; `--check` runs the assertions
+and exits. See the [example walkthrough](https://github.com/ansumanshah/hakka/tree/main/examples/desktop-bridge).
+
+The default desktop bridge accepts connections from this Mac on port 8989. It does
+not advertise Bonjour or accept physical-device LAN connections by default. The
+`HakkaServer` library exposes `allowLAN` and token options for custom hosts; the
+stock desktop app does not provide those settings. For Node, use
+`register({ embedBridge: false })`; for the Next.js example, set `HAKKA_DESKTOP=1`
+to use the desktop's hub. Only one hub should own port 8989.

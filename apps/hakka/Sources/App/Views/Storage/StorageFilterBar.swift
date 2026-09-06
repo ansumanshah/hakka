@@ -15,7 +15,7 @@ struct StorageFilterBar: View {
                 storePicker
             }
         }
-        .padding(.horizontal, Spacing.lg)
+        .padding(.horizontal, Layout.gutter)
         .padding(.bottom, Spacing.md)
     }
 

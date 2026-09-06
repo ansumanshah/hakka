@@ -9,7 +9,17 @@ import type { Component } from 'solid-js'
 import { createEffect, For, Show } from 'solid-js'
 
 import { HakkaMark } from './HakkaMark'
-import { IconChart, IconClose, IconDatabase, IconExport, IconGear, IconPulse, IconSliders, IconTerminal } from './icons'
+import {
+  IconChart,
+  IconClose,
+  IconDatabase,
+  IconExport,
+  IconGear,
+  IconPulse,
+  IconSearch,
+  IconSliders,
+  IconTerminal,
+} from './icons'
 import type { InspectorExportActions } from './inspectorExports'
 
 // Tab-bar icons for the builtin panels. Plugin panels without an entry render
@@ -19,6 +29,7 @@ const TAB_ICONS: Record<string, Component<{ size?: number }>> = {
   stats: IconChart,
   rules: IconSliders,
   console: IconTerminal,
+  page: IconSearch,
   storage: IconDatabase,
   settings: IconGear,
 }

@@ -78,20 +78,26 @@ public actor BridgeServer {
     private let options: BridgeServerOptions
     private let queue = DispatchQueue(label: "com.noodleapps.hakka.desktop.bridge-server")
     private var listener: NWListener?
+    private var listenerID: UUID?
+    /// The port the listener reported after entering `.ready`. Keeping this
+    /// separate from `NWListener.port` prevents the UI from treating a
+    /// requested ephemeral port (`0`) as a live listener.
+    public private(set) var boundPort: UInt16?
 
     public init(hub: BridgeHub = BridgeHub(), options: BridgeServerOptions = BridgeServerOptions()) {
         self.hub = hub
         self.options = options
     }
 
-    public var isRunning: Bool { listener != nil }
+    public var isRunning: Bool { boundPort != nil }
 
-    /// The actually-bound port — resolved even when `options.port == 0`
-    /// requested an ephemeral one.
-    public var boundPort: UInt16? { listener?.port?.rawValue }
-
-    public func start() throws {
-        guard listener == nil else { return }
+    @discardableResult
+    public func start() async throws -> UInt16 {
+        try Task.checkCancellation()
+        if listener != nil {
+            guard let boundPort else { throw BridgeServerError.notBound }
+            return boundPort
+        }
 
         let wsOptions = NWProtocolWebSocket.Options()
         wsOptions.autoReplyPing = true
@@ -116,6 +122,8 @@ public actor BridgeServer {
             )
         }
 
+        let id = UUID()
+        let (readiness, continuation) = AsyncThrowingStream<Void, any Error>.makeStream()
         let hub = self.hub
         let maxFrameBytes = options.maxFrameBytes
         let requiredToken = options.token
@@ -126,9 +134,43 @@ public actor BridgeServer {
             )
             peer.start(on: connectionQueue)
         }
+        listener.stateUpdateHandler = { [weak self] state in
+            switch state {
+            case .ready:
+                continuation.yield(())
+                continuation.finish()
+            case let .failed(error), let .waiting(error):
+                continuation.finish(throwing: error)
+                Task { await self?.stop(ifCurrent: id) }
+            case .cancelled:
+                continuation.finish(throwing: CancellationError())
+            default:
+                break
+            }
+        }
 
-        listener.start(queue: queue)
         self.listener = listener
+        listenerID = id
+        listener.start(queue: queue)
+        do {
+            return try await withTaskCancellationHandler {
+                for try await _ in readiness {
+                    try Task.checkCancellation()
+                    guard listenerID == id, let port = listener.port?.rawValue, port != 0 else {
+                        throw BridgeServerError.notBound
+                    }
+                    boundPort = port
+                    return port
+                }
+                try Task.checkCancellation()
+                throw BridgeServerError.notBound
+            } onCancel: {
+                listener.cancel()
+            }
+        } catch {
+            await stop(ifCurrent: id)
+            throw error
+        }
     }
 
     /// Stops accepting new connections AND disconnects every already-accepted
@@ -140,6 +182,17 @@ public actor BridgeServer {
     public func stop() async {
         listener?.cancel()
         listener = nil
+        listenerID = nil
+        boundPort = nil
         await hub.closeAllPeers()
     }
+
+    private func stop(ifCurrent id: UUID) async {
+        guard listenerID == id else { return }
+        await stop()
+    }
+}
+
+public enum BridgeServerError: Error, Equatable {
+    case notBound
 }

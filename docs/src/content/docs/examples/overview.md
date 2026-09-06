@@ -1,20 +1,33 @@
 ---
 title: Examples
-description: Seven runnable examples, one per Hakka integration surface, each with a guided walkthrough.
+description: Runnable examples for browser, Node, Next.js, desktop, mobile, and traffic assertions.
 ---
 
 Every integration surface has a runnable example in the repo. Each one has its own README with a
 guided walkthrough rather than a bare code dump.
 
-| Example                                                                                                         | Surface                 | Run it                                          |
-| --------------------------------------------------------------------------------------------------------------- | ----------------------- | ----------------------------------------------- |
-| [`examples/next-fullstack`](https://github.com/ansumanshah/hakka/tree/main/examples/next-fullstack)             | Next.js server + client | `just demo-claude-code`                         |
-| [`examples/claude-code`](https://github.com/ansumanshah/hakka/tree/main/examples/claude-code)                   | MCP / AI agents         | `claude mcp add hakka -- npx -y hakka-cli mcp`  |
-| [`examples/browser-demo`](https://github.com/ansumanshah/hakka/tree/main/examples/browser-demo)                 | Plain web               | `just demo-browser`                             |
-| [`examples/react-native-example`](https://github.com/ansumanshah/hakka/tree/main/examples/react-native-example) | React Native            | `just dev-ios` / `just dev-android`             |
-| [`ios/Example`](https://github.com/ansumanshah/hakka/tree/main/ios/Example)                                     | iOS (Swift)             | `just build-ios-demo`                           |
-| [`android/example`](https://github.com/ansumanshah/hakka/tree/main/android/example)                             | Android (Kotlin)        | `cd android && ./gradlew :example:installDebug` |
-| [`examples/ci-gate`](https://github.com/ansumanshah/hakka/tree/main/examples/ci-gate)                           | Node CI gate            | `bun test examples/ci-gate/ciGate.test.ts`      |
+| Example                                                                                                         | Surface                 | Run it                                                |
+| --------------------------------------------------------------------------------------------------------------- | ----------------------- | ----------------------------------------------------- |
+| [`examples/next-fullstack`](https://github.com/ansumanshah/hakka/tree/main/examples/next-fullstack)             | Next.js server + client | `cd examples/next-fullstack && npm ci && npm run dev` |
+| [`examples/claude-code`](https://github.com/ansumanshah/hakka/tree/main/examples/claude-code)                   | MCP / AI agents         | `claude mcp add hakka -- npx -y hakka-cli mcp`        |
+| [`examples/browser-demo`](https://github.com/ansumanshah/hakka/tree/main/examples/browser-demo)                 | Plain web               | `just demo-browser`                                   |
+| [`examples/react-native-example`](https://github.com/ansumanshah/hakka/tree/main/examples/react-native-example) | React Native            | `just dev-ios` / `just dev-android`                   |
+| [`ios/Example`](https://github.com/ansumanshah/hakka/tree/main/ios/Example)                                     | iOS (Swift)             | `just build-ios-demo`                                 |
+| [`android/example`](https://github.com/ansumanshah/hakka/tree/main/android/example)                             | Android (Kotlin)        | `cd android && ./gradlew :example:installDebug`       |
+| [`examples/ci-gate`](https://github.com/ansumanshah/hakka/tree/main/examples/ci-gate)                           | Node CI gate            | `bun test examples/ci-gate/ciGate.test.ts`            |
+
+Other focused examples:
+
+| Example                                                                                                    | Purpose                                                | Run from the repository root after `bun run build`        |
+| ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ | --------------------------------------------------------- |
+| [Desktop bridge](https://github.com/ansumanshah/hakka/tree/main/examples/desktop-bridge)                   | Local capture, redaction, trace, and API-client replay | `node examples/desktop-bridge/run.mjs` (open Hakka first) |
+| [Framework servers](https://github.com/ansumanshah/hakka/tree/main/examples/framework-servers)             | HTTP, Express, Fastify, Hono, and Bun capture          | `just demo-node-servers`                                  |
+| [Custom inspector panels](https://github.com/ansumanshah/hakka/tree/main/examples/build-your-own-devtools) | Custom elements and React panels                       | `just demo-devtools-panel`                                |
+| [Vite](https://github.com/ansumanshah/hakka/tree/main/examples/vite-app)                                   | Plugin integration                                     | `cd examples/vite-app && npm install && npm run dev`      |
+
+Build the SDK packages before running examples. Standalone consumer examples use
+their own npm installation; the root Bun workspace installs the React Native,
+Expo, and CI-gate examples. See the [complete example index](https://github.com/ansumanshah/hakka/tree/main/examples).
 
 ## Where to start
 

@@ -6,25 +6,12 @@ import SwiftUI
 /// `NSSplitView` and gets resizable, collapsible columns for free.
 struct ContentView: View {
     @Environment(AppModel.self) private var model
+    @AppStorage(InspectorPlacement.placementKey) private var inspectorPlacementRaw = InspectorPlacement.trailing.rawValue
+    @AppStorage(InspectorPlacement.visibilityKey) private var isInspectorVisible = true
 
     var body: some View {
-        NavigationSplitView {
-            SidebarView()
-                .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 380)
-        } content: {
-            CenterPaneView()
-                .navigationSplitViewColumnWidth(min: 380, ideal: 480)
-        } detail: {
-            DetailPaneView()
-                .navigationSplitViewColumnWidth(min: 320, ideal: 420)
-        }
-        .frame(minWidth: 900, minHeight: 560)  // ui-token-check-ignore: window chrome
-        // Artboard 8: the window's native toolbar. Real Liquid Glass already
-        // renders itself there on macOS 26+ with no manual work, so
-        // `ChromeMaterial.toolbarStyle` stays `.clear` on that branch;
-        // macOS 15–25 gets the Fallback artboard's `.bar` material — see
-        // `ChromeMaterial.swift` for the one `#available` gate this reads.
-        .toolbarBackground(ChromeMaterial.toolbarStyle, for: .windowToolbar)
+        workspace
+        .frame(minWidth: 960, minHeight: 560)  // ui-token-check-ignore: window chrome
         // Mounted once here, above the split view, so it is visible from
         // every pane — see `PauseInboxBanner`'s own doc comment for why that
         // matters more than it would for an ordinary status strip.
@@ -62,6 +49,73 @@ struct ContentView: View {
                 )
             }
         }
+        .toolbar {
+            ToolbarItemGroup(placement: .primaryAction) {
+                Button {
+                    isInspectorVisible.toggle()
+                } label: {
+                    Label(isInspectorVisible ? "Hide Inspector" : "Show Inspector", systemImage: "sidebar.trailing")
+                }
+                .help(isInspectorVisible ? "Hide Inspector" : "Show Inspector")
+
+                Menu {
+                    Button("Inspector on Right") {
+                        inspectorPlacementRaw = InspectorPlacement.trailing.rawValue
+                        isInspectorVisible = true
+                    }
+                    .disabled(inspectorPlacement == .trailing && isInspectorVisible)
+                    Button("Inspector on Bottom") {
+                        inspectorPlacementRaw = InspectorPlacement.bottom.rawValue
+                        isInspectorVisible = true
+                    }
+                    .disabled(inspectorPlacement == .bottom && isInspectorVisible)
+                } label: {
+                    Label("Inspector Position", systemImage: "rectangle.split.3x1")
+                }
+                .help("Place Inspector on Right or Bottom")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var workspace: some View {
+        if isInspectorVisible, inspectorPlacement == .bottom {
+            NavigationSplitView {
+                sidebar
+            } detail: {
+                VSplitView {
+                    CenterPaneView()
+                        .frame(minHeight: 250) // ui-token-check-ignore: split pane minimum
+                    DetailPaneView()
+                        .frame(minHeight: 220) // ui-token-check-ignore: split pane minimum
+                }
+            }
+        } else if isInspectorVisible {
+            NavigationSplitView {
+                sidebar
+            } content: {
+                CenterPaneView()
+                    .navigationSplitViewColumnWidth(min: 360, ideal: 520)
+            } detail: {
+                DetailPaneView()
+                    .navigationSplitViewColumnWidth(min: 320, ideal: 440)
+            }
+        } else {
+            NavigationSplitView {
+                sidebar
+            } detail: {
+                CenterPaneView()
+            }
+        }
+    }
+
+    private var sidebar: some View {
+        SidebarView()
+            .navigationSplitViewColumnWidth(min: 200, ideal: 250, max: 380)
+    }
+
+    private var inspectorPlacement: InspectorPlacement {
+        InspectorPlacement.value(from: inspectorPlacementRaw)
     }
 
     private var sessionComparePresented: Binding<Bool> {

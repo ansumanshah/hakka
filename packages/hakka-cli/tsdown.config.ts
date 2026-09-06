@@ -1,7 +1,7 @@
 import { defineConfig } from 'tsdown'
 
 export default defineConfig({
-  entry: ['src/cli.ts', 'src/mcp/index.ts', 'src/cdp/index.ts'],
+  entry: ['src/cli.ts', 'src/mcp/index.ts', 'src/cdp/index.ts', 'src/proxy/index.ts'],
   format: ['esm'],
   dts: true,
   sourcemap: true,

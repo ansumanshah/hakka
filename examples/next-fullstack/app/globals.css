@@ -249,6 +249,49 @@ body {
   margin-top: 0;
 }
 
+.demo-secondary-traffic {
+  margin-top: var(--demo-space-6);
+  border: 1px solid var(--demo-border);
+  border-radius: var(--demo-radius-lg);
+  background: var(--demo-surface);
+}
+
+.demo-secondary-traffic summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--demo-space-3);
+  padding: var(--demo-space-4) var(--demo-space-5);
+  cursor: pointer;
+}
+
+.demo-secondary-traffic-title {
+  font-size: var(--demo-font-md);
+  font-weight: 700;
+  color: var(--demo-text);
+}
+
+.demo-secondary-traffic-copy {
+  font-size: var(--demo-font-sm);
+  color: var(--demo-text-secondary);
+  text-align: right;
+}
+
+.demo-secondary-traffic .demo-grid {
+  padding: 0 var(--demo-space-4) var(--demo-space-4);
+}
+
+@media (max-width: 559px) {
+  .demo-secondary-traffic summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .demo-secondary-traffic-copy {
+    text-align: left;
+  }
+}
+
 /* ── Traffic cards ────────────────────────────────────────────────────── */
 
 .demo-grid {
@@ -406,6 +449,10 @@ body {
   color: var(--demo-text-secondary);
 }
 
+.demo-result-label {
+  color: var(--demo-text-secondary);
+}
+
 .demo-mono {
   font-family: var(--demo-font-mono);
   font-weight: 600;
@@ -481,6 +528,36 @@ body {
   font-size: var(--demo-font-xs);
   font-weight: 700;
   color: var(--demo-accent);
+}
+
+.demo-more-steps {
+  margin-top: var(--demo-space-3);
+  border: 1px solid var(--demo-border);
+  border-radius: var(--demo-radius-md);
+}
+
+.demo-more-steps summary {
+  padding: var(--demo-space-3) var(--demo-space-4);
+  cursor: pointer;
+  font-size: var(--demo-font-sm);
+  font-weight: 600;
+  color: var(--demo-text-secondary);
+}
+
+.demo-more-steps[open] summary {
+  border-bottom: 1px solid var(--demo-border);
+}
+
+.demo-more-steps .demo-checklist {
+  padding: 0 var(--demo-space-4);
+}
+
+.demo-checklist-explore {
+  counter-reset: demo-step 4;
+}
+
+.demo-more-steps .demo-checklist li:last-child {
+  border-bottom: none;
 }
 
 /* ── Footer ───────────────────────────────────────────────────────────── */

@@ -5,6 +5,7 @@ Build the SDK packages first with `bun run build` from the repository root.
 
 | Example                                             | Purpose                                        | Run                                                  |
 | --------------------------------------------------- | ---------------------------------------------- | ---------------------------------------------------- |
+| [desktop-bridge](desktop-bridge/)                   | Desktop capture, redaction, trace, and replay  | `node examples/desktop-bridge/run.mjs` from root     |
 | [browser-demo](browser-demo/)                       | Plain HTML inspector and worker capture        | `just demo-browser`                                  |
 | [build-your-own-devtools](build-your-own-devtools/) | Custom elements and React inspector panels     | `just demo-devtools-panel`                           |
 | [vite-app](vite-app/)                               | Vite plugin integration                        | `npm install && npm run dev` in its folder           |

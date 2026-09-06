@@ -58,6 +58,17 @@ struct ParseBridgeFrameTests {
         #expect(frame?.request?.method == .get)
     }
 
+    @Test func javascriptHeaderMapsDecodeIntoNativeMultiValueHeaders() {
+        let frame = parseBridgeFrame("""
+        {"type":"request","payload":{"id":"node-1","url":"http://127.0.0.1/json","method":"GET","startTime":1,"requestHeaders":{"authorization":"[REDACTED]","content-type":"application/json"},"responseHeaders":{"content-type":"application/json","set-cookie":"a=1"},"source":"fetch","runtime":"server"}}
+        """)
+
+        #expect(frame?.request?.id == "node-1")
+        #expect(frame?.request?.requestHeaders == ["authorization": ["[REDACTED]"], "content-type": ["application/json"]])
+        #expect(frame?.request?.responseHeaders == ["content-type": ["application/json"], "set-cookie": ["a=1"]])
+        #expect(frame?.request?.runtime == .server)
+    }
+
     @Test func validSpanParsesWithoutDecodingRequest() {
         let frame = parseBridgeFrame(spanFrameJSON())
         #expect(frame?.kind == .span)

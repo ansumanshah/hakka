@@ -116,3 +116,13 @@ For embedding in a Playwright/Puppeteer script instead, use the library directly
 ## License
 
 MIT
+
+## Agent workflows
+
+- `hakka run ./collection --json` executes authored desktop collection files with structured outcomes.
+- `hakka proxy --json` captures traffic routed through an optional local mitmproxy sidecar.
+- `hakka mcp` exposes traffic inspection, portable rule application, and authored collection execution.
+
+See [collection runs](https://hakka.noodleapps.com/testing/collection-runner/),
+[proxy setup](https://hakka.noodleapps.com/proxy/overview/), and
+[MCP tools](https://hakka.noodleapps.com/mcp/overview/) for supported inputs and limits.

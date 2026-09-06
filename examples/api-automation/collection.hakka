@@ -1,0 +1,10 @@
+{
+  "version": 4,
+  "id": "api-automation-example",
+  "name": "API automation example",
+  "defaultHeaders": [
+    { "id": "accept", "name": "Accept", "value": "application/json", "enabled": true }
+  ],
+  "auth": { "none": {} },
+  "notes": "Run with: hakka run . --env BASE_URL=http://localhost:3000"
+}

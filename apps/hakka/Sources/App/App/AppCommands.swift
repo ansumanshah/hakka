@@ -42,6 +42,25 @@ struct AppCommands: Commands {
                 .keyboardShortcut("k", modifiers: .command)
                 .disabled(model.traffic.requests.isEmpty)
         }
+        CommandMenu("Inspector") {
+            Button("Show Inspector") {
+                UserDefaults.standard.set(true, forKey: InspectorPlacement.visibilityKey)
+            }
+            Button("Hide Inspector") {
+                UserDefaults.standard.set(false, forKey: InspectorPlacement.visibilityKey)
+            }
+            Divider()
+            Button("Place Inspector on Right") {
+                UserDefaults.standard.set(InspectorPlacement.trailing.rawValue, forKey: InspectorPlacement.placementKey)
+                UserDefaults.standard.set(true, forKey: InspectorPlacement.visibilityKey)
+            }
+            .keyboardShortcut("i", modifiers: [.command, .shift])
+            Button("Place Inspector on Bottom") {
+                UserDefaults.standard.set(InspectorPlacement.bottom.rawValue, forKey: InspectorPlacement.placementKey)
+                UserDefaults.standard.set(true, forKey: InspectorPlacement.visibilityKey)
+            }
+            .keyboardShortcut("i", modifiers: [.command, .option])
+        }
         CommandGroup(replacing: .importExport) {
             Button("Open Session…") { Task { await model.importTrafficSession() } }
             Divider()

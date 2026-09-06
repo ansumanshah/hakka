@@ -19,9 +19,13 @@ extension Array where Element == PauseHeaderKV {
     }
 
     /// Blank-named rows are dropped rather than sent as an empty-string
-    /// header key, which no server would accept either.
+    /// header key, which no server would accept either. The last edit wins
+    /// when rows use the same key, matching the single-value wire contract.
     var asHeaders: [String: String] {
-        Dictionary(uniqueKeysWithValues: compactMap { $0.name.isEmpty ? nil : ($0.name, $0.value) })
+        Dictionary(
+            compactMap { $0.name.isEmpty ? nil : ($0.name, $0.value) },
+            uniquingKeysWith: { _, latest in latest }
+        )
     }
 }
 

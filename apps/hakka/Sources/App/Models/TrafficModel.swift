@@ -81,11 +81,13 @@ final class TrafficModel {
     var displayMode: TrafficDisplayMode = TrafficModel.loadDisplayMode() {
         didSet { UserDefaults.standard.set(displayMode.rawValue, forKey: Self.displayModeKey) }
     }
+
     private static let displayModeKey = "hakka.traffic.displayMode"
 
     private static func loadDisplayMode() -> TrafficDisplayMode {
         TrafficDisplayMode(rawValue: UserDefaults.standard.string(forKey: displayModeKey) ?? "") ?? .list
     }
+
     /// Toggled by the header's "Focus Search" command (Cmd-F) — the search
     /// field observes this and grabs keyboard focus each time it changes.
     /// A counter rather than a bool so pressing Cmd-F twice in a row (the
@@ -118,11 +120,14 @@ final class TrafficModel {
         guard !isRunning else { return }
         do {
             try await server.start()
-            isRunning = true
             boundPort = await server.boundPort
             startupError = nil
         } catch {
-            startupError = "Bridge server failed to start: \(error.localizedDescription)"
+            if error.localizedDescription.localizedCaseInsensitiveContains("address already in use") {
+                startupError = "Bridge port is already in use. Close the other Hakka hub, then reopen Hakka."
+            } else {
+                startupError = "Bridge server failed to start: \(error.localizedDescription)"
+            }
             return
         }
         // The task group below only returns once every consumer has been
@@ -133,6 +138,13 @@ final class TrafficModel {
         defer { isRunning = false }
         let hub = await server.hub
         ruleSender = ControlSender(hub: hub)
+        // Register every stream before advertising readiness. Child tasks may
+        // begin later; their streams already buffer the first incoming frames.
+        let spans = await hub.subscribeSpans()
+        let controls = await hub.subscribeHostControls()
+        let captures = await hub.subscribeRequests()
+        let devices = await hub.subscribeDeviceEvents()
+        isRunning = true
         // Four indefinitely-running consumers of the same hub: captured
         // requests, device-to-host control frames, framework spans, and
         // connect/disconnect events. All four live under one group so they
@@ -140,21 +152,26 @@ final class TrafficModel {
         // being an untracked detached `Task` that outlives the scene.
         await withTaskGroup(of: Void.self) { group in
             group.addTask { [traceStore] in
-                for await span in await hub.subscribeSpans() {
+                for await span in spans {
                     await traceStore.addSpan(span)
                 }
             }
-            group.addTask { await self.consumeHostControls(hub: hub) }
-            group.addTask { await self.consumeRequests(hub: hub) }
-            group.addTask { await self.consumeDeviceEvents(hub: hub) }
+            group.addTask { await self.consumeHostControls(controls) }
+            group.addTask { await self.consumeRequests(captures) }
+            group.addTask { await self.consumeDeviceEvents(devices) }
         }
     }
 
-    private func consumeRequests(hub: BridgeHub) async {
-        for await captured in await hub.subscribeRequests() {
+    private func consumeRequests(_ captures: AsyncStream<CapturedRequest>) async {
+        for await captured in captures {
             let request = captured.request
-            await store.append(request)
-            requests.append(request)
+            await store.upsert(request)
+            if let index = requests.firstIndex(where: { $0.id == request.id }) {
+                requests[index] = request
+            } else {
+                requests.append(request)
+                await countRuleHits(for: request)
+            }
             hasEverReceivedTraffic = true
             deviceIndex.record(requestID: request.id, label: captured.deviceLabel)
             attributeToDevice(peerID: captured.peerID, label: captured.deviceLabel)
@@ -163,7 +180,6 @@ final class TrafficModel {
                 deviceIndex.evict(requestIDs: requests.prefix(overflow).map(\.id))
                 requests.removeFirst(overflow)
             }
-            await countRuleHits(for: request)
             stats = await store.stats()
             await traceStore.addRequest(request)
         }
@@ -174,8 +190,8 @@ final class TrafficModel {
     /// into `pauses`. A command that fails to convert to `PendingPause` is
     /// dropped rather than trusted, matching `PendingPause.init?(command:)`'s
     /// own defensiveness.
-    private func consumeHostControls(hub: BridgeHub) async {
-        for await command in await hub.subscribeHostControls() {
+    private func consumeHostControls(_ controls: AsyncStream<ControlCommand>) async {
+        for await command in controls {
             guard let pause = PendingPause(command: command) else { continue }
             await pauses.ingest(pause)
         }
@@ -235,6 +251,8 @@ final class TrafficModel {
     func setBuffer(_ requests: [NetworkRequest], stats: TrafficStats) {
         self.requests = requests
         self.stats = stats
-        if !requests.isEmpty { hasEverReceivedTraffic = true }
+        if !requests.isEmpty {
+            hasEverReceivedTraffic = true
+        }
     }
 }

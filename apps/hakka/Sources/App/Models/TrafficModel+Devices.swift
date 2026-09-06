@@ -11,7 +11,9 @@ struct DeviceSummary: Identifiable {
     let device: ConnectedDevice
     let requestCount: Int
     let errorCount: Int
-    var id: BridgePeerID { device.peerID }
+    var id: BridgePeerID {
+        device.peerID
+    }
 }
 
 /// Device connection state and per-device traffic tallies — split out of
@@ -67,8 +69,8 @@ extension TrafficModel {
     /// comment covers why `addPeer` and first-frame ingestion have no
     /// ordering guarantee between them — so both sides are written to be
     /// idempotent and to tolerate arriving in either order.
-    func consumeDeviceEvents(hub: BridgeHub) async {
-        for await event in await hub.subscribeDeviceEvents() {
+    func consumeDeviceEvents(_ events: AsyncStream<BridgeDeviceEvent>) async {
+        for await event in events {
             switch event {
             case let .connected(peerID):
                 guard deviceIndexByPeer[peerID] == nil else { continue }
@@ -81,7 +83,9 @@ extension TrafficModel {
                     // so this is the one case removed instead of marked
                     // disconnected (see `ConnectedDevice`'s doc comment).
                     devices.remove(at: index)
-                    for i in index..<devices.count { deviceIndexByPeer[devices[i].peerID] = i }
+                    for i in index ..< devices.count {
+                        deviceIndexByPeer[devices[i].peerID] = i
+                    }
                     deviceIndexByPeer.removeValue(forKey: peerID)
                 } else {
                     devices[index].isConnected = false
@@ -98,7 +102,9 @@ extension TrafficModel {
     /// overwrites it — a label is permanent for a connection's lifetime.
     func attributeToDevice(peerID: BridgePeerID, label: BridgeDeviceLabel) {
         if let index = deviceIndexByPeer[peerID] {
-            if devices[index].label == nil { devices[index].label = label }
+            if devices[index].label == nil {
+                devices[index].label = label
+            }
         } else {
             deviceIndexByPeer[peerID] = devices.count
             devices.append(ConnectedDevice(peerID: peerID, label: label, isConnected: true))

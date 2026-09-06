@@ -59,7 +59,7 @@ export default defineConfig({
           projectName: 'Hakka',
           description,
           details:
-            'Use these docs to install Hakka in React Native, the web, Next.js, Android, or iOS, understand the shared hakka-core capture engine and record contract, and use the breakpoints, mocking, bridge, MCP, and testing tooling. Hakka captures traffic in-process (no proxy, no certificate) and does not upload it by default.',
+            'Use these docs to install Hakka in React Native, the web, Next.js, Android, or iOS, understand the shared hakka-core capture engine and record contract, and use the breakpoints, mocking, bridge, MCP, and testing tooling. Hakka captures traffic in-process or through an optional local proxy and does not upload it by default.',
           promote: [
             'index*',
             'getting-started/**',
@@ -165,6 +165,9 @@ export default defineConfig({
             'bridge/overview',
             'mcp/overview',
             'testing/overview',
+            'testing/collection-runner',
+            'web/page-debugger',
+            'proxy/overview',
             'cdp/overview',
             'desktop/overview',
             'desktop/api-client',

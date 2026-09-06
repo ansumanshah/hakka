@@ -212,12 +212,39 @@ async function runCdp(rest: string[]): Promise<void> {
   await runCdpAttach(parseCdpArgs(rest))
 }
 
+async function usage(): Promise<void> {
+  log(`Usage: ${c.cyan('hakka init')}`)
+  log('       hakka run <collection-directory|request.hakka> [--json] [--env NAME=value]')
+  log((await import('./proxyCommand.js')).proxyUsage())
+  diagnoseUsage()
+  assertUsage()
+  ciBaselineUsage()
+  mcpUsage()
+  cdpUsage()
+  simUsage()
+}
+
 async function main(): Promise<void> {
   const [, , cmd, ...rest] = process.argv
   switch (cmd ?? 'init') {
+    case '--help':
+    case '-h':
+    case 'help':
+      await usage()
+      break
     case 'init':
       init(rest)
       break
+    case 'run': {
+      const { runCommand } = await import('./runCommand.js')
+      process.exitCode = await runCommand(rest)
+      break
+    }
+    case 'proxy': {
+      const { runProxyCommand } = await import('./proxyCommand.js')
+      await runProxyCommand(rest)
+      break
+    }
     case 'diagnose': {
       const slowIdx = rest.indexOf('--slow-ms')
       const slowMs = slowIdx !== -1 && rest[slowIdx + 1] ? Number(rest[slowIdx + 1]) : undefined
@@ -277,13 +304,7 @@ async function main(): Promise<void> {
     }
     default:
       log(`Unknown command: ${cmd}\n`)
-      log(`Usage: ${c.cyan('hakka init')}`)
-      diagnoseUsage()
-      assertUsage()
-      ciBaselineUsage()
-      mcpUsage()
-      cdpUsage()
-      simUsage()
+      await usage()
       process.exitCode = 1
   }
 }

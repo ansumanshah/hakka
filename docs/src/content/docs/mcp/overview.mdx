@@ -86,7 +86,28 @@ hakka mcp --no-serve           # never host a hub; only connect as a client
 
 ## Tools
 
-Twenty-two tools, grouped by what they do. The see and diagnose tools only observe the buffer. The change tools send targeted control commands over the bridge and wait for application acknowledgment and take effect in **dev builds only**. The reproduce tools return generated artifacts for the agent to write to disk.
+Tools are grouped by what they do. The see and diagnose tools only observe the buffer. The change tools send targeted control commands over the bridge and wait for application acknowledgment and take effect in **dev builds only**. The reproduce tools return generated artifacts for the agent to write to disk.
+
+### Run and share workflows
+
+`run_collection` executes a local desktop collection directory or `.hakka` request file.
+It accepts environment values, an optional folder/dataset, repeat count, and timeout.
+The result contains per-request status, duration, assertions, and outcomes; failures set
+MCP `isError`. It sends real requests, so an agent should inspect the authored requests
+and act within the user's authorization. See [collection runner](/testing/collection-runner/)
+for the supported portable contract.
+
+`apply_rule_bundle` accepts `{ version: 1, rules: [...] }`, using the shared mock-rule
+wire format. Set `dryRun: true` to validate without applying. Otherwise select a
+`targetId` from `list_targets`; each stable rule ID replaces that ID in the runtime.
+Validation completes before any sends. If delivery fails partway, the response names
+`applied` IDs and `failedId`; retrying the same bundle replaces those IDs and leaves
+unrelated rules alone. This is a merge, not a transaction across runtime connections.
+Browser Rules exports use this format, including headers, delays, and declarative edits.
+Export refuses JavaScript callbacks or regular-expression patterns it cannot preserve.
+
+Tools returning JSON objects include MCP `structuredContent` as well as text content,
+so agents can consume fields without parsing presentation text.
 
 ### See
 

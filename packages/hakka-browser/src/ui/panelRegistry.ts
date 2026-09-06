@@ -24,6 +24,7 @@ const lazyPanel = (loader: () => Promise<Component<PanelProps>>): Component<Pane
 /** Registry mapping panel id -> lazily-loaded Solid component. */
 export const PANEL_REGISTRY: Record<string, Component<PanelProps>> = {
   console: lazyPanel(() => import('./ConsoleTab').then((m) => m.ConsoleTab as Component<PanelProps>)),
+  page: lazyPanel(() => import('./PageTab').then((m) => m.PageTab as Component<PanelProps>)),
   storage: lazyPanel(() => import('./StorageTab').then((m) => m.StorageTab as Component<PanelProps>)),
   stats: lazyPanel(() => import('./StatsTab').then((m) => m.StatsTab as Component<PanelProps>)),
   rules: lazyPanel(() => import('./RulesTab').then((m) => m.RulesTab)),

@@ -37,6 +37,7 @@ struct ThrottlePillRow: View {
         } label: {
             Text(label)
                 .font(.caption2.weight(.semibold))
+                .fixedSize()
                 .padding(.horizontal, Spacing.sm)
                 .padding(.vertical, Spacing.xs)
                 .background(isActive ? Color.accentColor.opacity(0.2) : Color.clear, in: RoundedRectangle(cornerRadius: Radius.sm))

@@ -10,57 +10,81 @@ struct FirstRunEmptyView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openURL) private var openURL
     @State private var didCopySnippet = false
-
-    private static let docsURL = URL(string: "https://hakka.noodleapps.com")!
+    @State private var selectedTarget = SetupSnippet.Target.web
 
     var body: some View {
-        VStack(spacing: Spacing.xxl) {
-            FirstRunFlowDiagram()
-            Text("No proxy. No certificate to trust.")
-                .font(.headline)
+        ScrollView {
+            VStack(spacing: Spacing.lg) {
+                Text("Connect your app")
+                    .font(.headline)
+                    .multilineTextAlignment(.center)
+                Text(
+                    """
+                    Choose your runtime to send local development traffic to this window. \
+                    Keep Hakka open while your app runs.
+                    """
+                )
+                .font(.callout)
+                .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-            Text(
-                """
-                The SDK ships inside your app and streams requests straight to \
-                this window over your LAN. Nothing intercepts your traffic, and \
-                nothing needs installing on this machine.
-                """,
-            )
-            .font(.callout)
-            .foregroundStyle(.secondary)
-            .multilineTextAlignment(.center)
-            .frame(maxWidth: 400)
-            actions
-            Text(listeningCaption)
-                .font(.caption.monospaced())
-                .foregroundStyle(.tertiary)
+                .frame(maxWidth: 400)
+                setupPicker
+                actions
+                Text(listeningCaption)
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.tertiary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(Layout.gutter)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(Spacing.xxxl)
         .chromeMaterial(.panel)
+        .onChange(of: selectedTarget) { _, _ in didCopySnippet = false }
     }
 
     private var actions: some View {
         HStack(spacing: Spacing.md) {
             Button(action: copySnippet) {
                 Label(
-                    didCopySnippet ? "Copied" : "Copy setup snippet",
-                    systemImage: didCopySnippet ? "checkmark" : "doc.on.doc",
+                    didCopySnippet ? "Copied" : "Copy \(selectedTarget.title) setup",
+                    systemImage: didCopySnippet ? "checkmark" : "doc.on.doc"
                 )
             }
-            .accessibilityLabel("Copy setup snippet")
-            .accessibilityHint("Copies the React Native install and start command to the clipboard.")
+            .accessibilityLabel("Copy \(selectedTarget.title) setup")
+            .accessibilityHint("Copies the development-only setup for the local desktop bridge.")
 
             Button("Open docs") {
-                openURL(Self.docsURL)
+                openURL(selectedTarget.docsURL)
             }
-            .accessibilityHint("Opens the Hakka documentation site.")
+            .accessibilityHint("Opens the \(selectedTarget.title) setup guide.")
         }
+    }
+
+    private var setupPicker: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            Picker("Capture from", selection: $selectedTarget) {
+                ForEach(SetupSnippet.Target.allCases) { target in
+                    Text(target.title).tag(target)
+                }
+            }
+            .pickerStyle(.segmented)
+            .accessibilityHint("Selects the setup snippet to copy.")
+
+            ScrollView(.horizontal) {
+                Text(SetupSnippet.text(for: selectedTarget))
+                    .font(.system(.caption, design: .monospaced))
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(Spacing.md)
+            }
+            .background(.quaternary, in: RoundedRectangle(cornerRadius: Radius.md))
+        }
+        .frame(maxWidth: 540)
     }
 
     private func copySnippet() {
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(SetupSnippet.text, forType: .string)
+        NSPasteboard.general.setString(SetupSnippet.text(for: selectedTarget), forType: .string)
         didCopySnippet = true
         Task {
             try? await Task.sleep(for: .seconds(1.5))
@@ -72,9 +96,12 @@ struct FirstRunEmptyView: View {
     /// a hardcoded "8989" — a dev who rebinds the port via
     /// `BridgeServerOptions` should see their own port, not the default.
     private var listeningCaption: String {
-        guard model.traffic.isRunning, let port = model.traffic.boundPort else {
+        if let error = model.traffic.startupError {
+            return error
+        }
+        guard model.traffic.isRunning, let port = model.traffic.boundPort, port != 0 else {
             return "Starting the bridge…"
         }
-        return "Listening on port \(port) · Bonjour hakka._tcp"
+        return "Listening on port \(port) · Local connections"
     }
 }

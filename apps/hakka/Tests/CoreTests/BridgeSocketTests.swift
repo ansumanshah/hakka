@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 import HakkaCommon
 import Testing
@@ -16,14 +17,70 @@ import Testing
 /// Loopback only, on an ephemeral port. Nothing here reaches the network.
 @Suite("Bridge over a real socket")
 struct BridgeSocketTests {
-    /// `NWListener` resolves its ephemeral port asynchronously after `start()`,
-    /// so `boundPort` is briefly nil or zero. Poll rather than assume.
-    private func boundPort(of server: BridgeServer) async -> UInt16? {
-        for _ in 0..<100 {
-            if let port = await server.boundPort, port != 0 { return port }
-            try? await Task.sleep(for: .milliseconds(50))
+    @Test("start waits for readiness and snapshots the ephemeral port")
+    func startWaitsForReadinessAndSnapshotsThePort() async throws {
+        let server = BridgeServer(options: BridgeServerOptions(port: 0, advertise: false))
+        let port = try await server.start()
+        defer { Task { await server.stop() } }
+
+        #expect(port != 0)
+        #expect(await server.boundPort == port)
+        #expect(await server.isRunning)
+    }
+
+    @Test("a fixed port already in use fails without reporting the server running")
+    func occupiedFixedPortFailsStartup() async throws {
+        let socket = Darwin.socket(AF_INET, SOCK_STREAM, 0)
+        #expect(socket >= 0)
+        defer { Darwin.close(socket) }
+        // Local Node servers enable SO_REUSEADDR; Hakka must still reject
+        // their occupied port instead of accepting traffic on another address.
+        var reuseAddress: Int32 = 1
+        #expect(setsockopt(socket, SOL_SOCKET, SO_REUSEADDR, &reuseAddress, socklen_t(MemoryLayout<Int32>.size)) == 0)
+        var address = sockaddr_in()
+        address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        address.sin_family = sa_family_t(AF_INET)
+        address.sin_addr.s_addr = inet_addr("127.0.0.1")
+        let bound = withUnsafePointer(to: &address) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                Darwin.bind(socket, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
+            }
         }
-        return nil
+        #expect(bound == 0)
+        #expect(Darwin.listen(socket, 1) == 0)
+        var length = socklen_t(MemoryLayout<sockaddr_in>.size)
+        #expect(withUnsafeMutablePointer(to: &address) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { getsockname(socket, $0, &length) }
+        } == 0)
+
+        let server = BridgeServer(options: BridgeServerOptions(port: UInt16(bigEndian: address.sin_port), advertise: false))
+        await #expect(throws: (any Error).self) { try await server.start() }
+        #expect(await server.isRunning == false)
+        #expect(await server.boundPort == nil)
+    }
+
+    @Test("a stopped bridge can bind again")
+    func restartingBindsAndReportsANewReadyListener() async throws {
+        let server = BridgeServer(options: BridgeServerOptions(port: 0, advertise: false))
+        _ = try await server.start()
+        await server.stop()
+        #expect(await server.isRunning == false)
+
+        let restartedPort = try await server.start()
+        defer { Task { await server.stop() } }
+        #expect(restartedPort != 0)
+        #expect(await server.boundPort == restartedPort)
+    }
+
+    @Test("cancelling startup leaves no listener advertised as running")
+    func cancellingStartupClearsThePendingListener() async throws {
+        let server = BridgeServer(options: BridgeServerOptions(port: 0, advertise: false))
+        let startup = Task { try await server.start() }
+        startup.cancel()
+
+        await #expect(throws: CancellationError.self) { try await startup.value }
+        #expect(await server.isRunning == false)
+        #expect(await server.boundPort == nil)
     }
 
     /// Pulls the next item off `stream` — a `BridgeHub.subscribeRequests()`
@@ -85,8 +142,7 @@ struct BridgeSocketTests {
 
     @Test func aFrameSentOverTheSocketReachesTheRequestStream() async throws {
         let server = BridgeServer(options: BridgeServerOptions(port: 0, advertise: false))
-        try await server.start()
-        let port = try #require(await boundPort(of: server))
+        let port = try await server.start()
         defer { Task { await server.stop() } }
         let stream = await server.hub.subscribeRequests()
 
@@ -123,8 +179,7 @@ struct BridgeSocketTests {
     /// received nothing at all.
     @Test func aSpanSentOverTheSocketReachesTheSpansStream() async throws {
         let server = BridgeServer(options: BridgeServerOptions(port: 0, advertise: false))
-        try await server.start()
-        let port = try #require(await boundPort(of: server))
+        let port = try await server.start()
         defer { Task { await server.stop() } }
         let stream = await server.hub.subscribeSpans()
 
@@ -163,8 +218,7 @@ struct BridgeSocketTests {
     /// fake peers `ServerTests` uses.
     @Test func aConsoleFrameSentOverTheSocketReachesTheConsoleEntriesStream() async throws {
         let server = BridgeServer(options: BridgeServerOptions(port: 0, advertise: false))
-        try await server.start()
-        let port = try #require(await boundPort(of: server))
+        let port = try await server.start()
         defer { Task { await server.stop() } }
         let stream = await server.hub.subscribeConsoleEntries()
 
@@ -202,8 +256,7 @@ struct BridgeSocketTests {
     /// The `storage` counterpart to `aSpanSentOverTheSocketReachesTheSpansStream`.
     @Test func aStorageFrameSentOverTheSocketReachesTheStorageSnapshotsStream() async throws {
         let server = BridgeServer(options: BridgeServerOptions(port: 0, advertise: false))
-        try await server.start()
-        let port = try #require(await boundPort(of: server))
+        let port = try await server.start()
         defer { Task { await server.stop() } }
         let stream = await server.hub.subscribeStorageSnapshots()
 
@@ -222,8 +275,7 @@ struct BridgeSocketTests {
 
     @Test func aConnectedClientIsRegisteredAsAPeer() async throws {
         let server = BridgeServer(options: BridgeServerOptions(port: 0, advertise: false))
-        try await server.start()
-        let port = try #require(await boundPort(of: server))
+        let port = try await server.start()
         defer { Task { await server.stop() } }
         let stream = await server.hub.subscribeRequests()
 
@@ -246,8 +298,7 @@ struct BridgeSocketTests {
     /// asserts the hub actually drops it.
     @Test func stoppingTheServerDisconnectsAnAlreadyAcceptedPeer() async throws {
         let server = BridgeServer(options: BridgeServerOptions(port: 0, advertise: false))
-        try await server.start()
-        let port = try #require(await boundPort(of: server))
+        let port = try await server.start()
         let stream = await server.hub.subscribeRequests()
 
         let task = openSocket(port: port)
@@ -270,8 +321,7 @@ struct BridgeSocketTests {
     /// connected.
     @Test func aTokenGatedServerRejectsAConnectionThatNeverSendsTheToken() async throws {
         let server = BridgeServer(options: BridgeServerOptions(port: 0, advertise: false, token: "shh"))
-        try await server.start()
-        let port = try #require(await boundPort(of: server))
+        let port = try await server.start()
         defer { Task { await server.stop() } }
         let stream = await server.hub.subscribeRequests()
 
@@ -290,8 +340,7 @@ struct BridgeSocketTests {
     /// registers the peer, and every frame after that is ingested normally.
     @Test func aTokenGatedServerAcceptsAConnectionThatSendsTheCorrectTokenFirst() async throws {
         let server = BridgeServer(options: BridgeServerOptions(port: 0, advertise: false, token: "shh"))
-        try await server.start()
-        let port = try #require(await boundPort(of: server))
+        let port = try await server.start()
         defer { Task { await server.stop() } }
         let stream = await server.hub.subscribeRequests()
 
@@ -315,8 +364,7 @@ struct BridgeSocketTests {
     /// that client's own label, not just "a" label.
     @Test func twoConnectedClientsAreAttributedToDistinctDevices() async throws {
         let server = BridgeServer(options: BridgeServerOptions(port: 0, advertise: false))
-        try await server.start()
-        let port = try #require(await boundPort(of: server))
+        let port = try await server.start()
         defer { Task { await server.stop() } }
         let stream = await server.hub.subscribeRequests()
 
@@ -356,8 +404,7 @@ struct BridgeSocketTests {
     /// client has sent a single frame.
     @Test func twoConnectedClientsProduceTwoDistinctConnectedEvents() async throws {
         let server = BridgeServer(options: BridgeServerOptions(port: 0, advertise: false))
-        try await server.start()
-        let port = try #require(await boundPort(of: server))
+        let port = try await server.start()
         defer { Task { await server.stop() } }
         let stream = await server.hub.subscribeDeviceEvents()
 
@@ -379,9 +426,8 @@ struct BridgeSocketTests {
     @Test(arguments: [false, true])
     func aDisconnectedClientEmitsADisconnectedEventForTheSamePeer(graceful: Bool) async throws {
         let server = BridgeServer(options: BridgeServerOptions(port: 0, advertise: false))
-        try await server.start()
+        let port = try await server.start()
         let events = await server.hub.subscribeDeviceEvents()
-        let port = try #require(await boundPort(of: server))
         let client = openSocket(port: port)
         try await client.send(.string(requestFrame(id: "disconnect")))
         let connected = await nextDeviceEvent(events)
@@ -431,8 +477,7 @@ struct BridgeSocketTests {
     /// `BridgeSocketTests` exists to catch (see the suite doc comment).
     @Test func aBreakpointPausedFrameSentOverTheSocketReachesHostControls() async throws {
         let server = BridgeServer(options: BridgeServerOptions(port: 0, advertise: false))
-        try await server.start()
-        let port = try #require(await boundPort(of: server))
+        let port = try await server.start()
         defer { Task { await server.stop() } }
         let stream = await server.hub.subscribeHostControls()
 
@@ -465,8 +510,7 @@ struct BridgeSocketTests {
     /// standing in for one) byte-for-byte.
     @Test func aBreakpointResumeBroadcastReachesAConnectedDevice() async throws {
         let server = BridgeServer(options: BridgeServerOptions(port: 0, advertise: false))
-        try await server.start()
-        let port = try #require(await boundPort(of: server))
+        let port = try await server.start()
         defer { Task { await server.stop() } }
         let stream = await server.hub.subscribeRequests()
 
@@ -515,14 +559,6 @@ struct BridgeSocketTests {
 /// connects but never delivers; this is where that claim gets settled.
 @Suite("SDK bridge client to desktop hub")
 struct SDKBridgeClientTests {
-    private func boundPort(of server: BridgeServer) async -> UInt16? {
-        for _ in 0..<100 {
-            if let port = await server.boundPort, port != 0 { return port }
-            try? await Task.sleep(for: .milliseconds(50))
-        }
-        return nil
-    }
-
     private func firstRequest(_ stream: AsyncStream<CapturedRequest>, timeout: Duration = .seconds(8)) async -> NetworkRequest? {
         await withTaskGroup(of: NetworkRequest?.self) { group in
             group.addTask {
@@ -541,8 +577,7 @@ struct SDKBridgeClientTests {
 
     @Test func aCaptureSentByTheSDKClientReachesTheDesktopHub() async throws {
         let server = BridgeServer(options: BridgeServerOptions(port: 0, advertise: false))
-        try await server.start()
-        let port = try #require(await boundPort(of: server))
+        let port = try await server.start()
         defer { Task { await server.stop() } }
         let stream = await server.hub.subscribeRequests()
 
@@ -590,8 +625,7 @@ struct SDKBridgeClientTests {
     /// `ios` package, which cannot bind a real socket from that target.
     @Test func aConsoleEntrySentByTheSDKClientReachesTheDesktopHub() async throws {
         let server = BridgeServer(options: BridgeServerOptions(port: 0, advertise: false))
-        try await server.start()
-        let port = try #require(await boundPort(of: server))
+        let port = try await server.start()
         defer { Task { await server.stop() } }
         let stream = await server.hub.subscribeConsoleEntries()
 
@@ -632,8 +666,7 @@ struct SDKBridgeClientTests {
     /// desktop hub socket.
     @Test func aStorageSnapshotSentByTheSDKClientReachesTheDesktopHub() async throws {
         let server = BridgeServer(options: BridgeServerOptions(port: 0, advertise: false))
-        try await server.start()
-        let port = try #require(await boundPort(of: server))
+        let port = try await server.start()
         defer { Task { await server.stop() } }
         let stream = await server.hub.subscribeStorageSnapshots()
 

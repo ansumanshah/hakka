@@ -37,6 +37,10 @@ export async function register(): Promise<void> {
   await hakkaRegister({
     undiciTiming: true,
     traceSpans: true,
+    // Keep a dev server separate from the desktop app or another local Next
+    // instance with HAKKA_BRIDGE_URL=ws://localhost:<port>. The matching
+    // NEXT_PUBLIC_HAKKA_BRIDGE_URL value points the browser overlay here.
+    bridgeUrl: process.env.HAKKA_BRIDGE_URL,
     // See the `HAKKA_DESKTOP` doc comment above.
     embedBridge: process.env.HAKKA_DESKTOP !== '1',
     ignorePatterns: IGNORE_PATTERNS,

@@ -199,6 +199,16 @@ bundlers resolve that optional peer at build time.
 
 `register` starts a bridge hub inside the Next dev server process by default (`embedBridge: true`). The browser overlay connects to the same hub at `ws://localhost:8989`. If the port is already in use — another dev worker or a standalone hub — the embedded start is skipped and the client connects to the existing one.
 
+When a desktop app or another local Hakka app already uses that port, point both peers at a dedicated hub. The server reads `HAKKA_BRIDGE_URL`; the one-line client import reads Next's public `NEXT_PUBLIC_HAKKA_BRIDGE_URL`. They must name the same WebSocket URL:
+
+```bash
+HAKKA_BRIDGE_URL=ws://localhost:8990 \
+NEXT_PUBLIC_HAKKA_BRIDGE_URL=ws://localhost:8990 \
+next dev
+```
+
+An explicit `bridgeUrl` passed to `register()` or `startHakkaClient()` takes precedence. This lets a local full-stack inspector coexist with the desktop app without either process claiming the other's hub.
+
 See [Bridge overview](/bridge/overview/) for how the hub works.
 
 ## Dev-only

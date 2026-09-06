@@ -9,6 +9,7 @@ import type { MockRule } from 'hakka-core'
 import type { Component } from 'solid-js'
 import { createSignal, For, Show, onSettled } from 'solid-js'
 
+import { downloadJson } from './downloadJson'
 import { IconClose } from './icons'
 import { loadMocks, saveMocks, exportMocksJson, importMocksJson } from './mockPersist'
 import type { PanelProps } from './panelRegistry'
@@ -61,18 +62,9 @@ function isAddEnabled(f: FormState): boolean {
   return true
 }
 
-function downloadJson(content: string, filename: string): void {
-  const blob = new Blob([content], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
 export const MockTab: Component<PanelProps> = () => {
   const [rules, setRules] = createSignal<MockRule[]>([])
+  const [transferMessage, setTransferMessage] = createSignal('')
   const [form, setForm] = createSignal<FormState>({ ...DEFAULT_FORM })
   let fileInputRef: HTMLInputElement | undefined
 
@@ -159,7 +151,12 @@ export const MockTab: Component<PanelProps> = () => {
   }
 
   function handleExport(): void {
-    downloadJson(exportMocksJson(), 'hakka-mocks.json')
+    try {
+      downloadJson(exportMocksJson(), 'hakka-mocks.json')
+      setTransferMessage('Rules exported')
+    } catch (error) {
+      setTransferMessage(error instanceof Error ? error.message : 'Export failed')
+    }
   }
 
   function handleImportFile(e: Event): void {
@@ -171,11 +168,12 @@ export const MockTab: Component<PanelProps> = () => {
       const text = ev.target?.result
       if (typeof text !== 'string') return
       try {
-        importMocksJson(text)
+        const added = importMocksJson(text)
+        setTransferMessage(`${added} rules imported`)
         saveMocks()
         refresh()
-      } catch {
-        // invalid JSON — silently ignore
+      } catch (error) {
+        setTransferMessage(error instanceof Error ? error.message : 'Import failed')
       }
     }
     reader.readAsText(file)
@@ -187,6 +185,9 @@ export const MockTab: Component<PanelProps> = () => {
 
   return (
     <div class="hakka-pane">
+      <Show when={transferMessage()}>
+        <p role="status">{transferMessage()}</p>
+      </Show>
       {/* No tab-level title — tab strip is the title (DESIGN.md); explanation lives in the empty state below. */}
 
       <div

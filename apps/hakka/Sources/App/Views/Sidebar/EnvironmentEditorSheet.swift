@@ -21,15 +21,15 @@ struct EnvironmentEditorSheet: View {
                 EmptyStateView(
                     systemImage: "gearshape",
                     title: "No environment",
-                    message: "Add one to hold variables like {{baseUrl}} or {{token}}.",
+                    message: "Add one to hold variables like {{baseUrl}} or {{token}}."
                 )
             }
             Spacer(minLength: 0)
             footer
         }
         .padding(Spacing.xxl)
-        .frame(width: 480, height: 420)  // ui-token-check-ignore: sheet size
-        .chromeMaterial(.sheet)  // Artboard 8: floating sheets get the glass/material treatment too.
+        .frame(width: 480, height: 420) // ui-token-check-ignore: sheet size
+        .controlSize(.small)
     }
 
     private var header: some View {
@@ -57,7 +57,7 @@ struct EnvironmentEditorSheet: View {
                             value: $variable.value,
                             enabled: $variable.enabled,
                             isSecret: variable.secret,
-                            onDelete: { binding.wrappedValue.variables.removeAll { $0.id == variable.id } },
+                            onDelete: { binding.wrappedValue.variables.removeAll { $0.id == variable.id } }
                         )
                         Button {
                             $variable.secret.wrappedValue.toggle()
@@ -103,7 +103,7 @@ struct EnvironmentEditorSheet: View {
         else { return nil }
         return Binding(
             get: { model.environment.environments[index] },
-            set: { model.environment.update($0) },
+            set: { model.environment.update($0) }
         )
     }
 

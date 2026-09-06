@@ -106,7 +106,17 @@ export const RequestRow: Component<RequestRowProps> = (props) => {
   return (
     <div
       class={rowClass()}
+      role={props.selectMode ? 'checkbox' : 'button'}
+      tabindex="0"
+      aria-checked={props.selectMode ? (props.checked ? 'true' : 'false') : undefined}
+      aria-pressed={!props.selectMode ? (props.selected ? 'true' : 'false') : undefined}
       onClick={(e) => {
+        recordRowTapOrigin(e.currentTarget.getBoundingClientRect().top)
+        props.onSelect()
+      }}
+      onKeyDown={(e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return
+        e.preventDefault()
         recordRowTapOrigin(e.currentTarget.getBoundingClientRect().top)
         props.onSelect()
       }}
