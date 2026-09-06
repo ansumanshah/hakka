@@ -71,15 +71,20 @@ bun run phase:verify:full  # release-gate path (delegates to `just verify-all`)
 
 ## Running hosted CI
 
-CI runs only on explicit request; pushes and pull request updates do not start it.
-Use **Actions → CI → Run workflow**, selecting the branch to verify, or:
+CI runs when a pull request targeting `main` opens or updates. New commits cancel
+the previous run. Branch pushes without a PR do not start CI. For manual checks,
+use **Actions → CI → Run workflow**, selecting the branch to verify, or:
 
 ```bash
 gh workflow run ci.yml --ref <branch>
 ```
 
-Run CI against the final commit after collecting related changes to avoid repeated
-native builds. Local checks remain available through the commands above.
+Android debug and minified release builds run on separate runners. Both must pass
+the `RN Example (Android gradle)` check. Debug also checks iOS development bundling;
+release checks Android production bundling and R8 shrinking.
+
+Push related changes together to avoid restarting native builds. Local checks remain
+available through the commands above.
 
 ## Worktrees and end-to-end checks
 
