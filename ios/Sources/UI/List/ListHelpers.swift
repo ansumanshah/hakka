@@ -14,29 +14,38 @@ import HakkaNetwork
 /// crammed into this row.
 struct StatsBar: View {
     let requests: [NetworkRequest]
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        let total = requests.count
-        let durations = requests.compactMap { $0.duration }
-        let errors = requests.filter { ($0.status ?? 0) >= 400 || $0.error != nil }.count
-
-        HStack(spacing: Theme.s6) {
-            dataText("\(total)", "req", color: errors > 0 ? Theme.warning : Theme.text)
-
-            Text("\u{00B7}").foregroundStyle(Theme.textTertiary)
-            dataText(avgLatencyText(durations), "avg", color: durations.isEmpty ? Theme.textTertiary : Theme.info)
-
-            if errors > 0 {
-                Text("\u{00B7}").foregroundStyle(Theme.textTertiary)
-                dataText("\(errors)", "err", color: Theme.warning)
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: Theme.s2) { metrics }
+            } else {
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: Theme.s6) { metrics }
+                    VStack(alignment: .leading, spacing: Theme.s2) { metrics }
+                }
             }
         }
-        .font(.footnote)
-        // Never let a value clip mid-character: this bar reports its natural
-        // width rather than being squeezed/truncated — narrow by
-        // construction (3 short fields), verified at 375pt.
-        .fixedSize(horizontal: true, vertical: false)
+        .font(.caption)
     }
+
+    @ViewBuilder
+    private var metrics: some View {
+            dataText("\(total)", total == 1 ? "request" : "requests", color: errors > 0 ? Theme.warning : Theme.textSecondary)
+
+            if !dynamicTypeSize.isAccessibilitySize { Text("\u{00B7}").foregroundStyle(Theme.textTertiary) }
+            dataText(avgLatencyText(durations), "average", color: durations.isEmpty ? Theme.textTertiary : Theme.info)
+
+            if errors > 0 {
+                if !dynamicTypeSize.isAccessibilitySize { Text("\u{00B7}").foregroundStyle(Theme.textTertiary) }
+                dataText("\(errors)", errors == 1 ? "issue" : "issues", color: Theme.warning)
+            }
+    }
+
+    private var total: Int { requests.count }
+    private var durations: [Int64] { requests.compactMap(\.duration) }
+    private var errors: Int { requests.filter { ($0.status ?? 0) >= 400 || $0.error != nil }.count }
 
     /// Sampled metric — must never render a partial/truncated value.
     /// Renders an em dash until at least one real duration sample exists.
@@ -47,7 +56,7 @@ struct StatsBar: View {
     }
 
     private func dataText(_ value: String, _ label: String, color: Color) -> some View {
-        HStack(spacing: Theme.s2) {
+        HStack(spacing: Theme.s6) {
             Text(value)
                 .fontWeight(.semibold)
                 .foregroundStyle(color)
@@ -56,6 +65,7 @@ struct StatsBar: View {
                     .foregroundStyle(Theme.textTertiary)
             }
         }
+        .fixedSize(horizontal: true, vertical: false)
     }
 }
 

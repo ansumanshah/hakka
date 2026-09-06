@@ -96,7 +96,7 @@ struct MocksView: View {
             }
             .scrollIndicators(.hidden)
         }
-        .background(Theme.bg)
+        .hakkaPageCanvas()
         .onAppear {
             refresh()
             let token = MockEngine.shared.subscribe { [self] in

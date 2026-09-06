@@ -40,10 +40,7 @@ extension BreakpointsView {
 
     var addSection: some View {
         VStack(alignment: .leading, spacing: Theme.s10) {
-            Text("ADD BREAKPOINT")
-                .font(.caption2.weight(.bold))
-                .foregroundStyle(Theme.textTertiary)
-                .kerning(0.5)
+            SectionHeader(title: "New breakpoint")
 
             VStack(alignment: .leading, spacing: Theme.s4) {
                 Text("URL pattern (substring)")
@@ -86,7 +83,8 @@ extension BreakpointsView {
                 Text("Pause on")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(Theme.text)
-                HStack(spacing: Theme.s6) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: Theme.s6) {
                     ForEach(Self.phaseOptions, id: \.rawValue) { p in
                         HakkaChip(label: p.rawValue, isActive: selectedPhase == p, tone: Theme.accent, mono: false) {
                             selectedPhase = p
@@ -94,49 +92,42 @@ extension BreakpointsView {
                         }
                         .accessibilityLabel("Select phase \(p.rawValue)")
                     }
+                    }
                 }
             }
 
-            HStack {
-                Spacer()
-                Button {
+            Button {
                     handleAdd()
                     Haptics.light()
                 } label: {
-                    Text("Add")
+                    Label("Add breakpoint", systemImage: "plus")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(pattern.trimmingCharacters(in: .whitespaces).isEmpty ? Theme.textTertiary : .white)
-                        .padding(.horizontal, Theme.s12)
-                        .padding(.vertical, Theme.s6)
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: Theme.tapMin)
                         .background(pattern.trimmingCharacters(in: .whitespaces).isEmpty ? Theme.border : Theme.accent)
                         .clipShape(RoundedRectangle(cornerRadius: Theme.radiusM))
                 }
                 .buttonStyle(.plain)
                 .disabled(pattern.trimmingCharacters(in: .whitespaces).isEmpty)
                 .accessibilityLabel("Add breakpoint")
-            }
         }
-        .padding(.horizontal, Theme.s16)
+        .hakkaGroupedCard()
+        .padding(.horizontal, HakkaMetrics.Layout.gutter)
         .padding(.vertical, Theme.s12)
-        .overlay(alignment: .bottom) {
-            Divider().overlay(Theme.border.opacity(0.5))
-        }
     }
 
     // MARK: - Rules list
 
     var rulesSection: some View {
         VStack(alignment: .leading, spacing: Theme.s8) {
-            Text("ACTIVE BREAKPOINTS (\(rules.count))")
-                .font(.caption2.weight(.bold))
-                .foregroundStyle(Theme.textTertiary)
-                .kerning(0.5)
+            SectionHeader(title: "Active breakpoints · \(rules.count)")
 
             ForEach(rules) { rule in
                 ruleRow(rule)
             }
         }
-        .padding(.horizontal, Theme.s16)
+        .padding(.horizontal, HakkaMetrics.Layout.gutter)
         .padding(.vertical, Theme.s12)
     }
 

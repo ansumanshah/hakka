@@ -24,7 +24,7 @@ struct StorageView: View {
                 pairList
             }
         }
-        .background(Theme.bg)
+        .hakkaPageCanvas()
         .onAppear { refreshPairs() }
         .task {
             while !Task.isCancelled {
@@ -72,6 +72,7 @@ struct StorageView: View {
                     .foregroundStyle(pairs.isEmpty ? Theme.textTertiary : Theme.error)
             }
             .buttonStyle(.plain)
+            .hakkaIconTarget()
             .disabled(pairs.isEmpty)
             .accessibilityLabel("Clear all UserDefaults")
 
@@ -81,6 +82,7 @@ struct StorageView: View {
                     .foregroundStyle(Theme.textSecondary)
             }
             .buttonStyle(.plain)
+            .hakkaIconTarget()
             .accessibilityLabel("Settings")
         }
         .hakkaInspectorToolbar()
@@ -108,8 +110,7 @@ struct StorageView: View {
             }
         }
         .padding(Theme.s8)
-        .background(Theme.surface)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusM))
+        .hakkaGroupedCard(padding: Theme.s8, cornerRadius: Theme.radiusL)
         .padding(.horizontal, Theme.s16)
         .padding(.vertical, Theme.s8)
         .background(Theme.bg)
@@ -119,7 +120,7 @@ struct StorageView: View {
 
     private var pairList: some View {
         ScrollView {
-            LazyVStack(spacing: 0) {
+            LazyVStack(spacing: Theme.s8) {
                 ForEach(filteredPairs) { pair in
                     DefaultsRow(pair: pair, searchText: searchText, onDelete: {
                         UserDefaults.standard.removeObject(forKey: pair.key)
@@ -128,7 +129,7 @@ struct StorageView: View {
                     })
                 }
             }
-            .padding(.horizontal, Theme.s16)
+            .padding(.horizontal, HakkaMetrics.Layout.gutter)
             .padding(.bottom, Theme.s16)
         }
         .scrollIndicators(.hidden)
@@ -237,7 +238,7 @@ private struct DefaultsRow: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.vertical, Theme.s8)
+        .hakkaGroupedCard(padding: Theme.s10, cornerRadius: Theme.radiusL)
         .contentShape(Rectangle())
         .onTapGesture {
             UIPasteboard.general.string = pair.displayValue
@@ -261,7 +262,6 @@ private struct DefaultsRow: View {
                 Label("Delete Key", systemImage: "trash")
             }
         }
-        Divider().overlay(Theme.border.opacity(0.5))
     }
 }
 

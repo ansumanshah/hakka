@@ -114,7 +114,7 @@ struct InspectorView: View {
         // Keep interactive content inside the sheet's safe area so the tab
         // bar clears its rounded corners and the home indicator. The surface
         // may still extend to the sheet edge behind it.
-        .background(Theme.bg.ignoresSafeArea())
+        .hakkaPageCanvas()
         .sheet(isPresented: $showSettings) {
             SettingsView()
         }
@@ -198,7 +198,7 @@ struct InspectorView: View {
                 }
             }
         }
-        .background(Theme.surface)
+        .background(Theme.surfaceRaised)
         .overlay(alignment: .top) {
             Divider().overlay(Theme.border)
         }
@@ -222,6 +222,7 @@ struct InspectorView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .hakkaIconTarget()
         .accessibilityLabel(tab.title)
         .accessibilityAddTraits(isActive ? .isSelected : [])
     }

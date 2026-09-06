@@ -152,6 +152,7 @@ enum Theme {
 
     static let iconXS: CGFloat = 8
     static let iconS: CGFloat = 9
+    static let iconM: CGFloat = 18
 
     // MARK: - Row
 
@@ -203,6 +204,36 @@ enum Theme {
 // MARK: - Liquid Glass Helpers
 
 extension View {
+    /// Shared page canvas for the phone inspector. The grouped background gives
+    /// cards separation without turning each destination into a custom chrome.
+    func hakkaPageCanvas() -> some View {
+        self
+            .background(Theme.bg.ignoresSafeArea())
+            .tint(Theme.accent)
+    }
+
+    /// The standard grouped surface used for content cards, forms, and rows.
+    /// It deliberately keeps the existing flame accent available for state and
+    /// actions rather than using it as a decorative background color.
+    func hakkaGroupedCard(
+        padding: CGFloat = Theme.s12,
+        cornerRadius: CGFloat = Theme.radiusXL
+    ) -> some View {
+        self
+            .padding(padding)
+            .background(Theme.surfaceRaised, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(Theme.border.opacity(0.55), lineWidth: 0.5)
+            }
+    }
+
+    /// Keeps small glyphs visually compact while every action receives a
+    /// predictable 44-point hit target.
+    func hakkaIconTarget() -> some View {
+        self.frame(minWidth: Theme.tapMin, minHeight: Theme.tapMin)
+    }
+
     @ViewBuilder
     func hakkaGlassSurface(
         tint: Color = Theme.chromeTint,
@@ -249,7 +280,10 @@ extension View {
             .padding(.horizontal, HakkaMetrics.Layout.gutter)
             .padding(.top, HakkaMetrics.Spacing.ml)
             .padding(.bottom, HakkaMetrics.Spacing.sm)
-            .background(Theme.surface)
+            .background(Theme.surfaceRaised)
+            .overlay(alignment: .bottom) {
+                Rectangle().fill(Theme.border.opacity(0.55)).frame(height: 0.5) // ui-token-check-ignore: separator rail geometry
+            }
     }
 }
 

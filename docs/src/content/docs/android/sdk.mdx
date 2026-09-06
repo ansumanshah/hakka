@@ -51,24 +51,24 @@ Three entry points, all wired in the demo app: `Hakka.open(context)` (fullscreen
 `HakkaUI.getInstance(context).showSheet(context)` (bottom sheet), and
 `HakkaUI.getInstance(context).show(context)` (floating bubble).
 
-- **Theming follows the system DayNight setting**, not the host app's Material
-  theme attributes — the inspector renders the shared Wok Hei tokens (dark warm
-  graphite / light warm cream) on every host app, checked directly against
-  `Configuration.uiMode` rather than any theme applied to the current
-  Activity/Context. Works down to API 24 (`minSdk`): `Theme.DeviceDefault.DayNight`
-  itself needs API 29+, so the base/`values-night` resource-qualifier split gives
-  the same follow-system behavior on every supported API instead.
-- The request list is a `RecyclerView` with view-holder recycling, 64dp two-line
-  rows (method + path, then status + host).
-- Icons are a small vector-drawable set (`hakka_ic_*`) — no more system icons.
-- Action menus (the overflow "..." button, the top-bar icon row) are themed
-  custom sheets built from Wok Hei tokens, not raw `AlertDialog.setItems(...)`.
-- Empty states use a shared `buildEmptyState()` helper (icon + title + subtitle)
-  instead of a blank surface.
-- **Non-Network surfaces (Stats/Logs/Console/Storage/Rules/Info) are reached
-  through an overflow "tools" menu**, not a bottom tab bar — a persistent
-  bottom nav across all surfaces (matching iOS's 5-tab layout) is a future wave,
-  not shipped yet.
+The inspector uses Jetpack Compose with a theme that follows the system light
+or dark appearance. Its colors come from Hakka's shared design tokens, so the
+inspector stays consistent when embedded in different host apps.
+
+Network, Stats, Logs, Rules, and Storage have persistent bottom navigation.
+Settings is available from the header. The fullscreen inspector and bottom
+sheet expose the same tools:
+
+- **Network:** captured requests, search and filters, capture controls, and
+  request details.
+- **Stats:** network and performance measurements.
+- **Logs:** structured logs and console output.
+- **Rules:** mocks, breakpoints, and throttling.
+- **Storage:** inspect the host application's stored preferences.
+
+Compose belongs to the optional `hakka-ui` artifact. Capture-only and noop
+artifacts do not require it. Hosts can continue opening the inspector through
+the existing entry points without adopting Compose for their own screens.
 
 ## Size Policy
 

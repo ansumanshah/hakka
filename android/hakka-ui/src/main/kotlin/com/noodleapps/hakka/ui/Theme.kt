@@ -17,7 +17,7 @@ object Theme {
     // Query system dark mode — independent of any theme applied to the
     // current Activity/Context, so this is correct even when the host
     // app forces a specific theme.
-    private fun isDark(ctx: Context): Boolean =
+    internal fun isDark(ctx: Context): Boolean =
         (ctx.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
 
     // Backgrounds / surfaces — Wok Hei warm graphite (dark) / warm cream (light)

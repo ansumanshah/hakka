@@ -33,7 +33,7 @@ struct LogsView: View {
                 entryList
             }
         }
-        .background(Theme.bg)
+        .hakkaPageCanvas()
         .onAppear {
             refreshEntries()
             subscription = HakkaInterceptor.shared.logStore.subscribe { _ in
@@ -85,30 +85,29 @@ struct LogsView: View {
     // MARK: - Filter Bar
 
     private var filterBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: Theme.s6) {
-                TextField("Search", text: $searchText)
-                    .font(.caption)
-                    .foregroundStyle(Theme.text)
-                    .padding(.horizontal, Theme.s8)
-                    .padding(.vertical, Theme.s4)
-                    .background(Theme.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.radiusM))
-                    .frame(minWidth: 120)
-
+        VStack(alignment: .leading, spacing: Theme.s8) {
+            TextField("Search logs", text: $searchText)
+                .font(.body)
+                .foregroundStyle(Theme.text)
+                .padding(.horizontal, Theme.s12)
+                .frame(minHeight: Theme.tapMin)
+                .hakkaControlGlass(cornerRadius: Theme.radiusL)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: Theme.s6) {
                 levelChip(nil, label: "All")
                 ForEach(LogLevel.allCases, id: \.rawValue) { level in
                     levelChip(level, label: level.label)
                 }
+                }
             }
-            .padding(.horizontal, Theme.s16)
-            .padding(.vertical, Theme.s8)
         }
-        .background(Theme.bg)
+        .padding(.horizontal, HakkaMetrics.Layout.gutter)
+        .padding(.vertical, Theme.s8)
+        .background(Theme.surfaceRaised)
     }
 
     private func levelChip(_ level: LogLevel?, label: String) -> some View {
-        HakkaChip(label: label, isActive: levelFilter == level, tone: chipColor(level), mono: false) {
+        HakkaChip(label: label, isActive: levelFilter == level, tone: Theme.accent, mono: false) {
             levelFilter = level
         }
     }
@@ -128,7 +127,7 @@ struct LogsView: View {
     private var entryList: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(spacing: 0) {
+                LazyVStack(spacing: Theme.s8) {
                     ForEach(filteredEntries) { entry in
                         LogEntryRow(
                             entry: entry,
@@ -139,7 +138,7 @@ struct LogsView: View {
                         .id(entry.id)
                     }
                 }
-                .padding(.horizontal, Theme.s16)
+                .padding(.horizontal, HakkaMetrics.Layout.gutter)
                 .padding(.bottom, Theme.s16)
             }
             .scrollIndicators(.hidden)
@@ -275,7 +274,7 @@ private struct LogEntryRow: View {
                 Label("Copy with Level", systemImage: "doc.on.doc.fill")
             }
         }
-        Divider().overlay(Theme.border.opacity(0.5))
+        .hakkaGroupedCard(padding: Theme.s10, cornerRadius: Theme.radiusL)
     }
 
     private var hasMetadata: Bool {

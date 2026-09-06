@@ -62,7 +62,7 @@ Hakka.startPerf(context)   // FPS, slow/frozen frames, heap memory, CPU
 Either call starts a process-wide `HakkaPerformance` instance with frame, memory, and
 CPU collectors enabled (network-usage sampling is opt-in — pass
 `enableNetworkUsageMetrics = true` to `startPerf`). The inspector's **Stats** tab
-(`StatsTabController`, one of the five persistent bottom-nav tabs) reads live from
+(one of the five persistent bottom-nav tabs) reads live from
 that same instance and renders FPS, jank/frozen frame counts, heap usage, and
 process CPU — no extra wiring needed. Stop it with `Hakka.stopPerf(context)`.
 
@@ -89,8 +89,9 @@ AGP 9.2.1 and Gradle 9.5.1 are intentionally deferred — do not bump them witho
 ## Size Policy
 
 Base artifacts (`hakka-network` + `hakka-performance`) must stay under a 40 KB
-combined APK delta. The optional `hakka-ui` artifact has a separate 270 KB
-incremental budget.
+combined APK delta. The optional `hakka-ui` artifact has a separate 1.5 MiB
+incremental budget for its Compose inspector. The minified reference host measures
+about 1.35 MiB over the base SDK; apps already using Compose may share dependencies.
 
 ```bash
 bun run size:android

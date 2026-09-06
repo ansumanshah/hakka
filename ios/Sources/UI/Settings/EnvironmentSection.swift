@@ -16,10 +16,6 @@ struct EnvironmentSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.s12) {
-            Text("Environment")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(Theme.text)
-
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(rows.enumerated()), id: \.element.key) { index, row in
                     EnvironmentRow(row: row)
@@ -28,11 +24,8 @@ struct EnvironmentSection: View {
                     }
                 }
             }
-            .padding(Theme.s12)
-            .background(Theme.surface)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusL))
+            .padding(.top, Theme.s2)
         }
-        .padding(.vertical, Theme.s12)
         .onAppear { startNetworkMonitor() }
         .onDisappear { monitor.cancel() }
     }

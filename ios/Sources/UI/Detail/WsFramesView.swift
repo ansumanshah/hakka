@@ -49,12 +49,7 @@ struct WsFramesView: View {
                     }
                 }
             }
-            .background(Theme.surface.opacity(0.72))
-            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusL))
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.radiusL)
-                    .stroke(Theme.border.opacity(0.35), lineWidth: 0.5)
-            )
+            .hakkaGroupedCard(padding: 0, cornerRadius: Theme.radiusL)
         }
     }
 

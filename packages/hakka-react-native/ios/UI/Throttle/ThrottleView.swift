@@ -35,19 +35,18 @@ struct ThrottleView: View {
                 toolbar
             }
             ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    profileSection
-                    Divider().overlay(Theme.border.opacity(0.5))
-                    statusSection
-                    Divider().overlay(Theme.border.opacity(0.5))
-                    infoSection
+                VStack(alignment: .leading, spacing: Theme.s12) {
+                    profileSection.hakkaGroupedCard()
+                    statusSection.hakkaGroupedCard()
+                    infoSection.hakkaGroupedCard()
                 }
-                .padding(.horizontal, Theme.s16)
+                .padding(.horizontal, HakkaMetrics.Layout.gutter)
+                .padding(.top, Theme.s12)
                 .padding(.bottom, Theme.s20)
             }
             .scrollIndicators(.hidden)
         }
-        .background(Theme.bg)
+        .hakkaPageCanvas()
         .onAppear {
             syncFromEngine()
             unsubscribe = ThrottleEngine.shared.subscribe { [self] in
@@ -100,11 +99,11 @@ struct ThrottleView: View {
                 }
             }
         }
-        .padding(.vertical, Theme.s12)
     }
 
     private func profileRow(_ profile: ThrottleProfile) -> some View {
         let isActive = selectedProfile == profile
+        let selectionTone = isActive ? Theme.accent : profileColor(profile)
         return Button {
             selectedProfile = profile
             ThrottleEngine.shared.setProfile(profile)
@@ -113,11 +112,11 @@ struct ThrottleView: View {
             HStack(spacing: Theme.s12) {
                 ZStack {
                     Circle()
-                        .stroke(isActive ? profileColor(profile) : Theme.border, lineWidth: 1.5)
+                        .stroke(isActive ? selectionTone : Theme.border, lineWidth: 1.5)
                         .frame(width: HakkaMetrics.ControlHeight.badge, height: HakkaMetrics.ControlHeight.badge)
                     if isActive {
                         Circle()
-                            .fill(profileColor(profile))
+                            .fill(selectionTone)
                             .frame(width: 10, height: 10)  // ui-token-check-ignore: chart bar or plot-area geometry
                     }
                 }
@@ -147,11 +146,11 @@ struct ThrottleView: View {
             }
             .padding(.horizontal, Theme.s12)
             .padding(.vertical, Theme.s10)
-            .background(isActive ? profileColor(profile).opacity(0.08) : Theme.surface)
+            .background(isActive ? Theme.accent.opacity(0.10) : Theme.surface)
             .clipShape(RoundedRectangle(cornerRadius: Theme.radiusM))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.radiusM)
-                    .stroke(isActive ? profileColor(profile).opacity(0.4) : Theme.border, lineWidth: 0.5)
+                    .stroke(isActive ? Theme.accent.opacity(0.5) : Theme.border, lineWidth: 0.5)
             )
         }
         .buttonStyle(.plain)
@@ -189,7 +188,6 @@ struct ThrottleView: View {
                 }
             }
         }
-        .padding(.vertical, Theme.s12)
     }
 
     private func statCell(label: String, value: String) -> some View {
@@ -219,7 +217,6 @@ struct ThrottleView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .italic()
         }
-        .padding(.vertical, Theme.s12)
     }
 
     // MARK: - Helpers

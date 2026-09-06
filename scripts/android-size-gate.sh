@@ -7,7 +7,10 @@ ANDROID_DIR="$ROOT_DIR/android"
 # Budgets are based on minified release APK deltas measured 2026-09-05.
 #
 #   base SDK: 27.7 KB (28,404 bytes), budget 40 KB
-#   UI over base SDK: 245.4 KB (251,295 bytes), budget 270 KB
+#   Compose UI over base SDK: 1,418,965 bytes, budget 1.5 MiB (2026-09-06).
+#   Replaces the classic Views UI; includes Compose runtime, foundation, Material 3,
+#   and Activity integration in a host that otherwise does not use Compose.
+#   The optional UI budget allows about 10% headroom; base SDK budget is unchanged.
 #
 # RN-only reflection entry points are retained by the RN package consumer rules;
 # native-only hosts can shrink unused bridge methods without losing native UI.
@@ -30,7 +33,7 @@ ANDROID_DIR="$ROOT_DIR/android"
 # this comment (not just the number) with the new measurement and rationale —
 # don't silently widen the budget to whatever makes the build green.
 BUDGET_BYTES=${HAKKA_ANDROID_SIZE_BUDGET_BYTES:-40960}
-UI_BUDGET_BYTES=${HAKKA_ANDROID_UI_SIZE_BUDGET_BYTES:-276480}
+UI_BUDGET_BYTES=${HAKKA_ANDROID_UI_SIZE_BUDGET_BYTES:-1572864}
 
 find_apkanalyzer() {
     if command -v apkanalyzer >/dev/null 2>&1; then

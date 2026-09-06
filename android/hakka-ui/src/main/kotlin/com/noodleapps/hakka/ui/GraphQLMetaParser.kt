@@ -7,7 +7,7 @@ import org.json.JSONObject
  * errors) from a captured request/response body pair — display-time only, mirrors
  * `GraphQLBodyParser` on iOS. No field is added to the wire schema (RECORD_SCHEMA_VERSION is
  * untouched); this is pure UI-side parsing of the body Android already captured, kept out
- * of [DetailActivity] so it's unit-testable without an Activity/Context.
+ * of Compose rendering so it's unit-testable without an Activity/Context.
  */
 internal object GraphQLMetaParser {
 

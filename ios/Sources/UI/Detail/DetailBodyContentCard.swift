@@ -141,8 +141,7 @@ struct BodyContentCard: View {
             }
         }
         .padding(Theme.s12)
-        .background(Theme.surface)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusL))
+        .hakkaGroupedCard(padding: 0, cornerRadius: Theme.radiusL)
         .overlay(
             RoundedRectangle(cornerRadius: Theme.radiusL)
                 .stroke(Theme.border.opacity(0.35), lineWidth: 0.5)

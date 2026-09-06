@@ -42,9 +42,7 @@ extension DashboardView {
             LatencyTrendChart(points: points)
             .frame(height: 72)  // ui-token-check-ignore: chart bar or plot-area geometry
         }
-        .padding(Theme.s12)
-        .background(Theme.surface)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusL))
+        .hakkaGroupedCard()
     }
 
     var payloadTrend: some View {
@@ -63,9 +61,7 @@ extension DashboardView {
             PayloadTrendChart(points: points)
                 .frame(height: 58)  // ui-token-check-ignore: chart bar or plot-area geometry
         }
-        .padding(Theme.s12)
-        .background(Theme.surface)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusL))
+        .hakkaGroupedCard()
     }
 
     var statusMix: some View {
@@ -102,9 +98,7 @@ extension DashboardView {
             }
             .frame(height: 14)  // ui-token-check-ignore: chart bar or plot-area geometry
         }
-        .padding(Theme.s12)
-        .background(Theme.surface)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusL))
+        .hakkaGroupedCard()
     }
 
     /// HTTP status-class breakdown (2xx/3xx/4xx/5xx), same proportion-bar grammar as `statusMix`.
@@ -131,9 +125,7 @@ extension DashboardView {
                 statusClassRow(label: name, count: count, total: total, color: color)
             }
         }
-        .padding(Theme.s12)
-        .background(Theme.surface)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusL))
+        .hakkaGroupedCard()
     }
 
     func statusClassRow(label: String, count: Int, total: Int, color: Color) -> some View {

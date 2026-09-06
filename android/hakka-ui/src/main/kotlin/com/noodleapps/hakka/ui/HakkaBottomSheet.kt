@@ -4,7 +4,6 @@ import android.animation.ValueAnimator
 import android.app.Activity
 import android.app.Dialog
 import android.content.Context
-import android.content.Intent
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
@@ -18,6 +17,8 @@ import android.view.animation.DecelerateInterpolator
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.compose.ui.platform.ComposeView
+import androidx.activity.ComponentDialog
 import com.noodleapps.hakka.LogStore
 
 /**
@@ -25,9 +26,8 @@ import com.noodleapps.hakka.LogStore
  *
  * [HakkaActivity] is the other shell (full-screen, reached from the notification tap
  * and shake gesture, which can't rely on a WindowManager overlay surviving a backgrounded
- * app). Both shells host the exact same [TabController] instances/content — see
- * [controllers] below — so there is only ever one Network/Stats/Logs/Rules/Storage
- * implementation, not two drifting copies.
+ * app). Both shells host [HakkaInspectorCompose], so the inspector has one Compose
+ * implementation regardless of presentation.
  *
  * Features:
  * - 60% height by default (the medium detent — iOS is being switched to match this
@@ -63,31 +63,6 @@ class HakkaBottomSheet(
     private val largeHeight: Int get() = (screenHeight * 0.92).toInt()
     private var currentHeight: Int = 0
 
-    // ── Tab-controller content ──────────────────────────────────────────────
-    // Same controller instances/classes [HakkaActivity] hosts. Every TabController
-    // only ever touches `activity` as a plain Context (resources, cacheDir,
-    // startActivity, getSystemService…) — and this sheet always holds a genuine
-    // Activity (see the constructor), same as HakkaActivity does — so the
-    // controllers slot in here with zero adapter/abstraction needed.
-
-    private val controllers: Map<NavTab, TabController> by lazy {
-        mapOf(
-            NavTab.NETWORK to NetworkTabController(
-                activity,
-                onOpenSettings = { activity.startActivity(Intent(activity, SettingsActivity::class.java)) },
-                onCloseInspector = ::hide,
-            ),
-            NavTab.STATS to StatsTabController(activity),
-            NavTab.LOGS to LogsTabController(activity),
-            NavTab.RULES to RulesTabController(activity),
-            NavTab.STORAGE to StorageTabController(activity),
-        )
-    }
-    private val tabViews = mutableMapOf<NavTab, View>()
-    private var currentTab: NavTab? = null
-    private lateinit var panelContainer: FrameLayout
-    private lateinit var tabBar: InspectorNavBar
-
     fun show() {
         try {
             if (dialog?.isShowing == true) return
@@ -111,15 +86,10 @@ class HakkaBottomSheet(
         val ctx = activity
         currentHeight = mediumHeight
 
-        dialog = Dialog(ctx, android.R.style.Theme_Translucent_NoTitleBar).apply {
+        dialog = ComponentDialog(ctx, android.R.style.Theme_Translucent_NoTitleBar).apply {
             requestWindowFeature(Window.FEATURE_NO_TITLE)
             setCancelable(true)
             setCanceledOnTouchOutside(true)
-            // Whichever tab is on screen when the sheet closes (drag-dismiss, scrim
-            // tap, or back button) needs its onHide() forwarded — StatsTabController
-            // in particular holds a live performance-metrics subscription that must
-            // not outlive this short-lived sheet instance.
-            setOnDismissListener { currentTab?.let { controllers.getValue(it).onHide() } }
         }
 
         // Root: scrim + sheet container
@@ -169,8 +139,11 @@ class HakkaBottomSheet(
         handleContainer.addView(handle)
         sheet.addView(handleContainer)
 
-        // Content: the same tab-controller content HakkaActivity hosts.
-        val content = buildTabbedContent(ctx)
+        // The sheet keeps its native drag/snap shell, while the inspector itself is
+        // the same direct Compose screen used by fullscreen presentation.
+        val content = ComposeView(ctx).apply {
+            setContent { HakkaInspectorCompose(activity, ::hide) }
+        }
         sheet.addView(content, LinearLayout.LayoutParams(MP, 0, 1f))
 
         // Position sheet at bottom
@@ -203,43 +176,6 @@ class HakkaBottomSheet(
             ?.setInterpolator(DecelerateInterpolator())
             ?.start()
         scrim.animate().alpha(1f).setDuration(250).start()
-    }
-
-    /**
-     * Bottom tab bar (Network / Stats / Logs / Rules / Storage) + a panel container
-     * that swaps in whichever [TabController]'s view is selected — the sheet's
-     * presentation of the exact same content [HakkaActivity]'s bottom nav
-     * hosts. Each controller's view is built once and kept alive for the sheet's
-     * lifetime (mirrors [HakkaActivity]'s tabViews cache), so switching tabs inside
-     * one sheet session preserves scroll/filter state the same way.
-     */
-    private fun buildTabbedContent(ctx: Context): View {
-        val root = LinearLayout(ctx).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Theme.bg(ctx))
-        }
-
-        panelContainer = FrameLayout(ctx)
-        root.addView(panelContainer, LinearLayout.LayoutParams(MP, 0, 1f))
-        // The dialog extends behind gesture navigation, so reserve the same bottom
-        // inset as fullscreen; otherwise the tab labels sit beneath the system bar.
-        tabBar = InspectorNavBar(ctx, ::selectTab, navigationBarInsetPx(ctx.resources))
-        root.addView(tabBar.view)
-
-        selectTab(NavTab.NETWORK)
-        return root
-    }
-
-    private fun selectTab(tab: NavTab) {
-        if (!::panelContainer.isInitialized) return
-        if (tab == currentTab) return
-        currentTab?.let { controllers.getValue(it).onHide() }
-        currentTab = tab
-        tabBar.select(tab)
-        val view = tabViews.getOrPut(tab) { controllers.getValue(tab).buildView() }
-        panelContainer.removeAllViews()
-        panelContainer.addView(view, FrameLayout.LayoutParams(MP, MP))
-        controllers.getValue(tab).onShow()
     }
 
     private fun dismissWithAnimation() {

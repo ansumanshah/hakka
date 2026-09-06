@@ -95,7 +95,7 @@ class OverviewFieldsTest {
     @Test
     fun `status row shows short ERR label (not the full message) when errored with no status`() {
         // The full error text lives only in the dedicated Error section
-        // (DetailActivity.buildOverviewTab) — avoid duplicating it here.
+        // in the Compose detail screen — avoid duplicating it here.
         val rows = rowsFor(baseRequest(status = null, error = "timeout"))
         assertEquals("ERR", rows.value("Status"))
     }

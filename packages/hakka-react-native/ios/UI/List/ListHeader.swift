@@ -22,6 +22,7 @@ struct ListHeader: View {
     let onClose: () -> Void
     let onTogglePause: () -> Void
     let onSettings: () -> Void
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         Group {
@@ -37,10 +38,41 @@ struct ListHeader: View {
     }
 
     private var headerContent: some View {
-        HStack(spacing: Theme.s10) {
-            StatsBar(requests: requests)
-            .frame(maxWidth: .infinity, alignment: .leading)
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: Theme.s8) {
+                    title
+                    HStack(spacing: Theme.s8) {
+                        controls
+                        Spacer(minLength: 0)
+                    }
+                    StatsBar(requests: requests)
+                }
+            } else {
+                VStack(alignment: .leading, spacing: Theme.s6) {
+                    HStack(spacing: Theme.s10) {
+                        title
+                        Spacer(minLength: 0)
+                        controls
+                    }
+                    StatsBar(requests: requests)
+                }
+            }
+        }
+    }
 
+    private var title: some View {
+        HStack(spacing: Theme.s6) {
+            Image(systemName: "antenna.radiowaves.left.and.right")
+                .font(.system(size: Theme.iconM, weight: .semibold))
+                .accessibilityHidden(true)
+            Text("Network")
+                .font(.headline.weight(.semibold))
+        }
+        .foregroundStyle(Theme.text)
+    }
+
+    private var controls: some View {
             HStack(spacing: Theme.s12) {
                 // Session controls: grouped on one surface so they read as a
                 // single unit, distinct from the standalone gear/Close actions.
@@ -56,18 +88,18 @@ struct ListHeader: View {
                 headerButton("xmark", label: "Close", action: onClose)
             }
             .fixedSize(horizontal: true, vertical: false)
-        }
     }
 
     private var pauseButton: some View {
         Button(action: onTogglePause) {
             Image(systemName: isPaused ? "play.fill" : "pause.fill")
-                .font(.subheadline.weight(.semibold))
+                .font(.system(size: Theme.iconM, weight: .semibold))
                 .foregroundStyle(isPaused ? Theme.warning : Theme.textSecondary)
                 .frame(width: HakkaMetrics.ControlHeight.icon, height: HakkaMetrics.ControlHeight.icon)
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
+        .hakkaIconTarget()
         .accessibilityLabel(isPaused ? "Resume capture" : "Pause capture")
     }
 
@@ -86,13 +118,14 @@ struct ListHeader: View {
             .disabled(requests.isEmpty)
         } label: {
             Image(systemName: "ellipsis")
-                .font(.subheadline.weight(.semibold))
+                .font(.system(size: Theme.iconM, weight: .semibold))
                 .foregroundStyle(Theme.textSecondary)
                 .frame(width: HakkaMetrics.ControlHeight.icon, height: HakkaMetrics.ControlHeight.icon)
                 .contentShape(Circle())
         }
         .menuStyle(.button)
         .buttonStyle(.plain)
+        .hakkaIconTarget()
         .accessibilityLabel("More actions")
     }
 
@@ -109,12 +142,13 @@ struct ListHeader: View {
     ) -> some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.subheadline.weight(.semibold))
+                .font(.system(size: Theme.iconM, weight: .semibold))
                 .foregroundStyle(disabled ? Theme.textTertiary : destructive ? Theme.error : Theme.textSecondary)
                 .frame(width: HakkaMetrics.ControlHeight.icon, height: HakkaMetrics.ControlHeight.icon)
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
+        .hakkaIconTarget()
         .disabled(disabled)
         .accessibilityLabel(label)
     }

@@ -130,11 +130,11 @@ struct HakkaChip: View {
         Button(action: action) {
             Text(label)
                 .font(mono
-                    ? .system(size: HakkaMetrics.FontSize.xs, weight: .bold, design: .monospaced)
-                    : .caption2.weight(isActive ? .semibold : .regular))
+                    ? .system(.caption, design: .monospaced).weight(.bold)
+                    : .caption.weight(isActive ? .semibold : .regular))
                 .foregroundStyle(isActive ? tone : Theme.textTertiary)
                 .padding(.horizontal, Theme.s8)
-                .frame(height: Theme.ctlH)
+                .padding(.vertical, Theme.s6)
                 .background(isActive ? tone.opacity(0.10) : Color.clear)
                 .clipShape(RoundedRectangle(cornerRadius: Theme.radiusS))
                 .overlay(
@@ -162,9 +162,11 @@ struct SectionHeader: View {
 
     var body: some View {
         Text(title)
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(Theme.text)
-            .padding(.top, Theme.s4)
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(Theme.textSecondary)
+            .textCase(.uppercase)
+            .tracking(0.7)
+            .padding(.top, Theme.s6)
     }
 }
 
@@ -176,12 +178,11 @@ struct Pill: View {
 
     var body: some View {
         Text(text)
-            .font(.caption2)
+            .font(.caption2.weight(.medium))
             .foregroundStyle(Theme.textSecondary)
             .padding(.horizontal, Theme.s6)
-            .padding(.vertical, Theme.s2)
-            .background(Theme.surface)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusS))
+            .padding(.vertical, Theme.s4)
+            .background(Theme.surfaceRaised, in: Capsule())
     }
 }
 

@@ -16,11 +16,11 @@ data class OverviewRow(val key: String, val value: String)
  * Encoding, Protocol, Started, Source, Redirects(+chain), WebSocket
  * frames(+protocol), Trace/correlationId, GraphQL op, Mocked, Request ID.
  * Every row is conditional on the engine having captured it — this function
- * is the single source of truth for that contract so [DetailActivity] and
+ * is the single source of truth for that contract so the Compose detail screen and
  * tests share the same logic.
  *
  * Value formatting for duration/size/timestamp is intentionally left to the
- * caller (Android's mono-tabular formatters live in Formatters.kt) — this
+ * caller — this
  * function only decides WHICH rows appear, in WHAT order, with the raw
  * value, so it stays a plain-Kotlin/JVM unit test target with no Android
  * dependency.
@@ -50,7 +50,7 @@ fun buildOverviewRows(
     rows += OverviewRow("URL", request.url)
     rows += OverviewRow("Method", request.method.name)
     // Short class label only — the full error text lives in the dedicated Error
-    // section alone (DetailActivity.buildOverviewTab). Printing the full raw
+    // section alone in the Compose detail screen. Printing the full raw
     // message in both places said the same fact twice on one screen.
     rows += OverviewRow(
         "Status",

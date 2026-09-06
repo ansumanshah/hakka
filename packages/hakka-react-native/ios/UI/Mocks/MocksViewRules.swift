@@ -15,16 +15,13 @@ extension MocksView {
 
     var rulesSection: some View {
         VStack(alignment: .leading, spacing: Theme.s8) {
-            Text("ACTIVE RULES (\(rules.count))")
-                .font(.caption2.weight(.bold))
-                .foregroundStyle(Theme.textTertiary)
-                .kerning(0.5)
+            SectionHeader(title: "Active rules · \(rules.count)")
 
             ForEach(rules) { rule in
                 ruleRow(rule)
             }
         }
-        .padding(.horizontal, Theme.s16)
+        .padding(.horizontal, HakkaMetrics.Layout.gutter)
         .padding(.vertical, Theme.s12)
     }
 
@@ -95,10 +92,7 @@ extension MocksView {
                 .accessibilityAddTraits(rule.enabled ? .isSelected : [])
             }
         }
-        .padding(Theme.s10)
-        .background(Theme.surface)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusM))
-        .overlay(RoundedRectangle(cornerRadius: Theme.radiusM).stroke(Theme.border, lineWidth: 0.5))
+        .hakkaGroupedCard(padding: Theme.s10, cornerRadius: Theme.radiusL)
         .opacity(rule.enabled ? 1 : 0.55)
         .animation(.easeOut(duration: 0.15), value: rule.enabled)
     }

@@ -67,7 +67,7 @@ struct BreakpointsView: View {
             }
             .scrollIndicators(.hidden)
         }
-        .background(Theme.bg)
+        .hakkaPageCanvas()
         .onAppear {
             refresh()
             let token = BreakpointEngine.shared.subscribe { [self] in

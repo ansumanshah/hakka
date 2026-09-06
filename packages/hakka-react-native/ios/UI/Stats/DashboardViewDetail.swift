@@ -41,9 +41,7 @@ extension DashboardView {
             }
         }
         .tint(Theme.textSecondary)
-        .padding(Theme.s14)
-        .background(Theme.surface.opacity(0.72))
-        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusL))
+        .hakkaGroupedCard(padding: Theme.s14, cornerRadius: Theme.radiusL)
     }
 
     var trafficSection: some View {

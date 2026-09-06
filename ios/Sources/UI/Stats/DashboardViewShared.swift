@@ -14,7 +14,7 @@ extension DashboardView {
     }
 
     func card(_ title: String, _ value: String, _ color: Color) -> some View {
-        VStack(spacing: Theme.s6) {
+        VStack(alignment: .leading, spacing: Theme.s6) {
             Text(value)
                 .font(.title3.monospacedDigit().weight(.bold))
                 .foregroundStyle(color)
@@ -22,10 +22,8 @@ extension DashboardView {
                 .font(.caption)
                 .foregroundStyle(Theme.textTertiary)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, Theme.s12)
-        .background(Theme.surface)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusL))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .hakkaGroupedCard(padding: Theme.s12, cornerRadius: Theme.radiusL)
     }
 
     func hudLane(_ title: String, _ value: String, _ color: Color) -> some View {

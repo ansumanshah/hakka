@@ -40,7 +40,7 @@ struct RulesView: View {
                 MocksView(showToolbar: false)
             }
         }
-        .background(Theme.bg)
+        .hakkaPageCanvas()
     }
 
     // MARK: - Toolbar

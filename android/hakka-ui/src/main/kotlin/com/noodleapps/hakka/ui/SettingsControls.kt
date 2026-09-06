@@ -1,29 +1,41 @@
 package com.noodleapps.hakka.ui
 
 import android.app.Activity
-import android.graphics.Color
-import android.graphics.Typeface
-import android.graphics.drawable.GradientDrawable
-import android.text.InputType
-import android.view.Gravity
-import android.view.inputmethod.EditorInfo
-import android.widget.EditText
-import android.widget.HorizontalScrollView
-import android.widget.LinearLayout
-import android.widget.Switch
-import android.widget.TextView
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import com.noodleapps.hakka.HakkaInterceptor
 import com.noodleapps.hakka.connectBridge
 
-/**
- * [SettingsActivity]'s "Controls" section — max records, retention, redact body
- * fields, desktop bridge. Split out purely for file size; reads/writes the same
- * live [HakkaInterceptor.config] the activity passes in, so behavior is
- * unchanged from when this lived inline (see the class doc on [SettingsActivity]
- * for the full session-only / no-persistence contract).
- */
 private const val DEFAULT_BRIDGE_URL = "ws://localhost:8989"
-private val RETENTION_OPTIONS: List<Pair<String, Long?>> = listOf(
+private val retentionOptions = listOf(
     "Forever" to null,
     "1 hour" to 3_600_000L,
     "6 hours" to 21_600_000L,
@@ -31,285 +43,179 @@ private val RETENTION_OPTIONS: List<Pair<String, Long?>> = listOf(
     "1 week" to 604_800_000L,
 )
 
-internal fun buildControls(activity: Activity, parent: LinearLayout, ic: HakkaInterceptor?) {
-    addOverline(activity, parent, "Controls")
-    if (ic == null) {
-        parent.addView(TextView(activity).apply {
-            text = "Not available in this session — the host app wired the inspector " +
-                "without Hakka.install(), so there's no live interceptor to configure."
-            textSize = GeneratedMetrics.FontSize.sm.toFloat(); setTextColor(Theme.textTertiary(activity))
-            setPadding(0, 0, 0, dp(activity.resources, Theme.s8))
-        })
+/** Controls which update the attached interceptor immediately. */
+@Composable
+internal fun SettingsControls(activity: Activity, interceptor: HakkaInterceptor?) {
+    val enabled = interceptor != null
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SettingsOverline("Controls")
+        if (!enabled) {
+            Text(
+                "Not available in this session — the host app wired the inspector without Hakka.install(), so there's no live interceptor to configure.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+        MaxRecordsControl(interceptor)
+        HorizontalDivider()
+        RetentionControl(interceptor)
+        HorizontalDivider()
+        RedactBodyFieldsControl(interceptor)
+        HorizontalDivider()
+        BridgeControl(activity, interceptor)
     }
-    buildMaxRecordsRow(activity, parent, ic)
-    parent.addView(divider(activity))
-    buildRetentionRow(activity, parent, ic)
-    parent.addView(divider(activity))
-    buildRedactBodyRow(activity, parent, ic)
-    parent.addView(divider(activity))
-    buildBridgeRow(activity, parent, ic)
-    parent.addView(divider(activity))
 }
 
-/** Ring buffer capacity — [HakkaInterceptor.updateConfig] propagates to the retention
- *  policy immediately; the next captured request enforces the new bound. */
-private fun buildMaxRecordsRow(activity: Activity, parent: LinearLayout, ic: HakkaInterceptor?) {
-    val field = EditText(activity).apply {
-        setText((ic?.config?.maxRequests ?: 500).toString())
-        textSize = GeneratedMetrics.FontSize.sm.toFloat(); setTypeface(Typeface.MONOSPACE)
-        setTextColor(Theme.text(activity))
-        gravity = Gravity.END
-        isSingleLine = true
-        inputType = InputType.TYPE_CLASS_NUMBER
-        imeOptions = EditorInfo.IME_ACTION_DONE
-        isEnabled = ic != null
-        background = fieldBackground(activity)
-        setPadding(dp(activity.resources, Theme.s8), dp(activity.resources, Theme.s6), dp(activity.resources, Theme.s8), dp(activity.resources, Theme.s6))
-        layoutParams = LinearLayout.LayoutParams(dp(activity.resources, 64), WC)
-    }
+@Composable
+private fun MaxRecordsControl(interceptor: HakkaInterceptor?) {
+    var value by remember(interceptor) { mutableStateOf((interceptor?.config?.maxRequests ?: 500).toString()) }
+    var hasFocused by remember { mutableStateOf(false) }
     fun commit() {
-        val clamped = (field.text.toString().toIntOrNull() ?: return).coerceIn(10, 5000)
-        field.setText(clamped.toString())
-        ic?.updateConfig { it.copy(maxRequests = clamped) }
+        val clamped = (value.toIntOrNull() ?: return).coerceIn(10, 5000)
+        value = clamped.toString()
+        interceptor?.updateConfig { it.copy(maxRequests = clamped) }
     }
-    field.setOnFocusChangeListener { _, hasFocus -> if (!hasFocus) commit() }
-    field.setOnEditorActionListener { _, actionId, _ ->
-        if (actionId == EditorInfo.IME_ACTION_DONE) { commit(); true } else false
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        SettingLabel("Max records", "Ring buffer capacity (10–5000)", Modifier.weight(1f))
+        OutlinedTextField(
+            value = value,
+            onValueChange = { value = it },
+            enabled = interceptor != null,
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+            keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { commit() }),
+            textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+            modifier = Modifier.width(100.dp).onFocusChanged {
+                if (it.isFocused) hasFocused = true
+                else if (hasFocused) commit()
+            },
+        )
     }
-    parent.addView(LinearLayout(activity).apply {
-        orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-        setPadding(0, dp(activity.resources, Theme.s10), 0, dp(activity.resources, Theme.s10))
-        addView(inlineLabel(activity, "Max records", "Ring buffer capacity (10–5000)"))
-        addView(field)
-    })
 }
 
-/** Age-based retention — [HakkaInterceptor.config]'s `maxAgeMs` is enforced by the
- *  retention policy on the next captured request, same lazy-enforcement semantics
- *  as [buildMaxRecordsRow]. */
-private fun buildRetentionRow(activity: Activity, parent: LinearLayout, ic: HakkaInterceptor?) {
-    var activeMs: Long? = ic?.config?.maxAgeMs
-    val chipRow = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL }
-
-    fun refreshChips() {
-        chipRow.removeAllViews()
-        for ((label, ms) in RETENTION_OPTIONS) {
-            chipRow.addView(retentionChip(activity, label, ms == activeMs, ic != null) {
-                if (ic == null) return@retentionChip
-                activeMs = ms
-                ic.updateConfig { it.copy(maxAgeMs = ms) }
-                refreshChips()
-            })
+@Composable
+private fun RetentionControl(interceptor: HakkaInterceptor?) {
+    var activeMs by remember(interceptor) { mutableStateOf(interceptor?.config?.maxAgeMs) }
+    Column {
+        SettingLabel("Retention", "Drop captures older than this age")
+        Spacer(Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            retentionOptions.forEach { (label, ms) ->
+                FilterChip(
+                    selected = ms == activeMs,
+                    enabled = interceptor != null,
+                    onClick = {
+                        activeMs = ms
+                        interceptor?.updateConfig { it.copy(maxAgeMs = ms) }
+                    },
+                    label = { Text(label) },
+                )
+            }
         }
     }
-    refreshChips()
-
-    parent.addView(LinearLayout(activity).apply {
-        orientation = LinearLayout.VERTICAL
-        setPadding(0, dp(activity.resources, Theme.s10), 0, dp(activity.resources, Theme.s10))
-        addView(stackedLabel(activity, "Retention", "Drop captures older than this age"))
-        addView(HorizontalScrollView(activity).apply {
-            isHorizontalScrollBarEnabled = false
-            setPadding(0, dp(activity.resources, Theme.s6), 0, 0)
-            addView(chipRow)
-        })
-    })
 }
 
-/** JSON body field redaction — applied per-request at capture time (the capture
- *  processor reads `sensitiveBodyFields` fresh on every enqueue), so this affects
- *  new captures only, never retroactively. */
-private fun buildRedactBodyRow(activity: Activity, parent: LinearLayout, ic: HakkaInterceptor?) {
-    val field = EditText(activity).apply {
-        setText((ic?.config?.sensitiveBodyFields ?: emptySet()).sorted().joinToString(", "))
-        textSize = GeneratedMetrics.FontSize.sm.toFloat(); setTypeface(Typeface.MONOSPACE)
-        setTextColor(Theme.text(activity))
-        hint = "password, token, ssn"
-        setHintTextColor(Theme.textTertiary(activity))
-        isSingleLine = true
-        imeOptions = EditorInfo.IME_ACTION_DONE
-        isEnabled = ic != null
-        background = fieldBackground(activity)
-        setPadding(dp(activity.resources, Theme.s8), dp(activity.resources, Theme.s6), dp(activity.resources, Theme.s8), dp(activity.resources, Theme.s6))
-        layoutParams = LinearLayout.LayoutParams(0, WC, 1f)
+@Composable
+private fun RedactBodyFieldsControl(interceptor: HakkaInterceptor?) {
+    var value by remember(interceptor) {
+        mutableStateOf(interceptor?.config?.sensitiveBodyFields.orEmpty().sorted().joinToString(", "))
     }
+    var hasFocused by remember { mutableStateOf(false) }
     fun commit() {
-        val fields = field.text.toString().split(",").map { it.trim() }.filter { it.isNotEmpty() }
-        field.setText(fields.joinToString(", "))
-        ic?.updateConfig { it.copy(sensitiveBodyFields = fields.toSet()) }
+        val fields = value.split(',').map(String::trim).filter(String::isNotEmpty)
+        value = fields.joinToString(", ")
+        interceptor?.updateConfig { it.copy(sensitiveBodyFields = fields.toSet()) }
     }
-    field.setOnFocusChangeListener { _, hasFocus -> if (!hasFocus) commit() }
-    field.setOnEditorActionListener { _, actionId, _ ->
-        if (actionId == EditorInfo.IME_ACTION_DONE) { commit(); true } else false
-    }
-    parent.addView(LinearLayout(activity).apply {
-        orientation = LinearLayout.VERTICAL
-        setPadding(0, dp(activity.resources, Theme.s10), 0, dp(activity.resources, Theme.s10))
-        addView(stackedLabel(
-            activity,
-            "Redact body fields",
-            "Mask these JSON keys in captured bodies (comma-separated, case-insensitive)",
-        ))
-        addView(LinearLayout(activity).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, dp(activity.resources, Theme.s6), 0, 0)
-            addView(field)
-            addView(applyButton(activity) { commit() }.apply {
-                layoutParams = LinearLayout.LayoutParams(WC, WC).apply {
-                    setMargins(dp(activity.resources, Theme.s6), 0, 0, 0)
-                }
-            })
-        })
-    })
-}
-
-/**
- * Desktop bridge connect/disconnect. Android's `connectBridge` returns only an
- * [AutoCloseable] (no connection-state callback like iOS's `BridgeConnectionState`) — the
- * status line below can say "Streaming to <url>" or "Disconnected" but never
- * "Connected"/"Connecting"/"Error", because the engine doesn't expose that. The connection
- * this toggle opens is tracked on [HakkaUI] (survives leaving this screen), mirroring
- * iOS's `SettingsView.bridgeClient`, which is likewise separate from any `bridgeUrl` set at
- * `Hakka.install {}` time — toggling here can't tear down an install-time-configured
- * bridge sink either, same limitation iOS has.
- */
-private fun buildBridgeRow(activity: Activity, parent: LinearLayout, ic: HakkaInterceptor?) {
-    val ui = HakkaUI.getInstance(activity)
-    var enabled = ui.bridgeConnection != null || ic?.config?.bridgeUrl != null
-
-    val statusLabel = TextView(activity).apply {
-        textSize = GeneratedMetrics.FontSize.xs.toFloat()
-        setPadding(0, dp(activity.resources, Theme.s4), 0, dp(activity.resources, Theme.s6))
-    }
-    val urlField = EditText(activity).apply {
-        setText(ic?.config?.bridgeUrl ?: DEFAULT_BRIDGE_URL)
-        textSize = GeneratedMetrics.FontSize.sm.toFloat(); setTypeface(Typeface.MONOSPACE)
-        setTextColor(Theme.text(activity))
-        hint = DEFAULT_BRIDGE_URL
-        setHintTextColor(Theme.textTertiary(activity))
-        isSingleLine = true
-        inputType = InputType.TYPE_TEXT_VARIATION_URI
-        imeOptions = EditorInfo.IME_ACTION_DONE
-        isEnabled = ic != null
-        background = fieldBackground(activity)
-        setPadding(dp(activity.resources, Theme.s8), dp(activity.resources, Theme.s6), dp(activity.resources, Theme.s8), dp(activity.resources, Theme.s6))
-        layoutParams = LinearLayout.LayoutParams(0, WC, 1f)
-    }
-
-    fun updateStatus() {
-        if (enabled) {
-            statusLabel.text = "Streaming to ${urlField.text}"
-            statusLabel.setTextColor(Theme.success)
-        } else {
-            statusLabel.text = "Disconnected"
-            statusLabel.setTextColor(Theme.textSecondary(activity))
+    Column {
+        SettingLabel("Redact body fields", "Mask these JSON keys in captured bodies (comma-separated, case-insensitive)")
+        Spacer(Modifier.height(8.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                value = value,
+                onValueChange = { value = it },
+                enabled = interceptor != null,
+                placeholder = { Text("password, token, ssn") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { commit() }),
+                textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                modifier = Modifier.weight(1f).onFocusChanged {
+                    if (it.isFocused) hasFocused = true
+                    else if (hasFocused) commit()
+                },
+            )
+            Spacer(Modifier.width(8.dp))
+            Button(onClick = ::commit, enabled = interceptor != null) { Text("Apply") }
         }
     }
+}
 
+@Composable
+private fun BridgeControl(activity: Activity, interceptor: HakkaInterceptor?) {
+    val ui = remember(activity) { HakkaUI.getInstance(activity) }
+    var bridgeEnabled by remember(interceptor) {
+        mutableStateOf(ui.bridgeConnection != null || interceptor?.config?.bridgeUrl != null)
+    }
+    var url by remember(interceptor) { mutableStateOf(interceptor?.config?.bridgeUrl ?: DEFAULT_BRIDGE_URL) }
     fun applyConnection() {
         ui.bridgeConnection?.close()
         ui.bridgeConnection = null
-        if (enabled) {
-            val url = urlField.text.toString().ifBlank { DEFAULT_BRIDGE_URL }
-            urlField.setText(url)
-            ic?.updateConfig { it.copy(bridgeUrl = url) }
-            ui.bridgeConnection = ic?.connectBridge(url)
+        if (bridgeEnabled) {
+            val bridgeUrl = url.ifBlank { DEFAULT_BRIDGE_URL }
+            url = bridgeUrl
+            interceptor?.updateConfig { it.copy(bridgeUrl = bridgeUrl) }
+            ui.bridgeConnection = interceptor?.connectBridge(bridgeUrl)
         } else {
-            ic?.updateConfig { it.copy(bridgeUrl = null) }
-        }
-        updateStatus()
-    }
-    updateStatus()
-
-    val toggle = Switch(activity).apply {
-        isChecked = enabled
-        isEnabled = ic != null
-        setOnCheckedChangeListener { _, isChecked ->
-            enabled = isChecked
-            applyConnection()
+            interceptor?.updateConfig { it.copy(bridgeUrl = null) }
         }
     }
-
-    parent.addView(LinearLayout(activity).apply {
-        orientation = LinearLayout.VERTICAL
-        setPadding(0, dp(activity.resources, Theme.s10), 0, dp(activity.resources, Theme.s10))
-        addView(LinearLayout(activity).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            addView(inlineLabel(activity, "Connect to desktop", "Stream captures to the Hakka desktop app"))
-            addView(toggle)
-        })
-        addView(statusLabel)
-        addView(LinearLayout(activity).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            addView(urlField)
-            addView(applyButton(activity) { if (enabled) applyConnection() }.apply {
-                layoutParams = LinearLayout.LayoutParams(WC, WC).apply {
-                    setMargins(dp(activity.resources, Theme.s6), 0, 0, 0)
-                }
-            })
-        })
-    })
-}
-
-// ── Control building blocks ──────────────────────────────────────────
-
-private fun controlTitle(activity: Activity, title: String) = TextView(activity).apply {
-    text = title; textSize = GeneratedMetrics.FontSize.sm.toFloat(); setTypeface(null, Typeface.BOLD)
-    setTextColor(Theme.text(activity))
-}
-
-private fun controlHint(activity: Activity, hint: String) = TextView(activity).apply {
-    text = hint; textSize = GeneratedMetrics.FontSize.sm.toFloat()
-    setTextColor(Theme.textTertiary(activity))
-    setPadding(0, dp(activity.resources, GeneratedMetrics.Spacing.xxs), 0, 0)
-}
-
-/** Label+hint stack that shrinks to leave room for an inline control (switch/field) to its right. */
-private fun inlineLabel(activity: Activity, title: String, hint: String) = LinearLayout(activity).apply {
-    orientation = LinearLayout.VERTICAL
-    layoutParams = LinearLayout.LayoutParams(0, WC, 1f).apply { setMargins(0, 0, dp(activity.resources, Theme.s8), 0) }
-    addView(controlTitle(activity, title)); addView(controlHint(activity, hint))
-}
-
-/** Label+hint stack for a full-width row whose control sits on the line below. */
-private fun stackedLabel(activity: Activity, title: String, hint: String) = LinearLayout(activity).apply {
-    orientation = LinearLayout.VERTICAL
-    addView(controlTitle(activity, title)); addView(controlHint(activity, hint))
-}
-
-private fun fieldBackground(activity: Activity) = GradientDrawable().apply {
-    setColor(Theme.surface(activity)); cornerRadius = dp(activity.resources, Theme.radiusM).toFloat()
-}
-
-/** Tinted pill button — same shape as [BreakpointsPanel]'s actionButton. */
-private fun applyButton(activity: Activity, label: String = "Apply", onClick: () -> Unit) = TextView(activity).apply {
-    text = label; textSize = GeneratedMetrics.FontSize.sm.toFloat(); setTypeface(null, Typeface.BOLD)
-    val accent = Theme.accent(activity)
-    setTextColor(accent)
-    background = GradientDrawable().apply {
-        cornerRadius = dp(activity.resources, Theme.radiusM).toFloat()
-        setColor(Color.argb(26, Color.red(accent), Color.green(accent), Color.blue(accent)))
-    }
-    setPadding(dp(activity.resources, Theme.s10), dp(activity.resources, Theme.s6), dp(activity.resources, Theme.s10), dp(activity.resources, Theme.s6))
-    isClickable = true; isFocusable = true
-    addRipple(activity)
-    setOnClickListener { onClick() }
-}
-
-private fun retentionChip(activity: Activity, label: String, active: Boolean, enabled: Boolean, onClick: () -> Unit) =
-    TextView(activity).apply {
-        text = label; textSize = GeneratedMetrics.FontSize.sm.toFloat(); gravity = Gravity.CENTER
-        setTypeface(null, if (active) Typeface.BOLD else Typeface.NORMAL)
-        val textColor = if (active) Theme.badgeText else Theme.textSecondary(activity)
-        setTextColor(if (enabled) textColor else Color.argb(128, Color.red(textColor), Color.green(textColor), Color.blue(textColor)))
-        background = GradientDrawable().apply {
-            cornerRadius = dp(activity.resources, Theme.radiusM).toFloat()
-            if (active) setColor(Theme.accent(activity))
-            else { setColor(Color.TRANSPARENT); setStroke(dp(activity.resources, 1), Theme.border(activity)) }
+    Column {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            SettingLabel("Connect to desktop", "Stream captures to the Hakka desktop app", Modifier.weight(1f))
+            Switch(
+                checked = bridgeEnabled,
+                enabled = interceptor != null,
+                onCheckedChange = {
+                    bridgeEnabled = it
+                    applyConnection()
+                },
+            )
         }
-        setPadding(dp(activity.resources, Theme.s10), dp(activity.resources, Theme.s6), dp(activity.resources, Theme.s10), dp(activity.resources, Theme.s6))
-        layoutParams = LinearLayout.LayoutParams(WC, WC).apply { setMargins(0, 0, dp(activity.resources, Theme.s6), 0) }
-        isClickable = enabled; isFocusable = enabled
-        if (enabled) addRipple(activity)
-        setOnClickListener { onClick() }
+        Text(
+            text = if (bridgeEnabled) "Streaming to $url" else "Disconnected",
+            color = if (bridgeEnabled) androidx.compose.ui.graphics.Color(Theme.success) else MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodySmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Spacer(Modifier.height(8.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                value = url,
+                onValueChange = { url = it },
+                enabled = interceptor != null,
+                placeholder = { Text(DEFAULT_BRIDGE_URL) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
+                keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = {
+                    if (bridgeEnabled) applyConnection()
+                }),
+                textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                modifier = Modifier.weight(1f),
+            )
+            Spacer(Modifier.width(8.dp))
+            Button(onClick = { if (bridgeEnabled) applyConnection() }, enabled = interceptor != null) { Text("Apply") }
+        }
     }
+}
+
+@Composable
+internal fun SettingLabel(title: String, hint: String, modifier: Modifier = Modifier) {
+    Column(modifier = modifier.padding(end = 8.dp)) {
+        Text(title, style = MaterialTheme.typography.titleSmall)
+        Text(hint, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+    }
+}

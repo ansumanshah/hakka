@@ -50,7 +50,7 @@ class HakkaUI(private val context: Context) {
     /**
      * Structured application-log store (distinct from the network-capture [logStore]
      * above). Process-wide singleton per [HakkaUI] instance — backs [Hakka.log] /
-     * `StructuredLogsPanel` (the Logs tab's "Structured" segment), and is what
+     * the Compose Logs page, and is what
      * [HakkaTimberTree] forwards Timber calls into.
      */
     internal val hakkaLogStore: HakkaLogStore = HakkaLogStore()
@@ -61,7 +61,7 @@ class HakkaUI(private val context: Context) {
 
     /**
      * Shared [HakkaPerformance] instance, set by [com.noodleapps.hakka.ui.Hakka.startPerf].
-     * When present, [StatsTabController] reads live frame/memory/CPU metrics from
+     * When present, the Compose Stats page reads live frame/memory/CPU metrics from
      * this instance instead of spinning up its own frame-only collector — one call
      * to `Hakka.startPerf(context)` is enough to light up the Stats tab.
      */
@@ -75,7 +75,7 @@ class HakkaUI(private val context: Context) {
     }
 
     /**
-     * Optional plugin list provider — used by [HakkaBottomSheet] to render plugin panels.
+     * Optional plugin list provider retained for plugin-host integration.
      * Set via [attachPluginProvider] when an interceptor with plugins is available.
      */
     @Volatile
@@ -100,7 +100,6 @@ class HakkaUI(private val context: Context) {
 
     /**
      * Attach a provider that returns the list of registered plugins.
-     * The [HakkaBottomSheet] calls [interceptorPlugins] to render plugin-contributed panels.
      *
      * Usage with the real interceptor:
      * ```kotlin
@@ -182,8 +181,7 @@ class HakkaUI(private val context: Context) {
      * [com.noodleapps.hakka.HakkaConfig.sensitiveBodyFields]). Independent of [interceptor]:
      * callers supply their own redaction fields, so this works even when no bridge interceptor
      * is attached — e.g. hakka-react-native's on-demand `publishStorageSnapshots()` native
-     * module method, which passes its own interceptor's `sensitiveBodyFields`. Shares scanning
-     * logic with [StorageTabController] via [SharedPreferencesSnapshotter].
+     * module method, which passes its own interceptor's `sensitiveBodyFields`.
      */
     fun captureStorageSnapshots(sensitiveFields: Set<String>): List<StorageSnapshot> =
         SharedPreferencesSnapshotter.capture(context, sensitiveFields)

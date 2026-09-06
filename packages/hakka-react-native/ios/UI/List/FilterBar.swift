@@ -28,6 +28,7 @@ struct FilterBar: View {
 
     @State private var isExpanded = false
     @State private var showPresets = false
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         Group {
@@ -39,9 +40,12 @@ struct FilterBar: View {
                 filterContent
             }
         }
-        .padding(.horizontal, Theme.s16)
-        .padding(.bottom, Theme.s6)
-        .background(Theme.surface)
+        .padding(.horizontal, HakkaMetrics.Layout.gutter)
+        .padding(.vertical, Theme.s8)
+        .background(Theme.surfaceRaised)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(Theme.border.opacity(0.45)).frame(height: 0.5) // ui-token-check-ignore: separator rail geometry
+        }
         .sheet(isPresented: $showPresets) {
             FilterPresetsSheet(
                 currentPreset: currentPreset,
@@ -68,21 +72,34 @@ struct FilterBar: View {
     // MARK: - Methods row + Filters disclosure trigger
 
     private var methodsRow: some View {
-        HStack(spacing: Theme.s8) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: Theme.s6) {
-                    ForEach(["GET", "POST", "PUT", "PATCH", "DELETE"], id: \.self) { method in
-                        HakkaChip(
-                            label: method,
-                            isActive: selectedMethods.contains(method),
-                            tone: Theme.methodColor(for: HttpMethod(rawValue: method) ?? .get)
-                        ) {
-                            toggleMethod(method)
-                        }
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: Theme.s6) {
+                    methodScroller
+                    filtersDisclosureTrigger
+                }
+            } else {
+                HStack(spacing: Theme.s8) {
+                    methodScroller
+                    filtersDisclosureTrigger
+                }
+            }
+        }
+    }
+
+    private var methodScroller: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: Theme.s6) {
+                ForEach(["GET", "POST", "PUT", "PATCH", "DELETE"], id: \.self) { method in
+                    HakkaChip(
+                        label: method,
+                        isActive: selectedMethods.contains(method),
+                        tone: Theme.methodColor(for: HttpMethod(rawValue: method) ?? .get)
+                    ) {
+                        toggleMethod(method)
                     }
                 }
             }
-            filtersDisclosureTrigger
         }
     }
 
@@ -95,7 +112,7 @@ struct FilterBar: View {
         } label: {
             HStack(spacing: Theme.s4) {
                 Image(systemName: "line.3.horizontal.decrease.circle")
-                    .font(.caption2)
+                    .font(.system(size: Theme.iconM, weight: .medium))
                 Text("Filters")
                     .font(.caption2.weight(.semibold))
                 if disclosureFilterCount > 0 {
@@ -112,7 +129,7 @@ struct FilterBar: View {
             }
             .foregroundStyle(disclosureFilterCount > 0 ? Theme.accent : Theme.textSecondary)
             .padding(.horizontal, Theme.s10)
-            .frame(height: Theme.ctlHLg)
+            .frame(minHeight: Theme.tapMin)
             .background(Theme.surface.opacity(0.72))
             .clipShape(RoundedRectangle(cornerRadius: Theme.radiusM))
             .overlay(
@@ -121,6 +138,7 @@ struct FilterBar: View {
             )
         }
         .buttonStyle(.plain)
+        .frame(minHeight: Theme.tapMin)
         .accessibilityLabel(Text("Filters, \(disclosureFilterCount) active"))
     }
 
@@ -180,7 +198,7 @@ struct FilterBar: View {
         HStack(spacing: Theme.s8) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(Theme.textTertiary)
-                .font(.footnote)
+                .font(.system(size: Theme.iconM, weight: .medium))
             TextField("Search or filter\u{2026}", text: $filterText)
                 .textFieldStyle(.plain)
                 .font(.footnote)
@@ -191,23 +209,24 @@ struct FilterBar: View {
                 Button(action: { filterText = "" }) {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(Theme.textTertiary)
-                        .font(.footnote)
-                }
-                .buttonStyle(.plain)
+                        .font(.system(size: Theme.iconM, weight: .medium))
             }
+            .buttonStyle(.plain)
+            .hakkaIconTarget()
+        }
 
             // Presets button — bookmark icon. The "Filters +n" disclosure
             // trigger lives in the methods row below, not duplicated here.
             Button(action: { showPresets = true }) {
                 Image(systemName: "bookmark")
                     .foregroundStyle(hasActiveFilters ? Theme.accent : Theme.textTertiary)
-                    .font(.footnote)
+                    .font(.system(size: Theme.iconM, weight: .medium))
             }
             .buttonStyle(.plain)
             .accessibilityLabel(Text("Filter presets"))
         }
         .padding(.horizontal, Theme.s12)
-        .frame(height: HakkaMetrics.ControlHeight.nav)
+        .frame(minHeight: HakkaMetrics.ControlHeight.nav)
         .hakkaGlassSurface(
             tint: hasActiveFilters ? Theme.accent.opacity(0.18) : Theme.controlTint,
             cornerRadius: Theme.radiusL,

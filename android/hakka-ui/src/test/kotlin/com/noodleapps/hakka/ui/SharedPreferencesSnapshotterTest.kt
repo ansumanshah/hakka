@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test
 /**
  * [SharedPreferencesSnapshotter.buildSnapshots] — the pure grouping/redaction step behind
  * [HakkaUI.captureStorageSnapshots] (hakka-react-native's on-demand `publishStorageSnapshots()`
- * relay) and [StorageTabController]'s own bridge publish. Wire shape (`store`/`timestamp`/
+ * relay) and the Compose Storage page. Wire shape (`store`/`timestamp`/
  * `entries`) is [StorageSnapshot.toJson]'s job and is covered by `StorageSnapshotTest` in
  * hakka-common; this file only exercises the redaction/grouping/empty-file-skipping behavior
  * that is specific to this scanner.

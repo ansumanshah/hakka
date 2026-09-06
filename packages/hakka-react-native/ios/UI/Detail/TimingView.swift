@@ -67,9 +67,7 @@ struct TimingView: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, Theme.s8)
-        .background(Theme.surface)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusL))
+        .hakkaGroupedCard(padding: Theme.s8, cornerRadius: Theme.radiusL)
     }
 
     private func sizeRow(_ label: String, _ bytes: Int64) -> some View {
@@ -131,9 +129,7 @@ struct TimingView: View {
                 TimingPhaseRow(phase: phase, totalMs: totalMs)
             }
         }
-        .padding(Theme.s8)
-        .background(Theme.surface)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusL))
+        .hakkaGroupedCard(padding: Theme.s8, cornerRadius: Theme.radiusL)
     }
 
     // MARK: - Build phases
