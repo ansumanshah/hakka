@@ -29,9 +29,7 @@ test('the overlay mounts a real, upgraded <hakka-inspector> with a clean console
   expect(mounted.present, '<hakka-inspector> is not in the DOM').toBe(true)
   expect(mounted.hasShadowRoot, '<hakka-inspector> is in the DOM but never upgraded (no shadow root)').toBe(true)
   expect(mounted.hasRenderedPanel, '<hakka-inspector> has a shadow root but no rendered panel inside it').toBe(true)
-  // The 5 fixed tabs this repo's cross-platform parity ledger requires (Rules replaces the
-  // iOS-only "Mocks section" naming on web, but the tab itself is the same panel).
-  expect(mounted.tabs).toEqual(['Network', 'Stats', 'Rules', 'Logs', 'Storage', 'Settings'])
+  expect(mounted.tabs).toEqual(['Network', 'Stats', 'Rules', 'Logs', 'Page', 'Storage', 'Settings'])
 
   expectCleanConsole(tracked)
 })
