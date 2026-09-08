@@ -94,12 +94,14 @@ with no version at all reads as version 1.
 ## Building it
 
 ```bash
+bun install --frozen-lockfile # repository root; installs transport test dependencies
 cd apps/hakka
 swift build
 swift test
 ```
 
-Requires macOS 15 or later and a Swift 6.1 or newer toolchain. The package consumes `ios/` by
+Requires macOS 15 or later and a Swift 6.1 or newer toolchain. The real WebSocket/SSE
+transport tests also require Bun. The package consumes `ios/` by
 path; there is no separate checkout to clone.
 
 ## Verify local capture

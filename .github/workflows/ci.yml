@@ -124,6 +124,10 @@ jobs:
         working-directory: apps/hakka
     steps:
       - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - name: Install transport test dependencies
+        working-directory: .
+        run: bun install --frozen-lockfile
       - uses: actions/cache@v6
         with:
           path: apps/hakka/.build
