@@ -284,3 +284,20 @@ Any change to `vite.config.ts` or `tsdown.config.ts` should be verified with:
    your change (already-over-budget is fine and expected; a _changed_ number
    in either direction means the build config changed what actually ships,
    which needs its own review).
+
+### Reproducing the size gate
+
+The TypeScript CI job pins Node 24.20.0 for consistent bundling and gzip measurement.
+Build the complete workspace before measuring; a browser-only rebuild can retain an
+older core output graph:
+
+```bash
+mise x node@24.20.0 -- bun run build
+mise x node@24.20.0 -- node scripts/web-size-gate.mjs
+```
+
+The integrated runtime and agent controls measure 150.59 KiB for the IIFE and
+161.26 KiB for the lazy chunks in CI. Their budgets are 152 KiB and 163 KiB,
+respectively, with approximately 1% headroom. This accepts the measured feature
+cost; it does not represent a size reduction. The eager entry remains capped at
+5 KiB and the worker at 23 KiB.
