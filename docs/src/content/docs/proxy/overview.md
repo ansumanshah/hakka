@@ -41,7 +41,15 @@ hakka proxy --port 8080 --duration-ms 30000 --session /tmp/task.hakka --json
 HTTPS_PROXY=http://127.0.0.1:8080 your-test-command
 ```
 
-`--json` writes machine-readable `started`, `diagnostic`, `stopped`, or `error` status lines. It deliberately does not print captured request bodies; use the existing MCP request tools or the bounded session/HAR output after capture instead.
+`--json` writes machine-readable `started`, `diagnostic`, `stopped`, `error`, and `cert-info` status lines. `started` includes `{ certificates: { configDir, publicCaPath, publicCaExists, privateKeyExposed: false } }` only after the sidecar is ready. It deliberately does not print captured request bodies or private keys; use the existing MCP request tools or the bounded session/HAR output after capture instead.
+
+Use a task-local mitmproxy configuration directory when a desktop app or CI job needs stable setup information:
+
+```bash
+hakka proxy --json --config-dir "$HOME/Library/Application Support/Hakka/proxy" --cert-info
+```
+
+The returned `publicCaPath` is the generated public CA certificate path when present. Hakka never reads or reports mitmproxy private-key paths. Mapping changes are startup options; stop and explicitly restart the session after editing `--map-config`.
 
 ## HTTPS trust is explicit
 
@@ -64,7 +72,7 @@ Use a JSON file for deliberate, reviewable substitutions. `mapLocal.file` must r
 hakka proxy --map-config ./proxy-mappings.json
 ```
 
-Mitmproxy evaluates these substitutions before it sends the request upstream. They are transport mappings, not Hakka mock rules, and they affect only clients configured to use this sidecar.
+Mitmproxy evaluates these substitutions before it sends the request upstream. `$1` style replacement captures in the JSON config are converted to mitmproxy's Python replacement syntax before launch. They are transport mappings, not Hakka mock rules, and they affect only clients configured to use this sidecar.
 
 ## Operational comparison
 
@@ -77,4 +85,29 @@ Mitmproxy evaluates these substitutions before it sends the request upstream. Th
 | Local and remote replacement | Hakka rules in instrumented runtimes        | mitmproxy `map-local` / `map-remote` via JSON config | Product-specific mapping tools    |
 | Default network exposure     | None                                        | Loopback only                                        | Varies by product configuration   |
 
-This is intentionally a narrow local sidecar, not a replacement for a full proxy debugging application: it does not provide a native traffic UI, replay workspace, system-wide proxy controls, or certificate-pinning workarounds.
+## Native macOS workflow
+
+Open **Traffic → Proxy Capture…** (`⇧⌘P`). Start and stop capture, choose the listening
+port, enable local-network devices, and edit Map Local/Remote rules in the native window.
+Captured requests appear in the existing Live Traffic inspector, where they can be
+filtered, exported, or saved as authored requests for replay.
+
+The setup section shows this Mac's active network addresses and the public certificate
+location. On a phone, configure the connected Wi-Fi network's manual proxy, then visit
+`http://mitm.it` through it for certificate setup. The displayed certificate path only
+confirms that the public certificate exists; it does not claim the phone trusts it.
+
+The capture engine runs as a managed mitmproxy process. **Runtime configuration** accepts
+an installed Hakka CLI executable or built `cli.mjs`, plus Node when needed. Hakka shows
+startup errors and request counts and shuts down its process when capture stops or the
+app quits. Install mitmproxy separately; no terminal command is needed for subsequent
+capture sessions once these paths are configured.
+
+For agents controlling the desktop, enable its MCP server in Settings and **Allow agents
+to start and stop this proxy** in the Proxy Capture window. Native `proxy_status`,
+`proxy_start`, and `proxy_stop` use the same configuration and state as the UI. Control
+permission resets when the app quits. The CLI MCP server also exposes proxy sessions and
+mapping updates for headless workflows.
+
+System-wide proxy toggles, automatic certificate installation, and certificate-pinning
+workarounds are not included. Route only the applications or devices you intend to inspect.

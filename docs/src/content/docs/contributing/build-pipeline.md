@@ -204,30 +204,18 @@ The elements build groups modules used by at least six entries into one runtime 
 
 ## CSS minifier scope
 
-`vite.config.ts` includes a small, dependency-free CSS minifier
-(`minifyCss` / `minifyInlineStyles`) instead of pulling in `lightningcss` or
-`esbuild` as an explicit devDependency. Neither is hoisted into this
-package's resolvable `node_modules` today (`vite` is the rolldown-powered
-build, not the esbuild/Rollup line, and doesn't bring either in as a
-resolvable peer here) — adding one just to strip whitespace from one
-~50 KB template-literal string would be exactly the "new heavyweight dep" a
-CSS-minify step is supposed to avoid.
-
-It's deliberately narrow: it strips comments and collapses/removes whitespace
-only where doing so can never change meaning. Critically, it never removes
-the space _before_ a `:` — that space can be a descendant combinator ahead of
-a pseudo-class or pseudo-element (`.foo :hover` selects a hovered _descendant_
-of `.foo`; `.foo:hover` selects `.foo` itself while hovered — collapsing the
-two would silently change which elements a rule matches). Every other
-adjacency to `{ } ; , :` is unambiguous to collapse.
+`vite.config.ts` uses the package's build-time `lightningcss` dependency for
+the CSS embedded in the `STYLES` template literal. This applies parser-backed
+minification, rule merging, and declaration compression without changing the
+runtime dependency graph. A final Terser pass then compresses Rollup's completed
+JavaScript wrappers and import glue, which the per-chunk render pass cannot see;
+ASCII escaping is enabled because it measured smaller under the gzip size gate.
 
 It runs only at build time (`apply: 'build'`) against the `STYLES` template
 literal in `ui/styles.ts` and its generated `ui/tokens.css?raw` import. The token
-loader runs before Vite's raw loader so embedded CSS receives the same treatment — dev keeps it verbatim and readable in devtools
-while iterating, and Vitest never loads this plugin at all. Before the merge
-this function was duplicated verbatim between `vite.config.ts` and
-`vite.elements.config.ts`; the merge collapsed it to one definition shared by
-both the default and `elements` branches.
+loader runs before Vite's raw loader so embedded CSS receives the same treatment.
+Development keeps it verbatim and readable in devtools, and Vitest never loads
+either build-only minifier. The default and `elements` builds share both passes.
 
 ## paths circular-resolution trick
 

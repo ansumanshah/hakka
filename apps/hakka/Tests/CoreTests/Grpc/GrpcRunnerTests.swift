@@ -68,6 +68,44 @@ struct GrpcRunnerTests {
         #expect(!sent.metadata.contains { $0.name.caseInsensitiveCompare("content-type") == .orderedSame })
     }
 
+    @Test func hooksAssertionsAndCapturesApplyToGrpcResponses() async throws {
+        let runner = GrpcRunner(transport: StubGrpcTransport { request in
+            #expect(request.metadata.contains { $0.name == "X-Hook" && $0.value == "yes" })
+            return okResponse(message: Data([0x01]))
+        })
+        let request = RequestSpec(
+            name: "R",
+            url: "grpc://localhost:50051/pkg.Svc/M",
+            body: .grpcMessage(hex: ""),
+            assertions: [Assertion(target: .header(name: "grpc-status"), op: .equals, expected: "0")],
+            captures: [ResponseCapture(variable: "status", source: .header(name: "grpc-status"))],
+            scripts: RequestScripts(preRequestLines: ["request.headers['X-Hook'] = 'yes'"], postResponseLines: ["vars.set('post', response.status)"]),
+        )
+        let result = try await runner.run(request, collection: collection(), scope: VariableScope())
+        #expect(result.assertionResults.first?.passed == true)
+        #expect(result.scope.runtime["status"] == "0")
+        #expect(result.scope.runtime["post"] == "200")
+    }
+
+    @Test func realGrpcServerRunsTheFullRequestLifecycle() async throws {
+        let server = try await TestGrpcUnaryServer.start(service: "hakka.test.Echo", method: "Say") { _, _ in
+            return TestGrpcOutcome(message: [0x01])
+        }
+        defer { Task { await server.stop() } }
+        let request = RequestSpec(
+            name: "R",
+            url: "grpc://127.0.0.1:\(server.port)/hakka.test.Echo/Say",
+            body: .grpcMessage(hex: ""),
+            assertions: [Assertion(target: .header(name: "grpc-status"), op: .equals, expected: "0")],
+            captures: [ResponseCapture(variable: "status", source: .header(name: "grpc-status"))],
+            scripts: RequestScripts(preRequestLines: ["request.headers['x-hook'] = 'yes'"], postResponseLines: ["vars.set('post', response.status)"]),
+        )
+        let result = try await GrpcRunner().run(request, collection: collection(), scope: VariableScope())
+        #expect(result.assertionResults.first?.passed == true)
+        #expect(result.scope.runtime["status"] == "0")
+        #expect(result.scope.runtime["post"] == "200")
+    }
+
     @Test func missingVariableRefusesToSend() async {
         let runner = GrpcRunner(transport: StubGrpcTransport { _ in okResponse(message: Data()) })
         let request = RequestSpec(name: "R", url: "grpc://localhost:50051/pkg.Svc/{{missing}}")

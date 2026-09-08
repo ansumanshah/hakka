@@ -87,20 +87,28 @@ export async function main(): Promise<void> {
 
   const listener = createBridgeListener(store, bridgeUrl, spanStore)
 
-  registerTools(server, store, listener, spanStore)
+  const closeTools = registerTools(server, store, listener, spanStore)
   registerResources(server, store)
 
+  let shuttingDown = false
   const shutdown = (): void => {
+    if (shuttingDown) return
+    shuttingDown = true
     process.stderr.write('[hakka] shutting down\n')
-    listener.close()
-    hostedHub?.close().catch(() => {})
-    server.close().catch(() => {})
+    void closeTools()
+      .finally(() => {
+        listener.close()
+        hostedHub?.close().catch(() => {})
+        server.close().catch(() => {})
+      })
+      .catch(() => {})
   }
   process.on('SIGINT', shutdown)
   process.on('SIGTERM', shutdown)
 
   const transport = new StdioServerTransport()
   await server.connect(transport)
+  server.server.onclose = shutdown
   process.stderr.write(
     `[hakka] ready (bridge=${bridgeUrl}, capacity=${capacity}, hosting=${hostedHub ? 'yes' : 'no'})\n`,
   )

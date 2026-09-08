@@ -7,7 +7,7 @@ test.beforeEach(async ({ page }) => {
 
 test('Page finds a page element and Run awaits an explicit command on a phone viewport', async ({ page }) => {
   await page.getByRole('tab', { name: 'Page' }).click()
-  const selector = page.getByLabel('Find page elements with a CSS selector')
+  const selector = page.getByLabel('Find by CSS')
   await selector.fill('#btn-fetch')
   await selector.press('Enter')
   await expect(page.getByText('#btn-fetch').first()).toBeVisible()

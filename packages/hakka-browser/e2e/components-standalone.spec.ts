@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -16,10 +15,9 @@ import { expect, test } from '@playwright/test'
  * adapter. Full methodology and the standalone-elements interop notes are in
  * docs/src/content/docs/web/overview.mdx.
  *
- * `dist/elements` isn't guaranteed built by every `just test-e2e` invocation
- * path, so `beforeAll` rebuilds it explicitly and copies the output into
- * `fixtures/components-dist/` so the suite is self-sufficient on a fresh
- * checkout regardless of invocation path.
+ * Build the package before running E2E (the test:e2e script does this).
+ * Copy the built elements into the fixture directory without rebuilding shared
+ * dist files while the other browser tests are reading them.
  */
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -29,7 +27,9 @@ const fixtureDistDir = join(here, 'fixtures', 'components-dist')
 
 test.beforeAll(() => {
   test.setTimeout(120_000)
-  execFileSync('bun', ['run', 'build'], { cwd: webPkgDir, stdio: 'inherit' })
+  if (!existsSync(join(distDir, 'index.js'))) {
+    throw new Error('Build hakka-browser before running E2E: bun run build')
+  }
 
   rmSync(fixtureDistDir, { recursive: true, force: true })
   mkdirSync(fixtureDistDir, { recursive: true })
@@ -53,8 +53,8 @@ const ERROR_EVERY = 10 // ids synth-0, synth-10, ... synth-90 => 10 rows with st
 test.describe('standalone components (no overlay)', () => {
   // Serial: fullyParallel would run this file's two tests in separate worker
   // processes, and `beforeAll` above races on the shared filesystem state
-  // (rmSync + rebuild of fixtures/components-dist/) between them — each worker
-  // stomping the other's in-flight rebuild, intermittent ENOTEMPTY/404s.
+  // (rmSync + copy of fixtures/components-dist/) between them — each worker
+  // stomping the other's in-flight copy, intermittent ENOTEMPTY/404s.
   test.describe.configure({ mode: 'serial' })
 
   test('<hakka-request-list> renders, filters via <hakka-filter-bar>, and fires hakka:select', async ({ page }) => {

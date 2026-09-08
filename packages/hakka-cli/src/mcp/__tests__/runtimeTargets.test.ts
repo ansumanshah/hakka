@@ -89,3 +89,53 @@ test('real bridge discovers peers, isolates target A, refuses legacy/unsupported
     await bridge.close()
   }
 })
+
+test('real bridge returns bounded page inspection data and requires runtime edit opt-in', async () => {
+  const bridge = await startBridgeServer({ port: 0, advertise: false })
+  const url = `ws://127.0.0.1:${bridge.port}`
+  const socket = new WebSocket(url)
+  let editsEnabled = false
+  let text = 'before'
+  const receiver = new RuntimeControlReceiver(
+    'browser',
+    ['page.inspect', 'page.edit', 'page.undo'],
+    (command) => {
+      if (command.kind === 'page.inspect')
+        return { ok: true, data: { elements: [{ selector: '#target', text: text.slice(0, 140) }] } }
+      if (command.kind === 'page.edit') {
+        if (!editsEnabled) return { ok: false }
+        text = command.text ?? text
+        return { ok: true, data: { changeId: 'page_1' } }
+      }
+      if (command.kind === 'page.undo') {
+        text = 'before'
+        return { ok: true, data: { undone: command.changeId } }
+      }
+      return false
+    },
+    (message) => socket.send(JSON.stringify(message)),
+  )
+  socket.on('open', () => receiver.hello())
+  socket.on('message', (raw) => receiver.receive(JSON.parse(raw.toString())))
+  const controller = createBridgeListener(new RequestStore(), url)
+  try {
+    await waitFor(() => controller.getTargets().some((target) => target.capabilities.includes('page.inspect')))
+    const target = controller.getTargets()[0]!
+    const inspected = await controller.requestControl({ kind: 'page.inspect', selector: '#target' }, target.id)
+    expect(inspected.data).toEqual({ elements: [{ selector: '#target', text: 'before' }] })
+    expect(
+      (await controller.requestControl({ kind: 'page.edit', selector: '#target', text: 'after' }, target.id)).status,
+    ).toBe('failed')
+    expect(text).toBe('before')
+    editsEnabled = true
+    const edit = await controller.requestControl({ kind: 'page.edit', selector: '#target', text: 'after' }, target.id)
+    expect(edit.data?.changeId).toBe('page_1')
+    expect(text).toBe('after')
+    await controller.requestControl({ kind: 'page.undo', changeId: 'page_1' }, target.id)
+    expect(text).toBe('before')
+  } finally {
+    controller.close()
+    socket.terminate()
+    await bridge.close()
+  }
+})

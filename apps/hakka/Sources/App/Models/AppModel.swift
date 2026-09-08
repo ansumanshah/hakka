@@ -21,6 +21,7 @@ final class AppModel {
     let sessionCompare = SessionCompareModel()
     let logs = LogsModel()
     let storage = StorageModel()
+    let proxy: ProxyCaptureModel
     /// The native MCP server's lifecycle, surfaced by the Settings toggle
     /// (`MCPSettingsSection`). Constructed here (not started here) so it
     /// exists for the whole window's lifetime the same as every other
@@ -38,7 +39,10 @@ final class AppModel {
         self.traffic = traffic
         self.rules = RulesModel(traffic: traffic)
         self.pauseInbox = PauseInboxModel(channel: traffic)
-        self.mcp = MCPServerModel(trafficStore: traffic.store, collectionModel: collection)
+        let proxy = ProxyCaptureModel()
+        self.proxy = proxy
+        self.mcp = MCPServerModel(trafficStore: traffic.store, collectionModel: collection,
+                                  additionalTools: NativeProxyTool.tools(proxy: proxy, traffic: traffic))
     }
 
     private(set) var selection: SidebarSelection?

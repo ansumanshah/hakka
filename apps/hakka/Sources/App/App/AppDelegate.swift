@@ -15,11 +15,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// `AppDelegate` is instantiated by `@NSApplicationDelegateAdaptor`
     /// before `AppModel` exists, so this cannot be injected via `init`.
     var pauseInbox: PauseInboxModel?
+    var proxy: ProxyCaptureModel?
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard let pauseInbox, pauseInbox.hasPending else { return .terminateNow }
+        guard pauseInbox?.hasPending == true || proxy?.isActive == true else { return .terminateNow }
         Task { @MainActor in
-            await pauseInbox.abortAllForTermination()
+            await pauseInbox?.abortAllForTermination()
+            await proxy?.shutdown()
             NSApp.reply(toApplicationShouldTerminate: true)
         }
         return .terminateLater

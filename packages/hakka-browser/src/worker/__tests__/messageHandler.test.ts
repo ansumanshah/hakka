@@ -301,7 +301,7 @@ describe('messageHandler — getBody / getBodies (the on-demand body RPC)', () =
 
 it('acknowledges a targeted control only after its matching main-thread result', () => {
   const messages: import('../protocol').WorkerToMain[] = []
-  let control: ((payload: unknown, applied?: (ok: boolean) => void) => void) | undefined
+  let control: ((payload: unknown, applied?: (result: { ok: boolean }) => void) => void) | undefined
   const engine = {
     ...storeEngine,
     init: (_config: unknown, _req: unknown, _bridge: unknown, sink: typeof control) => {
@@ -310,8 +310,8 @@ it('acknowledges a targeted control only after its matching main-thread result',
   } as typeof storeEngine
   const handler = createStoreMessageHandler((message) => messages.push(message), engine)
   handler.handle({ type: 'init' })
-  const outcomes: boolean[] = []
-  control!({ kind: 'mock.clear' }, (ok) => outcomes.push(ok))
+  const outcomes: Array<{ ok: boolean }> = []
+  control!({ kind: 'mock.clear' }, (result) => outcomes.push(result))
   const message = messages[0]!
   expect(message.type).toBe('control')
   if (message.type !== 'control' || message.rid === undefined) throw new Error('missing control ID')
@@ -320,5 +320,5 @@ it('acknowledges a targeted control only after its matching main-thread result',
   expect(outcomes).toEqual([])
   handler.handle({ type: 'controlApplied', rid: message.rid, ok: false })
   handler.handle({ type: 'controlApplied', rid: message.rid, ok: true })
-  expect(outcomes).toEqual([false])
+  expect(outcomes).toEqual([{ ok: false }])
 })

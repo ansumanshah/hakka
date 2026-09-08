@@ -29,6 +29,16 @@ export interface ProxyMapperOptions {
   redactBodyFields?: string[]
 }
 
+function mapMessage(message: NonNullable<ProxyFlowEvent['messages']>[number], options: ProxyMapperOptions) {
+  if (message.binary || typeof message.data !== 'string') return message
+  // Redact before measuring. If it remains over the cap, retain only the size: a
+  // prefix may contain a secret or malformed JSON that cannot be safely redacted.
+  const redacted = redactJsonBody(message.data, options.redactBodyFields) ?? message.data
+  if (options.maxBodySize !== undefined && new TextEncoder().encode(redacted).byteLength > options.maxBodySize)
+    return { ...message, data: message.size, truncated: true }
+  return { ...message, data: redacted }
+}
+
 /** Converts a completed mitmproxy flow into the shared Hakka capture wire shape. */
 export function mapProxyFlow(event: ProxyFlowEvent, options: ProxyMapperOptions = {}): NetworkRequest {
   // Redact complete JSON before applying the display bound. A bound prefix is often invalid JSON,
@@ -49,6 +59,7 @@ export function mapProxyFlow(event: ProxyFlowEvent, options: ProxyMapperOptions 
   const duration = Math.max(0, event.endedAt - event.startedAt)
   const contentType =
     event.contentType ?? Object.entries(rawResponseHeaders).find(([name]) => name.toLowerCase() === 'content-type')?.[1]
+  const messages = event.messages?.map((message) => mapMessage(message, options))
 
   return {
     id: event.id,
@@ -76,5 +87,6 @@ export function mapProxyFlow(event: ProxyFlowEvent, options: ProxyMapperOptions 
     ...(contentType ? { contentType } : {}),
     ...(event.httpVersion ? { networkProtocol: event.httpVersion } : {}),
     timing: { total: duration },
+    ...(messages ? { source: 'websocket' as const, messages, wsProtocol: event.wsProtocol ?? '' } : {}),
   }
 }

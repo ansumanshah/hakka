@@ -83,7 +83,7 @@ struct DetailPaneView: View {
     }
 
     private var requestDetailState: RequestDetailState {
-        if let draft = model.editor.draft, WebSocketURL.isWebSocketURL(draft.url) {
+        if let draft = model.editor.draft, WebSocketURL.isWebSocketURL(draft.url), draft.session == nil {
             .webSocket
         } else if let result = model.editor.lastResult {
             .result(result.record.id)
@@ -101,7 +101,7 @@ struct DetailPaneView: View {
         // is a connect-then-many-frames session, not a send-then-one-response
         // run, so it never waits for (or produces) a `RunResult`.
         Group {
-            if let draft = model.editor.draft, WebSocketURL.isWebSocketURL(draft.url) {
+            if let draft = model.editor.draft, WebSocketURL.isWebSocketURL(draft.url), draft.session == nil {
                 ScrollView {
                     DetailFramesTabView(model: model.webSocket, url: draft.url)
                         .padding(Spacing.xl)

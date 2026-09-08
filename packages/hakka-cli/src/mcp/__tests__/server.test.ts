@@ -548,7 +548,26 @@ describe('MCP smoke test — tools/list via InMemoryTransport', () => {
     expect(names).toContain('verify_fix')
     expect(names).toContain('apply_rule_bundle')
     expect(names).toContain('run_collection')
-    expect(names.length).toBe(24)
+    for (const name of [
+      'inspect_page',
+      'edit_page',
+      'undo_page',
+      'proxy_status',
+      'proxy_start',
+      'proxy_stop',
+      'proxy_update_mappings',
+      'cdp_list_scripts',
+      'cdp_get_script_source',
+      'cdp_set_breakpoint',
+      'cdp_remove_breakpoint',
+      'cdp_pause_state',
+      'cdp_resume',
+      'cdp_step_over',
+      'cdp_step_into',
+      'cdp_step_out',
+    ])
+      expect(names).toContain(name)
+    expect(new Set(names).size).toBe(names.length)
 
     await client.close()
     await mcpServer.close()

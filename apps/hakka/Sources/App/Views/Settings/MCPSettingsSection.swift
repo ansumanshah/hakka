@@ -93,6 +93,7 @@ struct MCPSettingsSection: View {
     process on this Mac that can reach that port, including an AI agent you've \
     given shell or MCP access to, can read your captured traffic (requests, \
     responses, headers, and bodies) and every collection you have open. Off by \
-    default. Turn it off when you're done.
+    default. Proxy start/stop control additionally requires the Proxy Capture window's \
+    Allow agents toggle. Turn it off when you're done.
     """
 }

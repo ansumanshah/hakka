@@ -167,7 +167,7 @@ button, input, select, textarea {
 
 /* ── Toggle HUD — compact inline expansion of the launcher (tap/Enter),
    NOT the full panel; collapses back on the next tap. ── */
-@keyframes hakka-hud-in {
+@keyframes h-hi {
   from { opacity: 0; transform: translateY(4px) scale(0.98); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
@@ -181,12 +181,13 @@ button, input, select, textarea {
   border: 1px solid var(--hakka-border);
   border-radius: var(--hakka-radius-lg);
   box-shadow: 0 4px 20px rgba(0,0,0,0.35);
-  animation: hakka-hud-in 0.15s ease-out;
+  animation: h-hi 0.15s ease-out;
 }
 @media (prefers-reduced-motion: reduce) {
   .hakka-hud { animation: none; }
 }
-.hakka-hud-header {
+.hakka-hud-header,
+.hakka-tour-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -449,7 +450,8 @@ button, input, select, textarea {
 }
 /* Wide container: Clear/Export/Session/⌘K sit inline; the kebab fallback
    stays hidden. */
-.hakka-header-actions {
+.hakka-header-actions,
+.hakka-timing-row {
   display: flex;
   align-items: center;
   gap: var(--hakka-space-md);
@@ -541,11 +543,11 @@ button, input, select, textarea {
   flex-shrink: 0;
   display: block;
 }
-@keyframes hakka-arc-pulse {
+@keyframes h-ap {
   0%, 100% { opacity: 0.35; }
   50% { opacity: 1; }
 }
-.hakka-mark-live .hakka-mark-arc { animation: hakka-arc-pulse 2.4s ease-in-out infinite; }
+.hakka-mark-live .hakka-mark-arc { animation: h-ap 2.4s ease-in-out infinite; }
 .hakka-mark-live .a2 { animation-delay: 0.3s; }
 .hakka-mark-live .a3 { animation-delay: 0.6s; }
 @media (prefers-reduced-motion: reduce) {
@@ -875,13 +877,9 @@ button, input, select, textarea {
 .hakka-chip.method-GET { --hakka-tone: var(--hakka-method-get); }
 .hakka-chip.method-POST { --hakka-tone: var(--hakka-method-post); }
 .hakka-chip.method-PUT { --hakka-tone: var(--hakka-method-put); }
-.hakka-chip.method-PATCH { --hakka-tone: var(--hakka-method-patch); }
 .hakka-chip.method-DELETE { --hakka-tone: var(--hakka-method-delete); }
 .hakka-chip.status-1xx { --hakka-tone: var(--hakka-status-pending); }
 .hakka-chip.status-2xx { --hakka-tone: var(--hakka-status-success); }
-.hakka-chip.status-3xx { --hakka-tone: var(--hakka-status-info); }
-.hakka-chip.status-4xx { --hakka-tone: var(--hakka-status-warning); }
-.hakka-chip.status-5xx { --hakka-tone: var(--hakka-status-error); }
 .hakka-chip[class*='method-'],
 .hakka-chip[class*='status-'] {
   font-family: var(--hakka-font-mono);
@@ -1398,9 +1396,9 @@ button, input, select, textarea {
    friendly, and stilled entirely under reduced motion). */
 .hakka-live-tag {
   color: var(--hakka-status-success);
-  animation: hakka-live-pulse 1.6s ease-in-out infinite;
+  animation: h-lp 1.6s ease-in-out infinite;
 }
-@keyframes hakka-live-pulse {
+@keyframes h-lp {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.45; }
 }
@@ -1480,18 +1478,19 @@ button, input, select, textarea {
 .hakka-wf-hop:hover {
   background: var(--hakka-surface);
 }
-.hakka-wf-hop.selected {
-  background: color-mix(in srgb, var(--hakka-accent) var(--hakka-tint-hover), transparent);
-}
+.hakka-chip.status-3xx,
 .hakka-wf-hop.rt-server {
   --hakka-tone: var(--hakka-status-info);
 }
+.hakka-chip.method-PATCH,
 .hakka-wf-hop.rt-edge {
   --hakka-tone: var(--hakka-method-patch);
 }
+.hakka-chip.status-4xx,
 .hakka-wf-hop.tone-warning {
   --hakka-tone: var(--hakka-status-warning);
 }
+.hakka-chip.status-5xx,
 .hakka-wf-hop.tone-error {
   --hakka-tone: var(--hakka-status-error);
 }
@@ -1657,10 +1656,6 @@ button, input, select, textarea {
   cursor: pointer;
   flex-shrink: 0;
   transition: background 0.15s;
-}
-.hakka-switch.on {
-  background: var(--hakka-accent);
-  border-color: var(--hakka-accent);
 }
 .hakka-switch-knob {
   position: absolute;
@@ -1923,7 +1918,7 @@ button, input, select, textarea {
 .hakka-tab.active::before {
   background: var(--hakka-accent);
 }
-@keyframes hakka-fade-in {
+@keyframes h-fi {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 }
@@ -2146,11 +2141,6 @@ input.hakka-json-search.no-match {
   font-size: var(--hakka-font-xs);
   color: var(--hakka-text-tertiary);
 }
-.hakka-timing-row {
-  display: flex;
-  align-items: center;
-  gap: var(--hakka-space-md);
-}
 .hakka-timing-label {
   width: 80px;
   font-size: var(--hakka-font-xs);
@@ -2201,6 +2191,7 @@ input.hakka-json-search.no-match {
   transition: background 0.1s, border-color 0.1s;
   cursor: pointer;
 }
+.hakka-switch.on,
 .hakka-row-checkbox.checked {
   background: var(--hakka-accent);
   border-color: var(--hakka-accent);
@@ -2209,6 +2200,7 @@ input.hakka-json-search.no-match {
 .hakka-row.multi-select-mode:focus .hakka-row-checkbox {
   border-color: var(--hakka-accent);
 }
+.hakka-wf-hop.selected,
 .hakka-row.row-selected {
   background: color-mix(in srgb, var(--hakka-accent) var(--hakka-tint-hover), transparent);
 }
@@ -2221,10 +2213,10 @@ input.hakka-json-search.no-match {
   background: var(--hakka-surface);
   border-top: 1px solid var(--hakka-border);
   flex-shrink: 0;
-  animation: hakka-slide-up 180ms cubic-bezier(0.22,1,0.36,1) both;
+  animation: h-su 180ms cubic-bezier(0.22,1,0.36,1) both;
   min-height: var(--hakka-ctl-h-tap);
 }
-@keyframes hakka-slide-up {
+@keyframes h-su {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
@@ -2298,23 +2290,6 @@ input.hakka-json-search.no-match {
 }
 .hakka-list.compact .hakka-row-host {
   display: none;
-}
-
-.hakka-save-filter-btn {
-  background: none;
-  border: 1px solid var(--hakka-border);
-  border-radius: var(--hakka-radius-md);
-  color: var(--hakka-text-tertiary);
-  cursor: pointer;
-  font-size: var(--hakka-font-xs);
-  padding: var(--hakka-space-xxs) var(--hakka-space-md);
-  white-space: nowrap;
-  min-height: var(--hakka-ctl-h);
-  transition: color 0.1s, background 0.1s;
-}
-.hakka-save-filter-btn:hover {
-  background: var(--hakka-surface-raised);
-  color: var(--hakka-text);
 }
 
 .hakka-saved-filters-row {
@@ -2507,7 +2482,7 @@ textarea.hakka-input {
   align-items: flex-start;
   justify-content: center;
   padding-top: 12vh;
-  animation: hakka-fade-in 120ms ease both;
+  animation: h-fi 120ms ease both;
 }
 @media (prefers-reduced-motion: reduce) {
   .hakka-palette-overlay { animation: none; }
@@ -2683,6 +2658,7 @@ textarea.hakka-input {
   color: var(--hakka-text-secondary);
 }
 
+.hakka-save-filter-btn,
 .hakka-select-mode-btn {
   background: none;
   border: 1px solid var(--hakka-border);
@@ -2700,6 +2676,7 @@ textarea.hakka-input {
   border-color: var(--hakka-accent);
   color: var(--hakka-accent);
 }
+.hakka-save-filter-btn:hover,
 .hakka-select-mode-btn:hover:not(.active) {
   background: var(--hakka-surface-raised);
   color: var(--hakka-text);
@@ -2844,7 +2821,7 @@ textarea.hakka-input {
 
 .hakka-tour-overlay {
   z-index: 2147483647;
-  animation: hakka-fade-in 0.18s ease;
+  animation: h-fi 0.18s ease;
 }
 @media (prefers-reduced-motion: reduce) {
   .hakka-tour-overlay {
@@ -2860,11 +2837,6 @@ textarea.hakka-input {
   display: flex;
   flex-direction: column;
   gap: var(--hakka-space-sm);
-}
-.hakka-tour-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
 }
 .hakka-tour-step-count {
   font-size: var(--hakka-font-xs);

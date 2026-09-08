@@ -79,7 +79,7 @@ export function stripBodies(req: NetworkRequest): NetworkRequest {
 }
 
 export type MainToWorker =
-  | { type: 'controlApplied'; rid: number; ok: boolean }
+  | { type: 'controlApplied'; rid: number; ok: boolean; data?: Record<string, unknown> }
   | { type: 'init'; config?: StoreConfig }
   | { type: 'ingest'; req: NetworkRequest }
   | { type: 'update'; partial: Partial<NetworkRequest> & { id: string } }

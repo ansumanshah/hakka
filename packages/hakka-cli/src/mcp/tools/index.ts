@@ -8,11 +8,14 @@
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 
+import { ProxySessionManager } from '../../proxy/ProxySessionManager.js'
 import type { RequestStore } from '../RequestStore.js'
 import type { SpanStore } from '../SpanStore.js'
 import { registerApplyRuleBundleTool } from './applyRuleBundle.js'
+import { registerCdpDebuggerTools } from './cdpDebuggerTools.js'
 import { registerClearTool } from './clear.js'
 import { registerClearMocksTool } from './clearMocks.js'
+import { registerCollectionWorkspaceTools } from './collectionWorkspace.js'
 import type { ControlSender } from './controlDispatch.js'
 import { registerCreateMockTool } from './createMock.js'
 import { registerDeleteBreakpointTool } from './deleteBreakpoint.js'
@@ -27,7 +30,9 @@ import { registerGetRequestTool } from './getRequest.js'
 import { registerGetTraceTool } from './getTrace.js'
 import { registerListRequestsTool } from './listRequests.js'
 import { registerListTargetsTool } from './listTargets.js'
+import { registerPageTools } from './pageTools.js'
 import { registerPromoteCaptureToMockTool } from './promoteCaptureToMock.js'
+import { registerProxySessionTools } from './proxySessions.js'
 import { registerReplayRequestTool } from './replayRequest.js'
 import { registerRunCollectionTool } from './runCollection.js'
 import { registerSearchRequestsTool } from './searchRequests.js'
@@ -43,8 +48,13 @@ export function registerTools(
   store: RequestStore,
   sender: ControlSender,
   spanStore: SpanStore,
-): void {
+): () => Promise<void> {
+  const proxySessions = new ProxySessionManager()
+  registerProxySessionTools(server, proxySessions)
+  if (process.env.HAKKA_WORKSPACE_DIR) registerCollectionWorkspaceTools(server, process.env.HAKKA_WORKSPACE_DIR)
+  const closeDebugger = registerCdpDebuggerTools(server)
   registerListTargetsTool(server, sender)
+  registerPageTools(server, sender)
   registerApplyRuleBundleTool(server, sender)
   registerRunCollectionTool(server)
   registerListRequestsTool(server, store)
@@ -68,4 +78,7 @@ export function registerTools(
   registerExportEvidenceTool(server, store, spanStore)
   registerReplayRequestTool(server, store, sender)
   registerVerifyFixTool(server, store, sender)
+  return async () => {
+    await Promise.all([proxySessions.close(), closeDebugger()])
+  }
 }

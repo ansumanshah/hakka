@@ -215,6 +215,7 @@ async function runCdp(rest: string[]): Promise<void> {
 async function usage(): Promise<void> {
   log(`Usage: ${c.cyan('hakka init')}`)
   log('       hakka run <collection-directory|request.hakka> [--json] [--env NAME=value]')
+  log('       hakka team <serve|push|pull|secret> [options]')
   log((await import('./proxyCommand.js')).proxyUsage())
   diagnoseUsage()
   assertUsage()
@@ -238,6 +239,11 @@ async function main(): Promise<void> {
     case 'run': {
       const { runCommand } = await import('./runCommand.js')
       process.exitCode = await runCommand(rest)
+      break
+    }
+    case 'team': {
+      const { teamCommand } = await import('./teamCommand.js')
+      process.exitCode = await teamCommand(rest)
       break
     }
     case 'proxy': {

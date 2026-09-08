@@ -27,7 +27,7 @@ export function createStoreMessageHandler(
   // always-on capture path never pays for a round-trip back to the main thread.
   let subscribed = false
   let controlId = 0
-  const pendingControls = new Map<number, (ok: boolean) => void>()
+  const pendingControls = new Map<number, (result: { ok: boolean; data?: Record<string, unknown> }) => void>()
 
   return {
     get subscribed() {
@@ -38,7 +38,7 @@ export function createStoreMessageHandler(
         case 'controlApplied': {
           const applied = pendingControls.get(msg.rid)
           pendingControls.delete(msg.rid)
-          applied?.(msg.ok)
+          applied?.({ ok: msg.ok, ...(msg.data ? { data: msg.data } : {}) })
           break
         }
         case 'init':
@@ -60,9 +60,9 @@ export function createStoreMessageHandler(
                 pendingControls.delete(rid)
                 applied(false)
               }, 30000)
-              pendingControls.set(rid, (ok) => {
+              pendingControls.set(rid, (result) => {
                 clearTimeout(timer)
-                applied(ok)
+                applied(result)
               })
               post({ type: 'control', payload, rid })
             },
@@ -118,7 +118,7 @@ export function createStoreMessageHandler(
           engine.bridgeConnect(msg.url)
           break
         case 'bridgeDisconnect':
-          for (const applied of pendingControls.values()) applied(false)
+          for (const applied of pendingControls.values()) applied({ ok: false })
           pendingControls.clear()
           engine.bridgeDisconnect()
           break

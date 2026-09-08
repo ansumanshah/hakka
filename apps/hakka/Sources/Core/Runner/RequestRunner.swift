@@ -22,6 +22,7 @@ public actor RequestRunner {
     /// tests the same way `transport` is; defaults to the real
     /// JavaScriptCore implementation.
     let scriptRuntime: ScriptRuntime
+    let sessionRunner = RequestSessionRunner()
 
     /// `transport` defaults to nil so the default send path and the default
     /// jar can share one cookie identity: the fallback `URLSessionTransport`
@@ -57,6 +58,20 @@ public actor RequestRunner {
             effectiveRequest, folderChain: folderChain, collection: collection, scope: scopeAfterPreRequest,
         )
         let encodedBody = try encodeBody(resolved.body)
+
+        if let session = effectiveRequest.session {
+            let record = await sessionRunner.run(resolved, session: session)
+            let assertionResults = effectiveRequest.assertions.map { AssertionEvaluator.evaluate($0, against: record) }
+            var updatedScope = scopeAfterPreRequest
+            ResponseCaptureExtractor.apply(effectiveRequest.captures, record: record, into: &updatedScope)
+            let (finalScope, scriptError) = await RequestScriptHooks.runPostResponse(
+                for: effectiveRequest,
+                record: record,
+                scope: updatedScope,
+                runtime: scriptRuntime,
+            )
+            return RunResult(record: record, assertionResults: assertionResults, scope: finalScope, scriptError: scriptError)
+        }
 
         var headers = resolved.headers
         // `resolved.headers` already carries a Content-Type set by the user or

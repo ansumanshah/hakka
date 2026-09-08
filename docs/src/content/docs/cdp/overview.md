@@ -24,6 +24,12 @@ Playwright's `CDPSession`, Puppeteer's `CDPSession`, and a raw `ws` client that 
 by matching CDP's `{id, result}` response frames to outstanding `{id, method, params}` calls all
 satisfy this without an adapter.
 
+## Source debugging through MCP
+
+The MCP source-debugging tools attach only when `HAKKA_CDP_URL` is set to an explicit Chromium target WebSocket URL. They can list parsed scripts, return at most 100,000 UTF-8 bytes of script source, set/remove line breakpoints, inspect pause frames, and resume or step. The connection closes with the MCP server and reconnects after an unexpected target disconnect. Hakka does not run arbitrary JavaScript through these tools.
+
+This is Chromium CDP functionality, not a general phone debugger. A WebView or phone browser needs its own Chromium-compatible remote-debugging target. Safari/WebKit and normal in-page Hakka capture cannot supply scripts, breakpoints, or stepping.
+
 ## Install
 
 ```bash

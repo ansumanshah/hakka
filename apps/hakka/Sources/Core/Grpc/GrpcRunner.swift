@@ -20,9 +20,11 @@ import HakkaCommon
 /// work exactly like an HTTP request in the same collection.
 public actor GrpcRunner {
     private let transport: GrpcTransport
+    private let scriptRuntime: ScriptRuntime
 
-    public init(transport: GrpcTransport = GRPCSwiftUnaryTransport()) {
+    public init(transport: GrpcTransport = GRPCSwiftUnaryTransport(), scriptRuntime: ScriptRuntime = JavaScriptCoreScriptRuntime()) {
         self.transport = transport
+        self.scriptRuntime = scriptRuntime
     }
 
     public func run(
@@ -31,7 +33,8 @@ public actor GrpcRunner {
         collection: Collection,
         scope: VariableScope,
     ) async throws(RequestRunnerError) -> RunResult {
-        let resolved = try resolvePlan(request, folderChain: folderChain, collection: collection, scope: scope)
+        let (effectiveRequest, scopeAfterPreRequest) = try await applyPreRequestScript(request, scope: scope)
+        let resolved = try resolvePlan(effectiveRequest, folderChain: folderChain, collection: collection, scope: scopeAfterPreRequest)
         guard let target = GrpcTarget(url: resolved.url) else {
             throw .resolution(.invalidURL(resolved.url.absoluteString))
         }
@@ -57,7 +60,11 @@ public actor GrpcRunner {
             startedAt: startedAt,
         )
 
-        return RunResult(record: record, assertionResults: [], scope: scope, scriptError: nil)
+        let assertionResults = effectiveRequest.assertions.map { AssertionEvaluator.evaluate($0, against: record) }
+        var updatedScope = scopeAfterPreRequest
+        ResponseCaptureExtractor.apply(effectiveRequest.captures, record: record, into: &updatedScope)
+        let (finalScope, scriptError) = await RequestScriptHooks.runPostResponse(for: effectiveRequest, record: record, scope: updatedScope, runtime: scriptRuntime)
+        return RunResult(record: record, assertionResults: assertionResults, scope: finalScope, scriptError: scriptError)
     }
 
     private func resolvePlan(
@@ -78,6 +85,16 @@ public actor GrpcRunner {
             return try RequestBodyEncoder.encode(body)
         } catch {
             throw .bodyEncoding(error)
+        }
+    }
+
+    private func applyPreRequestScript(_ request: RequestSpec, scope: VariableScope) async throws(RequestRunnerError) -> (request: RequestSpec, scope: VariableScope) {
+        do {
+            return try await RequestScriptHooks.applyPreRequest(to: request, scope: scope, runtime: scriptRuntime)
+        } catch let error as ScriptError {
+            throw .script(error)
+        } catch {
+            throw .script(.runtimeError(String(describing: error)))
         }
     }
 

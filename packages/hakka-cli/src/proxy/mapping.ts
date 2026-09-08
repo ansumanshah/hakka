@@ -61,7 +61,10 @@ export function loadProxyMappings(configPath: string | undefined): { mapLocal: s
     } catch {
       throw new Error(`mapRemote[${index}].match is not a valid regular expression.`)
     }
-    return mapArgument([rule.match, rule.replace])
+    // The config intentionally uses the familiar `$1` capture syntax. mitmproxy
+    // delegates replacement to Python `re.sub`, which requires `\\1` instead.
+    const replacement = rule.replace.replace(/\$(\d+)/g, '\\$1')
+    return mapArgument([rule.match, replacement])
   })
   return { mapLocal, mapRemote }
 }

@@ -35,6 +35,9 @@ struct AppCommands: Commands {
                 .disabled(model.collection.directoryURL == nil)
         }
         CommandMenu("Traffic") {
+            Button("Proxy Capture…") { openSourceControl(id: WindowID.proxy) }
+                .keyboardShortcut("p", modifiers: [.command, .shift])
+            Divider()
             Button("Focus Search") { model.traffic.focusSearchToken += 1 }
                 .keyboardShortcut("f", modifiers: .command)
             Divider()

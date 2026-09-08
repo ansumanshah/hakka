@@ -26,10 +26,14 @@ export interface ProxyOptions {
   redactHeaders?: string[]
   redactBodyFields?: string[]
   mitmdumpPath?: string
+  /** Task-local mitmproxy configuration directory. Hakka never reads private key material. */
+  configDir?: string
   onRecord?: (record: NetworkRequest) => void
   onDiagnostic?: (message: string) => void
   /** Bounded readiness timeout; primarily useful for deterministic integration tests. */
   startupTimeoutMs?: number
+  /** Cancels startup or stops an active capture, including exports and cleanup. */
+  signal?: AbortSignal
 }
 
 export interface ProxyCapture {
@@ -104,6 +108,7 @@ export async function startProxyCapture(options: ProxyOptions = {}): Promise<Pro
     '-s',
     addonPath(),
   ]
+  if (options.configDir) args.push('--set', `confdir=${resolve(options.configDir)}`)
   for (const rule of mappings.mapLocal) args.push('--map-local', rule)
   for (const rule of mappings.mapRemote) args.push('--map-remote', rule)
   const child = spawn(mitmdump, args, {
@@ -137,7 +142,7 @@ export async function startProxyCapture(options: ProxyOptions = {}): Promise<Pro
     startupError = new Error(`mitmdump could not start: ${error.message}`)
     rejectTerminal(startupError)
   })
-  child.once('exit', (code, signal) => {
+  child.once('close', (code, signal) => {
     if (stopping) resolveTerminal()
     else
       rejectTerminal(
@@ -154,6 +159,7 @@ export async function startProxyCapture(options: ProxyOptions = {}): Promise<Pro
     if (concise) report(concise)
   })
   const records: NetworkRequest[] = []
+  const recordIndexes = new Map<string, number>()
   let resolveReady: (() => void) | undefined
   let rejectReady: ((error: Error) => void) | undefined
   const ready = new Promise<void>((resolveReadyPromise, rejectReadyPromise) => {
@@ -161,8 +167,46 @@ export async function startProxyCapture(options: ProxyOptions = {}): Promise<Pro
     rejectReady = rejectReadyPromise
   })
   void ready.catch(() => {})
+  let stopPromise: Promise<void> | undefined
+  let becameReady = false
+  const stop = (): Promise<void> => {
+    if (stopPromise) return stopPromise
+    stopping = true
+    stopPromise = (async () => {
+      child.kill('SIGTERM')
+      let killTimer: ReturnType<typeof setTimeout> | undefined
+      try {
+        await Promise.race([
+          exited.catch(() => {}),
+          new Promise<void>((resolve) => {
+            killTimer = setTimeout(resolve, 2_000)
+          }),
+        ])
+        if (!terminalSettled) {
+          child.kill('SIGKILL')
+          await exited.catch(() => {})
+        }
+        if (becameReady) {
+          if (options.harOutput) writeFileSync(options.harOutput, JSON.stringify(buildHar(records), null, 2))
+          if (options.sessionOutput)
+            writeFileSync(options.sessionOutput, serializeSession(records, { source: 'hakka proxy' }))
+        }
+      } finally {
+        clearTimeout(killTimer)
+        options.signal?.removeEventListener('abort', abort)
+        bridge.close()
+      }
+    })()
+    return stopPromise
+  }
+  const abort = (): void => {
+    rejectReady?.(new Error('Proxy capture cancelled.'))
+    void stop().catch(() => {})
+  }
+  options.signal?.addEventListener('abort', abort, { once: true })
   createInterface({ input: child.stdout }).on('line', (line) => {
     if (line === '{"type":"ready"}') {
+      becameReady = true
       resolveReady?.()
       return
     }
@@ -173,11 +217,22 @@ export async function startProxyCapture(options: ProxyOptions = {}): Promise<Pro
       redactHeaders: options.redactHeaders,
       redactBodyFields: options.redactBodyFields,
     })
-    records.push(record)
-    if (records.length > MAX_RECORDS) records.shift()
+    const priorIndex = recordIndexes.get(record.id)
+    if (priorIndex === undefined) {
+      records.push(record)
+      recordIndexes.set(record.id, records.length - 1)
+      if (records.length > MAX_RECORDS) {
+        const removed = records.shift()
+        if (removed) recordIndexes.delete(removed.id)
+        for (const [id, index] of recordIndexes) recordIndexes.set(id, index - 1)
+      }
+    } else {
+      records[priorIndex] = record
+    }
     bridge.send(record)
     options.onRecord?.(record)
   })
+  if (options.signal?.aborted) abort()
   const timeoutMs = options.startupTimeoutMs ?? 2_000
   const readyTimer = setTimeout(
     () => rejectReady?.(new Error(`mitmdump did not report ready within ${timeoutMs}ms.`)),
@@ -187,10 +242,7 @@ export async function startProxyCapture(options: ProxyOptions = {}): Promise<Pro
   await ready
     .finally(() => clearTimeout(readyTimer))
     .catch(async (error: unknown) => {
-      stopping = true
-      child.kill('SIGTERM')
-      await exited.catch(() => {})
-      bridge.close()
+      await stop().catch(() => {})
       throw error
     })
   return {
@@ -200,22 +252,6 @@ export async function startProxyCapture(options: ProxyOptions = {}): Promise<Pro
     wait() {
       return exited
     },
-    async stop() {
-      if (stopping) return exited.catch(() => {})
-      stopping = true
-      child.kill('SIGTERM')
-      try {
-        await Promise.race([exited.catch(() => {}), new Promise<void>((resolve) => setTimeout(resolve, 2_000))])
-        if (!terminalSettled) {
-          child.kill('SIGKILL')
-          await exited.catch(() => {})
-        }
-        if (options.harOutput) writeFileSync(options.harOutput, JSON.stringify(buildHar(records), null, 2))
-        if (options.sessionOutput)
-          writeFileSync(options.sessionOutput, serializeSession(records, { source: 'hakka proxy' }))
-      } finally {
-        bridge.close()
-      }
-    },
+    stop,
   }
 }

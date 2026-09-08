@@ -1,7 +1,14 @@
 import { createSignal, For, onCleanup, onSettled, Show } from 'solid-js'
 import type { Component } from 'solid-js'
 
-import { describeElement, getPageOutline, inspectPageElement } from './pageDiagnostics'
+import {
+  describeElement,
+  getPageElements,
+  getPageOutline,
+  getRemotePageEditsEnabled,
+  inspectPageElement,
+  setRemotePageEditsEnabled,
+} from './pageDiagnostics'
 import type { PageElementSummary } from './pageDiagnostics'
 
 interface PageTabProps {
@@ -25,11 +32,9 @@ export const PageTab: Component<PageTabProps> = () => {
     const selector = query().trim()
     if (!selector) return
     try {
-      const found = [...document.querySelectorAll(selector)]
-        .filter((element) => !element.closest('hakka-inspector'))
-        .slice(0, 20)
+      const found = getPageElements(selector)
       setMatches(found)
-      setError(found.length ? '' : 'No matching page elements.')
+      setError(found.length ? '' : 'No matches.')
       if (found[0]) select(found[0])
     } catch (cause: unknown) {
       setMatches([])
@@ -59,8 +64,8 @@ export const PageTab: Component<PageTabProps> = () => {
       <div class="hakka-page-search">
         <input
           class="hakka-input hakka-input-mono"
-          aria-label="Find page elements with a CSS selector"
-          placeholder="#checkout, main article"
+          aria-label="Find by CSS"
+          placeholder="#checkout, main"
           value={query()}
           onInput={(event) => setQuery(event.currentTarget.value)}
           onKeyDown={(event) => event.key === 'Enter' && find()}
@@ -73,12 +78,20 @@ export const PageTab: Component<PageTabProps> = () => {
           onClick={() => setPicking(!picking())}
           aria-pressed={picking() ? 'true' : 'false'}
         >
-          {picking() ? 'Cancel pick' : 'Pick'}
+          {picking() ? 'Cancel' : 'Pick'}
         </button>
       </div>
       <Show when={picking()}>
-        <p class="hakka-hint hakka-hint-em">Tap an element on the page to inspect it.</p>
+        <p class="hakka-hint hakka-hint-em">Tap an element to inspect it.</p>
       </Show>
+      <label class="hakka-hint">
+        <input
+          type="checkbox"
+          checked={getRemotePageEditsEnabled()}
+          onChange={(event) => setRemotePageEditsEnabled(event.currentTarget.checked)}
+        />{' '}
+        Allow remote edits this session
+      </label>
       <Show when={error()}>
         <p class="hakka-page-error" role="alert">
           {error()}
@@ -95,10 +108,7 @@ export const PageTab: Component<PageTabProps> = () => {
             )}
           </For>
         </div>
-        <Show
-          when={selected()}
-          fallback={<p class="hakka-hint">Choose an element to see its attributes and computed style.</p>}
-        >
+        <Show when={selected()} fallback={<p class="hakka-hint">Choose an element to inspect.</p>}>
           {(summary) => (
             <div class="hakka-page-detail">
               <div class="hakka-section-title flush">{summary().selector}</div>
@@ -106,19 +116,11 @@ export const PageTab: Component<PageTabProps> = () => {
                 <p class="hakka-page-text">{summary().text}</p>
               </Show>
               <div class="hakka-page-grid">
-                <For each={summary().attributes}>
+                <For each={summary().attributes.concat(summary().styles)}>
                   {([name, value]) => (
                     <>
                       <code>{name}</code>
                       <span>{value || '—'}</span>
-                    </>
-                  )}
-                </For>
-                <For each={summary().styles}>
-                  {([name, value]) => (
-                    <>
-                      <code>{name}</code>
-                      <span>{value}</span>
                     </>
                   )}
                 </For>

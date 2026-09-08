@@ -23,6 +23,7 @@ import {
   type ConnectionStatus,
   type FrameworkSpan,
   type NetworkRequest,
+  type RuntimeControlApplyResult,
 } from 'hakka-core'
 
 import { filterRequests } from './filter'
@@ -32,7 +33,7 @@ const DEFAULT_DESKTOP_URL = 'ws://localhost:8989'
 
 type RequestSink = (req: NetworkRequest) => void
 type BridgeSink = (status: ConnectionStatus) => void
-type ControlSink = (payload: unknown, applied?: (ok: boolean) => void) => void
+type ControlSink = (payload: unknown, applied?: (result: RuntimeControlApplyResult) => void) => void
 type SpanSink = (span: FrameworkSpan) => void
 
 let started = false
@@ -154,7 +155,7 @@ function openBridgeSocket(): void {
   const control = new RuntimeControlReceiver(
     'browser',
     RUNTIME_CONTROL_CAPABILITIES,
-    (command) => new Promise<boolean>((resolve) => onControl(command, resolve)),
+    (command) => new Promise<RuntimeControlApplyResult>((resolve) => onControl(command, resolve)),
     (message) => {
       if (ws === socket && socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message))
     },

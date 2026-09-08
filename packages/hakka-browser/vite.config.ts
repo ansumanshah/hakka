@@ -2,25 +2,17 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import solid from '@solidjs/vite-plugin'
+import { transform as transformCss } from 'lightningcss'
 import { minify } from 'terser'
 import { defineConfig, type Plugin } from 'vite'
 
 /**
- * Conservative, dependency-free CSS minifier for the STYLES template literal
- * in `ui/styles.ts` (comments + whitespace only — never the space before `:`,
- * which can be a descendant combinator). Full rationale for why this exists
- * instead of a lightningcss/esbuild devDependency:
- * docs/contributing/build-pipeline.md § "CSS minifier scope". One definition
- * now, shared by the overlay and elements builds below (was duplicated).
+ * Minifies the CSS embedded in the STYLES template literal. Vite already uses
+ * Lightning CSS in this build, so the embedded sheet gets the same safe rule
+ * merging and declaration compression as emitted CSS assets.
  */
 function minifyCss(css: string): string {
-  return css
-    .replace(/\/\*[\s\S]*?\*\//g, '') // strip /* ... */ comments
-    .replace(/\s+/g, ' ') // collapse whitespace runs (incl. newlines/indent) to one space
-    .replace(/([{;,:])\s+/g, '$1') // drop the space *after* a structural char
-    .replace(/\s+([{;,}])/g, '$1') // drop the space *before* one (never `:` — see above)
-    .replace(/;}/g, '}') // a trailing semicolon before a close brace is dead weight
-    .trim()
+  return transformCss({ filename: 'hakka.css', code: Buffer.from(css), minify: true }).code.toString()
 }
 
 /** Applies `minifyCss` to `ui/styles.ts`'s `STYLES` template literal at build
@@ -50,6 +42,26 @@ function minifyInlineStyles(): Plugin {
       const tail = code.slice(end)
       const minified = minifyCss(cssBody).replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${')
       return { code: `${head}${minified}${tail}`, map: null }
+    },
+  }
+}
+
+/** Compresses Rollup's completed wrappers and import glue after per-chunk minification. */
+function minifyCompletedChunks(): Plugin {
+  return {
+    name: 'hakka-minify-completed-chunks',
+    enforce: 'post',
+    apply: 'build',
+    async generateBundle(_options, bundle) {
+      for (const output of Object.values(bundle)) {
+        if (output.type !== 'chunk') continue
+        const result = await minify(output.code, {
+          compress: { passes: 4 },
+          format: { ascii_only: true },
+          module: output.fileName !== 'hakka-browser.global.js',
+        })
+        if (result.code) output.code = result.code
+      }
     },
   }
 }
@@ -137,7 +149,7 @@ export default defineConfig(({ mode }) => {
     // the shared chunk(s) it needs. See build-pipeline.md § "Elements build".
     return {
       define: { 'import.meta.env.MODE': JSON.stringify('production') },
-      plugins: [solid(), minifyInlineStyles()],
+      plugins: [solid(), minifyInlineStyles(), minifyCompletedChunks()],
       build: {
         outDir: 'dist/elements',
         target: 'es2020',
@@ -191,7 +203,7 @@ export default defineConfig(({ mode }) => {
   //  - ESM  `dist/hakka-browser.js`        — `import { hakka } from 'hakka-browser'`
   //  - IIFE `dist/hakka-browser.global.js` — `<script>` drop-in, exposes `window.Hakka`
   return {
-    plugins: [solid(), minifyInlineStyles()],
+    plugins: [solid(), minifyInlineStyles(), minifyCompletedChunks()],
     build: {
       target: 'es2020',
       lib: {

@@ -9,6 +9,7 @@ enum RequestTab: String, CaseIterable, Identifiable {
     case auth = "Auth"
     case tests = "Tests"
     case scripts = "Scripts"
+    case session = "Session"
     case docs = "Docs"
 
     var id: String { rawValue }

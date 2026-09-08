@@ -16,6 +16,7 @@
 import { applyControlCommand, parseControlCommand } from 'hakka-core'
 import type { AdvancedQuery, ConnectionStatus, FrameworkSpan, NetworkRequest } from 'hakka-core'
 
+import { applyPageControl } from '../ui/pageDiagnostics'
 import type { BodyPair, MainToWorker, OtelOptions, StoreConfig, StoreQuery, WorkerToMain } from './protocol'
 // Static specifier so Vite inlines the worker as a blob URL into the
 // single-file bundle; only *instantiated* when a Worker is actually
@@ -84,9 +85,11 @@ export interface StoreClientOptions {
  * hakka mcp's create_mock) to this thread's engine singletons. Validation +
  * application are both fail-open: malformed payloads are dropped silently.
  */
-function applyRemoteControl(payload: unknown): boolean {
+function applyRemoteControl(payload: unknown): boolean | { ok: boolean; data?: Record<string, unknown> } {
   const cmd = parseControlCommand(payload)
-  return cmd ? applyControlCommand(cmd).ok : false
+  if (!cmd) return false
+  if (cmd.kind === 'page.inspect' || cmd.kind === 'page.edit' || cmd.kind === 'page.undo') return applyPageControl(cmd)
+  return applyControlCommand(cmd).ok
 }
 
 function createFanout() {
@@ -121,8 +124,8 @@ function createInProcessClient(opts: StoreClientOptions): StoreClient {
     (req) => fan.emitRequest(req),
     (s) => fan.emitStatus(s),
     (payload, applied) => {
-      const ok = applyRemoteControl(payload)
-      applied?.(ok)
+      const result = applyRemoteControl(payload)
+      applied?.(result)
     },
     (span) => fan.emitSpan(span),
   )
@@ -227,9 +230,15 @@ export function createWorkerClient(worker: Worker, opts: StoreClientOptions): St
         fan.emitStatus(msg.status)
         break
       case 'control': {
-        const ok = applyRemoteControl(msg.payload)
+        const result = applyRemoteControl(msg.payload)
+        const ok = typeof result === 'boolean' ? result : result.ok
         if (msg.rid !== undefined)
-          worker.postMessage({ type: 'controlApplied', rid: msg.rid, ok } satisfies MainToWorker)
+          worker.postMessage({
+            type: 'controlApplied',
+            rid: msg.rid,
+            ok,
+            ...(typeof result === 'object' && result.data ? { data: result.data } : {}),
+          } satisfies MainToWorker)
         break
       }
       case 'result': {
