@@ -59,8 +59,10 @@ advantage when the problem may be DOM, CSS, storage, or JavaScript rather than t
 
 Hakka now includes a [phone debugger](/web/page-debugger/) with JavaScript command execution,
 history, selector inspection, a tap picker, DOM outline, and computed styles. Its web UI
-also uses the same capture model as server and native SDKs. Source breakpoints, execution
-stepping, and full CSS editing still belong to a dedicated browser debugger.
+also uses the same capture model as server and native SDKs. Opt-in agent tools inspect
+and edit DOM text, attributes, and inline CSS with undo. Source breakpoints and stepping
+use an explicitly attached Chromium CDP target; an in-page phone overlay alone cannot
+provide the browser engine's debugger.
 
 ### Chrome DevTools
 
@@ -163,14 +165,16 @@ authored request files, and declarative rules. See [collection runs](/testing/co
   Certificate-pinned apps and traffic that bypasses the proxy remain outside that path.
 - **Release distribution is still pending.** These are repository capabilities; publishing
   the coordinated package set and producing a signed macOS release remain release tasks.
-- **Phone diagnostics are useful but bounded.** Selector inspection and command execution
-  do not include source-level stepping, full CSS editing, or a browser performance profiler.
-- **Portable runs have an explicit supported subset.** HTTP/HTTPS and GraphQL bodies work
-  with declarative assertions/captures. Desktop JavaScript hooks, multipart/file bodies,
-  and additional protocol transports are not silently emulated by the CLI.
-- **Collaboration stays local and file-based.** Collections and rules can be reviewed in Git;
-  finite runs can be scheduled by your CI. Hakka does not provide hosted team workspaces,
-  a managed monitoring service, or cloud synchronization.
+- **Phone diagnostics are useful but bounded.** DOM/inline CSS edits have undo. Engine-level
+  source debugging needs an explicit Chromium CDP connection; a full browser performance
+  profiler and Safari source-debugging integration are still absent.
+- **Portable runs have an explicit supported subset.** HTTP/HTTPS, GraphQL, multipart/files,
+  OAuth token grants, finite WebSocket/SSE sessions, and raw unary gRPC use assertions and
+  captures. Local CLI hooks are permitted; MCP and server monitors reject executable hooks.
+  Interactive OAuth authorization and gRPC streaming/reflection remain separate work.
+- **Collaboration is self-hosted.** The team service adds revisioned collection synchronization,
+  role-scoped tokens, secret-backed monitors, and run history. It does not provide managed
+  hosting, an account dashboard, or an operated cloud service.
 
 ## Method
 

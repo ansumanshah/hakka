@@ -45,11 +45,12 @@ final class MCPServerModel {
     /// suite's own throwaway servers, the Settings pane wants a fixed,
     /// memorable port so a URL an agent saved once keeps working the next
     /// time the toggle is flipped on.
-    convenience init(trafficStore: TrafficStore, collectionModel: CollectionModel, port: UInt16 = mcpDefaultPort) {
+    convenience init(trafficStore: TrafficStore, collectionModel: CollectionModel, port: UInt16 = mcpDefaultPort, additionalTools: [any MCPTool] = []) {
         self.init(server: MCPServer(
             trafficSource: trafficStore,
             collectionDirectoryProvider: MCPCollectionDirectoryAdapter(collectionModel: collectionModel),
             port: port,
+            additionalTools: additionalTools,
         ))
     }
 

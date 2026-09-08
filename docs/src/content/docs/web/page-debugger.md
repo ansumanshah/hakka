@@ -1,6 +1,6 @@
 ---
 title: Phone page debugger
-description: Inspect a live web page and run a small, explicit JavaScript command from Hakka.
+description: Inspect a live web page, make explicitly approved reversible edits, and understand the remote-debugging boundary.
 ---
 
 Hakka's browser overlay includes a **Page** tab and a **Run** view in **Logs** for diagnosing a page when desktop browser tools are not available.
@@ -21,7 +21,17 @@ document.querySelector('#checkout')?.textContent
 await fetch('/health').then((response) => response.json())
 ```
 
-This is a focused in-page diagnostic surface. It does not provide DOM editing, script sources, breakpoints, or a full browser debugging protocol.
+## Remote MCP inspection and edits
+
+When the overlay is connected to Hakka's bridge, MCP clients can use `inspect_page` to retrieve a bounded selector or DOM outline. Configure the bridge's optional shared token when the connection is exposed beyond a trusted local environment. Inspection does not evaluate supplied JavaScript.
+
+`edit_page` can change one text value, attribute, or inline CSS property, and returns a `changeId` for `undo_page`. Remote edits start **disabled**. A person using the overlay must enable **Allow remote page edits for this session** before an MCP client can change the page. Turning the option off restores outstanding edits; reloading the page also clears them. Hakka rejects script-text edits, event-handler attributes, `srcdoc`, and `javascript:` URL attributes.
+
+This works for an in-page Hakka browser runtime, including a phone WebView that has Hakka installed. It does not turn Safari, an arbitrary native screen, or an unrelated phone browser into a source debugger.
+
+## Source debugging
+
+Script sources, line breakpoints, pause, resume, and stepping require an explicitly attached Chromium CDP target. Set `HAKKA_CDP_URL` to that target's `ws://.../devtools/page/...` URL before exposing the MCP debugger tools. A phone needs a Chromium-compatible remote-debugging engine and an attached target; Safari/WebKit and plain in-page capture do not provide this CDP surface.
 
 ## Local programmatic inspection
 

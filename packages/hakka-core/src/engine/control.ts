@@ -94,6 +94,15 @@ export type ControlCommand =
   | { kind: 'breakpoint.abort'; pauseId: string }
   | { kind: 'throttle.set'; profile: ThrottleProfile; latencyMs?: number; downloadKbps?: number }
   | { kind: 'request.replay'; requestId: string; replayMarker?: string }
+  | { kind: 'page.inspect'; selector?: string; limit?: number }
+  | {
+      kind: 'page.edit'
+      selector: string
+      text?: string
+      attribute?: { name: string; value?: string }
+      style?: { name: string; value?: string }
+    }
+  | { kind: 'page.undo'; changeId: string }
 
 /**
  * `breakpoint.paused` is the one command kind that travels device -> host;
@@ -442,6 +451,45 @@ export function parseControlCommand(raw: unknown): ControlCommand | null {
         if (replayMarker !== undefined && !isExternalId(replayMarker)) return null
         return { kind: 'request.replay', requestId, replayMarker: replayMarker as string | undefined }
       }
+      case 'page.inspect': {
+        if (raw.selector !== undefined && (typeof raw.selector !== 'string' || raw.selector.length > 512)) return null
+        if (
+          raw.limit !== undefined &&
+          (!Number.isInteger(raw.limit) || (raw.limit as number) < 1 || (raw.limit as number) > 100)
+        )
+          return null
+        return {
+          kind: 'page.inspect',
+          selector: raw.selector as string | undefined,
+          limit: raw.limit as number | undefined,
+        }
+      }
+      case 'page.edit': {
+        if (typeof raw.selector !== 'string' || raw.selector.length === 0 || raw.selector.length > 512) return null
+        const validPair = (value: unknown): value is { name: string; value?: string } =>
+          isPlainObject(value) &&
+          typeof value.name === 'string' &&
+          value.name.length > 0 &&
+          value.name.length <= 128 &&
+          (value.value === undefined || (typeof value.value === 'string' && value.value.length <= 4096))
+        if (raw.text !== undefined && (typeof raw.text !== 'string' || raw.text.length > 4096)) return null
+        if (
+          (raw.attribute !== undefined && !validPair(raw.attribute)) ||
+          (raw.style !== undefined && !validPair(raw.style))
+        )
+          return null
+        if ([raw.text !== undefined, raw.attribute !== undefined, raw.style !== undefined].filter(Boolean).length !== 1)
+          return null
+        return {
+          kind: 'page.edit',
+          selector: raw.selector,
+          text: raw.text as string | undefined,
+          attribute: raw.attribute as { name: string; value?: string } | undefined,
+          style: raw.style as { name: string; value?: string } | undefined,
+        }
+      }
+      case 'page.undo':
+        return isExternalId(raw.changeId) ? { kind: 'page.undo', changeId: raw.changeId } : null
       default:
         return null
     }
@@ -510,6 +558,10 @@ export function applyControlCommand(cmd: ControlCommand): { ok: true } | { ok: f
         void replayRequest(req, cmd.replayMarker)
         return { ok: true }
       }
+      case 'page.inspect':
+      case 'page.edit':
+      case 'page.undo':
+        return { ok: false, error: 'page commands require a DOM-capable runtime adapter' }
       default: {
         // Exhaustiveness guard — parseControlCommand should never produce this.
         const _exhaustive: never = cmd

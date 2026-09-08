@@ -105,7 +105,7 @@ describe('Inspector tab bar', () => {
     await flush()
 
     const input = await waitFor(() => {
-      const element = q(container, '[aria-label="Find page elements with a CSS selector"]') as HTMLInputElement | null
+      const element = q(container, '[aria-label="Find by CSS"]') as HTMLInputElement | null
       expect(element).toBeTruthy()
       return element!
     })

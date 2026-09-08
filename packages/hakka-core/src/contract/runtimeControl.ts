@@ -10,6 +10,9 @@ export const RUNTIME_CONTROL_CAPABILITIES = [
   'breakpoint.abort',
   'throttle.set',
   'request.replay',
+  'page.inspect',
+  'page.edit',
+  'page.undo',
 ] as const
 export type RuntimeCapability = (typeof RUNTIME_CONTROL_CAPABILITIES)[number]
 export type RuntimeKind = 'browser' | 'react-native' | 'ios' | 'android' | 'server' | 'edge' | 'unknown'
@@ -33,6 +36,7 @@ export interface RuntimeControlResult {
   targetId: string
   status: 'applied' | 'failed'
   error?: RuntimeControlError
+  data?: Record<string, unknown>
 }
 export type RuntimeControlMessage =
   | {
@@ -134,6 +138,7 @@ export function parseRuntimeControlMessage(value: unknown): RuntimeControlMessag
       if (!id(payload.commandId) || !id(payload.targetId)) return null
       if (payload.status === 'applied') {
         if (payload.error !== undefined) return null
+        if (payload.data !== undefined && !object(payload.data)) return null
       } else if (payload.status !== 'failed' || typeof payload.error !== 'string' || !errors.has(payload.error))
         return null
       break

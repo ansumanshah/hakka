@@ -21,7 +21,7 @@ describe('loadProxyMappings', () => {
 
     expect(loadProxyMappings(config)).toEqual({
       mapLocal: [`@^https://example.test/a$@${join(directory, 'fixtures', 'response.json')}`],
-      mapRemote: ['@^https://example.test/(.*)$@http://127.0.0.1:4010/$1'],
+      mapRemote: ['@^https://example.test/(.*)$@http://127.0.0.1:4010/\\1'],
     })
   })
 

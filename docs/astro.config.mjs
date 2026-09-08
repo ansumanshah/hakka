@@ -164,6 +164,8 @@ export default defineConfig({
             'cli/overview',
             'bridge/overview',
             'mcp/overview',
+            'mcp/collections',
+            'team/overview',
             'testing/overview',
             'testing/collection-runner',
             'web/page-debugger',

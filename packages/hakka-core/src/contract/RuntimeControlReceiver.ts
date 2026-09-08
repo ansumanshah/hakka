@@ -6,6 +6,8 @@ import {
   type RuntimeKind,
 } from './runtimeControl'
 
+export type RuntimeControlApplyResult = boolean | { ok: boolean; data?: Record<string, unknown> }
+
 /** Runtime-side targeted application. The connection owns one receiver and its duplicate cache. */
 export class RuntimeControlReceiver {
   private closed = false
@@ -14,7 +16,7 @@ export class RuntimeControlReceiver {
   constructor(
     private readonly runtime: RuntimeKind,
     private readonly capabilities: readonly RuntimeCapability[],
-    private readonly apply: (command: ControlCommand) => boolean | Promise<boolean>,
+    private readonly apply: (command: ControlCommand) => RuntimeControlApplyResult | Promise<RuntimeControlApplyResult>,
     private readonly send: (message: RuntimeControlMessage) => void,
   ) {}
 
@@ -51,8 +53,18 @@ export class RuntimeControlReceiver {
       }
       Promise.resolve()
         .then(() => !this.closed && this.apply(command))
-        .then((ok) => {
-          if (ok) this.send({ type: 'control.result', payload: { commandId, targetId, status: 'applied' } })
+        .then((result) => {
+          const ok = typeof result === 'boolean' ? result : result.ok
+          if (ok)
+            this.send({
+              type: 'control.result',
+              payload: {
+                commandId,
+                targetId,
+                status: 'applied',
+                ...(typeof result === 'object' && result.data ? { data: result.data } : {}),
+              },
+            })
           else fail('apply_failed')
         })
         .catch(() => fail('apply_failed'))

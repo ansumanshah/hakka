@@ -20,7 +20,8 @@ public struct MCPServer: Sendable {
     public init(
         trafficSource: MCPTrafficSource,
         collectionDirectoryProvider: MCPCollectionDirectoryProvider,
-        port: UInt16 = mcpDefaultPort
+        port: UInt16 = mcpDefaultPort,
+        additionalTools: [any MCPTool] = []
     ) {
         let collectionSource = MCPCollectionSource(provider: collectionDirectoryProvider)
         let registry = MCPToolRegistry(tools: [
@@ -28,7 +29,7 @@ public struct MCPServer: Sendable {
             MCPGetRequestTool(source: trafficSource),
             MCPListCollectionsTool(source: collectionSource),
             MCPGetCollectionRequestTool(source: collectionSource),
-        ])
+        ] + additionalTools)
         self.registry = registry
         self.httpServer = MCPHTTPServer(handler: MCPRequestHandler(registry: registry), port: port)
     }

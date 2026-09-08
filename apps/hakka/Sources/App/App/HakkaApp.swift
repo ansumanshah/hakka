@@ -14,6 +14,7 @@ struct HakkaApp: App {
                     // `AppDelegate` is constructed before `AppModel` exists
                     // (see its own doc comment), so the hand-off happens here.
                     appDelegate.pauseInbox = model.pauseInbox
+                    appDelegate.proxy = model.proxy
                     // All five loops run for the scene's lifetime: the rules,
                     // pause, logs, and storage mirrors are concurrent
                     // children so none can starve the traffic stream (all
@@ -50,6 +51,9 @@ struct HakkaApp: App {
             SettingsView()
                 .environment(model)
         }
+        Window("Proxy Capture", id: WindowID.proxy) {
+            ProxyCaptureView().environment(model)
+        }
     }
 }
 
@@ -57,4 +61,5 @@ struct HakkaApp: App {
 /// that opens it cannot drift apart on a string literal.
 enum WindowID {
     static let sourceControl = "source-control"
+    static let proxy = "proxy-capture"
 }

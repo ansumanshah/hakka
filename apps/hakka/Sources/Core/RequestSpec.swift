@@ -95,12 +95,8 @@ public struct MultipartPart: Sendable, Codable, Equatable, Identifiable {
 /// header" because the code generators and the redaction rules both need to
 /// know which values are credentials.
 ///
-/// `oauth2`'s payload is a single unlabeled `OAuth2Config` rather than
-/// `oauth2(accessToken: String)` deliberately: SE-0295's synthesized
-/// `Codable` encodes an unlabeled single-value case directly as
-/// `{"oauth2": <payload>}`, with no extra wrapper key. That is what makes
-/// `OAuth2Config`'s own decode able to recognize and upgrade the pre-1.3
-/// shape `{"oauth2": {"accessToken": "..."}}` — see its `init(from:)`.
+/// Associated OAuth2 configurations use Swift Codable's `_0` wrapper. Token
+/// grants retain their own associated-value wrapper inside that configuration.
 public enum AuthSpec: Sendable, Codable, Equatable {
     /// Use the parent folder's/collection's auth.
     case inherit
@@ -151,6 +147,9 @@ public struct RequestSpec: Sendable, Codable, Equatable, Identifiable {
     /// pre-existing version-3 `.hakka` file (no `scripts` key at all) keep
     /// decoding without any custom `init(from:)` here.
     public var scripts: RequestScripts?
+    /// A bounded WebSocket or SSE exchange. `nil` keeps the normal one-shot
+    /// HTTP request behavior and the live WebSocket console unchanged.
+    public var session: RequestSessionSpec?
 
     public init(
         id: String = UUID().uuidString,
@@ -167,6 +166,7 @@ public struct RequestSpec: Sendable, Codable, Equatable, Identifiable {
         timeout: Double? = nil,
         followRedirects: Bool = true,
         scripts: RequestScripts? = nil,
+        session: RequestSessionSpec? = nil,
     ) {
         self.id = id
         self.name = name
@@ -182,5 +182,6 @@ public struct RequestSpec: Sendable, Codable, Equatable, Identifiable {
         self.timeout = timeout
         self.followRedirects = followRedirects
         self.scripts = scripts
+        self.session = session
     }
 }

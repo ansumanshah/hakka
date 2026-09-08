@@ -40,6 +40,11 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
+    "./run": {
+      "source": "./src/runCommand.ts",
+      "types": "./dist/runCommand.d.mts",
+      "default": "./dist/runCommand.mjs"
+    },
     "./mcp": {
       "source": "./src/mcp/index.ts",
       "types": "./dist/mcp/index.d.mts",

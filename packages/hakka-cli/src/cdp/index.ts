@@ -41,3 +41,5 @@ export type {
 export type { NetworkRequest, RequestRuntime } from 'hakka-core'
 
 export const HAKKA_CDP_VERSION = '0.0.1'
+export { CdpDebugger } from './debugger.js'
+export type { ScriptSource, PausedLocation } from './debugger.js'

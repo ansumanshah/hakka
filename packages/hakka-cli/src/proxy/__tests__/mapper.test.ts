@@ -101,4 +101,58 @@ describe('mapProxyFlow', () => {
     expect(request.responseBody).toBeNull()
     expect(request.responseBodyTruncated).toBe(true)
   })
+
+  test('maps bounded websocket frames and redacts JSON frame text before bridge delivery', () => {
+    const request = mapProxyFlow(
+      {
+        type: 'flow',
+        id: 'socket',
+        startedAt: 1,
+        endedAt: 2,
+        method: 'GET',
+        url: 'wss://example.test/chat',
+        requestHeaders: [],
+        messages: [
+          { timestamp: 1, direction: 'sent', data: '{"token":"top-secret"}', size: 22 },
+          { timestamp: 2, direction: 'received', data: 'AQI=', size: 2, binary: true },
+        ],
+      },
+      { redactBodyFields: ['token'] },
+    )
+    expect(request).toMatchObject({
+      source: 'websocket',
+      wsProtocol: '',
+      messages: [
+        { direction: 'sent', data: '{"token":"[REDACTED]"}' },
+        { binary: true, data: 'AQI=' },
+      ],
+    })
+    expect(JSON.stringify(request)).not.toContain('top-secret')
+  })
+
+  test('withholds an oversized websocket text frame instead of retaining a secret prefix', () => {
+    const secret = 'top-secret'
+    const request = mapProxyFlow(
+      {
+        type: 'flow',
+        id: 'large-socket',
+        startedAt: 1,
+        endedAt: 2,
+        method: 'GET',
+        url: 'wss://example.test/chat',
+        requestHeaders: [],
+        messages: [
+          {
+            timestamp: 1,
+            direction: 'received',
+            data: `${secret}${'x'.repeat(1024 * 1024)}`,
+            size: 1024 * 1024 + secret.length,
+          },
+        ],
+      },
+      { maxBodySize: 4 },
+    )
+    expect(request.messages?.[0]).toMatchObject({ data: 1024 * 1024 + secret.length, truncated: true })
+    expect(JSON.stringify(request)).not.toContain(secret)
+  })
 })

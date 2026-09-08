@@ -34,6 +34,7 @@ struct RequestEditorContainerView: View {
                 lastRunError: model.editor.lastRunError,
                 postResponseScriptError: model.editor.lastResult?.scriptError,
             )
+        case .session: RequestSessionTabView(spec: specBinding)
         case .docs: RequestDocsTabView(spec: specBinding)
         }
     }

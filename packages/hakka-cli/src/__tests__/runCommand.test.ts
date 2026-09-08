@@ -1,8 +1,11 @@
 import { afterEach, describe, expect, it } from 'bun:test'
 import { mkdtemp, rm, writeFile, readFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
+import { createServer as createHttp2Server } from 'node:http2'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+
+import { WebSocketServer } from 'ws'
 
 import { runCollection } from '../runCommand'
 
@@ -35,6 +38,11 @@ async function server(): Promise<{ base: string; seen: string[]; close: () => Pr
     if (request.url === '/login') {
       response.setHeader('content-type', 'application/json')
       response.end('{"id":"42"}')
+      return
+    }
+    if (request.url === '/token') {
+      response.setHeader('content-type', 'application/json')
+      response.end('{"access_token":"token-from-endpoint","refresh_token":"rotated"}')
       return
     }
     if (request.url === '/users/42') {
@@ -194,5 +202,166 @@ describe('runCollection', () => {
     })
     await expect(runCollection(dir, { repeat: 0 })).rejects.toThrow('--repeat must be an integer')
     await expect(runCollection(dir, { timeoutMs: Number.NaN })).rejects.toThrow('--timeout-ms must be an integer')
+  })
+
+  it('sends binary multipart files relative to the collection and runs hook mutations', async () => {
+    const local = await server()
+    try {
+      const dir = await fixture({
+        'collection.hakka': { version: 4, id: 'c', name: 'test', defaultHeaders: [], auth: { none: {} }, notes: null },
+        'upload.hakka': request(0, 'upload', 'upload', 'POST', '{{BASE}}/login', {
+          scripts: {
+            preRequestLines: ["request.headers['X-Hook'] = 'yes'; vars.set('hooked', '42')"],
+            postResponseLines: ["vars.set('responseStatus', response.status)"],
+          },
+          headers: [],
+          body: {
+            multipart: {
+              _0: [
+                { id: 'text', name: 'field', value: '{{hooked}}', enabled: true },
+                {
+                  id: 'file',
+                  name: 'file',
+                  value: '',
+                  filePath: 'payload.bin',
+                  contentType: 'application/octet-stream',
+                  enabled: true,
+                },
+              ],
+            },
+          },
+        }),
+      })
+      await writeFile(join(dir, 'payload.bin'), Buffer.from([0, 255, 10]))
+      const report = await runCollection(dir, { environment: { BASE: local.base } })
+      expect(report.failed).toBe(0)
+      expect(local.seen[0]).toContain('field')
+      expect(local.seen[0]).toContain('42')
+    } finally {
+      await local.close()
+    }
+  })
+
+  it('obtains a client-credentials token without reporting it', async () => {
+    const local = await server()
+    try {
+      const dir = await fixture({
+        'collection.hakka': { version: 4, id: 'c', name: 'test', defaultHeaders: [], auth: { none: {} }, notes: null },
+        'request.hakka': request(0, 'oauth', 'oauth', 'GET', '{{BASE}}/users/42', {
+          auth: {
+            oauth2: {
+              _0: {
+                grant: {
+                  clientCredentials: {
+                    _0: {
+                      tokenURL: '{{BASE}}/token',
+                      clientId: 'client',
+                      clientSecret: 'secret',
+                      scope: 'read',
+                    },
+                  },
+                },
+                accessTokenVariable: 'token',
+                refreshTokenVariable: 'refresh',
+                expiresAtVariable: 'expiry',
+              },
+            },
+          },
+        }),
+      })
+      const report = await runCollection(dir, { environment: { BASE: local.base } })
+      expect(report.items[0]?.outcome).toBe('passed')
+      expect(local.seen).toContain(`GET /users/42 Bearer token-from-endpoint `)
+    } finally {
+      await local.close()
+    }
+  })
+
+  it('runs bounded WebSocket and SSE sessions and exposes their JSON bodies to assertions', async () => {
+    const webSocket = new WebSocketServer({ port: 0 })
+    webSocket.on('connection', (socket) =>
+      socket.on('message', (message) => {
+        socket.send(message)
+        socket.send('second')
+      }),
+    )
+    await new Promise<void>((done) => webSocket.once('listening', done))
+    const address = webSocket.address()
+    if (!address || typeof address === 'string') throw new Error('no websocket address')
+    const sse = createServer((_request, response) => {
+      response.writeHead(200, { 'content-type': 'text/event-stream' })
+      response.write('event: first\ndata: one\n\n')
+      response.end('event: second\ndata: two\n\n')
+    })
+    await new Promise<void>((done) => sse.listen(0, '127.0.0.1', done))
+    const sseAddress = sse.address()
+    if (!sseAddress || typeof sseAddress === 'string') throw new Error('no sse address')
+    try {
+      const dir = await fixture({
+        'collection.hakka': {
+          version: 5,
+          id: 'c',
+          name: 'sessions',
+          defaultHeaders: [],
+          auth: { none: {} },
+          notes: null,
+        },
+        'ws.hakka': request(0, 'ws', 'ws', 'GET', `ws://127.0.0.1:${address.port}`, {
+          session: { webSocket: { sendFrames: [{ data: 'one', isBinary: false }], maxFrames: 2, timeoutMs: 500 } },
+          assertions: [
+            {
+              id: 'frames',
+              target: { jsonPath: { _0: 'frames[1].data' } },
+              op: 'equals',
+              expected: 'second',
+              enabled: true,
+            },
+          ],
+        }),
+        'sse.hakka': request(1, 'sse', 'sse', 'GET', `http://127.0.0.1:${sseAddress.port}`, {
+          session: { sse: { maxEvents: 2, timeoutMs: 500 } },
+          assertions: [
+            {
+              id: 'events',
+              target: { jsonPath: { _0: 'events[1].data' } },
+              op: 'equals',
+              expected: 'two',
+              enabled: true,
+            },
+          ],
+        }),
+      })
+      const report = await runCollection(dir)
+      expect(report.failed).toBe(0)
+    } finally {
+      await new Promise<void>((done) => webSocket.close(() => done()))
+      await new Promise<void>((done, fail) => sse.close((error) => (error ? fail(error) : done())))
+    }
+  })
+
+  it('runs a canonical raw unary gRPC request over HTTP/2 and asserts its trailer', async () => {
+    const grpc = createHttp2Server()
+    grpc.on('stream', (stream) => {
+      stream.respond({ ':status': 200, 'content-type': 'application/grpc' }, { waitForTrailers: true })
+      stream.on('wantTrailers', () => stream.sendTrailers({ 'grpc-status': '0' }))
+      stream.end(Buffer.from([0, 0, 0, 0, 0]))
+    })
+    await new Promise<void>((done) => grpc.listen(0, '127.0.0.1', done))
+    const address = grpc.address()
+    if (!address || typeof address === 'string') throw new Error('no grpc address')
+    try {
+      const dir = await fixture({
+        'collection.hakka': { version: 5, id: 'c', name: 'grpc', defaultHeaders: [], auth: { none: {} }, notes: null },
+        'grpc.hakka': request(0, 'grpc', 'grpc', 'POST', `grpc://127.0.0.1:${address.port}/demo.Echo/Ping`, {
+          body: { grpcMessage: { hex: '0a00' } },
+          assertions: [
+            { id: 'status', target: { header: { name: 'grpc-status' } }, op: 'equals', expected: '0', enabled: true },
+          ],
+        }),
+      })
+      expect((await runCollection(dir)).failed).toBe(0)
+    } finally {
+      await new Promise<void>((done, fail) => grpc.close((error) => (error ? fail(error) : done())))
+    }
   })
 })

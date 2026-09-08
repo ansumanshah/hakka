@@ -24,6 +24,20 @@ export interface ProxyFlowEvent {
   error?: string | null
   contentType?: string
   httpVersion?: string
+  messages?: ProxyWebSocketMessage[]
+  wsProtocol?: string
+  /** True while a long-lived response is still producing bounded previews. */
+  partial?: boolean
+}
+
+interface ProxyWebSocketMessage {
+  timestamp: number
+  direction: 'sent' | 'received'
+  data: string | number
+  size: number
+  binary?: boolean
+  /** The sidecar withheld an oversized text frame rather than forwarding a prefix. */
+  truncated?: boolean
 }
 
 export interface ProxyMapLocalRule {

@@ -24,11 +24,33 @@ Pass initial values with repeatable `--env NAME=value`. `{{NAME}}` is resolved o
 
 ## Supported portable contract
 
-The Node runner sends HTTP/HTTPS requests, including GraphQL bodies, raw bodies, URL-encoded forms, query parameters, inherited headers, basic/bearer/API-key auth, response assertions, response captures, redirects, and per-request or `--timeout-ms` timeouts.
+The Node runner sends HTTP/HTTPS requests, including GraphQL bodies, raw bodies, URL-encoded forms, binary file bodies, and multipart form uploads. File paths are collection-relative; path escapes and uploads over 5 MiB are refused before a request is sent. It supports inherited headers, basic/bearer/API-key auth, OAuth2 static tokens, client-credentials, and refresh-token grants, response assertions, response captures, redirects, and per-request or `--timeout-ms` timeouts.
+
+OAuth access and refreshed tokens stay in the run's in-memory variable scope. They are redacted from errors and reports. Authorization-code OAuth needs browser and loopback interaction, so `hakka run` refuses it explicitly as a noninteractive command.
+
+Saved pre-request and post-response JavaScript hooks run in a fresh bounded worker. They receive the desktop-compatible `env`, `log`, `vars.set(name, value)`, and `request`/`response` contexts. A pre-request failure prevents sending; a post-response failure makes that request fail. Worker isolation limits lifetime and memory but is not presented as a security sandbox; do not execute untrusted collection hooks in CI.
 
 It writes privacy-safe JSON and JUnit reports with request names, status, timing, and assertion/error summaries. Request/response bodies, headers, environment values, and captured values are deliberately omitted from console output and reports.
 
-The runner refuses features it cannot faithfully run: JavaScript hooks, multipart/file bodies, OAuth flows, WebSocket/SSE sessions, and gRPC. Use the desktop app for those authored request types; a failed portable run is never reported as a pass.
+For finite streaming checks, `session` contains exactly one variant. A WebSocket session saves `sendFrames`, `maxFrames`, and `timeoutMs`; the runner sends those frames and succeeds only after receiving exactly `maxFrames`. An SSE session saves `maxEvents` and `timeoutMs`; it succeeds only after reading exactly that many complete event blocks. Their response body is a JSON object (`{ frames }` or `{ events }`), so ordinary JSON-path assertions and captures work. An early close or deadline is an error, never a partial pass.
+
+`grpc://` and `grpcs://` URLs with a `{"grpcMessage":{"hex":"0801"}}` body run one raw unary HTTP/2 call. The body is hexadecimal or base64 protobuf bytes. The JSON response body contains the decoded protobuf message bytes as `messageBase64`, plus `grpcStatus` and `grpcMessage`; response headers also include `grpc-status`. Missing trailers, malformed framing, and oversized messages fail the run. Client/server/bidi streaming remains unsupported.
+
+MCP and team-monitor runs disable executable JavaScript hooks before sending any request.
+Local CLI runs permit hooks from collections you trust. The programmatic runner accepts
+an `AbortSignal` for an overall collection deadline; it covers OAuth, hooks, transports,
+and iteration delays.
+
+```ts
+import { runCollection } from 'hakka-cli/run'
+
+const report = await runCollection('./api', {
+  environment: { BASE_URL: 'http://127.0.0.1:4010' },
+  signal: AbortSignal.timeout(60_000),
+  allowScripts: false,
+})
+if (report.failed) process.exitCode = 1
+```
 
 ## Example collection
 

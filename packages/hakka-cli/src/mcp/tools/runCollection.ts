@@ -12,7 +12,7 @@ export function registerRunCollectionTool(server: McpServer): void {
         'Run a local Hakka collection directory or request.hakka without the desktop app. ' +
         'Sends the authored requests, checks assertions, and returns per-request outcomes without response bodies. ' +
         'Requests can change remote data; inspect the collection and obtain user authorization before execution. ' +
-        'JavaScript hooks and unsupported protocols fail explicitly.',
+        'JavaScript hooks are disabled for MCP execution and fail before any request is sent; unsupported protocols fail explicitly.',
       annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
       inputSchema: {
         path: z.string().min(1).describe('Local collection directory or request.hakka file.'),
@@ -25,7 +25,7 @@ export function registerRunCollectionTool(server: McpServer): void {
     },
     async ({ path, ...options }) => {
       try {
-        const report = await runCollection(path, options)
+        const report = await runCollection(path, { ...options, allowScripts: false })
         return textResult(report, report.failed > 0)
       } catch {
         return textResult(

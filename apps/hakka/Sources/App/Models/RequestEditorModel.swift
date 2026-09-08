@@ -63,9 +63,12 @@ final class RequestEditorModel {
         isSending = true
         defer { isSending = false }
 
+        let auth = RequestResolver.effectiveAuth(request: draft.auth, folderChain: folderChain, collectionAuth: collection.auth)
+        let refreshedScope = await OAuth2TokenRefresher.refreshIfNeeded(auth: auth, scope: scope, runner: oauth2Runner)
+
         if GrpcURL.isGrpcURL(draft.url) {
             do {
-                let result = try await grpcRunner.run(draft, folderChain: folderChain, collection: collection, scope: scope)
+                let result = try await grpcRunner.run(draft, folderChain: folderChain, collection: collection, scope: refreshedScope)
                 lastResult = result
                 lastRunError = nil
                 return result.scope
@@ -76,8 +79,6 @@ final class RequestEditorModel {
         }
 
         do {
-            let auth = RequestResolver.effectiveAuth(request: draft.auth, folderChain: folderChain, collectionAuth: collection.auth)
-            let refreshedScope = await OAuth2TokenRefresher.refreshIfNeeded(auth: auth, scope: scope, runner: oauth2Runner)
             let result = try await runner.run(draft, folderChain: folderChain, collection: collection, scope: refreshedScope)
             lastResult = result
             lastRunError = nil
