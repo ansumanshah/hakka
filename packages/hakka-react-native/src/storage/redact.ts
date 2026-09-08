@@ -19,7 +19,7 @@
  *
  * With no fields configured this is the same no-op it is everywhere else.
  */
-import { getBodyRedactionFields, redactJsonBody } from 'hakka-core'
+import { getBodyRedactionFields, redactJsonBody } from 'hakka-core/runtime'
 
 const REDACTED = '[REDACTED]'
 

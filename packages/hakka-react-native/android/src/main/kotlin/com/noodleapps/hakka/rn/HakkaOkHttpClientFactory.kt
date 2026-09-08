@@ -11,6 +11,7 @@ import okhttp3.OkHttpClient
 object HakkaOkHttpClientFactory {
     private var isInitialized = false
 
+    @Synchronized
     fun initialize() {
         if (isInitialized) return
         try {
@@ -18,7 +19,6 @@ object HakkaOkHttpClientFactory {
                 override fun createNewNetworkModuleClient(): OkHttpClient {
                     val builder = OkHttpClientProvider.createClientBuilder()
                     builder.addInterceptor(NativeCoreDelegate.interceptor)
-                    builder.addNetworkInterceptor(HakkaNetworkInterceptor())
                     return builder.build()
                 }
             })

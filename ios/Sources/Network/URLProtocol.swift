@@ -635,13 +635,20 @@ public final class HakkaURLProtocol: URLProtocol, @unchecked Sendable {
             return
         }
 
+        let limit = currentBodyCaptureLimit()
+        if let originalBody = task?.originalRequest?.httpBody,
+           originalBody.count <= limit {
+            captureRequest = mutableRequest as URLRequest
+            captureRequestBodyData = originalBody
+            return
+        }
+
         guard allowUnknownLength else {
             captureRequest = mutableRequest as URLRequest
             captureRequestBodyData = nil
             return
         }
 
-        let limit = currentBodyCaptureLimit()
         let contentLength = mutableRequest.value(forHTTPHeaderField: "Content-Length").flatMap(Int.init)
         guard contentLength.map({ $0 <= limit }) ?? true else {
             captureRequest = mutableRequest as URLRequest

@@ -1,5 +1,5 @@
 import './bootstrap'
-import { Hakka as coreHakka } from 'hakka-core'
+import { Hakka as coreHakka } from 'hakka-core/runtime'
 
 import type { HakkaConfig } from './HakkaConfig'
 

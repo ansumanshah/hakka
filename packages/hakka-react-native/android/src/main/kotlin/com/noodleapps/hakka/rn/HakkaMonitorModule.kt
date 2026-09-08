@@ -89,6 +89,10 @@ class HakkaMonitorModule(private val reactContext: ReactApplicationContext) :
         }
     }
 
+    override fun stopCapture() {
+        native?.stopCapture()
+    }
+
     override fun isReady(promise: Promise) {
         promise.resolve(true)
     }

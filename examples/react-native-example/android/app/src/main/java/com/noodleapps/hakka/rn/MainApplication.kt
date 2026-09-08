@@ -1,13 +1,24 @@
 package com.noodleapps.hakka.rn
 
 import android.app.Application
+import android.content.Context
 import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
 import com.facebook.react.ReactHost
 import com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative
 import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
+import com.google.android.play.core.splitcompat.SplitCompat
 
 class MainApplication : Application(), ReactApplication {
+
+  override fun attachBaseContext(base: Context) {
+    super.attachBaseContext(base)
+    try {
+      SplitCompat.install(this)
+    } catch (_: LinkageError) {
+      // Bundled and capture-only builds do not package Play Feature Delivery.
+    }
+  }
 
   override val reactHost: ReactHost by lazy {
     getDefaultReactHost(
@@ -22,12 +33,6 @@ class MainApplication : Application(), ReactApplication {
 
   override fun onCreate() {
     super.onCreate()
-    // Register Hakka's OkHttp interceptor BEFORE React Native creates (and caches)
-    // its NetworkingModule client — otherwise fetch/XHR traffic bypasses capture.
-    // This is the required Android RN integration step (iOS captures automatically
-    // via URLProtocol; Android's OkHttpClientProvider client is cached for the
-    // app lifetime, so the factory must be set at startup).
-    HakkaOkHttpClientFactory.initialize()
     loadReactNative(this)
   }
 }

@@ -17,7 +17,12 @@
         "examples/api-automation/run.mjs",
         "examples/otel-spans/*.mjs",
         "examples/prod-cohort/demo.mjs",
+        "examples/react-native-benchmark/{App.tsx,scripts/*.mjs}",
       ],
+    },
+    "packages/hakka-core": {
+      // Metro selects this implementation for native platforms.
+      "entry": ["src/engine/jsCapture.native.ts"],
     },
     "packages/hakka-browser": {
       "entry": ["src/index.ts", "src/ui/elements/index.ts", "src/plugin/__tests__/fixtures/webpackEntry.js"],
@@ -107,6 +112,8 @@
     "@solidjs/signals",
   ],
   "ignoreIssues": {
+    // Preserve the benchmark's exported contract while analyzing its entrypoints.
+    "examples/react-native-benchmark/src/BenchmarkRuntime.ts": ["types"],
     // Bundler-plugin entries deliberately export the plugin BOTH as default and
     // named `hakka`, so `import hakka from` and `import { hakka } from` both work.
     "packages/hakka-browser/src/plugin/vite.ts": ["duplicates"],

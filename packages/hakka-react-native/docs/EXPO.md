@@ -117,8 +117,10 @@ boundary.
 
 ### Android inspector packaging
 
-`androidUI` defaults to `true` and adds `hakka-ui` to debug builds. Set it to
-`false` for capture without the in-app inspector. Release builds use the network
-noop artifact and omit the UI; `androidPerformance: true` similarly selects the
-real debug collector and release noop. The iOS inspector is included in the RN
-pod. Use `await Hakka.show(...)` and check its boolean result.
+The plugin generates an app-owned `:hakkaInspector` Play Feature Delivery module
+by default. Native capture stays in the base app, and `Hakka.show()` requests the
+inspector when it is absent. Set `uiDelivery: "bundled"` to include `hakka-ui` in
+the base app, or `uiDelivery: "disabled"`/`androidUI: false` for capture without
+the inspector. `androidPerformance: true` adds the production performance
+collector. The iOS inspector is included in the RN pod. Use
+`await Hakka.show(...)` and check its boolean result.

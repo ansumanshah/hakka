@@ -52,6 +52,8 @@ export type NativeHakkaModule = {
   setIgnoredHosts: (hosts: string[]) => void
   setIgnoredPatterns: (patterns: string[]) => void
   initialize: () => Promise<void>
+  /** Stop intercepting new requests while preserving the native store. */
+  stopCapture?: () => void
   getLogs: () => Promise<unknown[] | string>
   addListener: (eventName: string) => void
   removeListeners: (count: number) => void

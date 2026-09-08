@@ -46,6 +46,7 @@ interface NetworkRequest {
  */
 export interface Spec extends TurboModule {
   initialize(): Promise<void>
+  stopCapture(): void
   isReady(): Promise<boolean>
 
   addLog(request: NetworkRequest): void
@@ -93,8 +94,9 @@ export interface Spec extends TurboModule {
 
   // Native UI — mode: 'bubble' (default), 'sheet', or 'fullscreen'
   /**
-   * Synchronously reports whether the optional native UI package (HakkaUI on
-   * iOS, hakka-ui on Android) is linked. Presentation success is reported by showUI.
+   * Synchronously reports whether native presentation can begin. Android also
+   * reports true for an app-owned Play delivery feature that can install the UI;
+   * presentation success is reported by showUI after installation completes.
    */
   isUIAvailable(): boolean
   showUI(mode: string): Promise<boolean>

@@ -12,19 +12,22 @@ import { Tabs, TabItem, Steps, Aside, Card, CardGrid, LinkCard, Badge } from '@a
 
 `hakka-react-native` is the app-facing package for React Native. It provides a TypeScript API, a TurboModule bridge to the native Hakka SDKs and optional monitors. The inspector is rendered by the native iOS and Android SDKs.
 
-<Badge text="Beta" variant="caution" /> Fully working and on npm. It has less production soak time than the web and
-Next.js SDKs.
+<Badge text="Pre-release" variant="caution" /> The packages are not yet published.
 
 ## What Hakka captures
 
-| Traffic type                      | Captured | Notes                                                      |
-| --------------------------------- | -------- | ---------------------------------------------------------- |
-| `fetch`                           | Auto     | Through the configured native networking integration       |
-| `XHR`                             | Auto     | Through the configured native networking integration       |
-| WebSocket frames                  | No       | No JavaScript frame interceptor in native mode             |
-| Native HTTP (URLSession / OkHttp) | Auto     | Via TurboModule and the native SDK                         |
-| Native WebSocket metadata         | Opt-in   | Message count + close code only; payloads require JS layer |
-| GraphQL operation name            | Auto     | Parsed from request body                                   |
+| Traffic type                      | Captured | Notes                                                          |
+| --------------------------------- | -------- | -------------------------------------------------------------- |
+| `fetch`                           | Auto     | Through the configured native networking integration           |
+| `XHR`                             | Auto     | Through the configured native networking integration           |
+| WebSocket frames                  | No       | No JavaScript frame interceptor in native mode                 |
+| Native HTTP (URLSession / OkHttp) | Scoped   | New default/ephemeral iOS sessions; configured Android clients |
+| Native WebSocket metadata         | Opt-in   | Message count + close code only; payloads require JS layer     |
+| GraphQL operation name            | Auto     | Parsed from request body                                       |
+
+For standard React Native fetch/XHR, autolinking installs Android's networking
+hook and `Hakka.start()` enables iOS interception. Separate clients and sessions
+created before startup have different coverage; see [Native Capture](/react-native/capture-modes/#automatic-interception).
 
 ## Setup
 
@@ -125,8 +128,12 @@ the platform clipboard directly.
 ## Native inspector
 
 The native surfaces provide the platform inspector, including the bubble, sheet, and fullscreen
-presentations. iOS's canonical UI is included in the React Native pod automatically; Android apps
-add `hakka-network` and `hakka-performance` as needed, plus `hakka-ui` for the inspector.
+presentations. iOS's canonical UI is included in the React Native pod automatically.
+Android keeps capture in the base app and delivers `hakka-ui` through an app-owned
+Play feature by default in the Expo plugin. Bare React Native apps follow the
+[on-demand inspector setup](/android/on-demand-ui/). `Hakka.show()` waits for the
+feature to install before presenting the native inspector with the existing capture store.
+Use the bundled option when distributing outside Google Play.
 
 The package no longer exports `hakka-react-native/ui` or ships a React Native inspector, theme, or
 renderer plugin surface.

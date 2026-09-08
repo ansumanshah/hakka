@@ -50,6 +50,12 @@
       "types": "./dist/test.d.mts",
       "default": "./dist/test.mjs"
     },
+    "./runtime": {
+      "source": "./src/runtime.ts",
+      "react-native": "./src/runtime.ts",
+      "types": "./dist/runtime.d.mts",
+      "default": "./dist/runtime.mjs"
+    },
     "./package.json": "./package.json"
   },
   "publishConfig": {

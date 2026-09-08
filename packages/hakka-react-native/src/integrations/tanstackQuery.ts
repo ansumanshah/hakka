@@ -14,7 +14,7 @@
  * uninstall()
  * ```
  */
-import { log } from 'hakka-core'
+import { log } from 'hakka-core/runtime'
 
 /** Lifecycle state read off a query/mutation for logging. */
 export type TanstackQueryLifecycleState = 'pending' | 'success' | 'error' | 'idle' | (string & {})

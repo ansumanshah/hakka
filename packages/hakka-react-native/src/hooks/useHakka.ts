@@ -1,4 +1,4 @@
-import { configureBodyRedaction } from 'hakka-core'
+import { configureBodyRedaction } from 'hakka-core/runtime'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { Hakka } from '../hakka'

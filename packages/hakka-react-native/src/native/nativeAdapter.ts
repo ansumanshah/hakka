@@ -2,8 +2,13 @@
  * React Native-specific native adapter implementations for hakka-core.
  * Provides the RN platform bridge that the core engine accepts via dependency injection.
  */
-import { NATIVE_MODULE_NAMES } from 'hakka-core'
-import type { NativeCaptureAdapter, NativeHakkaModule, NativeMockBridge, NativeMockRulePayload } from 'hakka-core'
+import { NATIVE_MODULE_NAMES } from 'hakka-core/runtime'
+import type {
+  NativeCaptureAdapter,
+  NativeHakkaModule,
+  NativeMockBridge,
+  NativeMockRulePayload,
+} from 'hakka-core/runtime'
 import { NativeEventEmitter, TurboModuleRegistry } from 'react-native'
 
 type NativeEventEmitterModule = {

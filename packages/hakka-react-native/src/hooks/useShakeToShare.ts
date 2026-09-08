@@ -1,5 +1,5 @@
-import type { NetworkRequest } from 'hakka-core'
-import { exportHarString as toHAR } from 'hakka-core'
+import type { NetworkRequest } from 'hakka-core/runtime'
+import { exportHarString as toHAR } from 'hakka-core/runtime'
 import { useCallback, useEffect, useRef } from 'react'
 import { Alert, Share } from 'react-native'
 

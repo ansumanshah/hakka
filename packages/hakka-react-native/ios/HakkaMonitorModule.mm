@@ -83,6 +83,11 @@ RCT_EXPORT_METHOD(initialize:(RCTPromiseResolveBlock)resolve
     resolve(nil);
 }
 
+RCT_EXPORT_METHOD(stopCapture)
+{
+    [[RNHakkaCoreBridge shared] stop];
+}
+
 RCT_EXPORT_METHOD(isReady:(RCTPromiseResolveBlock)resolve
                   reject:(RCTPromiseRejectBlock)reject)
 {
