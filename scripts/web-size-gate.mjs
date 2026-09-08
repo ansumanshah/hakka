@@ -72,8 +72,12 @@ const NAMED = {
     // diagnostics and explicit console runner. The prior checkout measured
     // 146.84 KB; this feature measures 149.25 KB (+2.41 KB). The eager ESM
     // launcher stays independently capped at 5 KB.
+    // Re-baselined 2026-09-08 (150 -> 152 KB) for the integrated native
+    // runtime entry and agent page controls. Fresh Node 24.20.0 CI output
+    // measures 150.59 KB; retain about 1% headroom for this accepted feature
+    // cost. This is a budget adjustment, not a compression improvement.
     label: 'IIFE (<script>)',
-    budget: Number(process.env.HAKKA_WEB_GLOBAL_BUDGET) || 150 * 1024,
+    budget: Number(process.env.HAKKA_WEB_GLOBAL_BUDGET) || 152 * 1024,
   },
   'worker.js': {
     // workerCapture.ts's own build (vite.config.ts's `worker` mode, `hakka-browser/worker`)
@@ -111,7 +115,10 @@ const NAMED = {
 // Re-baselined 2026-09-06 (158 -> 160 KB) for phone-first Page diagnostics
 // and the explicit console runner. The fresh baseline was 156.14 KB and the
 // feature build measured 159.28 KB (+3.14 KB).
-const LAZY_BUDGET = Number(process.env.HAKKA_WEB_LAZY_BUDGET) || 160 * 1024
+// Re-baselined 2026-09-08 (160 -> 163 KB) alongside the IIFE adjustment.
+// The fresh integrated build measures 161.26 KB across 36 chunks under
+// Node 24.20.0, leaving approximately 1% headroom. Eager/worker caps stay fixed.
+const LAZY_BUDGET = Number(process.env.HAKKA_WEB_LAZY_BUDGET) || 163 * 1024
 
 const kb = (n) => `${(n / 1024).toFixed(2)} KB`
 const pad = (s, n) => String(s).padEnd(n)
