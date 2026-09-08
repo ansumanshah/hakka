@@ -21,6 +21,7 @@ final class MiniHTTPServer: @unchecked Sendable {
     private let queue = DispatchQueue(label: "com.noodleapps.hakka.tests.mini-http-server")
     private let lock = NSLock()
     private var connections: [NWConnection] = []
+    private var latestRequestBody = Data()
 
     init() throws {
         listener = try NWListener(using: .tcp, on: .any)
@@ -62,6 +63,12 @@ final class MiniHTTPServer: @unchecked Sendable {
         live.forEach { $0.cancel() }
     }
 
+    func receivedRequestBody() -> Data {
+        lock.lock()
+        defer { lock.unlock() }
+        return latestRequestBody
+    }
+
     private func accept(_ connection: NWConnection) {
         lock.lock()
         connections.append(connection)
@@ -70,16 +77,30 @@ final class MiniHTTPServer: @unchecked Sendable {
         receive(connection, buffered: Data())
     }
 
-    /// Reads until the request's blank-line terminator, then replies with a
-    /// fixed 200 response — enough to exercise real request/response capture
-    /// without implementing a general-purpose HTTP parser.
+    /// Reads the complete fixed-length request, then replies with a fixed 200 response.
     private func receive(_ connection: NWConnection, buffered: Data) {
         connection.receive(minimumIncompleteLength: 1, maximumLength: 4096) { [weak self] data, _, isComplete, error in
             guard let self else { return }
             var accumulated = buffered
             if let data { accumulated.append(data) }
             let terminator = Data("\r\n\r\n".utf8)
-            if accumulated.range(of: terminator) != nil {
+            if let headerRange = accumulated.range(of: terminator) {
+                let headers = String(decoding: accumulated[..<headerRange.lowerBound], as: UTF8.self)
+                let contentLength = headers.split(separator: "\r\n").first { line in
+                    line.lowercased().hasPrefix("content-length:")
+                }.flatMap { line in
+                    Int(line.split(separator: ":", maxSplits: 1)[1].trimmingCharacters(in: .whitespaces))
+                } ?? 0
+                let bodyStart = headerRange.upperBound
+                guard accumulated.count >= bodyStart + contentLength else {
+                    if error == nil, !isComplete {
+                        self.receive(connection, buffered: accumulated)
+                    }
+                    return
+                }
+                self.lock.lock()
+                self.latestRequestBody = accumulated.subdata(in: bodyStart..<(bodyStart + contentLength))
+                self.lock.unlock()
                 self.respond(connection)
             } else if error == nil, !isComplete {
                 self.receive(connection, buffered: accumulated)
@@ -101,7 +122,7 @@ final class MiniHTTPServer: @unchecked Sendable {
 
 // MARK: - LiveCaptureTests
 
-@Suite("Live capture (real localhost round trip)")
+@Suite("Live capture (real localhost round trip)", .serialized)
 struct LiveCaptureTests {
     /// Proves `HakkaInterceptor` captures a genuine `URLSession` request made
     /// against a real (loopback) server — not a fake delegate callback — on
@@ -140,5 +161,46 @@ struct LiveCaptureTests {
         #expect(request.status == 200)
         #expect(request.method == .get)
         #expect(request.source == .urlSession)
+    }
+
+    @Test func capturesRealPostBodyWithoutChangingWireBytes() async throws {
+        let server = try MiniHTTPServer()
+        let port = try server.start()
+        defer { server.stop() }
+
+        let interceptor = HakkaInterceptor(config: HakkaConfig(sensitiveBodyFields: ["token"]))
+        interceptor.start()
+        defer { interceptor.stop() }
+
+        let body = Data(#"{"source":"react-native-example","token":"secret"}"#.utf8)
+        var request = URLRequest(url: try #require(URL(string: "http://127.0.0.1:\(port)/post")))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = body
+
+        let session = URLSession(configuration: .default)
+        let (data, response) = try await session.data(for: request)
+
+        let http = try #require(response as? HTTPURLResponse)
+        #expect(http.statusCode == 200)
+        #expect(String(data: data, encoding: .utf8) == "pong")
+        #expect(server.receivedRequestBody() == body)
+
+        let deadline = Date().addingTimeInterval(5)
+        var captured: NetworkRequest?
+        while captured == nil, Date() < deadline {
+            captured = interceptor.store.requests.first { $0.url.contains("127.0.0.1:\(port)/post") }
+            if captured == nil {
+                try await Task.sleep(nanoseconds: 20_000_000)
+            }
+        }
+
+        let capturedRequest = try #require(captured, "HakkaInterceptor never captured the real POST")
+        #expect(capturedRequest.method == .post)
+        #expect(capturedRequest.requestBodySize == Int64(body.count))
+        let capturedJSON = try #require(capturedRequest.requestBody?.data(using: .utf8))
+        let capturedObject = try #require(JSONSerialization.jsonObject(with: capturedJSON) as? [String: String])
+        #expect(capturedObject["source"] == "react-native-example")
+        #expect(capturedObject["token"] == "██")
     }
 }

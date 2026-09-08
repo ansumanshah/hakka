@@ -1,11 +1,17 @@
 package com.noodleapps.hakka.ui
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 
 /** Full-screen Compose detail screen for one captured Hakka request. */
 class DetailActivity : ComponentActivity() {
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(newBase)
+        installSplitActivityResources(this)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val captured = intent.getStringExtra(EXTRA_REQUEST_ID)

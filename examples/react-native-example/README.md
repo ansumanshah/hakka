@@ -54,6 +54,15 @@ cd examples/react-native-example/android
 ./gradlew -PhakkaMinifyRelease=true :app:assembleRelease
 ```
 
+The Android app keeps network and performance capture in the base module and
+ships the inspector in the on-demand `:hakkaInspector` Play Feature Delivery
+module. `Hakka.show()` downloads that module when needed. A Play-served bundle is
+required to exercise the download; local APK installs can include the feature
+with bundletool local testing.
+
+For the same-host size comparison, release builds default to Play delivery. Use
+`-PhakkaUiDelivery=bundled` to place the same inspector in the base app.
+
 ## What it covers
 
 - Native-only capture with start/stop controls

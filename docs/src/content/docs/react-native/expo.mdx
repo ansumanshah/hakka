@@ -47,11 +47,12 @@ React Native UI peer is required.
    }
    ```
 
-   The plugin adds `hakka-network` and `hakka-ui` to Android debug builds. Set
-   `androidUI: false` to omit the inspector. Release builds use `hakka-network-noop`
-   and omit the UI; enabling `androidPerformance` adds real performance capture in
-   debug and its noop artifact in release. iOS includes the canonical native UI in
-   the React Native pod through autolinking and CocoaPods.
+   The plugin generates an app-owned `:hakkaInspector` Play Feature Delivery
+   module by default. Capture stays in the base application and `Hakka.show()`
+   downloads the inspector when needed. Set `uiDelivery: "bundled"` to package
+   the inspector in the base app. Set `uiDelivery: "disabled"` or
+   `androidUI: false` to omit it. iOS includes the canonical native UI in the
+   React Native pod through autolinking and CocoaPods.
 
 2. **Opt in to Android performance collectors** _(optional)_
 

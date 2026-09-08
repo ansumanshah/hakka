@@ -16,7 +16,7 @@
  *
  * Requires `@tanstack/react-query` as a peer dependency.
  */
-import { getBodyRedactionFields, redactJsonBody } from 'hakka-core'
+import { getBodyRedactionFields, redactJsonBody } from 'hakka-core/runtime'
 import { useEffect } from 'react'
 
 import { hakkaBridge } from '../core/HakkaBridge'

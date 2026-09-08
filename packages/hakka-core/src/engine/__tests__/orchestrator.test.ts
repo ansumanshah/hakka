@@ -6,17 +6,24 @@ import type { NetworkRequest } from '../../model/types'
 import type { StorageAdapter } from '../../storage/StorageAdapter'
 
 function fakeNative() {
-  const calls = { pause: 0, resume: 0 }
+  const calls = { pause: 0, resume: 0, lifecycle: [] as string[] }
   const module: NativeHakkaModule = {
     showUI() {},
     clearLogs() {},
     setSensitiveHeaders() {},
     setIgnoredHosts() {},
     setIgnoredPatterns() {},
-    initialize: async () => {},
+    initialize: async () => {
+      calls.lifecycle.push('initialize')
+    },
+    stopCapture() {
+      calls.lifecycle.push('stopCapture')
+    },
     getLogs: async () => [],
     addListener() {},
-    removeListeners() {},
+    removeListeners() {
+      calls.lifecycle.push('removeListeners')
+    },
   }
   const adapter: NativeCaptureAdapter = {
     getModule: () => module,
@@ -66,6 +73,18 @@ describe('engine — plugin registration', () => {
 })
 
 describe('engine — pause/resume lifecycle', () => {
+  test('stop() stops native capture before removing listeners and supports restarting', () => {
+    const { adapter, calls } = fakeNative()
+    Hakka.registerNativeAdapter(adapter)
+    Hakka.start({ mode: 'native' })
+    Hakka.stop()
+    Hakka.stop()
+    expect(calls.lifecycle).toEqual(['initialize', 'stopCapture', 'removeListeners'])
+
+    Hakka.start({ mode: 'native' })
+    expect(calls.lifecycle.at(-1)).toBe('initialize')
+  })
+
   test('stop() resumes the native engine if stopped while paused', () => {
     const { adapter, calls } = fakeNative()
     Hakka.registerNativeAdapter(adapter)

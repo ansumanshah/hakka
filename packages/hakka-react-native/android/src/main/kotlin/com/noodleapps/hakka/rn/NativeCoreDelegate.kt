@@ -47,11 +47,13 @@ class NativeCoreDelegate(
          */
         @Volatile
         private var activeManaged: ManagedInterceptor = ManagedInterceptor(HakkaInterceptor())
+        private var isCaptureActive = false
         private val interceptorLock = Any()
         private val retiredInterceptors = mutableListOf<ManagedInterceptor>()
 
         val interceptor: Interceptor = Interceptor { chain ->
             val managed = acquireInterceptor()
+                ?: return@Interceptor chain.proceed(chain.request())
             try {
                 managed.interceptor.intercept(chain)
             } finally {
@@ -68,10 +70,15 @@ class NativeCoreDelegate(
                 wrapperCalls.get() == 0 && interceptor.inFlightRequests().isEmpty()
         }
 
-        private fun acquireInterceptor(): ManagedInterceptor =
+        private fun acquireInterceptor(): ManagedInterceptor? =
             synchronized(interceptorLock) {
-                activeManaged.also { it.wrapperCalls.incrementAndGet() }
+                if (!isCaptureActive) null
+                else activeManaged.also { it.wrapperCalls.incrementAndGet() }
             }
+
+        internal fun setCaptureActive(active: Boolean) {
+            synchronized(interceptorLock) { isCaptureActive = active }
+        }
 
         private fun releaseInterceptor(managed: ManagedInterceptor) {
             managed.wrapperCalls.decrementAndGet()
@@ -201,6 +208,7 @@ class NativeCoreDelegate(
     fun initialize(listenerCount: AtomicInteger) {
         val listener = createListener(listenerCount)
         rebuildInterceptor(listener)
+        setCaptureActive(true)
         attachNativeUI()
         // Auto-register OkHttpClientFactory so RN's fetch uses our interceptor
         try {
@@ -244,6 +252,10 @@ class NativeCoreDelegate(
 
     fun resume() {
         currentInterceptor().resume()
+    }
+
+    fun stopCapture() {
+        setCaptureActive(false)
     }
 
     fun getLogCount(): Double {
@@ -329,28 +341,59 @@ class NativeCoreDelegate(
         attachNativeUI()
     }
 
-    /**
-     * `true` when the optional hakka-ui artifact is on the classpath —
-     * [showUI] silently no-ops without it, so the JS side probes this first
-     * to report failure instead of doing nothing.
-     */
+    /** `true` when the inspector is bundled or can be requested from the configured Play feature. */
     fun isUIAvailable(): Boolean = try {
         Class.forName("com.noodleapps.hakka.ui.HakkaUI")
         true
     } catch (_: ClassNotFoundException) {
+        canDeliverInspector()
+    } catch (_: LinkageError) {
+        canDeliverInspector()
+    }
+
+    private fun canDeliverInspector(): Boolean = try {
+        inspectorModuleNameOrNull()?.let { PlayInspectorDelivery.canInstall(reactContext, it) } ?: false
+    } catch (_: LinkageError) {
+        false
+    } catch (_: Exception) {
         false
     }
 
     fun showUI(context: Context, mode: String, onResult: (Boolean) -> Unit) {
-        try {
-            val activity = context as? android.app.Activity
-                ?: (context as? com.facebook.react.bridge.ReactApplicationContext)
-                    ?.currentActivity
-                ?: run {
-                    android.util.Log.w("Hakka", "showUI($mode) had no effect — no current Activity")
-                    onResult(false)
-                    return
+        val activity = context as? android.app.Activity
+            ?: (context as? com.facebook.react.bridge.ReactApplicationContext)?.currentActivity
+            ?: run {
+                android.util.Log.w("Hakka", "showUI($mode) had no effect — no current Activity")
+                onResult(false)
+                return
+        }
+
+        if (!isUIClassAvailable()) {
+            val moduleName = inspectorModuleNameOrNull()
+            if (moduleName == null) {
+                onResult(false)
+                return
+            }
+            try {
+                PlayInspectorDelivery.install(context, moduleName) { installed ->
+                    val activeActivity = reactContext.currentActivity
+                    if (installed && activeActivity != null && !activeActivity.isFinishing && !activeActivity.isDestroyed && isUIClassAvailable()) {
+                        presentUI(context, activeActivity, mode, onResult)
+                    } else {
+                        onResult(false)
+                    }
                 }
+            } catch (_: LinkageError) {
+                onResult(false)
+            }
+            return
+        }
+        presentUI(context, activity, mode, onResult)
+    }
+
+    private fun presentUI(context: Context, activity: android.app.Activity, mode: String, onResult: (Boolean) -> Unit) {
+        try {
+            PlayInspectorDelivery.installActivity(activity)
             attachNativeUI()
             val uiClass = Class.forName("com.noodleapps.hakka.ui.HakkaUI")
             val ui = uiClass.getMethod("getInstance", Context::class.java).invoke(null, context)
@@ -365,7 +408,32 @@ class NativeCoreDelegate(
         }
     }
 
+    private fun isUIClassAvailable(): Boolean = try {
+        Class.forName("com.noodleapps.hakka.ui.HakkaUI")
+        true
+    } catch (_: ClassNotFoundException) {
+        false
+    } catch (_: LinkageError) {
+        false
+    }
+
+    private fun inspectorModuleNameOrNull(): String? = try {
+        val applicationInfo = reactContext.packageManager.getApplicationInfo(
+            reactContext.packageName,
+            android.content.pm.PackageManager.GET_META_DATA,
+        )
+        applicationInfo.metaData?.getString("com.noodleapps.hakka.INSPECTOR_MODULE")
+            ?.takeIf { it.isNotBlank() }
+    } catch (_: Exception) {
+        null
+    }
+
     fun hideUI(context: Context) {
+        try {
+            PlayInspectorDelivery.cancelPending()
+        } catch (_: LinkageError) {
+            // Play Feature Delivery is optional in bundled and capture-only hosts.
+        }
         try {
             val uiClass = Class.forName("com.noodleapps.hakka.ui.HakkaUI")
             val getInstance = uiClass.getMethod("getInstance", android.content.Context::class.java)
@@ -479,6 +547,7 @@ class NativeCoreDelegate(
     }
 
     fun shutdown() {
+        setCaptureActive(false)
         performanceReporter?.close()
         structuredLogUnsubscribe?.invoke()
         structuredLogUnsubscribe = null

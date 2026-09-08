@@ -7,6 +7,11 @@ import com.facebook.react.module.model.ReactModuleInfo
 import com.facebook.react.module.model.ReactModuleInfoProvider
 
 class HakkaMonitorPackage : BaseReactPackage() {
+    init {
+        // Autolinking constructs packages before RN creates its networking modules.
+        HakkaOkHttpClientFactory.initialize()
+    }
+
     override fun getModule(name: String, reactContext: ReactApplicationContext): NativeModule? {
         return if (name == HakkaMonitorModule.NAME) {
             HakkaMonitorModule(reactContext)

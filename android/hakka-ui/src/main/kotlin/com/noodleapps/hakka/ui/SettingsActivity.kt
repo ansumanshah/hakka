@@ -1,5 +1,6 @@
 package com.noodleapps.hakka.ui
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.ComponentActivity
@@ -19,6 +20,11 @@ import androidx.compose.ui.unit.sp
 
 /** Settings for the live interceptor. Changes apply to this session only. */
 class SettingsActivity : ComponentActivity() {
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(newBase)
+        installSplitActivityResources(this)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         try {

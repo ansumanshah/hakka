@@ -1,6 +1,3 @@
-import { enableFetchInterceptor } from '../capture/fetch'
-import { enableWebSocketInterceptor } from '../capture/websocket'
-import { enableXHRInterceptor } from '../capture/xhr'
 import { logStore } from '../log/LogStore'
 import { networkRequestToRecord, type RecordSink } from '../model/contract'
 import type { NetworkRequest, HakkaConfig, RequestListener, StorageSnapshot } from '../model/types'
@@ -11,6 +8,7 @@ import type { StorageAdapter } from '../storage/StorageAdapter'
 import { hostMatchesList, matchesIgnoredPattern } from '../utils/hostFilter'
 import { breakpointEngine } from './BreakpointEngine'
 import { findDuplicateRequest, mergeDuplicateRequest } from './dedupeRules'
+import { startJsCapture } from './jsCapture'
 import { mockEngine } from './MockEngine'
 import {
   isPromiseLike,
@@ -273,6 +271,7 @@ class HakkaImpl {
   stop(): void {
     this.nativeCaptureGeneration += 1
     this.nativeCaptureReady = null
+    this.native?.stopCapture?.()
     // Persist the final coalesced batch before tearing capture down.
     this.persistScheduler.flushPersist(this.logs)
 
@@ -589,14 +588,7 @@ class HakkaImpl {
   }
 
   private startJsCapture(): void {
-    const listener: RequestListener = (request: NetworkRequest) => {
-      this.ingestRequest(request)
-    }
-    this.teardowns.push(
-      enableFetchInterceptor(listener, this.config.maxBodySize, this.config.redactHeaders),
-      enableXHRInterceptor(listener, this.config.maxBodySize, this.config.redactHeaders),
-      enableWebSocketInterceptor(listener),
-    )
+    this.teardowns.push(...startJsCapture((request) => this.ingestRequest(request), this.config))
   }
 
   private isCurrentNativeCapture(module: NativeHakkaModule, generation: number): boolean {

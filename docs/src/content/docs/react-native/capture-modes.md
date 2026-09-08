@@ -24,6 +24,25 @@ There is no automatic JavaScript fallback.
 HTTP capture observes requests made through the configured native OkHttp and
 URLSession integration, including React Native fetch/XHR traffic using those paths.
 
+## Automatic interception
+
+Call `Hakka.start()` before making requests. You do not need to replace `fetch`,
+XHR, or Axios calls that use React Native's networking stack.
+
+- **Android:** the autolinked Hakka package registers its OkHttp client factory
+  before React Native creates its networking modules. No `MainApplication` patch
+  is needed for the default RN client. An app that replaces RN's client factory
+  must add `NativeCoreDelegate.interceptor` to its custom client. Separate OkHttp
+  clients, Cronet, and other native networking stacks are not intercepted globally.
+- **iOS:** Hakka registers a `URLProtocol` and hooks default/ephemeral
+  `URLSessionConfiguration` creation when capture starts. Requests using sessions
+  created through those paths after startup are automatic. Existing sessions are
+  not retrofitted; background sessions and networking outside `URLSession` are
+  not covered.
+
+WebView traffic has a separate [integration](/guides/react-native-webview/).
+Automatic HTTP capture does not imply automatic WebSocket frame capture.
+
 ## Stop capture
 
 Use `Hakka.stop()` or `Hakka.configure({ enabled: false })`. To re-enable capture,

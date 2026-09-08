@@ -16,8 +16,8 @@ import {
   Hakka,
   logStore,
   parseControlCommand,
-} from 'hakka-core'
-import type { ConnectionStatus, LogEntry, LogLevel, NetworkRequest, StorageSnapshot } from 'hakka-core'
+} from 'hakka-core/runtime'
+import type { ConnectionStatus, LogEntry, LogLevel, NetworkRequest, StorageSnapshot } from 'hakka-core/runtime'
 
 import { redactStorageEntries } from '../storage/redact'
 

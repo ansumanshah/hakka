@@ -85,6 +85,10 @@ dependencies {
   // After publishing: implementation("com.noodleapps.hakka:hakka-network:0.0.1")
   compileOnly "com.noodleapps.hakka:hakka-network:0.0.1"
   compileOnly "com.noodleapps.hakka:hakka-performance:0.0.1"
+  // Optional at runtime. Production apps that use an on-demand inspector add
+  // this to their base application; keeping it compile-only preserves bundled
+  // and capture-only integrations.
+  compileOnly "com.google.android.play:feature-delivery:2.1.0"
 
   testImplementation "junit:junit:4.13.2"
   // `compileOnly` (above) doesn't propagate to the test compile classpath, but
@@ -92,6 +96,7 @@ dependencies {
   // (reached transitively via hakka-network's `api project(":hakka-common")`) to assert
   // the exact wire shape the relay mirrors.
   testImplementation "com.noodleapps.hakka:hakka-network:0.0.1"
+  testImplementation "com.google.android.play:feature-delivery:2.1.0"
   // `LogEntry.toJson()`/`StorageSnapshot.toJson()` use org.json — compileOnly has no real
   // implementation off-device; JVM unit tests need the real jar, same as hakka-common's
   // own test config.

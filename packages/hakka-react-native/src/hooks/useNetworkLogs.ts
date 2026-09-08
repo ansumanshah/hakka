@@ -1,5 +1,5 @@
-import { Hakka } from 'hakka-core'
-import type { NetworkRequest, HttpMethod } from 'hakka-core'
+import { Hakka } from 'hakka-core/runtime'
+import type { NetworkRequest, HttpMethod } from 'hakka-core/runtime'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 interface FilterOptions {

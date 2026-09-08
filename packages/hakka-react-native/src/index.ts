@@ -16,27 +16,27 @@ export type { HakkaConfig } from './HakkaConfig'
 // `new HakkaBridge()` never becomes accidental public surface to semver-lock.
 export { hakkaBridge, getDesktopSocket, configureMMKVInstance } from './core/HakkaBridge'
 export type { HakkaBridge, MMKVInstanceLike } from './core/HakkaBridge'
-export type { ConnectionStatus } from 'hakka-core'
+export type { ConnectionStatus } from 'hakka-core/runtime'
 
 export { useNetworkLogs } from './hooks/useNetworkLogs'
 export { useHakka } from './hooks/useHakka'
 export { useShakeToShare } from './hooks/useShakeToShare'
 
-export type { NetworkRequest, HttpMethod, RequestType, RequestListener, ReadonlyRecord } from 'hakka-core'
+export type { NetworkRequest, HttpMethod, RequestType, RequestListener, ReadonlyRecord } from 'hakka-core/runtime'
 
-export { RequestStatus, getRequestStatus } from 'hakka-core'
+export { RequestStatus, getRequestStatus } from 'hakka-core/runtime'
 
-export { RECORD_SEMCONV_VERSION, RECORD_SCHEMA_VERSION, networkRequestToRecord } from 'hakka-core'
-export { recordsToOtelJson } from 'hakka-core'
+export { RECORD_SEMCONV_VERSION, RECORD_SCHEMA_VERSION, networkRequestToRecord } from 'hakka-core/runtime'
+export { recordsToOtelJson } from 'hakka-core/runtime'
 
 // Privacy: redact named fields inside captured JSON bodies (case-insensitive), applied
 // before bodies reach the store. Headers are redacted separately via HakkaConfig.redactHeaders.
-export { configureBodyRedaction, getBodyRedactionFields } from 'hakka-core'
+export { configureBodyRedaction, getBodyRedactionFields } from 'hakka-core/runtime'
 // URL codec backing the inspector's Decoded/Raw query-param toggle (also useful standalone).
-export { decodeUrl, encodeUrl, isUrlEncoded } from 'hakka-core'
+export { decodeUrl, encodeUrl, isUrlEncoded } from 'hakka-core/runtime'
 // Structured logging — write app logs that appear in the inspector's Logs tab.
-export { log, logDebug, logInfo, logWarn, logError, logStore, LogStore } from 'hakka-core'
-export type { LogEntry, LogLevel, LogListener, LogOptions } from 'hakka-core'
+export { log, logDebug, logInfo, logWarn, logError, logStore, LogStore } from 'hakka-core/runtime'
+export type { LogEntry, LogLevel, LogListener, LogOptions } from 'hakka-core/runtime'
 
 // TanStack Query integration — forwards query/mutation cache lifecycle events
 // to the Logs tab. Structurally typed: no hard/peer dependency on
@@ -48,8 +48,8 @@ export type {
   TanstackQueryLifecycleState,
 } from './integrations/tanstackQuery'
 // OTLP — push captured traces + metrics + logs to any OpenTelemetry collector.
-export { pushOtlp, toOtlpTraces, toOtlpMetrics, toOtlpLogs } from 'hakka-core'
-export type { OtlpPushOptions, OtlpPushResult } from 'hakka-core'
+export { pushOtlp, toOtlpTraces, toOtlpMetrics, toOtlpLogs } from 'hakka-core/runtime'
+export type { OtlpPushOptions, OtlpPushResult } from 'hakka-core/runtime'
 
 export type {
   BreadcrumbRecord,
@@ -69,7 +69,7 @@ export type {
   RecordSink,
   TraceRecord,
   SinkSubscription,
-} from 'hakka-core'
+} from 'hakka-core/runtime'
 export type {
   OtelAttribute,
   OtelExportOptions,
@@ -79,10 +79,10 @@ export type {
   OtelResource,
   OtelScope,
   OtelSpan,
-} from 'hakka-core'
+} from 'hakka-core/runtime'
 
-export { ThrottleEngine } from 'hakka-core'
-export type { ThrottleProfile, ThrottleConfig } from 'hakka-core'
+export { ThrottleEngine } from 'hakka-core/runtime'
+export type { ThrottleProfile, ThrottleConfig } from 'hakka-core/runtime'
 
 /**
  * Switch capture to native-only mode and restart an active session.
@@ -99,7 +99,7 @@ export function enableNativeLayerCapture(): void {
   Hakka.enableNativeCapture()
 }
 
-export { mockEngine } from 'hakka-core'
-export type { MockRule, MockRuleInput, MockResponse } from 'hakka-core'
+export { mockEngine } from 'hakka-core/runtime'
+export type { MockRule, MockRuleInput, MockResponse } from 'hakka-core/runtime'
 
 export type { UseNetworkLogsResult } from './hooks/useNetworkLogs'

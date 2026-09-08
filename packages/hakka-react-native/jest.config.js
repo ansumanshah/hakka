@@ -16,6 +16,7 @@ module.exports = {
     // Mock @react-native-clipboard/clipboard to avoid TurboModule loading
     '^@react-native-clipboard/clipboard$': '<rootDir>/__tests__/__mocks__/clipboard.js',
     '^hakka-core$': '<rootDir>/../hakka-core/src/index.ts',
+    '^hakka-core/runtime$': '<rootDir>/../hakka-core/src/runtime.ts',
     // hakka-bridge's protocol.ts only — its index.ts also pulls in the
     // server/discovery modules (ws, bonjour-service), real npm deps this
     // workspace doesn't install. protocol.ts itself is type-only against

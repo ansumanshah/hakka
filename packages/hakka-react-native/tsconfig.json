@@ -9,7 +9,8 @@
   ],
   "compilerOptions": {
     "paths": {
-      "hakka-core": ["../hakka-core/src/index.ts"]
+      "hakka-core": ["../hakka-core/src/index.ts"],
+      "hakka-core/runtime": ["../hakka-core/src/runtime.ts"]
     },
     "strict": false,
     "noUncheckedIndexedAccess": false,

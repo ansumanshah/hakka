@@ -1,4 +1,4 @@
-import { Hakka, mockEngine } from 'hakka-core'
+import { Hakka, mockEngine } from 'hakka-core/runtime'
 
 import { rnCaptureAdapter, rnMockBridge } from './native/nativeAdapter'
 

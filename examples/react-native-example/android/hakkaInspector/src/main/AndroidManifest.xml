@@ -1,0 +1,32 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:dist="http://schemas.android.com/apk/distribution"
+    xmlns:tools="http://schemas.android.com/tools">
+    <dist:module
+        dist:instant="false"
+        dist:title="@string/hakka_inspector_title">
+        <dist:delivery>
+            <dist:on-demand />
+        </dist:delivery>
+        <dist:fusing dist:include="false" />
+    </dist:module>
+    <application android:hasCode="true">
+        <activity
+            android:name="com.noodleapps.hakka.ui.HakkaActivity"
+            android:theme="@android:style/Theme.DeviceDefault.Light.NoActionBar"
+            tools:replace="android:theme" />
+        <activity
+            android:name="com.noodleapps.hakka.ui.DetailActivity"
+            android:theme="@android:style/Theme.DeviceDefault.Light.NoActionBar"
+            tools:replace="android:theme" />
+        <activity
+            android:name="com.noodleapps.hakka.ui.SettingsActivity"
+            android:theme="@android:style/Theme.DeviceDefault.Light.NoActionBar"
+            tools:replace="android:theme" />
+        <provider android:name="androidx.core.content.FileProvider">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/hakka_inspector_file_paths"
+                tools:replace="android:resource" />
+        </provider>
+    </application>
+</manifest>

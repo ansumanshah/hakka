@@ -39,24 +39,25 @@ struct RequestListView: View {
             if let req = selectedRequest {
                 RequestDetailView(request: req, onBack: { selectedRequest = nil })
             } else {
+                let displayedRequests = sortedFilteredRequests
                 if dynamicTypeSize.isAccessibilitySize {
                     ScrollView {
                         VStack(spacing: Theme.s8) {
                             networkChrome
-                            if sortedFilteredRequests.isEmpty {
+                            if displayedRequests.isEmpty {
                                 EmptyState()
                             } else {
-                                requestRows
+                                requestRows(displayedRequests)
                             }
                         }
                         .padding(.bottom, Theme.s16)
                     }
                 } else {
                     networkChrome
-                    if sortedFilteredRequests.isEmpty {
+                    if displayedRequests.isEmpty {
                         EmptyState()
                     } else {
-                        requestList
+                        requestList(displayedRequests)
                     }
                 }
             }
@@ -129,16 +130,16 @@ struct RequestListView: View {
 
     // MARK: - Request List
 
-    private var requestList: some View {
+    private func requestList(_ displayedRequests: [NetworkRequest]) -> some View {
         ScrollView {
-            requestRows
+            requestRows(displayedRequests)
         }
         .scrollIndicators(.hidden)
     }
 
-    private var requestRows: some View {
+    private func requestRows(_ displayedRequests: [NetworkRequest]) -> some View {
         LazyVStack(spacing: Theme.s6) {
-                let groups = sortedFilteredRequests.grouped(by: groupBy)
+                let groups = displayedRequests.grouped(by: groupBy)
                 let showHeaders = groupBy != .none && groups.count > 1
 
                 ForEach(groups, id: \.label) { group in

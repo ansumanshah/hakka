@@ -1,0 +1,28 @@
+plugins {
+    id "com.android.dynamic-feature"
+    id "org.jetbrains.kotlin.android"
+}
+
+android {
+    namespace "com.noodleapps.hakka.rn.inspector"
+    compileSdk rootProject.ext.compileSdkVersion
+
+    defaultConfig {
+        minSdkVersion rootProject.ext.minSdkVersion
+    }
+
+    buildTypes {
+        release {
+            proguardFiles "proguard-rules.pro"
+        }
+    }
+
+    packaging {
+        resources.excludes += "META-INF/androidx.*.version"
+    }
+}
+
+dependencies {
+    implementation project(":app")
+    implementation("com.noodleapps.hakka:hakka-ui:0.0.1")
+}
