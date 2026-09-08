@@ -1,12 +1,15 @@
 # Hakka for macOS
 
-A native API client and live traffic inspector in one app. No proxy, no CA certificate —
-the traffic comes from Hakka's SDK running inside your own app.
+A native API client and live traffic inspector in one app. Capture through Hakka's SDK
+or the optional managed proxy for apps and devices routed through it.
 
 **In development.** The app includes an API client, live traffic inspector, collection
 Git tools, and an opt-in local MCP server. Build and test it from source; a signed,
 notarized release is not available yet.
 Design and scope: [ADR 0008](../../docs/src/content/docs/contributing/adr/0008-desktop-plugin-products.md).
+
+Transport tests require Bun and the repository dependencies (`bun install --frozen-lockfile`
+from the repository root). Run the following commands from `apps/hakka`:
 
 ```bash
 swift build     # macOS 15+, Swift 6.1+ toolchain

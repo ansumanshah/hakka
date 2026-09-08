@@ -165,7 +165,7 @@ private final class LocalSessionServer: @unchecked Sendable {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = ["bun", "-e", serverScript]
-        process.currentDirectoryURL = repositoryRoot()
+        process.currentDirectoryURL = repositoryRoot().appendingPathComponent("packages/hakka-cli")
         process.standardOutput = output
         process.standardError = Pipe()
         try process.run()
