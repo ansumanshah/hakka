@@ -8,16 +8,15 @@ import HakkaCommon
 ///
 /// - **Plain-text, one file per request, diffable.** A collection is a
 ///   directory of `.hakka` files, not a database or one giant JSON blob.
-///   Bruno proved developers want their API collection reviewable in a pull
-///   request; a single-file format makes every edit a whole-file diff and
+///   This keeps each request reviewable in a pull request; a single-file
+///   format makes every edit a whole-file diff and
 ///   every concurrent edit a conflict.
 /// - **No secrets in the collection.** Environment *values* live outside the
 ///   collection tree (see `EnvironmentStore`), because collections get
 ///   committed and secrets must not.
 /// - **Captured requests promote into collections.** `CapturedRequest ->
 ///   RequestSpec` is a first-class conversion (`RequestSpec.init(captured:)`),
-///   which is the thing neither Bruno nor Yaak can do: debug live traffic,
-///   then keep the interesting request as a permanent, runnable spec.
+///   so live traffic can become a permanent, runnable request spec.
 ///
 /// This file holds the collection tree itself (`Collection`, `CollectionNode`,
 /// `Folder`). The request payload types live in `RequestSpec.swift`; response

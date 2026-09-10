@@ -1,40 +1,62 @@
 import SwiftUI
 
-/// Collection tree, the Traffic pseudo-section, and the environment picker —
-/// the sidebar's three jobs per the app spec.
+/// Project navigation ordered around Hakka's two primary workflows: authoring
+/// collection requests and capturing traffic. Diagnostics and environment
+/// controls remain available without competing with those primary sections.
 struct SidebarView: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
         List(selection: selectionBinding) {
-            Section("Collection") {
+            WorkspaceSidebarHeader()
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+
+            Section("Requests") {
+                Label("All Requests", systemImage: "square.stack.3d.up")
+                    .tag(SidebarSelection.requests)
                 OutlineGroup(model.collection.collection.nodes, id: \.id, children: \.childrenForOutline) { node in
                     CollectionNodeRow(node: node)
                 }
             }
-            Section("Traffic") {
+
+            Section("Capture") {
                 Label("Live Traffic", systemImage: "antenna.radiowaves.left.and.right")
                     .badge(model.traffic.requests.count)
                     .tag(SidebarSelection.traffic)
                 Label("Rules", systemImage: "slider.horizontal.3")
                     .badge(model.rules.entries.filter(\.isEnabled).count)
                     .tag(SidebarSelection.rules)
-                Label("Logs", systemImage: "text.alignleft")
-                    .badge(model.logs.entries.count)
-                    .tag(SidebarSelection.logs)
+                Label("Runs", systemImage: "checklist")
+                    .tag(SidebarSelection.runs)
+                Label("Proxy", systemImage: "network")
+                    .tag(SidebarSelection.proxy)
+            }
+
+            Section("Project") {
+                Label("Changes", systemImage: "point.3.connected.trianglepath.dotted")
+                    .tag(SidebarSelection.changes)
                 Label("Storage", systemImage: "externaldrive")
                     .badge(model.storage.stores.count)
                     .tag(SidebarSelection.storage)
             }
-            Section("Devices") {
-                devicesSectionContent
+
+            Section("Diagnostics") {
+                Label("Logs", systemImage: "text.alignleft")
+                    .badge(model.logs.entries.count)
+                    .tag(SidebarSelection.logs)
             }
-            Section("Environment") {
-                EnvironmentPickerView()
+
+
+            if !model.traffic.deviceSummaries.isEmpty {
+                Section("Devices") {
+                    devicesSectionContent
+                }
             }
+
         }
         .listStyle(.sidebar)
-        .navigationTitle(model.collection.collection.name)
+        .navigationTitle("Workspace")
         .toolbar {
             ToolbarItem {
                 Button(action: model.newRequest) {
@@ -57,42 +79,21 @@ struct SidebarView: View {
                 }
             }
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            openCollectionButton
-        }
-    }
-
-    private var openCollectionButton: some View {
-        Button {
-            Task { await model.openCollectionDirectory() }
-        } label: {
-            Label(model.collection.directoryURL?.lastPathComponent ?? "Open Collection…", systemImage: "folder")
-                .font(.caption)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .buttonStyle(.plain)
-        .padding(Spacing.md)
     }
 
     private var selectionBinding: Binding<SidebarSelection?> {
         Binding(get: { model.selection }, set: { model.select($0) })
     }
 
-    /// Not `List` selection rows — see `DeviceRowView`'s doc comment for
-    /// why. An always-present, empty-state-aware section, so the hub's
-    /// many-peers architecture reads even before anything has connected.
+    /// Not `List` selection rows — see `DeviceRowView`'s doc comment for why.
+    /// The containing section only appears for connected devices, keeping the
+    /// source list focused.
     @ViewBuilder
     private var devicesSectionContent: some View {
-        if model.traffic.deviceSummaries.isEmpty {
-            Text("No devices connected")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        } else {
-            ForEach(model.traffic.deviceSummaries) { summary in
-                DeviceRowView(summary: summary, isScoped: isScoped(summary.device)) {
-                    model.traffic.selectDevice(summary.device)
-                    model.select(.traffic)
-                }
+        ForEach(model.traffic.deviceSummaries) { summary in
+            DeviceRowView(summary: summary, isScoped: isScoped(summary.device)) {
+                model.traffic.selectDevice(summary.device)
+                model.select(.traffic)
             }
         }
     }

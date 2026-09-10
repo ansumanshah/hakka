@@ -299,7 +299,7 @@ describe('runCollection', () => {
     try {
       const dir = await fixture({
         'collection.hakka': {
-          version: 5,
+          version: 4,
           id: 'c',
           name: 'sessions',
           defaultHeaders: [],
@@ -351,7 +351,7 @@ describe('runCollection', () => {
     if (!address || typeof address === 'string') throw new Error('no grpc address')
     try {
       const dir = await fixture({
-        'collection.hakka': { version: 5, id: 'c', name: 'grpc', defaultHeaders: [], auth: { none: {} }, notes: null },
+        'collection.hakka': { version: 4, id: 'c', name: 'grpc', defaultHeaders: [], auth: { none: {} }, notes: null },
         'grpc.hakka': request(0, 'grpc', 'grpc', 'POST', `grpc://127.0.0.1:${address.port}/demo.Echo/Ping`, {
           body: { grpcMessage: { hex: '0a00' } },
           assertions: [

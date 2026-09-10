@@ -69,6 +69,20 @@ struct ParseBridgeFrameTests {
         #expect(frame?.request?.runtime == .server)
     }
 
+    @Test func proxyMapperHTTPFrameDecodesIntoNativeRequest() {
+        let frame = parseBridgeFrame("""
+        {"type":"request","payload":{"id":"flow-1","url":"http://127.0.0.1:18765/products","method":"GET","status":200,"startTime":100,"endTime":150,"duration":50,"timestamp":100,"requestHeaders":{"Host":"127.0.0.1:18765"},"responseHeaders":{"Content-Type":"application/json"},"requestBody":null,"responseBody":"{}","requestBodySize":0,"responseBodySize":2,"error":null,"source":"http","runtime":"client","library":"mitmproxy","contentType":"application/json","networkProtocol":"HTTP/1.1","timing":{"total":50}}}
+        """)
+
+        #expect(frame?.kind == .request)
+        #expect(frame?.request?.id == "flow-1")
+        #expect(frame?.request?.source == .http)
+        #expect(frame?.request?.runtime == .client)
+        #expect(frame?.request?.requestHeaders == ["Host": ["127.0.0.1:18765"]])
+        #expect(frame?.request?.responseHeaders == ["Content-Type": ["application/json"]])
+        #expect(frame?.request?.responseBody == "{}")
+    }
+
     @Test func validSpanParsesWithoutDecodingRequest() {
         let frame = parseBridgeFrame(spanFrameJSON())
         #expect(frame?.kind == .span)

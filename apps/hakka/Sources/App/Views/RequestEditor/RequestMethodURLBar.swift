@@ -17,23 +17,26 @@ struct RequestMethodURLBar: View {
             // GET/POST/… picker next to a `grpc://` URL would only confuse;
             // hidden rather than shown-but-ignored.
             if !GrpcURL.isGrpcURL(spec.url) {
-                Picker("", selection: $spec.method) {
+                Picker("HTTP method", selection: $spec.method) {
                     ForEach(HttpMethod.allCases, id: \.self) { method in
                         Text(method.rawValue).tag(method)
                     }
                 }
                 .labelsHidden()
                 .controlSize(.small)
-                .frame(width: 76)
+                .frame(width: 80)
+                .help("HTTP method")
             }
 
             TextField("https://example.com/{{path}} or grpc://host:port/pkg.Service/Method", text: $spec.url)
                 .textFieldStyle(.roundedBorder)
                 .controlSize(.small)
+                .font(.system(.body, design: .monospaced))
+                .accessibilityLabel("Request URL")
+                .help("Request URL. Paste a cURL command to import it.")
                 // Claims paste for the field so a copied `curl …` command
-                // (Chrome/Safari "Copy as cURL", or one typed by hand)
                 // imports directly instead of dropping raw shell text into
-                // the URL — matching Yaak/Postman. Reads the pasteboard
+                // the URL. Reads the pasteboard
                 // directly rather than the item providers this closure is
                 // handed: loading those is asynchronous, and the paste is
                 // already synchronous string content by the time the user
@@ -49,15 +52,19 @@ struct RequestMethodURLBar: View {
                 Task { await model.sendActiveRequest() }
             } label: {
                 if model.editor.isSending {
-                    ProgressView().controlSize(.small).frame(width: 36)
+                    ProgressView()
+                        .controlSize(.small)
+                        .frame(minWidth: 44)
                 } else {
-                    Text("Send").frame(width: 36)
+                    Text("Send").frame(minWidth: 44)
                 }
             }
             .keyboardShortcut(.return, modifiers: .command)
             .controlSize(.small)
             .buttonStyle(.borderedProminent)
             .disabled(model.editor.isSending || spec.url.isEmpty)
+            .accessibilityLabel(model.editor.isSending ? "Sending request" : "Send request")
+            .help("Send request (⌘↩)")
         }
         .frame(height: ControlHeight.bar)
         .padding(.horizontal, Layout.gutter)

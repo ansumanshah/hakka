@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'bun:test'
-import { mkdtemp, mkdir, readdir, rm, symlink, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -51,7 +51,15 @@ describe('collection workspace MCP tools', () => {
       auth: {
         oauth2: {
           _0: {
-            grant: { clientCredentials: { _0: { clientId: 'public-client', clientSecret: 'literal-client-secret' } } },
+            grant: {
+              clientCredentials: {
+                _0: {
+                  tokenURL: 'https://auth.example.test/token',
+                  clientId: 'public-client',
+                  clientSecret: 'literal-client-secret',
+                },
+              },
+            },
           },
         },
       },
@@ -91,6 +99,132 @@ describe('collection workspace MCP tools', () => {
         session: { ...session, sse: { maxEvents: 1, timeoutMs: 1000 } },
       }),
     ).rejects.toThrow('exactly one')
+  })
+  it('persists native Codable request fixtures', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'hakka-workspace-native-fixtures-'))
+    cleanup.push(() => rm(root, { recursive: true, force: true }))
+    const workspace = new CollectionWorkspace(root)
+    await workspace.createCollection({ id: 'demo', name: 'Demo' })
+    const header = { id: 'field', name: 'field', value: 'value', enabled: true }
+    const multipart = {
+      id: 'part',
+      name: 'upload',
+      value: '',
+      filePath: '/tmp/upload',
+      contentType: 'text/plain',
+      enabled: true,
+    }
+    const fixtures = [
+      { body: { none: {} }, auth: { inherit: {} } },
+      {
+        body: { raw: { text: '{"ok":true}', contentType: 'application/json' } },
+        auth: { basic: { username: 'user', password: 'pass' } },
+      },
+      { body: { form: { _0: [header] } }, auth: { bearer: { token: '{{TOKEN}}' } } },
+      {
+        body: { multipart: { _0: [multipart] } },
+        auth: { apiKey: { name: 'X-Key', value: '{{KEY}}', placement: 'header' } },
+      },
+      {
+        body: { graphql: { query: 'query Ping { ping }', variables: '{}', operationName: 'Ping' } },
+        auth: { oauth2: { _0: { grant: { staticToken: { accessToken: '{{TOKEN}}' } } } } },
+      },
+      { body: { file: { path: '/tmp/upload', contentType: 'application/octet-stream' } }, auth: { none: {} } },
+      { body: { grpcMessage: { hex: '00ff' } }, auth: { none: {} } },
+    ]
+    await Promise.all(
+      fixtures.map((fixture, index) =>
+        workspace.createRequest('demo', {
+          id: `fixture-${index}`,
+          name: `Fixture ${index}`,
+          url: 'https://example.test',
+          ...fixture,
+          assertions: [{ id: 'status', target: { status: {} }, op: 'equals', expected: '200', enabled: true }],
+          scripts: { preRequestLines: ['vars.set("before", "1")'], postResponseLines: ['vars.set("after", "1")'] },
+        }),
+      ),
+    )
+  })
+  it('rejects malformed native request fields without rewriting the existing file', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'hakka-workspace-contract-'))
+    cleanup.push(() => rm(root, { recursive: true, force: true }))
+    const workspace = new CollectionWorkspace(root)
+    await workspace.createCollection({ id: 'demo', name: 'Demo' })
+    const created = await workspace.createRequest('demo', {
+      id: 'request',
+      name: 'Request',
+      url: 'https://example.test',
+    })
+    const directory = (await readdir(root)).find((entry) => entry !== 'environments')!
+    const file = join(root, directory, 'request-request.hakka')
+    const before = await readFile(file, 'utf8')
+    const invalid = [
+      { body: { raw: { text: '{}', contentType: 42 } }, path: 'body.raw.contentType' },
+      { auth: { apiKey: { name: 'X-Key', value: 'value', placement: 'cookie' } }, path: 'auth.apiKey.placement' },
+      {
+        assertions: [{ id: 'status', target: { status: {} }, op: 'sometimes', expected: '200', enabled: true }],
+        path: 'assertions[0].op',
+      },
+      { scripts: { preRequestLines: ['ok'], postResponseLines: [42] }, path: 'scripts.postResponseLines[0]' },
+    ]
+    await invalid.reduce(async (previous, patch) => {
+      await previous
+      await expect(
+        workspace.updateRequest('demo', 'request', { ...patch, expectedRevision: created.revision }),
+      ).rejects.toThrow(patch.path)
+      expect(await readFile(file, 'utf8')).toBe(before)
+    }, Promise.resolve())
+  })
+  it('preserves an MCP target while a native writer owns the collection lock', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'hakka-workspace-lock-'))
+    cleanup.push(() => rm(root, { recursive: true, force: true }))
+    const workspace = new CollectionWorkspace(root)
+    await workspace.createCollection({ id: 'demo', name: 'Demo' })
+    const created = await workspace.createRequest('demo', {
+      id: 'request',
+      name: 'Request',
+      url: 'https://example.test',
+    })
+    const directory = (await readdir(root)).find((entry) => entry !== 'environments')!
+    const file = join(root, directory, 'request-request.hakka')
+    const before = await readFile(file, 'utf8')
+    await writeFile(join(root, directory, '.hakka-write.lock'), 'native')
+
+    await expect(
+      workspace.updateRequest('demo', 'request', { name: 'Changed', expectedRevision: created.revision }),
+    ).rejects.toThrow('Hakka writer')
+    expect(await readFile(file, 'utf8')).toBe(before)
+  })
+  it('does not automatically reclaim an old lock', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'hakka-workspace-stale-lock-'))
+    cleanup.push(() => rm(root, { recursive: true, force: true }))
+    const workspace = new CollectionWorkspace(root)
+    const collection = await workspace.createCollection({ id: 'demo', name: 'Demo' })
+    const directory = (await readdir(root)).find((entry) => entry !== 'environments')!
+    const lock = join(root, directory, '.hakka-write.lock')
+    const staleLock = JSON.stringify({ version: 1, pid: 2_147_483_647, nonce: 'crashed', createdAt: 0 })
+    await writeFile(lock, staleLock)
+
+    await expect(
+      workspace.updateCollection('demo', { name: 'Recovered', expectedRevision: collection.revision }),
+    ).rejects.toThrow('.hakka-write.lock and retry')
+    expect(await readFile(lock, 'utf8')).toBe(staleLock)
+    expect((await workspace.readCollection('demo')).value.name).toBe('Demo')
+  })
+  it('rejects invalid folder auth before replacing its metadata', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'hakka-workspace-folder-contract-'))
+    cleanup.push(() => rm(root, { recursive: true, force: true }))
+    const workspace = new CollectionWorkspace(root)
+    await workspace.createCollection({ id: 'demo', name: 'Demo' })
+    const folder = await workspace.createFolder('demo', { id: 'folder', name: 'Folder' })
+    const directory = (await readdir(root)).find((entry) => entry !== 'environments')!
+    const file = join(root, directory, 'folder-folder', 'folder.hakka')
+    const before = await readFile(file, 'utf8')
+
+    await expect(
+      workspace.updateFolder('demo', 'folder', { auth: {} as never, expectedRevision: folder.revision }),
+    ).rejects.toThrow('auth must contain exactly one')
+    expect(await readFile(file, 'utf8')).toBe(before)
   })
   it('authors a real runnable collection and enforces revisions', async () => {
     const root = await mkdtemp(join(tmpdir(), 'hakka-workspace-'))

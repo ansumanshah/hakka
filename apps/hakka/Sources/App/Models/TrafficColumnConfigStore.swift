@@ -11,24 +11,54 @@ import Observation
 @MainActor
 @Observable
 final class TrafficColumnConfigStore {
-    static let defaultOrder: [TrafficColumn] = [.method, .path, .host, .status, .duration, .size, .device]
+    static let defaultOrder: [TrafficColumn] = [.method, .path, .status, .duration, .host, .size, .device]
+    static let defaultVisibleColumns: Set<TrafficColumn> = [.method, .path, .status, .duration]
 
     private(set) var columns: [TrafficColumnState]
+    private(set) var headerColumns: [TrafficHeaderColumn]
 
     private let defaults: UserDefaults
     private let key = "hakka.traffic.tableColumns"
+    private let headerColumnsKey = "hakka.traffic.tableHeaderColumns"
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         if let data = defaults.data(forKey: key), let loaded = Self.decode(data) {
             columns = loaded
         } else {
-            columns = Self.defaultOrder.map { TrafficColumnState(column: $0, isVisible: true) }
+            columns = Self.defaultColumns
         }
+        headerColumns = Self.decodeHeaderColumns(defaults.data(forKey: headerColumnsKey)) ?? []
     }
 
     var visibleColumnsInOrder: [TrafficColumn] {
         columns.filter(\.isVisible).map(\.column)
+    }
+
+    var visibleTableColumnsInOrder: [TrafficTableColumn] {
+        visibleColumnsInOrder.map(TrafficTableColumn.builtIn) + headerColumns.map(TrafficTableColumn.header)
+    }
+
+    /// Adds a valid HTTP field-name column. A request and response may share a
+    /// name, but duplicates on the same side are returned rather than saved.
+    @discardableResult
+    func addHeaderColumn(named rawName: String, source: TrafficHeaderSource) -> TrafficHeaderColumn? {
+        let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard Self.isValidHeaderName(name) else { return nil }
+        if let existing = headerColumns.first(where: {
+            $0.source == source && $0.headerName.caseInsensitiveCompare(name) == .orderedSame
+        }) {
+            return existing
+        }
+        let column = TrafficHeaderColumn(headerName: name, source: source)
+        headerColumns.append(column)
+        persistHeaderColumns()
+        return column
+    }
+
+    func removeHeaderColumn(_ column: TrafficHeaderColumn) {
+        headerColumns.removeAll { $0.id == column.id }
+        persistHeaderColumns()
     }
 
     func isVisible(_ column: TrafficColumn) -> Bool {
@@ -67,13 +97,41 @@ final class TrafficColumnConfigStore {
     }
 
     func resetToDefault() {
-        columns = Self.defaultOrder.map { TrafficColumnState(column: $0, isVisible: true) }
+        columns = Self.defaultColumns
+        headerColumns = []
         persist()
+        persistHeaderColumns()
     }
 
     private func persist() {
         guard let data = try? JSONEncoder().encode(columns) else { return }
         defaults.set(data, forKey: key)
+    }
+
+    private func persistHeaderColumns() {
+        guard let data = try? JSONEncoder().encode(headerColumns) else { return }
+        defaults.set(data, forKey: headerColumnsKey)
+    }
+
+    private static func decodeHeaderColumns(_ data: Data?) -> [TrafficHeaderColumn]? {
+        guard let data, let decoded = try? JSONDecoder().decode([TrafficHeaderColumn].self, from: data) else { return nil }
+        var knownNames: Set<String> = []
+        return decoded.filter { column in
+            let key = "\(column.source.rawValue):\(column.headerName.lowercased())"
+            return isValidHeaderName(column.headerName) && knownNames.insert(key).inserted
+        }
+    }
+
+    static func isValidHeaderName(_ name: String) -> Bool {
+        guard !name.isEmpty, name.count <= 256 else { return false }
+        return name.unicodeScalars.allSatisfy { scalar in
+            switch scalar.value {
+            case 48 ... 57, 65 ... 90, 97 ... 122, 33, 35, 36, 37, 38, 39, 42, 43, 45, 46, 94, 95, 96, 124, 126:
+                true
+            default:
+                false
+            }
+        }
     }
 
     /// Drops any persisted column this build doesn't recognize (a future
@@ -94,5 +152,11 @@ final class TrafficColumnConfigStore {
             known.append(TrafficColumnState(column: column, isVisible: true))
         }
         return known
+    }
+
+    private static var defaultColumns: [TrafficColumnState] {
+        defaultOrder.map {
+            TrafficColumnState(column: $0, isVisible: defaultVisibleColumns.contains($0))
+        }
     }
 }

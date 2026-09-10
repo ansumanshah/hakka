@@ -3,7 +3,7 @@ import { resolve } from 'node:path'
 
 import type { NetworkRequest } from 'hakka-core'
 
-import { loadProxyMappings } from './mapping'
+import { loadProxyConfiguration } from './mapping'
 import { startProxyCapture, type ProxyCapture, type ProxyOptions } from './runner'
 
 export interface ProxySessionStartOptions extends ProxyOptions {
@@ -18,7 +18,7 @@ export interface ProxySessionStatus {
   bridgeUrl?: string
   records: number
   diagnostics: string[]
-  mappings: { mapLocal: number; mapRemote: number }
+  mappings: { mapLocal: number; mapRemote: number; headerRules: number; blockRules: number; delayRules: number }
   certificates: { configDir?: string; publicCaPath?: string; publicCaExists: boolean; privateKeyExposed: false }
   error?: string
 }
@@ -43,7 +43,7 @@ export class ProxySessionManager {
       throw new Error(`Proxy session ${sessionId} is already running.`)
     const configDir = options.configDir ? resolve(options.configDir) : undefined
     const publicCaPath = configDir ? resolve(configDir, 'mitmproxy-ca-cert.pem') : undefined
-    const mappings = loadProxyMappings(options.mapConfig)
+    const mappings = loadProxyConfiguration(options.mapConfig)
     const status: ProxySessionStatus = {
       sessionId,
       state: 'starting',
@@ -52,7 +52,13 @@ export class ProxySessionManager {
       bridgeUrl: options.bridgeUrl ?? 'ws://localhost:8989',
       records: 0,
       diagnostics: [],
-      mappings: { mapLocal: mappings.mapLocal.length, mapRemote: mappings.mapRemote.length },
+      mappings: {
+        mapLocal: mappings.mapLocal.length,
+        mapRemote: mappings.mapRemote.length,
+        headerRules: mappings.rules.header,
+        blockRules: mappings.rules.block,
+        delayRules: mappings.rules.delay,
+      },
       certificates: {
         configDir,
         publicCaPath,
@@ -114,7 +120,7 @@ export class ProxySessionManager {
         state: 'stopped',
         records: 0,
         diagnostics: [],
-        mappings: { mapLocal: 0, mapRemote: 0 },
+        mappings: { mapLocal: 0, mapRemote: 0, headerRules: 0, blockRules: 0, delayRules: 0 },
         certificates: { publicCaExists: false, privateKeyExposed: false },
       }
     const path = session.status.certificates.publicCaPath
@@ -146,7 +152,7 @@ export class ProxySessionManager {
   async updateMappings(sessionId: string, mapConfig: string | undefined, restart = false): Promise<ProxySessionStatus> {
     const session = this.sessions.get(sessionId)
     if (!session) throw new Error(`Proxy session ${sessionId} does not exist.`)
-    loadProxyMappings(mapConfig)
+    loadProxyConfiguration(mapConfig)
     if (session.status.state === 'running' && !restart)
       throw new Error(
         'Changing proxy mappings requires restart: true because mitmproxy mapping flags apply at startup.',

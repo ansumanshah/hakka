@@ -13,9 +13,9 @@ including commercially. Nothing in this repository is licensed to you conditiona
 for macOS that you download from the website is what a licence pays for. Buying one funds the work;
 it does not unlock code you were otherwise forbidden from running.
 
-This is the same shape Yaak uses, and it is deliberate. The SDKs are how Hakka reaches people, so
-they stay MIT and always will. The desktop app is the thing worth paying for, so the convenience of
-a maintained, notarized, updating binary is what is sold.
+This split is deliberate. The SDKs are how Hakka reaches people, so they stay MIT and always will.
+The desktop app is the thing worth paying for, so the convenience of a maintained, notarized,
+updating binary is what is sold.
 
 ## Why it is set up this way
 

@@ -14,6 +14,7 @@ final class AppModel {
     let environment = EnvironmentModel()
     let traffic: TrafficModel
     let editor = RequestEditorModel()
+    let requestWorkspaceTabs = RequestWorkspaceTabsModel()
     let rules: RulesModel
     let folderRun = FolderRunModel()
     let webSocket = WebSocketConnectionModel()
@@ -37,26 +38,36 @@ final class AppModel {
     init() {
         let traffic = TrafficModel()
         self.traffic = traffic
-        self.rules = RulesModel(traffic: traffic)
-        self.pauseInbox = PauseInboxModel(channel: traffic)
+        rules = RulesModel(traffic: traffic)
+        pauseInbox = PauseInboxModel(channel: traffic)
         let proxy = ProxyCaptureModel()
         self.proxy = proxy
-        self.mcp = MCPServerModel(trafficStore: traffic.store, collectionModel: collection,
-                                  additionalTools: NativeProxyTool.tools(proxy: proxy, traffic: traffic))
+        proxy.onBreakpointReady = { [weak traffic] in
+            guard let traffic else { return }
+            for entry in await traffic.rules.rules() {
+                if case .breakpoint = entry.payload {
+                    _ = try? await traffic.send(installCommand(for: entry))
+                }
+            }
+        }
+        mcp = MCPServerModel(trafficStore: traffic.store, collectionModel: collection,
+                             additionalTools: NativeProxyTool.tools(proxy: proxy, traffic: traffic))
     }
 
     private(set) var selection: SidebarSelection?
 
     func select(_ selection: SidebarSelection?) {
-        self.selection = selection
         if case let .request(id) = selection, let spec = collection.request(id: id) {
+            requestWorkspaceTabs.open(id)
             editor.load(spec)
         }
+        self.selection = selection
     }
 
     func newRequest() {
         let spec = collection.newRequest()
         select(.request(id: spec.id))
+        editor.markUnsaved(requestID: spec.id)
     }
 
     /// Routes sidebar deletes through here (instead of `collection.delete`
@@ -69,17 +80,47 @@ final class AppModel {
         clearSelectionIfOrphaned()
     }
 
+    /// Closes only the visible document. `RequestEditorModel` retains the
+    /// working copy so reopening this request cannot silently lose a draft.
+    func closeRequestTab(id: String) {
+        guard let nextID = requestWorkspaceTabs.close(id) else {
+            if case .request = selection { selection = nil }
+            return
+        }
+        guard collection.request(id: nextID) != nil else {
+            clearSelectionIfOrphaned()
+            return
+        }
+        select(.request(id: nextID))
+    }
+
+    /// Used by the Request menu's document-navigation shortcuts.
+    func cycleRequestTab(forward: Bool = true) {
+        guard let requestID = requestWorkspaceTabs.cycle(forward: forward) else { return }
+        select(.request(id: requestID))
+    }
+
     /// Writes to disk before flipping the dirty flag: if `persist` fails,
     /// `collection.lastError` is left set and `editor.isDirty` stays true so
     /// the Save menu item (its sole gate) doesn't lie about the edit being
     /// safe. `ContentView` surfaces `lastError` to the user.
     func saveActiveRequest() async {
         guard let draft = editor.draft else { return }
-        collection.update(draft)
-        await collection.persist(draft)
-        if collection.lastError == nil {
-            editor.markSaved()
+        if collection.directoryURL == nil {
+            let panel = NSSavePanel()
+            panel.title = "Save Collection"
+            panel.message = "Create a folder for this collection and its request files."
+            panel.nameFieldStringValue = collection.collection.name
+            panel.canCreateDirectories = true
+            guard panel.runModal() == .OK, let directory = panel.url else { return }
+            collection.update(draft)
+            guard await collection.saveAs(to: directory) else { return }
+        } else {
+            collection.update(draft)
+            await collection.persist(draft)
+            guard collection.lastError == nil else { return }
         }
+        editor.markSaved(draft)
     }
 
     func sendActiveRequest() async {
@@ -88,7 +129,7 @@ final class AppModel {
         guard let updatedScope = await editor.send(
             collection: collection.collection,
             folderChain: folderChain,
-            scope: environment.scope,
+            scope: environment.scope
         ) else { return }
         environment.adoptRuntime(from: updatedScope)
     }
@@ -99,7 +140,9 @@ final class AppModel {
     func runFolder(_ folder: Folder) async {
         let folderChain = collection.folderChain(for: folder.id)
         let updatedScope = await folderRun.run(folder, folderChain: folderChain, collection: collection.collection, scope: environment.scope)
-        if let updatedScope { environment.adoptRuntime(from: updatedScope) }
+        if let updatedScope {
+            environment.adoptRuntime(from: updatedScope)
+        }
         select(.folderRun(id: folder.id))
     }
 
@@ -110,6 +153,7 @@ final class AppModel {
         let spec = CapturedRequestConverter.requestSpec(from: request, name: name)
         collection.addCaptured(spec)
         select(.request(id: spec.id))
+        editor.markUnsaved(requestID: spec.id)
     }
 
     /// Replays a captured request as-is: promotes it into the collection —
@@ -158,7 +202,9 @@ final class AppModel {
             let shown = mockPromotionNote
             try? await Task.sleep(for: .seconds(2.5))
             // A second promotion during the window owns the note now.
-            if mockPromotionNote == shown { mockPromotionNote = nil }
+            if mockPromotionNote == shown {
+                mockPromotionNote = nil
+            }
         }
     }
 
@@ -172,9 +218,22 @@ final class AppModel {
         panel.allowsMultipleSelection = false
         panel.prompt = "Open"
         guard panel.runModal() == .OK, let url = panel.url else { return }
+        if editor.hasUnsavedDrafts {
+            let alert = NSAlert()
+            alert.messageText = "Open another collection with unsaved requests?"
+            alert.informativeText = "Unsaved edits, including edits in closed tabs, will be lost. Cancel to save them first."
+            alert.addButton(withTitle: "Cancel")
+            alert.addButton(withTitle: "Open Without Saving")
+            guard alert.runModal() == .alertSecondButtonReturn else { return }
+        }
         await collection.open(directory: url)
+        if collection.lastError == nil {
+            editor.clear()
+            requestWorkspaceTabs.reset()
+            selection = nil
+            await environment.load(forCollectionAt: url)
+        }
         clearSelectionIfOrphaned()
-        await environment.load(forCollectionAt: url)
     }
 
     /// Clears the selection whenever it points at a request id the current
@@ -182,8 +241,24 @@ final class AppModel {
     /// whole tree was swapped by opening a different directory. `.traffic`
     /// and `nil` selections are untouched.
     func clearSelectionIfOrphaned() {
+        let activeIDs = Self.requestIDs(in: collection.collection.nodes)
+        requestWorkspaceTabs.removeMissing(keeping: activeIDs)
+        editor.discardMissing(keeping: activeIDs)
         guard case let .request(id) = selection, collection.request(id: id) == nil else { return }
-        selection = nil
-        editor.clear()
+        if let nextID = requestWorkspaceTabs.selectedRequestID, collection.request(id: nextID) != nil {
+            select(.request(id: nextID))
+        } else {
+            selection = nil
+            editor.discard(requestID: id)
+        }
+    }
+
+    private static func requestIDs(in nodes: [CollectionNode]) -> Set<String> {
+        nodes.reduce(into: Set<String>()) { ids, node in
+            switch node {
+            case let .request(request): ids.insert(request.id)
+            case let .folder(folder): ids.formUnion(requestIDs(in: folder.children))
+            }
+        }
     }
 }

@@ -88,12 +88,9 @@ struct MCPSettingsSection: View {
     }
 
     private static let exposureNote = """
-    Starts a local MCP server that an AI coding agent on this Mac can connect to. \
-    It only ever listens on this machine, not the network, but while it's on, any \
-    process on this Mac that can reach that port, including an AI agent you've \
-    given shell or MCP access to, can read your captured traffic (requests, \
-    responses, headers, and bodies) and every collection you have open. Off by \
-    default. Proxy start/stop control additionally requires the Proxy Capture window's \
-    Allow agents toggle. Turn it off when you're done.
+    Let AI tools on this Mac read captured requests, responses, headers, bodies, \
+    and open collections. While enabled, other local processes can also access \
+    this server. Remote connections are blocked. Proxy control requires \
+    Allow agents in Proxy → Automation. Off by default.
     """
 }

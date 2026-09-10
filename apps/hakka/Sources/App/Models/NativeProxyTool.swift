@@ -29,7 +29,9 @@ struct NativeProxyTool: MCPTool {
             },
             NativeProxyTool(name: "proxy_stop", description: "Stop native proxy capture and wait for shutdown. Requires its Allow agents toggle.") {
                 guard proxy.allowAgentControl else { return denied() }
-                await proxy.shutdown()
+                guard await proxy.shutdown() else {
+                    return .json(.object(["error": .string(proxy.message)]), isError: true)
+                }
                 return snapshot(proxy)
             },
         ]

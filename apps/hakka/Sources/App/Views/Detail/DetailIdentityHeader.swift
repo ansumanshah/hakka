@@ -2,37 +2,41 @@ import HakkaCommon
 import HakkaCore
 import SwiftUI
 
-/// Method + status + duration + path, hoisted above the tab strip so it
+/// Method + status + path + response metrics, hoisted above the tab strip so it
 /// stays visible on every detail tab — Request, Response, and Timing all
 /// used to lose the record's identity the moment you left Overview, which
-/// meant scrolling back up just to re-check which request you were looking
-/// at. Mirrors the design's `detail_header`: identity (method, status) reads
-/// as a headline, the path is secondary and second.
+/// meant scrolling back up just to re-check which request you were looking at.
 struct DetailIdentityHeader: View {
     let record: NetworkRequest
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.xxs) {
-            HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
-                Text(record.method.rawValue)
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(Fmt.methodColor(record.method))
-                Text(record.status.map(String.init) ?? "–")
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(Fmt.statusColor(record.status))
-                Spacer()
-                Text(Fmt.duration(record.duration))
-                    .font(.caption.monospaced())
-                    .foregroundStyle(.secondary)
-            }
+        HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
+            Text(record.method.rawValue)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Fmt.methodColor(record.method))
+                .accessibilityLabel("Method \(record.method.rawValue)")
+            Text(record.status.map(String.init) ?? "–")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Fmt.statusColor(record.status))
+                .accessibilityLabel(record.status.map { "Status \($0)" } ?? "Status pending")
             Text(record.url)
-                .font(.caption)
+                .font(.caption.monospaced())
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .help(record.url)
+            HStack(spacing: Spacing.md) {
+                Text(Fmt.duration(record.duration))
+                    .accessibilityLabel("Duration \(Fmt.duration(record.duration))")
+                Text(Fmt.bytes(record.responseBodySize))
+                    .accessibilityLabel("Response size \(Fmt.bytes(record.responseBodySize))")
+            }
+            .font(.caption.monospaced())
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: true, vertical: false)
         }
-        .padding(.vertical, Spacing.sm)
-        .background(Color(nsColor: .textBackgroundColor))
+        .frame(height: ControlHeight.bar)
     }
 }

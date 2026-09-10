@@ -1,8 +1,7 @@
 import Foundation
 import HakkaCommon
 
-/// Runs every request nested under one folder sequentially — the mini
-/// collection runner every competitor API client ships. An actor for the
+/// Runs every request nested under one folder sequentially. An actor for the
 /// same reason `RequestRunner` is one: it serializes concurrent `run` calls
 /// against the transport/jar it owns.
 ///
@@ -26,8 +25,7 @@ import HakkaCommon
 ///
 /// Failure mode — **a failing request does not stop the run.** Every
 /// request in the plan is attempted regardless of what happened before it;
-/// the summary records each outcome. The alternative (stop at the first
-/// failure) is defensible and some competitors do it, but it costs
+/// the summary records each outcome. Stopping at the first failure costs
 /// information a folder run exists to provide: if request 3 of 10 fails,
 /// stopping hides whether 4 through 10 are also broken, forcing the user
 /// back through several run-fix-run cycles to find every problem in a

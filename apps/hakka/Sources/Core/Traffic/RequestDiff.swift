@@ -1,7 +1,7 @@
 import HakkaCommon
 
-/// A structured comparison between two captured requests — Proxyman-style
-/// "compare," for answering "why did this response change after my edit."
+/// A structured comparison between two captured requests for answering
+/// "why did this response change after my edit."
 public struct RequestDiff: Sendable, Equatable {
     public struct StatusDiff: Sendable, Equatable {
         public let before: Int?

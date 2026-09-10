@@ -53,6 +53,10 @@ import HakkaCommon
         let mockData = try JSONEncoder().encode(RequestSource.mock)
         #expect(String(data: mockData, encoding: .utf8) == "\"native\"")
         #expect(try JSONDecoder().decode(RequestSource.self, from: Data("\"jsXHR\"".utf8)) == .jsXHR)
+
+        let httpData = try JSONEncoder().encode(RequestSource.http)
+        #expect(String(data: httpData, encoding: .utf8) == "\"http\"")
+        #expect(try JSONDecoder().decode(RequestSource.self, from: httpData) == .http)
     }
 
     @Test func timingFieldsDefault() {
@@ -187,7 +191,7 @@ import HakkaCommon
     // MARK: - RequestSource edge cases
 
     @Test func requestSourceRawValueRoundTrip() {
-        for source: RequestSource in [.urlSession, .jsFetch, .jsXHR, .jsWebSocket, .mock] {
+        for source: RequestSource in [.urlSession, .jsFetch, .jsXHR, .jsWebSocket, .http, .mock] {
             let raw = source.rawValue
             let roundTripped = RequestSource(rawValue: raw)
             #expect(roundTripped == source)
@@ -199,12 +203,14 @@ import HakkaCommon
         #expect(RequestSource.jsFetch.displayName == "JS Fetch")
         #expect(RequestSource.jsXHR.displayName == "JS XHR")
         #expect(RequestSource.jsWebSocket.displayName == "JS WebSocket")
+        #expect(RequestSource.http.displayName == "HTTP")
         #expect(RequestSource.mock.displayName == "Mock")
         #expect(RequestSource.urlSession.hakkaWireValue == "native")
         #expect(RequestSource.mock.hakkaWireValue == "native")
         #expect(RequestSource.jsFetch.hakkaWireValue == "fetch")
         #expect(RequestSource.jsXHR.hakkaWireValue == "xhr")
         #expect(RequestSource.jsWebSocket.hakkaWireValue == "websocket")
+        #expect(RequestSource.http.hakkaWireValue == "http")
     }
 
     // MARK: - NetworkRequest with all optional fields nil

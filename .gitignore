@@ -78,3 +78,7 @@ apps/hakka/Hakka-*.zip
 
 # Prebuilt iOS native SDK assembled for npm distribution
 packages/hakka-react-native/ios/Frameworks/
+
+# Python proxy runtime bytecode
+__pycache__/
+*.py[cod]

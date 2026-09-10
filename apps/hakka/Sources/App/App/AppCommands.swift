@@ -5,23 +5,28 @@ import SwiftUI
 /// New Request / Send / Save, wired straight to `AppModel` so the same
 /// actions the toolbar buttons trigger are reachable from the menu bar.
 struct AppCommands: Commands {
-    /// `openWindow` is only available through the environment, and `Commands`
-    /// can read it the same way a `View` does.
-    @Environment(\.openWindow) private var openSourceControl
-
     let model: AppModel
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
             Button("New Request") { model.newRequest() }
                 .keyboardShortcut("n", modifiers: .command)
+            Button("Open Collection…") { Task { await model.openCollectionDirectory() } }
+                .keyboardShortcut("o", modifiers: .command)
         }
         CommandGroup(replacing: .saveItem) {
             Button("Save") { Task { await model.saveActiveRequest() } }
                 .keyboardShortcut("s", modifiers: .command)
-                .disabled(!model.editor.isDirty)
+                .disabled(model.editor.draft == nil || (!model.editor.isDirty && model.collection.directoryURL != nil))
         }
         CommandMenu("Request") {
+            Button("Next Request Tab") { model.cycleRequestTab(forward: true) }
+                .keyboardShortcut(.tab, modifiers: .control)
+                .disabled(model.requestWorkspaceTabs.openRequestIDs.count < 2)
+            Button("Previous Request Tab") { model.cycleRequestTab(forward: false) }
+                .keyboardShortcut(.tab, modifiers: [.control, .shift])
+                .disabled(model.requestWorkspaceTabs.openRequestIDs.count < 2)
+            Divider()
             Button("Send") { Task { await model.sendActiveRequest() } }
                 .keyboardShortcut(.return, modifiers: .command)
                 .disabled(model.selection?.isRequest != true || model.editor.isSending)
@@ -30,12 +35,12 @@ struct AppCommands: Commands {
         // it acts on the open collection, which is what the Request menu's
         // neighbours do too.
         CommandMenu("Source Control") {
-            Button("Show Source Control") { openSourceControl(id: WindowID.sourceControl) }
+            Button("Show Source Control") { model.select(.changes) }
                 .keyboardShortcut("g", modifiers: [.command, .shift])
                 .disabled(model.collection.directoryURL == nil)
         }
         CommandMenu("Traffic") {
-            Button("Proxy Capture…") { openSourceControl(id: WindowID.proxy) }
+            Button("Proxy Capture…") { model.select(.proxy) }
                 .keyboardShortcut("p", modifiers: [.command, .shift])
             Divider()
             Button("Focus Search") { model.traffic.focusSearchToken += 1 }
@@ -43,7 +48,7 @@ struct AppCommands: Commands {
             Divider()
             Button("Clear Traffic") { Task { await model.traffic.clear() } }
                 .keyboardShortcut("k", modifiers: .command)
-                .disabled(model.traffic.requests.isEmpty)
+                .disabled(model.selection != .traffic || model.traffic.requests.isEmpty)
         }
         CommandMenu("Inspector") {
             Button("Show Inspector") {

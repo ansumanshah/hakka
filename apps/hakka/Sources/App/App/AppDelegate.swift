@@ -16,13 +16,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// before `AppModel` exists, so this cannot be injected via `init`.
     var pauseInbox: PauseInboxModel?
     var proxy: ProxyCaptureModel?
+    var editor: RequestEditorModel?
 
-    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard pauseInbox?.hasPending == true || proxy?.isActive == true else { return .terminateNow }
+    func applicationShouldTerminate(_: NSApplication) -> NSApplication.TerminateReply {
+        if editor?.hasUnsavedDrafts == true {
+            let alert = NSAlert()
+            alert.messageText = "Quit with unsaved requests?"
+            alert.informativeText = "Unsaved edits, including edits in closed tabs, will be lost. Cancel to return to your requests and save them."
+            alert.addButton(withTitle: "Cancel")
+            alert.addButton(withTitle: "Quit Without Saving")
+            guard alert.runModal() == .alertSecondButtonReturn else { return .terminateCancel }
+        }
+        guard pauseInbox?.hasPending == true || proxy != nil else { return .terminateNow }
         Task { @MainActor in
             await pauseInbox?.abortAllForTermination()
-            await proxy?.shutdown()
-            NSApp.reply(toApplicationShouldTerminate: true)
+            let restored = await proxy?.shutdown() ?? true
+            NSApp.reply(toApplicationShouldTerminate: restored)
         }
         return .terminateLater
     }

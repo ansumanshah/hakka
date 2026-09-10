@@ -3,8 +3,8 @@ import HakkaCommon
 
 /// Imports a Postman Collection v2.1 export. Folder nesting (`item` arrays
 /// without a `request` key) becomes `Folder`/`CollectionNode`, and a
-/// request's absent `auth` key maps to `.inherit` — matching Postman's own
-/// inheritance model exactly, not approximating it.
+/// request's absent `auth` key maps to `.inherit`, preserving the schema's
+/// inheritance semantics exactly.
 public enum PostmanImporter {
     public static func parse(_ data: Data) throws(ImportError) -> Collection {
         let root = try JSONParsing.object(from: data)
@@ -26,7 +26,7 @@ public enum PostmanImporter {
     private static func request(name: String, value: Any) -> RequestSpec {
         // Postman Collection v2.x's schema allows `item.request` to be a bare
         // URL string instead of the full request object — just the URL, no
-        // method (Postman itself defaults that case to GET). Handled before
+        // method (the schema defaults that case to GET). Handled before
         // the object guard below, which used to be the only shape checked,
         // silently discarding the string form into `url: ""`.
         if let urlString = value as? String {

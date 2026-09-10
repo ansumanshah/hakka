@@ -1,6 +1,13 @@
 import { createHash, randomUUID } from 'node:crypto'
-import { lstat, link, mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
+import { lstat, link, mkdir, open, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
 import { basename, join, resolve, sep } from 'node:path'
+
+import {
+  RequestFileValidationError,
+  validateNativeCollectionMetadata,
+  validateNativeFolderMetadata,
+  validateNativeRequestFile,
+} from './requestFileValidator.js'
 
 const FORMAT_VERSION = 4
 const SECRET_REFERENCE = 'hakka-keychain-secret:v1'
@@ -9,6 +16,12 @@ const MAX_NAME = 120
 
 type Json = null | boolean | number | string | Json[] | { [key: string]: Json }
 type JsonObject = Record<string, Json>
+interface CollectionWriteLock {
+  version: 1
+  pid: number
+  nonce: string
+  createdAt: number
+}
 
 export interface Revisioned<T> {
   value: T
@@ -206,7 +219,36 @@ export class CollectionWorkspace {
       if (CollectionWorkspace.writes.get(path) === queued) CollectionWorkspace.writes.delete(path)
     }
   }
-  /** Serialized compare-and-replace for this process; external writers must coordinate separately. */
+  /** Shared with CollectionStore: managed writers fail visibly instead of replacing another writer's draft. */
+  private async withCollectionWriteLock<T>(directory: string, work: () => Promise<T>): Promise<T> {
+    const lock = join(directory, '.hakka-write.lock')
+    const record: CollectionWriteLock = { version: 1, pid: process.pid, nonce: randomUUID(), createdAt: Date.now() }
+    const contents = JSON.stringify(record)
+    let handle: Awaited<ReturnType<typeof open>>
+    try {
+      handle = await open(lock, 'wx', 0o600)
+    } catch (error: unknown) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
+      throw new WorkspaceError(
+        'conflict',
+        `collection may be saved by another Hakka writer; close all Hakka writers, then remove ${lock} and retry`,
+      )
+    }
+    try {
+      await handle.writeFile(contents, 'utf8')
+    } catch (error) {
+      await handle.close()
+      await rm(lock, { force: true })
+      throw error
+    }
+    try {
+      return await work()
+    } finally {
+      await handle.close()
+      if ((await readFile(lock, 'utf8').catch(() => undefined)) === contents) await rm(lock, { force: true })
+    }
+  }
+  /** Serialized compare-and-replace while the shared collection lock is held. */
   private async writeSnapshot(path: string, expectedRevision: string, value: JsonObject): Promise<void> {
     await this.serializeWrite(path, async () => {
       const snapshot = await this.readJson(path)
@@ -224,6 +266,14 @@ export class CollectionWorkspace {
       throw new WorkspaceError('invalid_input', 'stored collection file is not valid JSON')
     }
   }
+  private async readOptionalJson(path: string): Promise<Revisioned<JsonObject> | undefined> {
+    try {
+      return await this.readJson(path)
+    } catch (error) {
+      if (error instanceof WorkspaceError && error.code === 'not_found') return undefined
+      throw error
+    }
+  }
   private async collectionDir(collectionId: string): Promise<string> {
     await this.ensureRoot()
     for (const entry of await readdir(this.root, { withFileTypes: true })) {
@@ -231,7 +281,7 @@ export class CollectionWorkspace {
       const dir = this.checked(entry.name)
       const file = this.checked(entry.name, 'collection.hakka')
       await this.assertRealDirectory(dir)
-      const loaded = await this.readJson(file).catch(() => undefined)
+      const loaded = await this.readOptionalJson(file)
       if (loaded?.value.id === collectionId) return dir
     }
     throw new WorkspaceError('not_found', 'collection was not found')
@@ -254,7 +304,7 @@ export class CollectionWorkspace {
         }
         if (entry.isDirectory()) {
           const meta = join(path, 'folder.hakka')
-          const folder = await this.readJson(meta).catch(() => undefined)
+          const folder = await this.readOptionalJson(meta)
           if (!folder) continue
           if (kind === 'folder' && folder.value.id === nodeId) return meta
           const found = await scan(path)
@@ -310,6 +360,7 @@ export class CollectionWorkspace {
         ...(input.notes === undefined || input.notes === null ? {} : { notes: input.notes }),
       }
       try {
+        validateNativeCollectionMetadata(value)
         await this.atomicCreateJson(join(directory, 'collection.hakka'), value)
       } catch (error) {
         await rm(directory, { recursive: true, force: true })
@@ -337,19 +388,28 @@ export class CollectionWorkspace {
     patch: { name?: string; notes?: string | null; expectedRevision: string },
   ): Promise<Revisioned<JsonObject>> {
     return this.serializeWrite(this.root, async () => {
-      const file = join(await this.collectionDir(id(collectionId, 'collectionId')), 'collection.hakka')
-      const current = await this.readJson(file)
-      this.checkRevision(current.revision, patch.expectedRevision)
-      const value = { ...current.value }
-      if (patch.name !== undefined) value.name = name(patch.name, 'name')
-      if (patch.notes !== undefined && patch.notes !== null && typeof patch.notes !== 'string')
-        throw new WorkspaceError('invalid_input', 'notes must be a string or null')
-      if (patch.notes !== undefined) {
-        if (patch.notes === null) delete value.notes
-        else value.notes = patch.notes
-      }
-      await this.writeSnapshot(file, current.revision, value)
-      return { value, revision: revision(canonical(value)) }
+      const directory = await this.collectionDir(id(collectionId, 'collectionId'))
+      return this.withCollectionWriteLock(directory, async () => {
+        const file = join(directory, 'collection.hakka')
+        const current = await this.readJson(file)
+        this.checkRevision(current.revision, patch.expectedRevision)
+        const value = { ...current.value }
+        if (patch.name !== undefined) value.name = name(patch.name, 'name')
+        if (patch.notes !== undefined && patch.notes !== null && typeof patch.notes !== 'string')
+          throw new WorkspaceError('invalid_input', 'notes must be a string or null')
+        if (patch.notes !== undefined) {
+          if (patch.notes === null) delete value.notes
+          else value.notes = patch.notes
+        }
+        try {
+          validateNativeCollectionMetadata(value)
+        } catch (error) {
+          if (error instanceof RequestFileValidationError) throw new WorkspaceError('invalid_input', error.message)
+          throw error
+        }
+        await this.writeSnapshot(file, current.revision, value)
+        return { value, revision: revision(canonical(value)) }
+      })
     })
   }
   async createFolder(
@@ -358,23 +418,26 @@ export class CollectionWorkspace {
   ): Promise<Revisioned<JsonObject>> {
     return this.serializeWrite(this.root, async () => {
       const root = await this.collectionDir(id(collectionId, 'collectionId'))
-      const parent = input.parentFolderId
-        ? resolve(await this.nodeFile(root, id(input.parentFolderId, 'parentFolderId'), 'folder'), '..')
-        : root
-      const folderName = name(input.name, 'name')
-      const folderId = input.id ? id(input.id, 'id') : randomUUID()
-      const directory = join(parent, `${slug(folderName)}-${folderId.slice(0, 8)}`)
-      await mkdir(directory, { recursive: false })
-      await this.assertRealDirectory(directory)
-      const value: JsonObject = {
-        seq: await this.nextSeq(parent),
-        id: folderId,
-        name: folderName,
-        headers: [],
-        auth: { inherit: {} },
-      }
-      await this.atomicCreateJson(join(directory, 'folder.hakka'), value)
-      return { value, revision: revision(canonical(value)) }
+      return this.withCollectionWriteLock(root, async () => {
+        const parent = input.parentFolderId
+          ? resolve(await this.nodeFile(root, id(input.parentFolderId, 'parentFolderId'), 'folder'), '..')
+          : root
+        const folderName = name(input.name, 'name')
+        const folderId = input.id ? id(input.id, 'id') : randomUUID()
+        const directory = join(parent, `${slug(folderName)}-${folderId.slice(0, 8)}`)
+        await mkdir(directory, { recursive: false })
+        await this.assertRealDirectory(directory)
+        const value: JsonObject = {
+          seq: await this.nextSeq(parent),
+          id: folderId,
+          name: folderName,
+          headers: [],
+          auth: { inherit: {} },
+        }
+        validateNativeFolderMetadata(value)
+        await this.atomicCreateJson(join(directory, 'folder.hakka'), value)
+        return { value, revision: revision(canonical(value)) }
+      })
     })
   }
   async readFolder(collectionId: string, folderId: string): Promise<Revisioned<JsonObject>> {
@@ -393,19 +456,24 @@ export class CollectionWorkspace {
     patch: { name?: string; headers?: Json[]; auth?: JsonObject; expectedRevision: string },
   ): Promise<Revisioned<JsonObject>> {
     return this.serializeWrite(this.root, async () => {
-      const file = await this.nodeFile(
-        await this.collectionDir(id(collectionId, 'collectionId')),
-        id(folderId, 'folderId'),
-        'folder',
-      )
-      const current = await this.readJson(file)
-      this.checkRevision(current.revision, patch.expectedRevision)
-      const value = { ...current.value }
-      if (patch.name !== undefined) value.name = name(patch.name, 'name')
-      if (patch.headers !== undefined) value.headers = headerPairs(patch.headers, 'headers')
-      if (patch.auth !== undefined) value.auth = patch.auth
-      await this.writeSnapshot(file, current.revision, value)
-      return { value, revision: revision(canonical(value)) }
+      const root = await this.collectionDir(id(collectionId, 'collectionId'))
+      return this.withCollectionWriteLock(root, async () => {
+        const file = await this.nodeFile(root, id(folderId, 'folderId'), 'folder')
+        const current = await this.readJson(file)
+        this.checkRevision(current.revision, patch.expectedRevision)
+        const value = { ...current.value }
+        if (patch.name !== undefined) value.name = name(patch.name, 'name')
+        if (patch.headers !== undefined) value.headers = headerPairs(patch.headers, 'headers')
+        if (patch.auth !== undefined) value.auth = patch.auth
+        try {
+          validateNativeFolderMetadata(value)
+        } catch (error) {
+          if (error instanceof RequestFileValidationError) throw new WorkspaceError('invalid_input', error.message)
+          throw error
+        }
+        await this.writeSnapshot(file, current.revision, value)
+        return { value, revision: revision(canonical(value)) }
+      })
     })
   }
   async createRequest(
@@ -414,21 +482,23 @@ export class CollectionWorkspace {
   ): Promise<Revisioned<JsonObject>> {
     return this.serializeWrite(this.root, async () => {
       const root = await this.collectionDir(id(collectionId, 'collectionId'))
-      const parent = input.parentFolderId
-        ? resolve(await this.nodeFile(root, id(input.parentFolderId, 'parentFolderId'), 'folder'), '..')
-        : root
-      const spec = this.requestSpec(input)
-      const existingID = await this.nodeFile(root, String(spec.id), 'request').catch((error: unknown) => {
-        if (error instanceof WorkspaceError && error.code === 'not_found') return undefined
-        throw error
+      return this.withCollectionWriteLock(root, async () => {
+        const parent = input.parentFolderId
+          ? resolve(await this.nodeFile(root, id(input.parentFolderId, 'parentFolderId'), 'folder'), '..')
+          : root
+        const spec = this.requestSpec(input)
+        const existingID = await this.nodeFile(root, String(spec.id), 'request').catch((error: unknown) => {
+          if (error instanceof WorkspaceError && error.code === 'not_found') return undefined
+          throw error
+        })
+        if (existingID) throw new WorkspaceError('conflict', 'a request with this id already exists')
+        const value: JsonObject = { seq: await this.nextSeq(parent), spec }
+        const file = join(parent, `${slug(spec.name as string)}-${String(spec.id).slice(0, 8)}.hakka`)
+        if (await lstat(file).catch(() => undefined))
+          throw new WorkspaceError('conflict', 'a request already occupies this collection filename')
+        await this.atomicCreateJson(file, value)
+        return { value: this.redactRequest(value), revision: revision(canonical(value)) }
       })
-      if (existingID) throw new WorkspaceError('conflict', 'a request with this id already exists')
-      const value: JsonObject = { seq: await this.nextSeq(parent), spec }
-      const file = join(parent, `${slug(spec.name as string)}-${String(spec.id).slice(0, 8)}.hakka`)
-      if (await lstat(file).catch(() => undefined))
-        throw new WorkspaceError('conflict', 'a request already occupies this collection filename')
-      await this.atomicCreateJson(file, value)
-      return { value: this.redactRequest(value), revision: revision(canonical(value)) }
     })
   }
   async readRequest(collectionId: string, requestId: string): Promise<Revisioned<JsonObject>> {
@@ -447,34 +517,35 @@ export class CollectionWorkspace {
     patch: RequestInput & { expectedRevision: string },
   ): Promise<Revisioned<JsonObject>> {
     return this.serializeWrite(this.root, async () => {
-      const file = await this.nodeFile(
-        await this.collectionDir(id(collectionId, 'collectionId')),
-        id(requestId, 'requestId'),
-        'request',
-      )
-      const current = await this.readJson(file)
-      this.checkRevision(current.revision, patch.expectedRevision)
-      const old = object(current.value.spec, 'request spec')
-      const spec = this.requestSpec({ ...old, ...patch, id: old.id as string })
-      const value: JsonObject = { ...current.value, spec }
-      await this.writeSnapshot(file, current.revision, value)
-      return { value: this.redactRequest(value), revision: revision(canonical(value)) }
+      const root = await this.collectionDir(id(collectionId, 'collectionId'))
+      return this.withCollectionWriteLock(root, async () => {
+        const file = await this.nodeFile(root, id(requestId, 'requestId'), 'request')
+        const current = await this.readJson(file)
+        this.checkRevision(current.revision, patch.expectedRevision)
+        const old = object(current.value.spec, 'request spec')
+        const spec = this.requestSpec({ ...old, ...patch, id: old.id as string })
+        const value: JsonObject = { ...current.value, spec }
+        await this.writeSnapshot(file, current.revision, value)
+        return { value: this.redactRequest(value), revision: revision(canonical(value)) }
+      })
     })
   }
   async deleteNode(collectionId: string, nodeId: string, expectedRevision: string): Promise<void> {
     return this.serializeWrite(this.root, async () => {
       const root = await this.collectionDir(id(collectionId, 'collectionId'))
-      for (const kind of ['request', 'folder'] as const) {
-        try {
-          const file = await this.nodeFile(root, id(nodeId, 'nodeId'), kind)
-          const current = await this.readJson(file)
-          this.checkRevision(current.revision, expectedRevision)
-          await rm(kind === 'folder' ? resolve(file, '..') : file, { recursive: kind === 'folder', force: false })
-          return
-        } catch (error) {
-          if (!(error instanceof WorkspaceError) || error.code !== 'not_found' || kind === 'folder') throw error
+      return this.withCollectionWriteLock(root, async () => {
+        for (const kind of ['request', 'folder'] as const) {
+          try {
+            const file = await this.nodeFile(root, id(nodeId, 'nodeId'), kind)
+            const current = await this.readJson(file)
+            this.checkRevision(current.revision, expectedRevision)
+            await rm(kind === 'folder' ? resolve(file, '..') : file, { recursive: kind === 'folder', force: false })
+            return
+          } catch (error) {
+            if (!(error instanceof WorkspaceError) || error.code !== 'not_found' || kind === 'folder') throw error
+          }
         }
-      }
+      })
     })
   }
   async listEnvironments(
@@ -614,6 +685,12 @@ export class CollectionWorkspace {
       if (variants !== 1)
         throw new WorkspaceError('invalid_input', 'session must contain exactly one webSocket or sse variant')
       spec.session = session
+    }
+    try {
+      validateNativeRequestFile(spec)
+    } catch (error) {
+      if (error instanceof RequestFileValidationError) throw new WorkspaceError('invalid_input', error.message)
+      throw error
     }
     return spec
   }

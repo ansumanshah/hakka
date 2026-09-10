@@ -8,21 +8,25 @@ import SwiftUI
 struct JSONOutlineRowView: View {
     let node: JSONOutlineNode
     let depth: Int
+    let searchResult: JSONOutlineSearch.Result?
 
     @State private var isExpanded: Bool
 
-    init(node: JSONOutlineNode, depth: Int) {
+    init(node: JSONOutlineNode, depth: Int, searchResult: JSONOutlineSearch.Result? = nil) {
         self.node = node
         self.depth = depth
+        self.searchResult = searchResult
         _isExpanded = State(initialValue: depth < 2)
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xxs) {
             rowLine
-            if isExpanded, node.isExpandable {
+            if effectiveExpanded, node.isExpandable {
                 ForEach(node.children()) { child in
-                    JSONOutlineRowView(node: child, depth: depth + 1)
+                    if searchResult?.includedNodeIDs.contains(child.id) ?? true {
+                        JSONOutlineRowView(node: child, depth: depth + 1, searchResult: searchResult)
+                    }
                 }
                 .padding(.leading, Spacing.ll)
                 closingLine
@@ -36,8 +40,8 @@ struct JSONOutlineRowView: View {
                 Button {
                     isExpanded.toggle()
                 } label: {
-                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                        .font(.system(size: 8, weight: .bold))  // ui-token-check-ignore: disclosure chevron glyph
+                    Image(systemName: effectiveExpanded ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 8, weight: .bold)) // ui-token-check-ignore: disclosure chevron glyph
                         .foregroundStyle(.secondary)
                         .frame(width: 12)
                 }
@@ -51,7 +55,7 @@ struct JSONOutlineRowView: View {
             }
             if node.isExpandable {
                 Text(openBracket).foregroundStyle(.secondary)
-                if !isExpanded {
+                if !effectiveExpanded {
                     Text("\(node.childCount) \(node.childCount == 1 ? "item" : "items")")
                         .foregroundStyle(.secondary)
                     Text(closeBracket).foregroundStyle(.secondary)
@@ -61,6 +65,7 @@ struct JSONOutlineRowView: View {
             }
         }
         .font(.caption.monospaced())
+        .background(rowBackground)
     }
 
     private var closingLine: some View {
@@ -71,8 +76,24 @@ struct JSONOutlineRowView: View {
         .font(.caption.monospaced())
     }
 
-    private var openBracket: String { node.kind == .array ? "[" : "{" }
-    private var closeBracket: String { node.kind == .array ? "]" : "}" }
+    private var openBracket: String {
+        node.kind == .array ? "[" : "{"
+    }
+
+    private var closeBracket: String {
+        node.kind == .array ? "]" : "}"
+    }
+
+    private var effectiveExpanded: Bool {
+        searchResult == nil ? isExpanded : true
+    }
+
+    @ViewBuilder
+    private var rowBackground: some View {
+        if searchResult?.matches.contains(where: { $0.path == node.id }) == true {
+            RoundedRectangle(cornerRadius: 3).fill(Color.accentColor.opacity(0.18))
+        }
+    }
 
     private var colorForLeaf: Color {
         switch node.kind {

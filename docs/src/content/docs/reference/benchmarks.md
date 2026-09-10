@@ -1,6 +1,6 @@
 ---
 title: Benchmarks
-description: Performance comparison tables for Android, iOS, and React Native — Hakka vs baseline and reference inspectors.
+description: Hakka size and runtime measurements against uninstrumented baseline harnesses.
 ---
 
 Benchmark data is collected from simulator/emulator runs unless noted. Physical-device
@@ -14,7 +14,6 @@ Variants built from the same `android/benchmark` harness against a common OkHttp
 | -------- | ---------- | --------: | ------------------: |
 | baseline | debug      | 1,409,554 |                   — |
 | hakka    | debug      | 1,811,912 |            +402,358 |
-| chucker  | debug      | 7,775,350 |          +6,365,796 |
 | baseline | release    |   165,939 |                   — |
 | hakka    | release    |   315,239 |            +149,300 |
 
@@ -48,23 +47,16 @@ export; that number was stale, not wrong at the time, and is corrected here.)
 | -------- | ---------: | -----------: | ----------------: |
 | baseline |      15.68 |        62.93 |              0.0% |
 | hakka    |      15.25 |        64.39 |             -2.7% |
-| chucker  |      18.33 |        53.48 |            +16.9% |
 
 > **Regenerate before publishing.** The `hakka` variant above was measured with
-> body capture **off** (`maxBodySize = 0`) while `chucker` captured bodies up to
-> 256 KB — so part of the gap is a config difference, not engine speed. The
-> benchmark variant is now matched (`maxBodySize = 262_144`, equal to Chucker's
-> cap), but a clean re-run needs a **low-latency endpoint**: over an emulator,
+> body capture **off** (`maxBodySize = 0`). The benchmark variant now enables a
+> 256 KB cap, but a clean re-run needs a **low-latency endpoint**: over an emulator,
 > `httpbin.org` round-trips (and its frequent `503`s) dwarf the microsecond-scale
 > interceptor cost. Run against a local server (`http://10.0.2.2:PORT`) or a CI
 > fixture and refresh this table.
 
-The durable, config-independent result is architectural: Hakka does per-request
-work in-memory (an `ArrayDeque` + `HashMap` ring buffer, O(1) add) and defers
-redaction/serialization to a background executor that returns immediately, while
-Chucker persists every transaction to a **Room/SQLite database on disk** inside
-the interceptor path. That disk write — not body size — is Chucker's dominant
-per-request cost, and it does not go away with a matched config.
+Hakka does per-request work in memory with an `ArrayDeque` and `HashMap` ring
+buffer, then defers redaction and serialization to a background executor.
 
 ## iOS App Size
 
@@ -74,8 +66,6 @@ Variants built for the iOS Simulator against a URLSession baseline:
 | -------- | ------------- | --------: | ------------------: |
 | baseline | debug         |   549,551 |                   — |
 | hakka    | debug         | 3,606,583 |          +3,057,032 |
-| wormholy | debug         | 3,985,426 |          +3,435,875 |
-| pulse    | debug         | 6,132,135 |          +5,582,584 |
 | baseline | release       |   284,687 |                   — |
 | hakka    | release       | 2,184,951 |          +1,900,264 |
 
@@ -85,8 +75,6 @@ Variants built for the iOS Simulator against a URLSession baseline:
 | -------- | --------------: | -----------: | ----------------: |
 | baseline |           14.07 |        72.72 |              0.0% |
 | hakka    |           13.30 |        74.88 |             -5.5% |
-| wormholy |           33.37 |        29.99 |           +137.2% |
-| pulse    |           13.87 |        72.58 |             -1.4% |
 
 Repeated-run raw averages:
 
@@ -94,11 +82,9 @@ Repeated-run raw averages:
 | -------- | -----------: | -----------: | -----------: |
 | baseline |         17.5 |         11.7 |         13.0 |
 | hakka    |         13.7 |         13.0 |         13.2 |
-| wormholy |         32.8 |         35.2 |         32.1 |
-| pulse    |         13.2 |         15.8 |         12.6 |
 
-Hakka is 5.5% below baseline mean and 137.2% faster than Wormholy on this simulator sample.
-Target: within 5% of baseline mean and faster than Wormholy. Physical-device confirmation is still open.
+Hakka is 5.5% below the baseline mean on this simulator sample. The target is
+within 5% of baseline; physical-device confirmation is still open.
 
 ## React Native Mode Runtime (deterministic harness, 100 requests)
 
@@ -138,7 +124,7 @@ All benchmark entry points are `just` recipes (run `just --list` for the full se
 just bench-core
 just bench-core-check
 
-# hakka-browser capture overhead vs competitors (+ budget gate)
+# hakka-browser capture overhead (+ budget gate)
 just bench-web
 just bench-web-check
 
@@ -166,6 +152,4 @@ just bench-verify
 Physical-device collection requires an attached Android device or a signed iOS
 device; run `just devices` to check device readiness first. Benchmark runs write
 their raw artifacts to a local `artifacts/benchmarks/` directory (not committed),
-and `just bench-verify` checks a completed collection for missing pieces. The
-Android/iOS comparative size and runtime tables above were collected with
-one-off harnesses against the listed competitor builds.
+and `just bench-verify` checks a completed collection for missing pieces.

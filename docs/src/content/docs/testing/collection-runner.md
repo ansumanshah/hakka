@@ -55,3 +55,8 @@ if (report.failed) process.exitCode = 1
 ## Example collection
 
 [`examples/api-automation`](https://github.com/ansumanshah/hakka/tree/main/examples/api-automation) contains a collection whose first request captures an ID and whose second request interpolates it. Run it against a local API by replacing `BASE_URL`.
+
+Collection loading rejects a format version newer than the supported version 4.
+A directory without `folder.hakka` is outside the collection tree. A directory with
+malformed `folder.hakka` fails the run before sending requests, so an invalid folder
+cannot silently disappear from the test run.

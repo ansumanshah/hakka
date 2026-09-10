@@ -180,8 +180,8 @@ export const Detail: Component<DetailProps> = (props) => {
   let tabsEl: HTMLDivElement | undefined
 
   // Keep the active tab visible when the strip overflows (up to 6 tabs on a
-  // narrow phone) — a chevron-less overflow cue plus this guarantee is the
-  // adopted Bruno pattern (fade mask on .hakka-tabs, styles.ts). Guarded for
+  // narrow phone) — the fade mask in styles.ts signals overflow while this
+  // keeps selection visible. Guarded for
   // jsdom/happy-dom, which may not implement scrollIntoView at all.
   createEffect(
     () => tab(),

@@ -8,11 +8,8 @@ Status: Accepted · Date: 2026-08-29
 ## Context
 
 Hakka for macOS is built and unreleased: no signed build, no users, no reviews. The studio needs
-the desktop app to fund the work. Every comparable tool is already paid: Proxyman sells perpetual
-licences alongside a team subscription, Bruno gates the git write path behind a per-seat monthly
-plan, HTTP Toolkit ships open source with a paid Pro tier, and Charles and Fiddler have charged for
-years. The question was never whether to charge. It was what, exactly, is being sold, given that
-all 416 Swift files of the app are already public under MIT.
+the desktop app to fund the work. The question is what the official distribution sells when all
+416 Swift files of the app are already public under MIT.
 
 Two facts constrained the answer.
 
@@ -45,9 +42,9 @@ The repository needs no licence surgery, no per-directory override, no contribut
 agreement, and no relicensing commit. `LICENSE` at the root continues to cover everything, which is
 also the honest description of the situation rather than a convenient one.
 
-Anyone can build and use Hakka for free by compiling it. That is accepted, not tolerated. It is the
-same bargain Yaak makes, and the audience most likely to compile from source is the audience least
-likely to have been a paying customer anyway.
+Anyone can build and use Hakka for free by compiling it. That is accepted, not tolerated. The
+audience most likely to compile from source is also the audience least likely to pay for packaging
+and updates.
 
 Revenue depends on the official build being genuinely more convenient than compiling: signed,
 notarized, updating through Sparkle, and installable in one step. That convenience is the product,
@@ -56,8 +53,8 @@ which also rules out App Store licence-key restrictions.
 
 Because there is no technical enforcement, the free and paid split must be decided before the first
 release and then held. Moving that boundary afterwards costs more goodwill than setting it slightly
-wrong at the start. Insomnia's 2023 account requirement and Postman's 2026 reduction of free team
-seats are both cautionary: users react hard to a previously frictionless thing acquiring friction.
+wrong at the start; users react strongly when a previously frictionless workflow acquires new
+restrictions.
 
 Capture and inspection are not gated. They are the product working at all, and a free tier that
 cannot inspect traffic is a demo rather than a free tier.

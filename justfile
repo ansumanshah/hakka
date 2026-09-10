@@ -213,7 +213,7 @@ bench-node:
 bench-node-check:
     bun run --cwd packages/hakka-node bench:check
 
-# hakka-browser capture-overhead benchmark vs competitors, small + near-cap body
+# hakka-browser capture-overhead benchmark with small + near-cap body scenarios
 # (table + RESULTS.md). Builds web first so hakka-core's dist is present.
 bench-web: build-core build-bridge
     bun run --cwd packages/hakka-browser build

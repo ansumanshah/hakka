@@ -51,7 +51,7 @@ extension TrafficModel {
     }
 
     private func isHiddenByNoiseScope(_ request: NetworkRequest) -> Bool {
-        noiseScope.hides(host: TrafficQueryCompiler.requestHost(request))
+        noiseScope.hides(request)
     }
 
     private func isErroring(_ request: NetworkRequest) -> Bool {

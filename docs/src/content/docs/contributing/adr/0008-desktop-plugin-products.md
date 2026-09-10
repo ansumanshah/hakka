@@ -21,10 +21,9 @@ Two separate needs converged on the same answer:
    that role is played by a Node hub plus whatever UI the user has open.
 2. **Captured traffic wants to become saved requests.** The most common
    thing a developer does after seeing an interesting request in an inspector
-   is re-run it with a tweak. Every API client (Bruno, Yaak, Postman,
-   Insomnia) can save and re-run requests; none of them can see your app's
-   live traffic without a system proxy and a CA certificate. Hakka already
-   has the traffic, in-process, with no certificate.
+   is re-run it with a tweak. Hakka already has the traffic in-process, so it
+   can promote a capture into a saved request without adding a proxy or CA
+   certificate to that workflow.
 
 The earlier plan for this was a separate Tauri app under a different name.
 That was reversed (2026-08-16): a scaffold was built and reverted the same
@@ -84,21 +83,19 @@ Parity targets, stated plainly so scope creep is visible. "Built" means
 implemented, reviewed, and covered by tests — not that a signed release
 exists:
 
-| Area                                                                        | Comparable to     | Status                |
-| --------------------------------------------------------------------------- | ----------------- | --------------------- |
-| Plain-text, git-diffable collections (one file per request)                 | Bruno             | built                 |
-| Environments + `{{variable}}` interpolation, secrets outside the collection | Bruno, Yaak       | built                 |
-| Request runner, declarative assertions, response captures                   | Bruno, Yaak       | built                 |
-| Import from cURL / Postman / OpenAPI / HAR; code generation                 | all of them       | built (see limits)    |
-| Live capture, traffic list, search DSL                                      | Proxyman          | built                 |
-| Response diff, session export/import, HAR export                            | Proxyman          | built                 |
-| Bridge hub + Bonjour discovery                                              | Hakka's own       | built                 |
-| System-wide HTTPS proxy with a CA certificate                               | Proxyman, Charles | **explicit non-goal** |
+| Area                                                                        | Hakka contract                              | Status                |
+| --------------------------------------------------------------------------- | ------------------------------------------- | --------------------- |
+| Plain-text, git-diffable collections (one file per request)                 | Reviewable request files                    | built                 |
+| Environments + `{{variable}}` interpolation, secrets outside the collection | Shareable collections without secret values | built                 |
+| Request runner, declarative assertions, response captures                   | Repeatable authored-request workflows       | built                 |
+| Import from cURL / Postman / OpenAPI / HAR; code generation                 | Explicit interoperability formats           | built (see limits)    |
+| Live capture, traffic list, search DSL                                      | One record contract across SDKs             | built                 |
+| Response diff, session export/import, HAR export                            | Portable capture analysis                   | built                 |
+| Bridge hub + Bonjour discovery                                              | Local cross-runtime transport               | built                 |
+| System-wide HTTPS proxy with a CA certificate                               | Excluded from the SDK capture path          | **explicit non-goal** |
 
-The last row is the deliberate difference. Proxyman sees every app's traffic
-because you install its certificate; Hakka sees _your_ app's traffic because
-the SDK is in it. That is a smaller scope and a much smaller trust ask, and
-it is the entire reason Hakka needs no certificate.
+The last row keeps the trust boundary explicit. Hakka sees traffic inside an
+instrumented app, so SDK capture does not need a locally trusted CA certificate.
 
 **These rows briefly meant less than they said.** An audit found `RequestDiff`,
 `TrafficSession` export/import and the `TrafficQuery` search DSL implemented

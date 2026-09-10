@@ -26,7 +26,8 @@ struct NetworkRequestDetailView: View {
     /// event array, which is not a shape usage parses from.
     private let llmUsage: LlmUsage?
 
-    init(record: NetworkRequest, deviceLabel: String? = nil) {
+    init(record: NetworkRequest, deviceLabel: String? = nil, initialTab: DetailTab = .overview) {
+        self._activeTab = State(initialValue: initialTab)
         self.record = record
         self.deviceLabel = deviceLabel
         self.requestBody = RecordBodyExtractor.requestBody(from: record)
@@ -38,7 +39,9 @@ struct NetworkRequestDetailView: View {
         let tabs = DetailTab.visible(for: record)
         VStack(alignment: .leading, spacing: 0) {
             DetailIdentityHeader(record: record)
+            Divider()
             DetailTabStrip(activeTab: $activeTab, tabs: tabs)
+            Divider()
             // `.id(activeTab)` gives each tab its own view identity, so
             // switching tabs is a real insertion/removal `.transition`
             // rather than one view's content silently changing underneath
@@ -51,20 +54,19 @@ struct NetworkRequestDetailView: View {
             tabContent
                 .id(activeTab)
                 .transition(.opacity)
-                .padding(Spacing.xl)
+                .padding(.top, Spacing.lg)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
         .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.85), value: activeTab)
         .background(tabShortcuts(tabs))
     }
 
-    /// Cmd-1 through Cmd-6 switch tabs, Safari/Chrome's tab-switching
-    /// convention — hidden buttons rather than a menu command, since which
-    /// tabs exist depends on the selected record and there is no sensible
-    /// app-menu placement for "whatever tab strip happens to be on screen".
+    /// Inspector shortcuts use Option-Command so they do not compete with
+    /// the request editor section shortcuts in the adjacent pane.
     private func tabShortcuts(_ tabs: [DetailTab]) -> some View {
         ForEach(Array(tabs.prefix(9).enumerated()), id: \.element) { index, tab in
             Button("") { activeTab = tab }
-                .keyboardShortcut(KeyEquivalent(Character("\(index + 1)")), modifiers: .command)
+                .keyboardShortcut(KeyEquivalent(Character("\(index + 1)")), modifiers: [.command, .option])
                 .hidden()
                 .frame(width: 0, height: 0)
         }
@@ -123,13 +125,11 @@ private struct DetailBodyTabSide: View {
             if let recordBody {
                 BodyViewerView(body: recordBody, url: url, responseHeaders: responseHeaders)
             } else {
-                Text(noBodyLabel)
+                Label(noBodyLabel, systemImage: "doc.plaintext")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(Spacing.md)
-                    .background(Color.secondary.opacity(0.08))
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                    .padding(.vertical, Spacing.md)
             }
         }
     }

@@ -73,12 +73,19 @@ describe('agent workflows over MCP', () => {
     await writeFile(
       path,
       JSON.stringify({
+        seq: 0,
         spec: {
           id: 'one',
           name: 'Check service',
           method: 'GET',
           url: fixture.url.href,
-          assertions: [{ enabled: true, target: { status: {} }, op: 'equals', expected: '200' }],
+          headers: [],
+          query: [],
+          body: { none: {} },
+          auth: { inherit: {} },
+          assertions: [{ id: 'status', enabled: true, target: { status: {} }, op: 'equals', expected: '200' }],
+          captures: [],
+          followRedirects: true,
         },
       }),
     )

@@ -43,7 +43,7 @@ struct NoiseScopePill: View {
                     Image(systemName: "xmark.circle.fill")
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Clear noise scope")
+                .accessibilityLabel("Reset Focus and Noise")
             }
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -54,6 +54,9 @@ struct NoiseScopePill: View {
     }
 
     private var summary: String {
+        if let focus = scope.activeFocusSet {
+            return "\(focus.name) · \(hiddenCount) hidden"
+        }
         let ruleCount = scope.excludeRules.count + scope.includeRules.count
         let noun = ruleCount == 1 ? "rule" : "rules"
         return "\(ruleCount) \(noun) · \(hiddenCount) hidden"

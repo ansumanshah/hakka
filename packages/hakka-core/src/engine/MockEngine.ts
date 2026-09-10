@@ -122,9 +122,8 @@ export const MOCK_FAILURE_MESSAGES: Record<MockFailureCode, string> = {
 
 /**
  * Simulates a transport-level failure — the request never gets a real
- * response, on any runtime — rather than serving `response`. Platform
- * parity for Pulse Pro's "Mock URLError failures": the one thing an
- * in-process proxy-less mock engine can do that a network proxy cannot,
+ * response, on any runtime — rather than serving `response`. An in-process
+ * mock engine can make the transport itself fail in a way a network proxy cannot,
  * since a proxy can only shape what a response *contains*, never make the
  * transport itself fail as if the device had no connectivity.
  *
@@ -214,8 +213,7 @@ export interface MockRule {
   /**
    * Serve the real response for this many initial matches before the rule
    * starts applying (mock/block/failure/rewrite). `0`/absent: applies on
-   * the first match. Mirrors Pulse Pro's "skip how many responses after
-   * app launch" — the counter lives in this engine instance's in-memory
+   * the first match. The counter lives in this engine instance's in-memory
    * state (see `matchCountsById` below) and is NOT persisted, so it resets
    * whenever the engine is re-created (a fresh process/app launch), not on
    * every rule edit. Re-adding a rule with the same `id` (which always
@@ -399,8 +397,7 @@ class MockEngine {
    * skip phase too. Deliberately NOT part of `MockRule`/persisted state:
    * this is in-memory, per-engine-instance budget tracking, so it resets
    * whenever the engine is re-created (a fresh process/app launch) — see
-   * `MockRule.skipCount`'s doc for why that's the chosen semantics, matching
-   * Pulse Pro's "skip after app launch" framing. `addRule` deletes the old
+   * `MockRule.skipCount`'s doc for why that's the chosen semantics. `addRule` deletes the old
    * entry when replacing a rule by id, so re-adding/editing a rule also
    * restarts its budget.
    */

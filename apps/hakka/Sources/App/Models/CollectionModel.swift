@@ -15,6 +15,12 @@ final class CollectionModel {
     var lastError: String?
 
     private let store = CollectionStore()
+    /// The complete tree last known to have been read from or written to disk.
+    /// It deliberately excludes local edits that have not completed a save.
+    private var collectionDiskSnapshot: Collection?
+    /// Disk snapshots from the last open/save, keyed by request id. They make
+    /// an MCP edit visible as a save conflict instead of overwriting it.
+    private var requestDiskSnapshots: [String: RequestSpec] = [:]
 
     init() {
         collection = Self.seedCollection()
@@ -57,8 +63,11 @@ final class CollectionModel {
 
     func open(directory: URL) async {
         do {
-            collection = try await store.load(directory: directory)
+            let loaded = try await store.load(directory: directory)
+            collection = loaded
             directoryURL = directory
+            collectionDiskSnapshot = loaded
+            requestDiskSnapshots = Self.requests(in: loaded.nodes)
             lastError = nil
         } catch {
             lastError = "Couldn't open \(directory.lastPathComponent): \(error.localizedDescription)"
@@ -70,11 +79,49 @@ final class CollectionModel {
     /// rewrite. No-op until a directory is bound.
     func persist(_ spec: RequestSpec) async {
         guard let directoryURL else { return }
+        let savedCollection = collection
         do {
-            try await store.saveRequest(spec, in: collection, to: directoryURL)
+            try await store.saveRequest(
+                spec,
+                in: savedCollection,
+                to: directoryURL,
+                expectedDiskRequest: requestDiskSnapshots[spec.id],
+                requireNewRequest: requestDiskSnapshots[spec.id] == nil
+            )
+            requestDiskSnapshots[spec.id] = spec
+            if var diskSnapshot = collectionDiskSnapshot,
+               Self.applySavedRequest(spec, from: savedCollection.nodes, to: &diskSnapshot.nodes)
+            {
+                collectionDiskSnapshot = diskSnapshot
+            }
             lastError = nil
         } catch {
             lastError = "Couldn't save \(spec.name): \(error.localizedDescription)"
+        }
+    }
+
+    /// Saves the current in-memory collection into a new or empty directory,
+    /// then binds future writes to that directory. Existing destination
+    /// content is preserved and reported as an error.
+    @discardableResult
+    func saveAs(to directory: URL) async -> Bool {
+        let savedCollection = collection
+        do {
+            try await store.saveToEmptyDirectory(savedCollection, to: directory)
+            directoryURL = directory
+            collectionDiskSnapshot = savedCollection
+            requestDiskSnapshots = Self.requests(in: savedCollection.nodes)
+            lastError = nil
+            return true
+        } catch CollectionStoreError.destinationNotEmpty(path: _) {
+            lastError = "Couldn't save collection: that folder already contains files. Choose a new or empty folder."
+            return false
+        } catch CollectionStoreError.writeLocked(path: let path) {
+            lastError = "Couldn't save collection: close all Hakka writers, then remove \(path) and retry."
+            return false
+        } catch {
+            lastError = "Couldn't save collection to \(directory.lastPathComponent): \(error.localizedDescription)"
+            return false
         }
     }
 
@@ -92,8 +139,13 @@ final class CollectionModel {
             return true
         }
         do {
-            try await store.save(updated, to: directoryURL)
+            guard let collectionDiskSnapshot else {
+                throw CollectionStoreError.concurrentModification(path: directoryURL.standardizedFileURL.path)
+            }
+            try await store.save(updated, to: directoryURL, expectedDiskCollection: collectionDiskSnapshot)
             collection = updated
+            self.collectionDiskSnapshot = updated
+            requestDiskSnapshots = Self.requests(in: updated.nodes)
             lastError = nil
             return true
         } catch {
@@ -116,6 +168,11 @@ final class CollectionModel {
         do {
             try await store.deleteNodes(ids: ids, in: collection, from: directoryURL)
             collection.nodes = Self.removingAll(ids: ids, from: collection.nodes)
+            if var diskSnapshot = collectionDiskSnapshot {
+                diskSnapshot.nodes = Self.removingAll(ids: ids, from: diskSnapshot.nodes)
+                collectionDiskSnapshot = diskSnapshot
+                requestDiskSnapshots = Self.requests(in: diskSnapshot.nodes)
+            }
             lastError = nil
         } catch {
             lastError = "Couldn't delete \(ids.count) item\(ids.count == 1 ? "" : "s"): \(error.localizedDescription)"
@@ -126,8 +183,53 @@ final class CollectionModel {
         let example = RequestSpec(
             name: "GET httpbin",
             method: .get,
-            url: "https://httpbin.org/get",
+            url: "https://httpbin.org/get"
         )
         return Collection(name: "My Collection", nodes: [.request(example)])
+    }
+
+    private static func requests(in nodes: [CollectionNode]) -> [String: RequestSpec] {
+        nodes.reduce(into: [:]) { result, node in
+            switch node {
+            case let .request(request): result[request.id] = request
+            case let .folder(folder): result.merge(requests(in: folder.children), uniquingKeysWith: { _, latest in latest })
+            }
+        }
+    }
+
+    /// Applies exactly the request write that completed to the saved snapshot.
+    /// Existing requests can live at any depth. New native requests are root
+    /// additions; insert them relative to already-saved siblings so saving two
+    /// new drafts out of order still reproduces the disk's sequence order.
+    private static func applySavedRequest(
+        _ spec: RequestSpec,
+        from liveNodes: [CollectionNode],
+        to diskNodes: inout [CollectionNode]
+    ) -> Bool {
+        if findRequest(id: spec.id, in: diskNodes) != nil {
+            diskNodes = replacing(spec, in: diskNodes)
+            return true
+        }
+        guard let liveIndex = liveNodes.firstIndex(where: { node in
+            if case let .request(request) = node { return request.id == spec.id }
+            return false
+        }) else { return false }
+
+        let diskIDs = Set(diskNodes.map(\.id))
+        if let nextID = liveNodes[(liveIndex + 1)...].map(\.id).first(where: diskIDs.contains),
+           let insertionIndex = diskNodes.firstIndex(where: { $0.id == nextID })
+        {
+            diskNodes.insert(.request(spec), at: insertionIndex)
+            return true
+        }
+        if let previousID = liveNodes[..<liveIndex].reversed().map(\.id).first(where: diskIDs.contains),
+           let previousIndex = diskNodes.firstIndex(where: { $0.id == previousID })
+        {
+            diskNodes.insert(.request(spec), at: previousIndex + 1)
+            return true
+        }
+        guard diskNodes.isEmpty else { return false }
+        diskNodes.append(.request(spec))
+        return true
     }
 }

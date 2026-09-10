@@ -85,7 +85,7 @@ final class TrafficModel {
     private static let displayModeKey = "hakka.traffic.displayMode"
 
     private static func loadDisplayMode() -> TrafficDisplayMode {
-        TrafficDisplayMode(rawValue: UserDefaults.standard.string(forKey: displayModeKey) ?? "") ?? .list
+        TrafficDisplayMode(rawValue: UserDefaults.standard.string(forKey: displayModeKey) ?? "") ?? .table
     }
 
     /// Toggled by the header's "Focus Search" command (Cmd-F) — the search

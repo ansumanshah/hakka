@@ -34,6 +34,8 @@
     "src",
     "!src/**/*.test.ts",
     "!src/**/__tests__",
+    "!src/**/__pycache__",
+    "!src/**/*.pyc",
     "LICENSE",
     "README.md"
   ],
@@ -78,6 +80,8 @@
     "hakka-bridge": "0.0.1",
     "hakka-core": "0.0.1",
     "hakka-node": "0.0.1",
+    "pac-resolver": "^9.0.1",
+    "quickjs-wasi": "^2.2.0",
     "ws": "^8.21.3",
     "zod": "^4.5.4"
   },

@@ -1,31 +1,66 @@
+import HakkaCore
 import SwiftUI
 
 /// Keeps search visible while secondary traffic actions share a compact menu.
 struct LiveTrafficHeader: View {
     @Environment(AppModel.self) private var model
+    let savedViewStore: TrafficSavedViewStore
+    @Binding var query: String
+    @Binding var selectedRequestID: String?
+
     @State private var presetStore = FilterPresetStore()
     @State private var columnPickerPresented = false
     @State private var statsPresented = false
+    @State private var isShowingFilterTokens = false
+    @State private var isPresentingSaveView = false
+    @State private var savedViewName = ""
     @FocusState private var searchFieldFocused: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            HStack(alignment: .top, spacing: Spacing.md) {
-                statusIndicator
-                Spacer(minLength: Spacing.sm)
-                Text(countText)
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .fixedSize()
-            }
+        VStack(alignment: .leading, spacing: Spacing.xs) {
             HStack(spacing: Spacing.sm) {
+                statusIndicator
                 searchField
                 Toggle("Errors only", isOn: errorsOnlyBinding)
                     .toggleStyle(.button)
                     .font(.caption)
                     .fixedSize()
                     .accessibilityHint("Shows only requests with a 4xx, 5xx, or transport error")
+                TrafficFocusMenu()
                 actionsMenu
+            }
+            if showsTokenRow {
+                tokenRow
+            }
+        }
+        .padding(.horizontal, Layout.gutter)
+        .padding(.vertical, Spacing.sm)
+        .onChange(of: model.traffic.focusSearchToken) { _, _ in
+            searchFieldFocused = true
+        }
+        .alert("Save Traffic View", isPresented: $isPresentingSaveView) {
+            TextField("Name", text: $savedViewName)
+            Button("Save") { saveView() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Saves this query and selected request. Views filter the shared captured traffic; they do not create separate projects.")
+        }
+    }
+
+    private var tokenRow: some View {
+        HStack(spacing: Spacing.sm) {
+            if !savedViewStore.views.isEmpty {
+                TrafficSavedViewsStrip(
+                    store: savedViewStore,
+                    query: $query,
+                    selectedRequestID: $selectedRequestID
+                )
+            }
+            if hasSavedViewsAndFilterTokens {
+                Divider().frame(height: ControlHeight.chip)
+            }
+            if shouldShowFilterTokens {
+                TrafficFilterChipsView(searchText: $query)
             }
             NoiseScopePill(
                 scope: model.traffic.noiseScope,
@@ -33,11 +68,8 @@ struct LiveTrafficHeader: View {
                 hiddenErrorCount: model.traffic.hiddenNoiseScopeErrorCount
             )
         }
-        .padding(.horizontal, Layout.gutter)
-        .padding(.vertical, Spacing.md)
-        .onChange(of: model.traffic.focusSearchToken) { _, _ in
-            searchFieldFocused = true
-        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.bottom, Spacing.xs)
     }
 
     private var statusIndicator: some View {
@@ -49,7 +81,8 @@ struct LiveTrafficHeader: View {
             Text(statusText)
                 .font(.caption)
                 .foregroundStyle(model.traffic.startupError != nil ? Color.primary : .secondary)
-                .fixedSize(horizontal: false, vertical: true)
+                .lineLimit(1)
+                .help(statusText)
                 .textSelection(.enabled)
         }
     }
@@ -65,6 +98,12 @@ struct LiveTrafficHeader: View {
             }
             .disabled(model.traffic.displayMode != .table)
             Button("Traffic Stats", systemImage: "chart.bar.xaxis") { statsPresented = true }
+            Toggle("Show Filter Tokens", isOn: $isShowingFilterTokens)
+            Button("Save Traffic View…", systemImage: "bookmark") {
+                savedViewName = "Investigation \(savedViewStore.views.count + 1)"
+                isPresentingSaveView = true
+            }
+            .keyboardShortcut("t", modifiers: [.command, .option])
             Divider()
             Button("Clear Captured Traffic", systemImage: "trash") {
                 Task { await model.traffic.clear() }
@@ -130,10 +169,26 @@ struct LiveTrafficHeader: View {
         Binding(get: { model.traffic.displayMode }, set: { model.traffic.displayMode = $0 })
     }
 
-    private var countText: String {
-        let total = model.traffic.stats.count
-        let visible = model.traffic.visibleRequests.count
-        return visible == total ? "\(total) requests" : "\(visible) of \(total)"
+    private var hasSavedViewsAndFilterTokens: Bool {
+        !savedViewStore.views.isEmpty && (shouldShowFilterTokens || model.traffic.noiseScope.isActive)
+    }
+
+    private var shouldShowFilterTokens: Bool {
+        isShowingFilterTokens || activeQueryHasFilterToken || model.traffic.noiseScope.isActive
+    }
+
+    private var showsTokenRow: Bool {
+        !savedViewStore.views.isEmpty || shouldShowFilterTokens
+    }
+
+    private var activeQueryHasFilterToken: Bool {
+        let trafficQuery = TrafficQueryParser.parse(query)
+        return TrafficFilterChips.activeMethod(in: trafficQuery) != nil
+            || TrafficFilterChips.activeStatusClass(in: trafficQuery) != nil
+    }
+
+    private func saveView() {
+        _ = savedViewStore.add(name: savedViewName, query: query, selectedRequestID: selectedRequestID)
     }
 
     private var statusText: String {

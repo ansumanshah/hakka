@@ -8,6 +8,7 @@ import SwiftUI
 struct BodyViewerView: View {
     @State private var model: BodyViewerModel
     @State private var saveError: String?
+    @State private var isJWTPreviewPresented = false
 
     /// The record's response headers — only consulted by the `.grpc` viewer,
     /// as the fallback status source for a "Trailers-Only" HTTP/2 response
@@ -33,6 +34,7 @@ struct BodyViewerView: View {
         HStack(spacing: Spacing.md) {
             if let contentType = model.body.contentType {
                 Text(contentType)
+                    .lineLimit(1).truncationMode(.middle)
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
             }
@@ -45,11 +47,19 @@ struct BodyViewerView: View {
                 .font(.caption.monospaced())
                 .foregroundStyle(.secondary)
             Spacer()
-            Button(action: saveBody) {
-                Image(systemName: "square.and.arrow.down")
+            Menu {
+                Button("Save Body…", systemImage: "square.and.arrow.down", action: saveBody)
+                Button("Decode JWT…", systemImage: "key") { isJWTPreviewPresented = true }
+            } label: {
+                Label("Body tools", systemImage: "ellipsis.circle").labelStyle(.iconOnly)
             }
-            .buttonStyle(.borderless)
-            .help("Save body to file")
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+            .accessibilityLabel("Body tools")
+            .help("Save body or decode a JWT locally")
+        }
+        .sheet(isPresented: $isJWTPreviewPresented) {
+            JWTPreviewSheet(initialInput: JWTPreviewDecoder.plausibleToken(from: model.completeText) ?? "")
         }
     }
 

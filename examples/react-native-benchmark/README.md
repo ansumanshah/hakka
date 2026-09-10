@@ -1,8 +1,8 @@
-# React Native inspector comparison
+# React Native inspector benchmark
 
-This fixture compares actual React Native `fetch` and XHR traffic through native
-inspectors. It has its own dependency lock and generated native apps; it does not
-change the production SDK toolchain or add competitors to shipped Hakka packages.
+This fixture measures actual React Native `fetch` and XHR traffic through native
+inspectors. It has its own dependency lock and generated native apps, so its
+reference variants do not change the production SDK toolchain or shipped packages.
 
 Versions verified on September 6, 2026:
 

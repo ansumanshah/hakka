@@ -1,9 +1,8 @@
 /**
  * Postman Collection v2.1 export.
  *
- * Turns captured requests into a `.postman_collection.json` that imports directly
- * into Postman / Insomnia / Hoppscotch — the frictionless handoff from passive
- * capture (Hakka) to request authoring/replay (an API client).
+ * Turns captured requests into a `.postman_collection.json` that follows the
+ * Postman Collection v2.1 schema for compatible request-authoring tools.
  */
 import type { Exporter } from '../contract/exporter'
 import type { NetworkRequest } from './types'

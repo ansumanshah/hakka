@@ -1,10 +1,12 @@
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 
+import { resolveProxyBandwidth } from './proxy/bandwidth'
 import { startProxyCapture, type ProxyOptions } from './proxy/index'
+import { buildMitmproxyHostArgs } from './proxy/tlsHostScope'
 
 export function proxyUsage(): string {
-  return 'Usage: hakka proxy [--port 8080] [--bridge-url ws://localhost:8989] [--host 127.0.0.1] [--allow-lan] [--config-dir path] [--map-config mappings.json] [--har output.har] [--session output.hakka] [--mitmdump <path>] [--duration-ms <n>] [--json] [--cert-info]'
+  return 'Usage: hakka proxy [--port 8080] [--bridge-url ws://localhost:8989] [--host 127.0.0.1] [--allow-lan] [--config-dir path] [--map-config mappings.json] [--routing-config routing.json | --upstream-proxy http://proxy:8080] [--script hooks.js] [--network-profile none|slow-3g|fast-3g|slow-4g|fast-4g|offline|custom] [--latency-ms n] [--upload-bps n] [--download-bps n] [--tls-bypass-host domain | --tls-allow-host domain] [--har output.har] [--session output.hakka] [--mitmdump <path>] [--duration-ms <n>] [--json] [--breakpoints] [--cert-info]'
 }
 
 export interface ParsedProxyOptions extends ProxyOptions {
@@ -28,18 +30,46 @@ export function parseProxyArgs(args: string[]): ParsedProxyOptions {
     else if (arg === '--host') options.host = next()
     else if (arg === '--allow-lan') options.allowLan = true
     else if (arg === '--max-capture-body') options.maxCaptureBody = Number(next())
-    else if (arg === '--map-config') options.mapConfig = next()
+    else if (arg === '--tls-bypass-host' || arg === '--tls-allow-host') {
+      const mode = arg === '--tls-bypass-host' ? 'bypass' : 'allowOnly'
+      if (options.tlsHostScope && options.tlsHostScope.mode !== mode)
+        throw new Error('Choose either TLS bypass hosts or allow-only hosts, not both.')
+      options.tlsHostScope = { mode, hosts: [...(options.tlsHostScope?.hosts ?? []), next()] }
+    } else if (arg === '--upstream-proxy') options.upstreamProxy = next()
+    else if (arg === '--routing-config') options.routingConfig = next()
+    else if (arg === '--script') options.scriptPath = next()
+    else if (arg === '--network-profile') {
+      const profile = next() as NonNullable<ProxyOptions['bandwidth']>['profile']
+      options.bandwidth = { ...options.bandwidth, profile }
+    } else if (arg === '--latency-ms' || arg === '--upload-bps' || arg === '--download-bps') {
+      const field =
+        arg === '--latency-ms'
+          ? 'latencyMs'
+          : arg === '--upload-bps'
+            ? 'uploadBytesPerSecond'
+            : 'downloadBytesPerSecond'
+      options.bandwidth = {
+        profile: options.bandwidth?.profile ?? 'custom',
+        ...options.bandwidth,
+        [field]: Number(next()),
+      }
+    } else if (arg === '--map-config') options.mapConfig = next()
     else if (arg === '--har') options.harOutput = next()
     else if (arg === '--session') options.sessionOutput = next()
     else if (arg === '--mitmdump') options.mitmdumpPath = next()
     else if (arg === '--config-dir') options.configDir = next()
     else if (arg === '--duration-ms') options.durationMs = Number(next())
     else if (arg === '--json') options.json = true
+    else if (arg === '--breakpoints') options.enableBreakpoints = true
     else if (arg === '--cert-help') options.certHelp = true
     else if (arg === '--cert-info') options.certInfo = true
     else if (arg === '--help' || arg === '-h') options.certHelp = true
     else throw new Error(`Unknown proxy option: ${arg}`)
   }
+  if (options.tlsHostScope) buildMitmproxyHostArgs(options.tlsHostScope)
+  resolveProxyBandwidth(options.bandwidth)
+  if (options.routingConfig && options.upstreamProxy)
+    throw new Error('--routing-config cannot be combined with --upstream-proxy.')
   if (options.allowLan && options.host === undefined) options.host = '0.0.0.0'
   return options
 }
@@ -102,6 +132,7 @@ export async function runProxyCommand(args: string[]): Promise<void> {
         ...parsed,
         signal: controller.signal,
         onDiagnostic: (message) => emit('diagnostic', { message }),
+        onBreakpointReady: () => emit('breakpoint-ready'),
         onRecord: (record) => {
           flowIds.add(record.id)
           emitStatus()

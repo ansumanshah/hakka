@@ -1,6 +1,12 @@
 import { readFile, readdir } from 'node:fs/promises'
 import { basename, dirname, extname, join, resolve } from 'node:path'
 
+import {
+  RequestFileValidationError,
+  validateNativeCollectionMetadata,
+  validateNativeFolderMetadata,
+  validateNativeRequestEnvelope,
+} from '../workspace/requestFileValidator.js'
 import type { ObjectJson, Header, RequestSpec, Collection, LoadedRequest } from './types.js'
 import { number, object, text } from './values.js'
 async function readJson(path: string): Promise<ObjectJson> {
@@ -8,6 +14,25 @@ async function readJson(path: string): Promise<ObjectJson> {
   if (value == null || Array.isArray(value) || typeof value !== 'object')
     throw new Error(`${path} must contain a JSON object`)
   return value as ObjectJson
+}
+
+function validate(path: string, operation: () => void): void {
+  try {
+    operation()
+  } catch (error) {
+    if (error instanceof RequestFileValidationError) throw new Error(`${path}: ${error.message}`)
+    throw error
+  }
+}
+
+async function readFolderMetadata(path: string): Promise<ObjectJson | undefined> {
+  const file = join(path, 'folder.hakka')
+  try {
+    return await readJson(file)
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined
+    throw error
+  }
 }
 
 async function loadDirectory(
@@ -28,8 +53,9 @@ async function loadDirectory(
   for (const entry of entries) {
     const absolute = join(path, entry.name)
     if (entry.isDirectory()) {
-      try {
-        const meta = await readJson(join(absolute, 'folder.hakka'))
+      const meta = await readFolderMetadata(absolute)
+      if (meta) {
+        validate(join(absolute, 'folder.hakka'), () => validateNativeFolderMetadata(meta))
         candidates.push({
           seq: number(meta.seq) ?? Number.MAX_SAFE_INTEGER,
           name: entry.name,
@@ -37,11 +63,10 @@ async function loadDirectory(
           headers: (meta.headers as unknown as Header[] | undefined) ?? [],
           auth: object(meta.auth),
         })
-      } catch {
-        /* folders without metadata are not collection nodes */
       }
     } else if (extname(entry.name) === '.hakka' && entry.name !== 'collection.hakka' && entry.name !== 'folder.hakka') {
       const disk = await readJson(absolute)
+      validate(absolute, () => validateNativeRequestEnvelope(disk))
       const spec = object(disk.spec) as unknown as RequestSpec
       if (!text(spec.name) || !text(spec.url) || !text(spec.method))
         throw new Error(`${absolute} has no valid RequestSpec`)
@@ -76,6 +101,7 @@ export async function loadCollection(
   const path = resolve(input)
   if (extname(path) === '.hakka') {
     const disk = await readJson(path)
+    validate(path, () => validateNativeRequestEnvelope(disk))
     const spec = object(disk.spec) as unknown as RequestSpec
     return {
       collection: { id: 'single', name: basename(path) },
@@ -83,6 +109,7 @@ export async function loadCollection(
     }
   }
   const collection = (await readJson(join(path, 'collection.hakka'))) as unknown as Collection
+  validate(join(path, 'collection.hakka'), () => validateNativeCollectionMetadata(collection as unknown as ObjectJson))
   if (!folder)
     return { collection, requests: await loadDirectory(path, collection.defaultHeaders ?? [], object(collection.auth)) }
   const pieces = folder.split(/[\\/]/).filter(Boolean)
@@ -94,6 +121,7 @@ export async function loadCollection(
   for (const piece of pieces) {
     root = join(root, piece)
     const metadata = await readJson(join(root, 'folder.hakka'))
+    validate(join(root, 'folder.hakka'), () => validateNativeFolderMetadata(metadata))
     headers = [...headers, ...((metadata.headers as unknown as Header[] | undefined) ?? [])]
     const candidate = object(metadata.auth)
     if (!('inherit' in candidate) && Object.keys(candidate).length) auth = candidate

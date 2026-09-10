@@ -1,8 +1,8 @@
 import Compression
 import Foundation
 import HakkaCommon
-import Testing
 @testable import HakkaCore
+import Testing
 
 @Suite("BodyViewerRegistry dispatch")
 struct BodyViewerRegistryTests {
@@ -56,7 +56,7 @@ struct BodyViewerRegistryTests {
 
     @Test
     func imageDataURLAndImageURLSniffDispatchToImage() {
-        let pngBase64 = Data([0x89, 0x50, 0x4e, 0x47]).base64EncodedString()
+        let pngBase64 = Data([0x89, 0x50, 0x4E, 0x47]).base64EncodedString()
         #expect(
             BodyViewerRegistry.viewerKind(forContentType: nil, body: "data:image/png;base64,\(pngBase64)") == .image
         )
@@ -140,6 +140,7 @@ struct RecordBodyExtractorTests {
     }
 
     // MARK: - Compressed-payload builders (hand-assembled containers around
+
     // the Compression framework's raw DEFLATE, since nothing in the app
     // encodes gzip).
 
@@ -147,7 +148,7 @@ struct RecordBodyExtractorTests {
         guard let deflate = rawDeflate(input), !deflate.isEmpty else { return nil }
         // 10-byte gzip header (no flags), deflate payload, 8-byte trailer
         // (CRC32 + ISIZE — the decoder ignores both).
-        var out: [UInt8] = [0x1f, 0x8b, 0x08, 0x00, 0, 0, 0, 0, 0x00, 0xff]
+        var out: [UInt8] = [0x1F, 0x8B, 0x08, 0x00, 0, 0, 0, 0, 0x00, 0xFF]
         out.append(contentsOf: deflate)
         out.append(contentsOf: [UInt8](repeating: 0, count: 8))
         return out
@@ -156,7 +157,7 @@ struct RecordBodyExtractorTests {
     private static func zlibDeflate(_ input: [UInt8]) -> [UInt8]? {
         guard let deflate = rawDeflate(input), !deflate.isEmpty else { return nil }
         // zlib CMF/FLG header (0x78 0x9c), deflate payload, dummy Adler-32.
-        var out: [UInt8] = [0x78, 0x9c]
+        var out: [UInt8] = [0x78, 0x9C]
         out.append(contentsOf: deflate)
         out.append(contentsOf: [UInt8](repeating: 0, count: 4))
         return out
@@ -176,7 +177,7 @@ struct RecordBodyExtractorTests {
             }
         }
         guard written > 0 else { return nil }
-        return Array(destination[0..<written])
+        return Array(destination[0 ..< written])
     }
 }
 
@@ -323,13 +324,124 @@ struct JSONOutlineNodeTests {
     @Test
     func parsesLargeNestedDocument() throws {
         var items = ""
-        for i in 0..<2_000 { items += "{\"i\":\(i)}," }
+        for i in 0 ..< 2000 {
+            items += "{\"i\":\(i)},"
+        }
         let text = "{\"data\":[\(items.dropLast())]}"
         let root = try #require(JSONOutlineNode.parse(text))
         let data = try #require(root.children().first { $0.key == "data" })
-        #expect(data.childCount == 2_000)
-        #expect(data.children().count == 2_000)
+        #expect(data.childCount == 2000)
+        #expect(data.children().count == 2000)
         #expect(data.children()[0].childCount == 1)
+    }
+}
+
+@Suite("JSONOutlineSearch")
+struct JSONOutlineSearchTests {
+    private let sample = #"{"users":[{"name":"Ada","role":"admin"},{"name":"Grace","role":"reader"}],"page":2}"#
+
+    @Test
+    func findsKeysValuesAndPathsWithTheirAncestors() throws {
+        let root = try #require(JSONOutlineNode.parse(sample))
+
+        let keys = JSONOutlineSearch.search("role", in: root, scope: .key)
+        #expect(keys.matches.map(\.path) == ["root.users[0].role", "root.users[1].role"])
+
+        let values = JSONOutlineSearch.search("ada", in: root, scope: .value)
+        #expect(values.matches.map(\.path) == ["root.users[0].name"])
+        #expect(values.includedNodeIDs.isSuperset(of: ["root", "root.users", "root.users[0]", "root.users[0].name"]))
+
+        let paths = JSONOutlineSearch.search("users[1].name", in: root, scope: .path)
+        #expect(paths.matches.map(\.path) == ["root.users[1].name"])
+    }
+
+    @Test
+    func allScopeDiscoversEverySearchablePartOfALeaf() throws {
+        let root = try #require(JSONOutlineNode.parse(sample))
+        let result = JSONOutlineSearch.search("reader", in: root)
+        #expect(result.matches.map(\.path) == ["root.users[1].role"])
+    }
+
+    @Test
+    func capsTraversalAndReportedMatches() throws {
+        let root = try #require(JSONOutlineNode.parse(#"{"items":[{"name":"match"},{"name":"match"},{"name":"match"}]}"#))
+        let result = JSONOutlineSearch.search(
+            "match", in: root, scope: .value, limits: .init(maximumNodes: 20, maximumMatches: 2)
+        )
+        #expect(result.matches.count == 2)
+        #expect(result.isTruncated == true)
+        #expect(result.scannedNodeCount <= 20)
+    }
+
+    @Test
+    func emptySearchDoesNotMaterializeOrFilterTheTree() throws {
+        let root = try #require(JSONOutlineNode.parse(sample))
+        let result = JSONOutlineSearch.search("  ", in: root)
+        #expect(result.matches.isEmpty)
+        #expect(result.includedNodeIDs.isEmpty)
+        #expect(result.scannedNodeCount == 0)
+        #expect(result.isTruncated == false)
+    }
+}
+
+@Suite("JWTPreviewDecoder")
+struct JWTPreviewDecoderTests {
+    @Test
+    func decodesUnicodeHeaderAndPayloadLocally() throws {
+        let token = Self.token(header: #"{"alg":"HS256","typ":"JWT"}"#, payload: #"{"name":"Miyazaki 宮崎","admin":true}"#)
+        let preview = try JWTPreviewDecoder.decode("Bearer \(token)")
+        #expect(preview.header.contains("\"alg\""))
+        #expect(preview.payload.contains("Miyazaki 宮崎"))
+        #expect(JWTPreviewDecoder.plausibleToken(from: "  \(token)\n") == token)
+    }
+
+    @Test(arguments: [
+        "one.two",
+        "one.two.three.four",
+        "eyJhbGciOiJIUzI1NiJ9.%%%.signature",
+        "eyJhbGciOiJIUzI1NiJ9.e30.signature with space",
+    ])
+    func rejectsMalformedTokens(_ token: String) {
+        #expect(throws: JWTPreviewDecoder.DecodeError.self) {
+            _ = try JWTPreviewDecoder.decode(token)
+        }
+        #expect(JWTPreviewDecoder.plausibleToken(from: token) == nil)
+    }
+
+    @Test
+    func rejectsInvalidUTF8AndNonObjectJSON() {
+        let invalidUTF8 = "_w.e30.signature"
+        #expect(throws: JWTPreviewDecoder.DecodeError.invalidUTF8("header")) {
+            _ = try JWTPreviewDecoder.decode(invalidUTF8)
+        }
+
+        let arrayHeader = Self.segment("[]") + "." + Self.segment("{}") + ".signature"
+        #expect(throws: JWTPreviewDecoder.DecodeError.invalidJSON("header")) {
+            _ = try JWTPreviewDecoder.decode(arrayHeader)
+        }
+    }
+
+    @Test
+    func enforcesEncodedAndDecodedPayloadLimits() {
+        let token = Self.token(header: "{}", payload: #"{"value":"123456789"}"#)
+        #expect(throws: JWTPreviewDecoder.DecodeError.segmentTooLarge("payload")) {
+            _ = try JWTPreviewDecoder.decode(token, limits: .init(maximumEncodedSegmentLength: 10, maximumDecodedSegmentLength: 100))
+        }
+        #expect(throws: JWTPreviewDecoder.DecodeError.segmentTooLarge("payload")) {
+            _ = try JWTPreviewDecoder.decode(token, limits: .init(maximumEncodedSegmentLength: 100, maximumDecodedSegmentLength: 4))
+        }
+    }
+
+    private static func token(header: String, payload: String) -> String {
+        "\(segment(header)).\(segment(payload)).signature"
+    }
+
+    private static func segment(_ text: String) -> String {
+        Data(text.utf8)
+            .base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
     }
 }
 
@@ -363,7 +475,7 @@ struct JSONPrettyPrinterTests {
 struct HexDumperTests {
     @Test
     func dumpsOffsetsHexAndAscii() {
-        let dump = HexDumper.dump(Array("Hi!".utf8) + [0x00, 0xff])
+        let dump = HexDumper.dump(Array("Hi!".utf8) + [0x00, 0xFF])
         let lines = dump.split(separator: "\n").map(String.init)
         #expect(lines.count == 1)
         #expect(lines[0].hasPrefix("00000000"))
@@ -399,8 +511,8 @@ struct HexDumperTests {
 struct BodyBytesTests {
     @Test
     func decodesBase64Body() {
-        let bytes = BodyBytes.decode(from: Data([0x00, 0x01, 0x02, 0xfe]).base64EncodedString())
-        #expect(bytes == [0x00, 0x01, 0x02, 0xfe])
+        let bytes = BodyBytes.decode(from: Data([0x00, 0x01, 0x02, 0xFE]).base64EncodedString())
+        #expect(bytes == [0x00, 0x01, 0x02, 0xFE])
     }
 
     @Test

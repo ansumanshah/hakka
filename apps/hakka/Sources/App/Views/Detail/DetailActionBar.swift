@@ -17,6 +17,7 @@ struct DetailActionBar: View {
     var mockNote: String?
 
     @State private var copiedLabel: String?
+    @State private var isPresentingAnalysis = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
@@ -34,6 +35,9 @@ struct DetailActionBar: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .sheet(isPresented: $isPresentingAnalysis) {
+            RequestAnalysisSheet(request: request)
+        }
     }
 
     private var actions: some View {
@@ -42,6 +46,10 @@ struct DetailActionBar: View {
                 Label("Replay", systemImage: "arrow.clockwise")
             }
             .help("Replay request")
+            Button { isPresentingAnalysis = true } label: {
+                Label("Explain", systemImage: "text.magnifyingglass")
+            }
+            .help("Explain captured request")
             copyAsMenu
             Button(action: onMock) {
                 Label("Mock", systemImage: "wand.and.stars")

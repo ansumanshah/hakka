@@ -144,7 +144,7 @@ are the release/CI confidence path.
   redaction, mapping, storage, and notification.
 - Code comments must describe Hakka behavior directly. Do not reference, compare
   against, or credit other libraries, tools, or apps in source-code comments. Keep
-  competitor/reference citations in research docs only.
+  external product research in ignored internal research material.
 
 ## Code Conventions
 

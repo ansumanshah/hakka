@@ -22,9 +22,8 @@ import Foundation
 /// The API surface a script sees is deliberately small by design, not by
 /// omission: `env`, `log`, `vars.set(name, value)`, and request/response
 /// mutation. No `require`, no npm resolution, no filesystem, no network.
-/// This is the shape Proxyman's broad scripting API did not have, and the
-/// support burden that caused is the failure mode this contract exists to
-/// avoid.
+/// The narrow boundary keeps runtime behavior auditable and avoids turning
+/// dependency resolution or unrestricted I/O into a support surface.
 ///
 /// This file defines the contract itself. Wiring scripts into requests
 /// (`RequestScriptHooks`), the collection file format (`RequestScripts`),
