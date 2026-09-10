@@ -61,10 +61,13 @@ struct ProxyCaptureTests {
     @Test func processReportsReadinessWhileChildIsStillRunning() async throws {
         let (process, events) = try ProxyProcessStream.launch(
             executable: URL(fileURLWithPath: "/bin/sh"),
-            arguments: ["-c", #"printf '%s\n' '{"status":"started"}'; exec /bin/sleep 5"#]
+            arguments: ["-c", #"printf '%s\n' '{"status":"started"}'; exec /bin/sleep 30"#]
         )
+        // A fail-safe for a broken stream implementation, not the expected
+        // completion path. Leave enough headroom for a cold, loaded CI executor
+        // to consume the immediate status before this deliberately kills the child.
         let timeout = Task {
-            try? await Task.sleep(for: .seconds(1))
+            try? await Task.sleep(for: .seconds(10))
             if process.isRunning { process.terminate() }
         }
         defer { timeout.cancel() }
