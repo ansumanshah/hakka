@@ -10,7 +10,7 @@ import java.net.URI
  * Exports captured requests as a Postman Collection v2.1 JSON file.
  *
  * Ported from packages/hakka-core/src/model/postman.ts — produces an import-ready
- * `.postman_collection.json` that opens directly in Postman / Insomnia / Hoppscotch.
+ * `.postman_collection.json` that follows the Postman Collection v2.1 schema.
  *
  * Schema: https://schema.getpostman.com/json/collection/v2.1.0/collection.json
  */

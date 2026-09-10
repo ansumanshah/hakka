@@ -108,8 +108,9 @@ enum JSONSyntaxHighlighter {
     }
 
     /// Sourced from the generated design tokens (`design-tokens.json`
-    /// `codeDark`), not hardcoded system colors, so this reads as the same
-    /// product as the other four inspector platforms' JSON viewers.
+    /// `codeLight` and `codeDark`) through the active appearance, not hardcoded
+    /// system colors, so this reads as the same product as the other four
+    /// inspector platforms' JSON viewers.
     private enum Palette {
         static let key = ThemeTokens.Code.key
         static let string = ThemeTokens.Code.string

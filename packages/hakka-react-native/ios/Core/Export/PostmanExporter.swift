@@ -5,9 +5,8 @@ import Foundation
 
 /// Exports captured network requests as a Postman Collection v2.1 JSON file.
 ///
-/// Output imports directly into Postman, Insomnia, and Hoppscotch — giving
-/// developers a friction-free path from passive capture (Hakka) to request
-/// replay and API authoring.
+/// Output follows the Postman Collection v2.1 schema for import into compatible
+/// request-authoring tools.
 public enum PostmanExporter {
     private static let schema = "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 

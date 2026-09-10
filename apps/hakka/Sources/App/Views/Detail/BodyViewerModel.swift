@@ -16,7 +16,9 @@ final class BodyViewerModel {
         case tree = "Tree"
         case raw = "Raw"
 
-        var id: String { rawValue }
+        var id: String {
+            rawValue
+        }
     }
 
     let body: RecordBody
@@ -29,6 +31,11 @@ final class BodyViewerModel {
     var searchText = ""
     /// Index into `matches` the viewer scrolls/highlights as active.
     var activeMatchIndex = 0
+    /// The JSON tree query and its target field are kept separate from text
+    /// search because a tree match filters branches instead of highlighting
+    /// characters in a rendered string.
+    var jsonSearchText = ""
+    var jsonSearchScope: JSONOutlineSearch.Scope = .all
 
     @ObservationIgnored private let fullText: String
     @ObservationIgnored private lazy var prettyText = JSONPrettyPrinter.prettyPrinted(fullText)
@@ -36,8 +43,8 @@ final class BodyViewerModel {
 
     init(body: RecordBody, url: String) {
         self.body = body
-        self.fullText = body.text
-        self.kind = BodyViewerRegistry.viewerKind(forContentType: body.contentType, url: url, body: body.text)
+        fullText = body.text
+        kind = BodyViewerRegistry.viewerKind(forContentType: body.contentType, url: url, body: body.text)
         switch kind {
         case .jsonPretty: mode = .pretty
         case .jsonTree: mode = .tree
@@ -60,6 +67,13 @@ final class BodyViewerModel {
     /// but the user can still flip to Tree on an invalid body).
     var jsonOutlineRoot: JSONOutlineNode? {
         outlineRoot
+    }
+
+    var jsonSearchResult: JSONOutlineSearch.Result? {
+        guard let outlineRoot,
+              !jsonSearchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else { return nil }
+        return JSONOutlineSearch.search(jsonSearchText, in: outlineRoot, scope: jsonSearchScope)
     }
 
     /// The full text the active mode would display, before any capping.

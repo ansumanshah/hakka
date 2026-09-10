@@ -54,7 +54,40 @@ export interface ProxyMapRemoteRule {
   replace: string
 }
 
+/** A header operation applied only in the matching mitmproxy lifecycle phase. */
+export interface ProxyHeaderRule {
+  /** Regular expression matched against the complete request URL. */
+  match: string
+  phase: 'request' | 'response'
+  operation: 'set' | 'remove'
+  name: string
+  /** Required for `set`; ignored for `remove`. */
+  value?: string
+}
+
+/** Stops a matching request before it is sent upstream. */
+export interface ProxyBlockRule {
+  /** Regular expression matched against the complete request URL. */
+  match: string
+  /** HTTP error status returned by the local proxy. Defaults to 403. */
+  status?: number
+  /** Small, explicit response body returned to the client. */
+  body?: string
+}
+
+/** Adds a bounded asynchronous delay in the selected lifecycle phase. */
+export interface ProxyDelayRule {
+  /** Regular expression matched against the complete request URL. */
+  match: string
+  phase: 'request' | 'response'
+  /** Milliseconds, from 0 through 30,000. */
+  delayMs: number
+}
+
 export interface ProxyMappingConfig {
   mapLocal?: ProxyMapLocalRule[]
   mapRemote?: ProxyMapRemoteRule[]
+  headerRules?: ProxyHeaderRule[]
+  blockRules?: ProxyBlockRule[]
+  delayRules?: ProxyDelayRule[]
 }

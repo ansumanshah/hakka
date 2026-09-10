@@ -1,7 +1,7 @@
 import Foundation
 import HakkaCommon
 
-/// Body-mode parsing split out of `PostmanImporter` — Postman's five body
+/// Body-mode parsing split out of `PostmanImporter` — the schema's five body
 /// `mode`s (raw/urlencoded/formdata/graphql/file) each need enough
 /// field-mapping logic that folding them into the main importer would blow
 /// past the file's natural size.
@@ -34,7 +34,7 @@ enum PostmanBody {
     }
 
     private static func part(_ entry: [String: Any]) -> MultipartPart {
-        // Postman lets a formdata entry override its part's content type; the
+        // A formdata entry can override its part's content type; the
         // model carries it, so don't drop it on import.
         let contentType = entry.string("contentType")
         if entry.string("type") == "file" {

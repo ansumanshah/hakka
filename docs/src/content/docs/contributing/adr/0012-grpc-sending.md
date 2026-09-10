@@ -72,8 +72,7 @@ so there is no installed base on macOS 14 to break.
 
 **A. Raw mode only: a hex-encoded protobuf message the user pastes in.**
 Trivially correct — the bytes on the wire are exactly the bytes typed, no
-inference. The power-user escape hatch every API client needs regardless of
-what else ships (Bruno/Postman's raw-body mode is the same idea). **Accepted
+inference. This preserves an exact, schema-free escape hatch. **Accepted
 for phase 1** — see below for why it is now the _only_ mode, not one of two.
 
 **B. Server reflection (`grpc.reflection.v1`/`v1alpha`) for JSON→proto

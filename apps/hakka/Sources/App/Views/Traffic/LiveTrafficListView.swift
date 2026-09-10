@@ -8,6 +8,7 @@ import SwiftUI
 struct LiveTrafficListView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var savedViewStore = TrafficSavedViewStore()
     /// So arrow keys move the selection the moment this pane appears,
     /// rather than only after the user clicks a row once to give the list
     /// keyboard focus — reading traffic is a keyboard-first scan loop.
@@ -15,11 +16,12 @@ struct LiveTrafficListView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            LiveTrafficHeader()
+            LiveTrafficHeader(
+                savedViewStore: savedViewStore,
+                query: searchBinding,
+                selectedRequestID: selectionBinding
+            )
             Divider()
-            TrafficFilterChipsView(searchText: searchBinding)
-                .padding(.horizontal, Layout.gutter)
-                .padding(.vertical, Spacing.sm)
             if model.traffic.requests.isEmpty {
                 // First-run only (Artboard 6): once traffic has ever
                 // arrived, a later cleared list stays the generic state —
@@ -38,22 +40,26 @@ struct LiveTrafficListView: View {
             } else if model.traffic.visibleRequests.isEmpty {
                 noMatchesView
                     .transition(.opacity)
-            } else if model.traffic.displayMode == .table, #available(macOS 14.4, *) {
+            } else if model.traffic.displayMode == .table {
                 LiveTrafficTableView()
                     .transition(.opacity)
             } else {
-                // Table mode's `TableColumnForEach` needs macOS 14.4; the
-                // package floor stays 14.0 (a deployment-target bump is a
-                // business call the owner hasn't made, not something a
-                // column-resize affordance gets to force), so a 14.0-14.3
-                // user — or `displayMode` persisted as `.table` from a
-                // newer machine — falls back here instead of losing the
-                // pane. List mode is the default and loses nothing.
                 listView
                     .transition(.opacity)
             }
+            Divider()
+            TrafficStatusBar(
+                stats: model.traffic.stats,
+                visibleCount: model.traffic.visibleRequests.count
+            )
         }
         .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.85), value: listRevealKey)
+        .onChange(of: model.traffic.searchText) { _, query in
+            savedViewStore.updateActive(query: query, selectedRequestID: model.traffic.selectedRequestID)
+        }
+        .onChange(of: model.traffic.selectedRequestID) { _, selectedRequestID in
+            savedViewStore.updateActive(query: model.traffic.searchText, selectedRequestID: selectedRequestID)
+        }
     }
 
     /// Crossfade trigger for the branch above — empty, no-match, or the

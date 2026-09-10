@@ -1,8 +1,8 @@
 import Foundation
 import HakkaCommon
 
-/// Frame opcode vocabulary, per the roadmap's Rockxy reference
-/// (`WebSocketFrameData`). `URLSessionWebSocketTransport` only ever produces
+/// Frame opcode vocabulary shared by capture and inspection.
+/// `URLSessionWebSocketTransport` only ever produces
 /// `.text`/`.binary`/`.close` in practice: protocol-level pings the server
 /// sends are answered by the OS below the app layer and never reach
 /// `URLSessionWebSocketTask.receive()`, and continuation frames are

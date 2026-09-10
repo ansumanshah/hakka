@@ -5,6 +5,43 @@ import Testing
 
 @Suite("Native proxy capture")
 struct ProxyCaptureTests {
+    @Test @MainActor func bandwidthArgumentsUseCanonicalProfilesAndCustomLimits() throws {
+        let model = ProxyCaptureModel(defaults: try #require(UserDefaults(suiteName: UUID().uuidString)))
+        model.bandwidthConfiguration = ProxyBandwidthConfiguration(profile: .fast3G)
+        #expect(model.bandwidthArguments() == ["--network-profile", "fast-3g"])
+        model.bandwidthConfiguration = ProxyBandwidthConfiguration(
+            profile: .custom,
+            latencyMs: 25,
+            uploadBytesPerSecond: 1024,
+            downloadBytesPerSecond: 2048,
+        )
+        #expect(model.bandwidthArguments() == [
+            "--network-profile", "custom",
+            "--latency-ms", "25",
+            "--upload-bps", "1024",
+            "--download-bps", "2048",
+        ])
+    }
+
+    @Test @MainActor func breakpointReadinessResynchronizesOnlyAnActiveSession() async throws {
+        let model = ProxyCaptureModel(defaults: try #require(UserDefaults(suiteName: UUID().uuidString)))
+        var synchronizations = 0
+        model.onBreakpointReady = { synchronizations += 1 }
+        let ready = try JSONDecoder().decode(ProxyStatusLine.self, from: Data(#"{"status":"breakpoint-ready"}"#.utf8))
+        model.consume(.status(ready))
+        await Task.yield()
+        #expect(synchronizations == 0)
+        let started = try JSONDecoder().decode(ProxyStatusLine.self, from: Data(#"{"status":"started"}"#.utf8))
+        model.consume(.status(started))
+        model.consume(.status(ready))
+        for _ in 0..<100 where synchronizations == 0 { await Task.yield() }
+        #expect(synchronizations == 1)
+        model.consume(.exited(0))
+        model.consume(.status(ready))
+        await Task.yield()
+        #expect(synchronizations == 1)
+    }
+
     @Test @MainActor func agentControlRequiresWindowOptIn() async throws {
         let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
         let proxy = ProxyCaptureModel(defaults: defaults)
@@ -19,6 +56,29 @@ struct ProxyCaptureTests {
         #expect(proxy.state == .stopped)
         let status = try #require(tools.first { $0.name == "proxy_status" })
         #expect(await status.call(.object([:])).isError == false)
+    }
+
+    @Test func processReportsReadinessWhileChildIsStillRunning() async throws {
+        let (process, events) = try ProxyProcessStream.launch(
+            executable: URL(fileURLWithPath: "/bin/sh"),
+            arguments: ["-c", #"printf '%s\n' '{"status":"started"}'; exec /bin/sleep 30"#]
+        )
+        // A fail-safe for a broken stream implementation, not the expected
+        // completion path. Leave enough headroom for a cold, loaded CI executor
+        // to consume the immediate status before this deliberately kills the child.
+        let timeout = Task {
+            try? await Task.sleep(for: .seconds(10))
+            if process.isRunning { process.terminate() }
+        }
+        defer { timeout.cancel() }
+        var reportedWhileRunning = false
+        for await event in events {
+            if case let .status(status) = event, status.status == "started" {
+                reportedWhileRunning = process.isRunning
+                if process.isRunning { process.terminate() }
+            }
+        }
+        #expect(reportedWhileRunning)
     }
 
     @Test func processDrainsFinalStatusBeforeExit() async throws {

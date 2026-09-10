@@ -7,6 +7,16 @@ struct DetailOverviewSection: View {
     /// nil when this record wasn't attributed to a device — a manually-sent
     /// request from the editor, or one restored from an imported session.
     let deviceLabel: String?
+    private let jsonRPCSummary: JSONRPCSummary?
+
+    init(record: NetworkRequest, deviceLabel: String?) {
+        self.record = record
+        self.deviceLabel = deviceLabel
+        jsonRPCSummary = JSONRPCSummary(
+            requestBody: record.requestBody,
+            responseBody: record.responseBody
+        )
+    }
 
     private var diagnosis: RequestDiagnosis? {
         RequestDiagnoser.diagnose(record)
@@ -28,9 +38,13 @@ struct DetailOverviewSection: View {
             HStack(spacing: Spacing.xl) {
                 metric("Request", Fmt.bytes(record.requestBodySize))
                 metric("Response", Fmt.bytes(record.responseBodySize))
+                metric("Started", Fmt.time(record.startTime))
                 if let deviceLabel {
                     metric("Device", deviceLabel)
                 }
+            }
+            if let jsonRPCSummary {
+                JSONRPCSummarySectionView(summary: jsonRPCSummary)
             }
         }
     }

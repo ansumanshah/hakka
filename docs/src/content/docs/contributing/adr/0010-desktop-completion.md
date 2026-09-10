@@ -1,6 +1,6 @@
 ---
 title: 'ADR 0010 — Completing Hakka for macOS: table stakes first, rules over the bridge, scripting behind a contract'
-description: The completion plan for the desktop app — what we copy from Proxyman/Bruno/Yaak, what we refuse to copy, and the contracts the remaining features land behind.
+description: The completion plan for the desktop app, the capture boundary it preserves, and the contracts the remaining features land behind.
 ---
 
 Status: Implemented (unreleased) · Date: 2026-08-21 · Extends [ADR 0008](/contributing/adr/0008-desktop-plugin-products/) · Applies [ADR 0009](/contributing/adr/0009-contracts-first-internals/)
@@ -67,28 +67,12 @@ reason sending stays cheap to add rather than the reason to postpone it.
 
 ## Context
 
-ADR 0008 shipped the desktop app as embeddable SPM products with an honest
-parity table against Bruno, Yaak, and Proxyman. That audit also found the
-table briefly meant less than it said (library built, UI unwired), and closed
-the gap. This ADR covers the next question: what does "complete" mean from
-here, given the 2026 competitive field?
-
-The field moved. Proxyman 6.x spent the year on agent surfaces (MCP rule
-management, scripting knowledge bases) and Chart View timing; Bruno V4
-shipped WebSocket multi-message requests and YAML collections; Yaak shipped
-OAuth2 in an external browser, gRPC maturity, and an agent CLI skill; and two
-new open-source native-Swift Proxyman clones appeared in 2026 alone (Rockxy,
-FRTMProxy). All of them share one architecture: capture through a system
-proxy and a CA certificate.
-
-Hakka's desktop app is the only one in this field that sees an app's traffic
-with no certificate, because the SDK is already inside that app — on iOS,
-Android, RN, web, and Node, not just macOS. Every competitor would have to
-rebuild five platform SDKs and a wire protocol to reach that position. We
-would have to rebuild nothing to reach their table stakes except the features
-themselves. The 2026 open-source field splits cleanly: Rockxy is a native
-Swift/SwiftNIO proxy competing on our terms of packaging but not our capture
-model, while FRTMProxy is a SwiftUI front end over mitmproxy's Python engine.
+ADR 0008 shipped the desktop app as embeddable SPM products and audited each
+claimed capability against the UI. That audit found several library features
+that were implemented but not reachable, and closed those gaps. This ADR
+defines "complete" around Hakka's own workflow: capture across its SDK fleet,
+inspect and author requests on the Mac, control rules over the bridge, and
+automate the same records through stable contracts.
 
 An inventory of the app as of 2026-08-21 (all verified in source, not from
 docs): body rendering is bare monospaced text, there is no timing UI despite
@@ -96,20 +80,16 @@ docs): body rendering is bare monospaced text, there is no timing UI despite
 frames even though the hub relays them and all three rule engines ship in
 `HakkaCommon`, auth stops at a static OAuth2 access token, there is no cookie
 jar, WebSocket/SSE sending, or scripting, and folder runs don't exist. Each of
-those is table stakes somewhere in the competitor set. None of them requires
-touching a proxy.
+those is required for a complete authoring and inspection workflow. None of
+them requires changing the capture boundary.
 
 ## Options considered
 
-**A. Match Proxyman feature-for-feature, including becoming a system proxy
-with a CA certificate.** Rejected: it reopens the exact non-goal ADR 0008
-settled, puts us in a cert-installation arms race against two funded teams
-and mitmproxy, and abandons the differentiator mid-race. Stated so nobody
-reaches for it.
+**A. Make a system proxy with a CA certificate the primary capture path.**
+Rejected: it reopens the exact non-goal ADR 0008 settled and abandons the
+in-process SDK boundary. Stated so nobody reaches for it.
 
-**B. Stay declarative-only and differentiate purely on capture.** Rejected by
-usage reality: every API client's users eventually hit the scripting wall;
-Bruno, Yaak, and Proxyman each ship a scripting story for a reason. Declarative
+**B. Stay declarative-only and stop at capture.** Rejected because declarative
 assertions and response captures cover chaining but not signing, redaction-in-
 place, or computed payloads.
 
@@ -121,11 +101,11 @@ protocols, and sandboxed scripting behind contracts; gRPC explicitly deferred.
 
 Option **C**. Four sub-decisions, each scoped:
 
-### 1. Copy the vocabulary, never the mechanics
+### 1. Use stable network-debugging vocabulary
 
-Every debugging-tool concept in the competitor set is fair game — Map Local,
-breakpoints, block lists, network conditions, compose/replay, diff, timing
-charts, sessions, scripting, MCP tools. The capture mechanism is not: no CA
+Hakka uses familiar names for Map Local, breakpoints, block lists, network
+conditions, compose/replay, diff, timing charts, sessions, scripting, and MCP
+tools. The capture mechanism remains distinct: no CA
 certificate, no system proxy, no DNS spoofing, no external-proxy plumbing,
 ever. The Rules tab exists because the engines already live in the SDKs on the
 other end of the wire; that placement is the product.
@@ -136,8 +116,8 @@ The wire protocol already carries control frames byte-compatibly between the
 Node hub and every SDK; the Swift hub relays them today without a sender. The
 completion work is typed `ControlCommand` encoding in `DesktopCore`, a Rules
 tab (Mocks / Breakpoints / Throttle sections, mirroring the RN/iOS structure),
-and one motion no proxy tool can offer: **promote a captured response into a
-live mock in one action**, plus breakpoint pause-and-edit of a real device's
+and one direct workflow: **promote a captured response into a live mock in one
+action**, plus breakpoint pause-and-edit of a real device's
 in-flight traffic from the Mac. No new server capability is required; hostile-
 input tests mirror the Node hub's existing contract.
 
@@ -149,9 +129,8 @@ harness per ADR 0009 (rule of three before freeze), and the sandbox bar is
 testable, not aspirational: wall-clock timeout enforced, filesystem and
 network access absent, escape attempts asserted to fail, script errors
 surfaced to the UI rather than swallowed. API surface stays deliberately
-small (`env`, `log`, request/response mutation); no `require`, no npm, the
-path that turned Proxyman's scripting into a support surface instead of a
-feature.
+small (`env`, `log`, request/response mutation); no `require`, no npm, and no
+unbounded dependency or I/O surface.
 
 ### 4. New send paths are transports; protocols scope to WebSocket + SSE
 
@@ -165,8 +144,8 @@ the transport seam keeps it cheap to add later.
 
 ## Consequences
 
-- Table stakes first means the first shippable milestone is parity work with
-  zero novelty: body viewers, waterfall, real OAuth2 flows, cookies, editor
+- Foundation first means the first shippable milestone is body viewers,
+  waterfall, real OAuth2 flows, cookies, editor
   depth, collection UX, folder runs. Boring by design; it unblocks everything
   users touch daily.
 - Public API grows by at least one contract (`ScriptRuntime`) under the
@@ -174,12 +153,9 @@ the transport seam keeps it cheap to add later.
 - The collection file format gains fields (scripts now, rule references when
   rules become saveable); round-trip byte-identity tests extend per house
   rule.
-- Rockxy/FRTMProxy validate demand for native-Swift debuggers but compete on
-  the proxy axis; our answer to them is the SDK fleet, not cert management.
-- Feature ideas were taken from competitors' public docs and READMEs
-  (Proxyman, Bruno v4, Yaak 2026.x, Rockxy); no code was read with intent to
-  copy and none may be — Rockxy's source is AGPL-3.0 and verbatim reuse would
-  infect this repo's license.
+- External product research stays outside public source and comments. Hakka's
+  implementation follows its own contracts and the licences of its declared
+  dependencies.
 
 ## Non-goals (restated so they stay non-goals)
 

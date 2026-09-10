@@ -5,8 +5,8 @@ import HakkaCommon
 /// that has no business living in the domain model itself:
 ///
 /// - `seq` preserves display order without baking order into filenames, so
-///   reordering never renames a file (Bruno's approach — order lives in the
-///   file content, not the path).
+///   reordering never renames a file; order lives in the file content, not
+///   the path.
 /// - `Folder.children` and `Collection.nodes` are never serialized here; a
 ///   directory's own listing IS that data, re-derived on every `load`.
 

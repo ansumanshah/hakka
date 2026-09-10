@@ -30,6 +30,8 @@ struct TrafficColumnPickerView: View {
     @AppStorage(Self.sortOrderKey) private var sortOrderRaw = TrafficSortOrder.desc.rawValue
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var headerName = ""
+    @State private var headerSource: TrafficHeaderSource = .response
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -53,13 +55,15 @@ struct TrafficColumnPickerView: View {
             .listStyle(.plain)
             .frame(height: CGFloat(store.columns.count) * 26 + 8)
             Divider()
+            headerColumnsControls
+            Divider()
             Button("Reset to Default") { store.resetToDefault() }
                 .buttonStyle(.plain)
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .padding(Spacing.ml)
         }
-        .frame(width: 200)
+        .frame(width: 290)
     }
 
     private var groupAndSortControls: some View {
@@ -107,12 +111,81 @@ struct TrafficColumnPickerView: View {
         .padding(.bottom, Spacing.sm)
     }
 
-    private var sortOrder: TrafficSortOrder { TrafficSortOrder(rawValue: sortOrderRaw) ?? .desc }
+    private var sortOrder: TrafficSortOrder {
+        TrafficSortOrder(rawValue: sortOrderRaw) ?? .desc
+    }
+
+    private var headerColumnsControls: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            Text("Header Columns")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: Spacing.xs) {
+                Picker("Header source", selection: $headerSource) {
+                    ForEach(TrafficHeaderSource.allCases) { source in
+                        Text(source.title).tag(source)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.segmented)
+
+                TextField("Header name", text: $headerName)
+                    .textFieldStyle(.roundedBorder)
+                    .accessibilityLabel("Header name")
+                    .onSubmit(addHeaderColumn)
+
+                Button(action: addHeaderColumn) {
+                    Image(systemName: "plus")
+                }
+                .disabled(!TrafficColumnConfigStore.isValidHeaderName(headerName.trimmingCharacters(in: .whitespacesAndNewlines)))
+                .accessibilityLabel("Add header column")
+                .help("Add header column")
+            }
+
+            if store.headerColumns.isEmpty {
+                Text("Add a request or response header to show its value in the table.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: Spacing.sm) {
+                        ForEach(store.headerColumns) { column in
+                            HStack(spacing: Spacing.sm) {
+                                Text(column.title)
+                                    .font(.caption.monospaced())
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                                Spacer(minLength: 0)
+                                Button {
+                                    store.removeHeaderColumn(column)
+                                } label: {
+                                    Image(systemName: "trash")
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel("Remove \(column.title) column")
+                                .help("Remove \(column.title) column")
+                            }
+                        }
+                    }
+                }
+                .frame(maxHeight: ControlHeight.md * 5)
+            }
+        }
+        .padding(.horizontal, Spacing.lg)
+        .padding(.vertical, Spacing.ml)
+    }
+
+    private func addHeaderColumn() {
+        guard store.addHeaderColumn(named: headerName, source: headerSource) != nil else { return }
+        headerName = ""
+    }
 
     private func visibilityBinding(for column: TrafficColumn) -> Binding<Bool> {
         Binding(
             get: { store.isVisible(column) },
-            set: { store.setVisible($0, for: column) },
+            set: { store.setVisible($0, for: column) }
         )
     }
 }

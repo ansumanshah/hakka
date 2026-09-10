@@ -31,5 +31,6 @@ struct HeaderPairListEditor: View {
             .buttonStyle(.plain)
             .padding(.top, Spacing.md)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

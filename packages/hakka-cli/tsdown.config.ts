@@ -8,5 +8,16 @@ export default defineConfig({
   treeshake: true,
   target: 'es2022',
   clean: true,
-  deps: { neverBundle: ['hakka-core', 'hakka-core/test', 'hakka-bridge', 'ws', 'zod', '@modelcontextprotocol/sdk'] },
+  deps: {
+    neverBundle: [
+      'hakka-core',
+      'hakka-core/test',
+      'hakka-bridge',
+      'ws',
+      'zod',
+      '@modelcontextprotocol/sdk',
+      'pac-resolver',
+      'quickjs-wasi',
+    ],
+  },
 })

@@ -11,13 +11,15 @@ struct RequestEditorContainerView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            RequestWorkspaceTabsView()
+            Divider()
             RequestMethodURLBar(spec: specBinding)
             Divider()
             RequestTabsView(activeTab: $activeTab)
             Divider()
             tabContent
                 .padding(.horizontal, Layout.gutter)
-                .padding(.vertical, Spacing.lg)
+                .padding(.vertical, Spacing.sm)
         }
     }
 

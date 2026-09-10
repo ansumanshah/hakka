@@ -8,6 +8,8 @@ struct CenterPaneView: View {
 
     var body: some View {
         switch model.selection {
+        case .requests:
+            ProjectOverviewView()
         case .request:
             if model.editor.draft != nil {
                 RequestEditorContainerView()
@@ -18,14 +20,18 @@ struct CenterPaneView: View {
             LiveTrafficListView()
         case .rules:
             RulesView()
+        case .runs, .folderRun:
+            RunsWorkspaceView()
+        case .proxy:
+            ProxyCaptureView(isEmbedded: true)
+        case .changes:
+            GitPaneView(directoryURL: model.collection.directoryURL)
         case .logs:
             LogsPanelView()
         case .storage:
             StoragePanelView()
-        case .folderRun:
-            EmptyStateView(systemImage: "checklist", title: "Folder Run", message: "Results are in the detail pane.")
         case nil:
-            WelcomeView()
+            ProjectOverviewView()
         }
     }
 }

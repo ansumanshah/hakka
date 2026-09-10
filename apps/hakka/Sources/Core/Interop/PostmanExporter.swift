@@ -4,8 +4,8 @@ import HakkaCommon
 /// Exports a collection to a Postman Collection v2.1 file — the inverse of
 /// `PostmanImporter`. Folder nesting, headers (enabled and disabled alike),
 /// every `BodySpec` mode `PostmanBody` knows how to parse back, and auth
-/// (including `.inherit`, which is simply the absence of an `auth` key —
-/// matching Postman's own inheritance model, same as the importer) all
+/// (including `.inherit`, which is simply the absence of an `auth` key,
+/// matching the schema's inheritance model) all
 /// round-trip.
 public enum PostmanExporter {
     private static let schemaURL = "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
@@ -49,8 +49,8 @@ public enum PostmanExporter {
     /// `PostmanImporter.url(from:)` only ever reads `raw` — a disabled query
     /// param has no way to survive re-import either way, so `raw` carries
     /// only the enabled ones. The structured `query` array is written too,
-    /// disabled entries included, purely for a real Postman client opening
-    /// this file; this importer never looks at it.
+    /// disabled entries included, so compatible clients retain them; this
+    /// importer never looks at it.
     private static func url(_ spec: RequestSpec) -> [String: Any] {
         let enabled = spec.query.filter(\.enabled).map { (name: $0.name, value: $0.value) }
         var url: [String: Any] = ["raw": URLQuerySplitter.join(base: spec.url, items: enabled)]

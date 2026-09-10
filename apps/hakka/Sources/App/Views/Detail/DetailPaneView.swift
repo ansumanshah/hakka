@@ -31,6 +31,8 @@ struct DetailPaneView: View {
     @ViewBuilder
     private var selectionContent: some View {
         switch model.selection {
+        case .requests:
+            EmptyView()
         case .request:
             requestDetail
                 .transition(.opacity)
@@ -46,6 +48,8 @@ struct DetailPaneView: View {
         case .storage:
             EmptyStateView(systemImage: "externaldrive", title: "Storage", message: "Select a store in the list to inspect its entries.")
                 .transition(.opacity)
+        case .runs, .proxy, .changes:
+            EmptyView()
         case .folderRun:
             folderRunDetail
                 .transition(.opacity)
@@ -109,7 +113,7 @@ struct DetailPaneView: View {
             } else if let result = model.editor.lastResult {
                 ScrollView {
                     VStack(alignment: .leading, spacing: Spacing.xl) {
-                        NetworkRequestDetailView(record: result.record)
+                        NetworkRequestDetailView(record: result.record, initialTab: .response)
                             .id(result.record.id)
                         if !result.assertionResults.isEmpty {
                             AssertionResultsView(results: result.assertionResults)

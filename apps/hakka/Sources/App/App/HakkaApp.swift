@@ -4,17 +4,21 @@ import SwiftUI
 struct HakkaApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var model = AppModel()
+    @AppStorage(AppAppearance.storageKey) private var appearance = AppAppearance.system
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environment(model)
+                .preferredColorScheme(appearance.colorScheme)
                 .frame(minWidth: 960, minHeight: 560) // ui-token-check-ignore: window chrome
                 .task {
                     // `AppDelegate` is constructed before `AppModel` exists
                     // (see its own doc comment), so the hand-off happens here.
                     appDelegate.pauseInbox = model.pauseInbox
                     appDelegate.proxy = model.proxy
+                    appDelegate.editor = model.editor
+                    await model.proxy.recoverSystemProxyRouting()
                     // All five loops run for the scene's lifetime: the rules,
                     // pause, logs, and storage mirrors are concurrent
                     // children so none can starve the traffic stream (all
@@ -43,6 +47,7 @@ struct HakkaApp: App {
         Window("Source Control", id: WindowID.sourceControl) {
             GitPaneView(directoryURL: model.collection.directoryURL)
                 .environment(model)
+                .preferredColorScheme(appearance.colorScheme)
                 .frame(minWidth: 720, minHeight: 460) // ui-token-check-ignore: window chrome
         }
         .defaultSize(width: 980, height: 640) // ui-token-check-ignore: window chrome
@@ -50,9 +55,11 @@ struct HakkaApp: App {
         Settings {
             SettingsView()
                 .environment(model)
+                .preferredColorScheme(appearance.colorScheme)
         }
         Window("Proxy Capture", id: WindowID.proxy) {
             ProxyCaptureView().environment(model)
+                .preferredColorScheme(appearance.colorScheme)
         }
     }
 }

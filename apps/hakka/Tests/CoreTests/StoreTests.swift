@@ -196,6 +196,114 @@ struct CollectionStoreTests {
         #expect(loaded == collection)
     }
 
+    @Test func saveRequestPreservesDiskWhenAManagedWriterOwnsTheCollection() async throws {
+        let dir = tempDirectory()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let store = CollectionStore()
+        var collection = kitchenSinkCollection()
+        try await store.save(collection, to: dir)
+
+        guard case var .request(request) = collection.nodes.last else {
+            Issue.record("expected a request")
+            return
+        }
+        let requestURL = dir.appendingPathComponent("\(CollectionFileNaming.slug(for: request.name)).hakka")
+        let before = try Data(contentsOf: requestURL)
+        try Data("mcp".utf8).write(to: dir.appendingPathComponent(".hakka-write.lock"))
+        request.notes = "native draft"
+        collection.nodes[collection.nodes.count - 1] = .request(request)
+
+        await #expect(throws: CollectionStoreError.self) {
+            try await store.saveRequest(request, in: collection, to: dir)
+        }
+        #expect(try Data(contentsOf: requestURL) == before)
+    }
+
+    @Test func saveRequestPreservesAnMCPChangeAfterANativeDraftWasOpened() async throws {
+        let dir = tempDirectory()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let store = CollectionStore()
+        var collection = kitchenSinkCollection()
+        try await store.save(collection, to: dir)
+
+        guard case let .request(original) = collection.nodes.last else {
+            Issue.record("expected a request")
+            return
+        }
+        let requestURL = dir.appendingPathComponent("\(CollectionFileNaming.slug(for: original.name)).hakka")
+        var external = original
+        external.notes = "saved by MCP"
+        try CollectionFileFormat.encode(RequestFile(seq: 8, spec: external)).write(to: requestURL)
+        var nativeDraft = original
+        nativeDraft.notes = "native draft"
+        collection.nodes[collection.nodes.count - 1] = .request(nativeDraft)
+
+        await #expect(throws: CollectionStoreError.self) {
+            try await store.saveRequest(
+                nativeDraft,
+                in: collection,
+                to: dir,
+                expectedDiskRequest: original,
+            )
+        }
+        #expect(try Data(contentsOf: requestURL) == CollectionFileFormat.encode(RequestFile(seq: 8, spec: external)))
+    }
+
+    @Test func fullSavePreservesAnMCPStructuralChangeAfterTheNativeTreeWasOpened() async throws {
+        let dir = tempDirectory()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let store = CollectionStore()
+        let original = kitchenSinkCollection()
+        try await store.save(original, to: dir)
+
+        var external = original
+        external.nodes.removeLast()
+        try await store.save(external, to: dir)
+        var nativeTree = original
+        nativeTree.name = "Native rename"
+
+        await #expect(throws: CollectionStoreError.self) {
+            try await store.save(nativeTree, to: dir, expectedDiskCollection: original)
+        }
+        #expect(try await store.load(directory: dir) == external)
+    }
+
+    @Test func saveDoesNotAutomaticallyReclaimAnOldLock() async throws {
+        let dir = tempDirectory()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let store = CollectionStore()
+        let collection = kitchenSinkCollection()
+        try await store.save(collection, to: dir)
+        let lockURL = dir.appendingPathComponent(".hakka-write.lock")
+        let staleLock = Data("{\"version\":1,\"pid\":2147483647,\"nonce\":\"crashed\",\"createdAt\":0}".utf8)
+        try staleLock.write(to: lockURL)
+
+        await #expect(throws: CollectionStoreError.writeLocked(path: lockURL.standardizedPath)) {
+            try await store.save(collection, to: dir, expectedDiskCollection: collection)
+        }
+        #expect(try Data(contentsOf: lockURL) == staleLock)
+        #expect(try await store.load(directory: dir) == collection)
+    }
+
+    @Test func saveToEmptyDirectoryNeverReplacesExistingContent() async throws {
+        let dir = tempDirectory()
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let sentinelURL = dir.appendingPathComponent("keep.txt")
+        let sentinel = Data("keep me".utf8)
+        try sentinel.write(to: sentinelURL)
+
+        let store = CollectionStore()
+        await #expect(throws: CollectionStoreError.destinationNotEmpty(path: dir.standardizedPath)) {
+            try await store.saveToEmptyDirectory(kitchenSinkCollection(), to: dir)
+        }
+
+        #expect(try Data(contentsOf: sentinelURL) == sentinel)
+        #expect(!FileManager.default.fileExists(
+            atPath: dir.appendingPathComponent(CollectionFileFormat.collectionMetadataFilename).path
+        ))
+    }
+
     @Test func renamingRequestMovesItsFileWithoutLeavingTheOldOneBehind() async throws {
         let dir = tempDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }

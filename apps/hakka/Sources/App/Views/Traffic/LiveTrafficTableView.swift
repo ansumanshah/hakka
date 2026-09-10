@@ -43,8 +43,13 @@ struct LiveTrafficTableView: View {
     /// row to its tallest cell.
     private static let rowHeight: CGFloat = 28
 
-    private var columnConfig: TrafficColumnConfigStore { model.traffic.columnConfig }
-    private var groupBy: TrafficGroupBy { TrafficGroupBy(rawValue: groupByRaw) ?? .none }
+    private var columnConfig: TrafficColumnConfigStore {
+        model.traffic.columnConfig
+    }
+
+    private var groupBy: TrafficGroupBy {
+        TrafficGroupBy(rawValue: groupByRaw) ?? .none
+    }
 
     /// `visibleRequests` already carries whatever order the search DSL's own
     /// `sort:`/`order:` terms produced (or newest-first by default). Leaving
@@ -64,7 +69,7 @@ struct LiveTrafficTableView: View {
 
     var body: some View {
         Table(of: NetworkRequest.self, selection: selectionBinding) {
-            TableColumnForEach(columnConfig.visibleColumnsInOrder) { column in
+            TableColumnForEach(columnConfig.visibleTableColumnsInOrder) { column in
                 TableColumn(column.title) { request in
                     cell(for: column, request: request)
                 }
@@ -99,24 +104,38 @@ struct LiveTrafficTableView: View {
     private var selectionBinding: Binding<Set<String>> {
         Binding(
             get: { Set(model.traffic.selectedRequestID.map { [$0] } ?? []) },
-            set: { model.traffic.selectedRequestID = $0.first },
+            set: { model.traffic.selectedRequestID = $0.first }
         )
     }
 
-    @ViewBuilder
-    private func cell(for column: TrafficColumn, request: NetworkRequest) -> some View {
+    private func cell(for column: TrafficTableColumn, request: NetworkRequest) -> some View {
         content(for: column, request: request)
             .frame(minHeight: Self.rowHeight, alignment: .leading)
             .contextMenu { rowContextMenu(for: request) }
     }
 
     @ViewBuilder
-    private func content(for column: TrafficColumn, request: NetworkRequest) -> some View {
+    private func content(for column: TrafficTableColumn, request: NetworkRequest) -> some View {
+        switch column {
+        case let .header(header):
+            Text(header.value(in: request) ?? "–")
+                .font(.caption.monospaced())
+                .foregroundStyle(header.value(in: request) == nil ? .tertiary : .secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+        case let .builtIn(column):
+            builtInContent(for: column, request: request)
+        }
+    }
+
+    @ViewBuilder
+    private func builtInContent(for column: TrafficColumn, request: NetworkRequest) -> some View {
         switch column {
         case .method:
             Text(request.method.rawValue)
                 .font(.caption.monospaced().weight(.bold))
-                .foregroundStyle(Fmt.methodColor(request.method))
+                .foregroundStyle(model.traffic.selectedRequestID == request.id
+                    ? AnyShapeStyle(.primary) : AnyShapeStyle(Fmt.methodColor(request.method)))
         case .path:
             Text(Self.path(for: request))
                 .font(.caption.monospaced())
@@ -130,7 +149,8 @@ struct LiveTrafficTableView: View {
         case .status:
             Text(request.status.map(String.init) ?? "–")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(Fmt.statusColor(request.status))
+                .foregroundStyle(model.traffic.selectedRequestID == request.id
+                    ? AnyShapeStyle(.primary) : AnyShapeStyle(Fmt.statusColor(request.status)))
         case .duration:
             Text(Fmt.duration(request.duration))
                 .font(.caption)
@@ -173,8 +193,9 @@ struct LiveTrafficTableView: View {
         return "\(path)?\(query)"
     }
 
-    private func minWidth(for column: TrafficColumn) -> CGFloat {
-        switch column {
+    private func minWidth(for column: TrafficTableColumn) -> CGFloat {
+        guard case let .builtIn(column) = column else { return 100 }
+        return switch column {
         case .method: 50
         case .path: 160
         case .host: 100
@@ -185,10 +206,11 @@ struct LiveTrafficTableView: View {
         }
     }
 
-    private func idealWidth(for column: TrafficColumn) -> CGFloat {
-        switch column {
+    private func idealWidth(for column: TrafficTableColumn) -> CGFloat {
+        guard case let .builtIn(column) = column else { return 180 }
+        return switch column {
         case .method: 64
-        case .path: 320
+        case .path: 260
         case .host: 160
         case .status: 56
         case .duration: 72

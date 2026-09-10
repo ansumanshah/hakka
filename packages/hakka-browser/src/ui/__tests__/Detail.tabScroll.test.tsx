@@ -1,8 +1,7 @@
 /**
  * Detail's secondary tab strip (.hakka-tabs) keeps the active tab scrolled
- * into view when it changes — the adopted-from-research guarantee in the
- * inspector design audit (Bruno's ResponsiveTabs, minus the dropdown-menu
- * machinery). Covers: the call itself, prefers-reduced-motion swapping
+ * into view when it changes. Covers: the call itself,
+ * prefers-reduced-motion swapping
  * 'smooth' for 'auto', and the jsdom/happy-dom guard when scrollIntoView is
  * unavailable.
  */

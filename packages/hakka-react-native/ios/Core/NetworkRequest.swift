@@ -87,6 +87,7 @@ public enum RequestSource: String, Sendable, Codable {
     case jsFetch
     case jsXHR
     case jsWebSocket
+    case http
     case mock
     /// Native URLSessionWebSocketTask capture (iOS 13+).
     case nativeWebSocket
@@ -102,6 +103,7 @@ public enum RequestSource: String, Sendable, Codable {
         case .jsFetch: return "JS Fetch"
         case .jsXHR: return "JS XHR"
         case .jsWebSocket: return "JS WebSocket"
+        case .http: return "HTTP"
         case .mock: return "Mock"
         case .nativeWebSocket: return "Native WebSocket"
         case .grpcClient: return "gRPC"
@@ -115,6 +117,7 @@ public enum RequestSource: String, Sendable, Codable {
         case .jsFetch: return "fetch"
         case .jsXHR: return "xhr"
         case .jsWebSocket: return "websocket"
+        case .http: return "http"
         case .nativeWebSocket: return "native_ws"
         case .grpcClient: return "grpc_client"
         }
@@ -132,6 +135,8 @@ public enum RequestSource: String, Sendable, Codable {
             self = .jsXHR
         case "websocket", "jsWebSocket":
             self = .jsWebSocket
+        case "http":
+            self = .http
         case "mock":
             self = .mock
         case "native_ws", "nativeWebSocket":

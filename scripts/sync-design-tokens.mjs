@@ -150,23 +150,52 @@ function emitSwiftDesktop() {
   }
   return (
     banner('// Run `just sync-tokens` after editing design-tokens.json.') +
-    `import SwiftUI
+    `import AppKit
+import SwiftUI
 
 /// Canonical Hakka color tokens for the macOS app — same source as the four
 /// inspector platforms. Data only; status/method/timing mappings live in Fmt.
 enum ThemeTokens {
-${group('Status', t.status)}
+${swiftAdaptiveColorGroup('Status', t.statusLight, t.status, 'Semantic status text colors resolve against the active macOS appearance.')}
 
-${group('Method', t.method)}
+${swiftAdaptiveColorGroup('Method', t.methodLight, t.method, 'HTTP method text colors resolve against the active macOS appearance.')}
 
 ${group('Timing', t.timing)}
 
-    // JSON syntax colors — codeDark only (this app has no adaptive
-    // light/dark mirror yet, same call as Status/Method/Timing above).
-${group('Code', t.codeDark)}
+${swiftAdaptiveCodeGroup(t.codeLight, t.codeDark)}
 }
 `
   )
+}
+
+function swiftAdaptiveCodeGroup(light, dark) {
+  return swiftAdaptiveColorGroup('Code', light, dark, 'JSON syntax colors resolve against the active macOS appearance.')
+}
+
+function swiftAdaptiveColorGroup(name, light, dark, comment) {
+  const nsColor = (hex) => {
+    const r = parseInt(hex.slice(0, 2), 16) / 255
+    const g = parseInt(hex.slice(2, 4), 16) / 255
+    const b = parseInt(hex.slice(4, 6), 16) / 255
+    return `NSColor(srgbRed: ${r.toFixed(4)}, green: ${g.toFixed(4)}, blue: ${b.toFixed(4)}, alpha: 1)`
+  }
+  const body = Object.keys(dark)
+    .map((key) => {
+      if (light[key])
+        return `        static let ${key} = adaptive(light: ${nsColor(light[key])}, dark: ${nsColor(dark[key])})`
+      return `        static let ${key} = Color(nsColor: ${nsColor(dark[key])})`
+    })
+    .join('\n')
+  return `    /// ${comment}
+    enum ${name} {
+        private static func adaptive(light: NSColor, dark: NSColor) -> Color {
+            Color(nsColor: NSColor(name: nil) { appearance in
+                appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light
+            })
+        }
+
+${body}
+    }`
 }
 
 function emitSwiftDemoPalette() {

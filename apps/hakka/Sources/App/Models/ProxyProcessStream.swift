@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 enum ProxyProcessEvent: Sendable {
@@ -22,18 +23,21 @@ enum ProxyProcessStream {
         // to the null device rather than allowing an unread pipe to stall.
         process.standardError = FileHandle.nullDevice
         let (events, continuation) = AsyncStream<ProxyProcessEvent>.makeStream(bufferingPolicy: .bufferingNewest(100))
+        let terminated = DispatchGroup()
+        terminated.enter()
+        process.terminationHandler = { _ in terminated.leave() }
         try process.run()
         try? output.fileHandleForWriting.close()
         DispatchQueue.global(qos: .utility).async {
             var pending = Data()
             defer {
                 try? output.fileHandleForReading.close()
-                process.waitUntilExit()
+                terminated.wait()
                 continuation.yield(.exited(process.terminationStatus))
                 continuation.finish()
             }
             do {
-                while let chunk = try output.fileHandleForReading.read(upToCount: 4096), !chunk.isEmpty {
+                while let chunk = try readAvailableChunk(from: output.fileHandleForReading.fileDescriptor) {
                     pending.append(chunk)
                     while let end = pending.firstIndex(of: 10) {
                         let line = pending.prefix(upTo: end)
@@ -69,4 +73,18 @@ enum ProxyProcessStream {
         }
         return (process, events)
     }
+
+    /// One pipe read returns as soon as any status bytes arrive. FileHandle's
+    /// length-based read can wait for the whole buffer while the CLI stays alive.
+    private static func readAvailableChunk(from descriptor: Int32) throws -> Data? {
+        var bytes = [UInt8](repeating: 0, count: 4096)
+        while true {
+            let count = Darwin.read(descriptor, &bytes, bytes.count)
+            if count > 0 { return Data(bytes.prefix(count)) }
+            if count == 0 { return nil }
+            if errno == EINTR { continue }
+            throw NSError(domain: NSPOSIXErrorDomain, code: Int(errno))
+        }
+    }
+
 }

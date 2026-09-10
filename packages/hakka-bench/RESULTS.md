@@ -1,7 +1,7 @@
-# hakka-browser capture overhead vs competitors
+# hakka-browser capture overhead
 
 Per-request **main-thread** time added by network capture — the number that affects a host
-app's responsiveness. Each tool runs in its own process (fresh `fetch` patch). Median of
+app's responsiveness. Each scenario runs in its own process (fresh `fetch` patch). Median of
 3 reps, 40000 requests each, against an instant-resolving stub so we measure
 interception, not the network. Run: `bun run --cwd packages/hakka-bench bench`.
 
@@ -26,9 +26,8 @@ interception, not the network. Run: `bun run --cwd packages/hakka-bench bench`.
   only the ingest half of the story: with the Worker, filtering, search, retention scans, and
   HAR/OTel serialization also leave the main thread — in-process pays for those at
   interaction time instead.
-- **vConsole** stores and renders on the main thread by architecture, like every other
-  web-overlay inspector. **eruda** could not be instrumented headlessly (it needs a real
-  browser to initialize); its network capture is also synchronous main-thread by design.
+- Reference scenarios use their documented capture paths. A scenario that cannot initialize
+  in the headless harness is reported as not measurable.
 - **~200KB body** is a near-cap fixture (hakka-core's default `maxBodySize` is 256KB) that
   declares `content-encoding: gzip`, like real large payloads do — which forces the
   cancel-at-cap STREAM read (no decoded-size bound is knowable up front), the bounded-memory

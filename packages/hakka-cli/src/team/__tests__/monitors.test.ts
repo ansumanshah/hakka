@@ -33,7 +33,19 @@ describe('durable scheduled monitors', () => {
         'collection.hakka': '{"version":4,"id":"demo","name":"demo","defaultHeaders":[],"auth":{"none":{}}}',
         'request.hakka': JSON.stringify({
           seq: 0,
-          spec: { id: 'r', name: 'request', method: 'GET', url: `http://127.0.0.1:${target.port}`, assertions: [] },
+          spec: {
+            id: 'r',
+            name: 'request',
+            method: 'GET',
+            url: `http://127.0.0.1:${target.port}`,
+            headers: [],
+            query: [],
+            body: { none: {} },
+            auth: { inherit: {} },
+            assertions: [],
+            captures: [],
+            followRedirects: true,
+          },
         }),
       },
       undefined,
@@ -181,7 +193,13 @@ describe('durable scheduled monitors', () => {
 
   test('remote snapshot execution rejects request hooks before network execution', async () => {
     const files = {
-      'collection.hakka': JSON.stringify({ version: 4, id: 'demo', name: 'demo', auth: { none: {} } }),
+      'collection.hakka': JSON.stringify({
+        version: 4,
+        id: 'demo',
+        name: 'demo',
+        defaultHeaders: [],
+        auth: { none: {} },
+      }),
       'request.hakka': JSON.stringify({
         seq: 0,
         spec: {
@@ -189,7 +207,14 @@ describe('durable scheduled monitors', () => {
           name: 'request',
           method: 'GET',
           url: 'http://127.0.0.1:1',
-          scripts: { preRequestLines: ['vars.set("x", "1")'] },
+          headers: [],
+          query: [],
+          body: { none: {} },
+          auth: { inherit: {} },
+          assertions: [],
+          captures: [],
+          followRedirects: true,
+          scripts: { preRequestLines: ['vars.set("x", "1")'], postResponseLines: [] },
         },
       }),
     }

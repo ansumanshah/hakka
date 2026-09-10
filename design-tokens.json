@@ -1,5 +1,5 @@
 {
-  "$comment": "Canonical Hakka color tokens shared by web, iOS, Android, and macOS through scripts/sync-design-tokens.mjs. Shared spacing, radii, typography, control heights, and layout metrics live in that generator. Hex values are RRGGBB (no #). Identity: Wok Hei - warm graphite ground, flame accent, jade/chili/turmeric semantics, heat-ramp timing (dns cold -> download hot). Status/method/timing are single-valued; accent lives per-theme in dark/light.",
+  "$comment": "Canonical Hakka color tokens shared by web, iOS, Android, and macOS through scripts/sync-design-tokens.mjs. Shared spacing, radii, typography, control heights, and layout metrics live in that generator. Hex values are RRGGBB (no #). Identity: Wok Hei - warm graphite ground, flame accent, jade/chili/turmeric semantics, heat-ramp timing (dns cold -> download hot). status/method are dark defaults; statusLight/methodLight are macOS text roles on light content. Accent lives per-theme in dark/light.",
   "status": {
     "success": "3AA981",
     "info": "6D9BC9",
@@ -16,6 +16,21 @@
     "patch": "A87FC4",
     "delete": "E2554A",
     "other": "8D8778"
+  },
+  "statusLight": {
+    "success": "17734F",
+    "info": "32618F",
+    "warning": "806000",
+    "error": "AF302A",
+    "pending": "625E54"
+  },
+  "methodLight": {
+    "get": "17734F",
+    "post": "A14F00",
+    "put": "32618F",
+    "patch": "75408E",
+    "delete": "AF302A",
+    "other": "625E54"
   },
   "timing": {
     "dns": "6D9BC9",

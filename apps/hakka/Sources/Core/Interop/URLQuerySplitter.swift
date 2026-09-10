@@ -3,8 +3,8 @@ import Foundation
 /// Splits a URL into a base and decoded query items, and rejoins the two.
 ///
 /// Deliberately hand-rolled instead of `URLComponents`: imported URLs
-/// routinely carry `{{variable}}` placeholders (Postman/Bruno/Hakka's own
-/// syntax), and those curly braces make `URLComponents(string:)` return nil
+/// routinely carry `{{variable}}` placeholders, and those curly braces make
+/// `URLComponents(string:)` return nil
 /// on some inputs since they're not valid RFC 3986 characters. Plain string
 /// splitting has no such objection.
 enum URLQuerySplitter {

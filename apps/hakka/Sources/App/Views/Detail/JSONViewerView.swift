@@ -33,14 +33,22 @@ struct JSONViewerView: View {
     @ViewBuilder
     private var treeContent: some View {
         if let root = model.jsonOutlineRoot {
-            ScrollView {
-                JSONOutlineRowView(node: root, depth: 0)
-                    .padding(Spacing.md)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            let result = model.jsonSearchResult
+            VStack(alignment: .leading, spacing: Spacing.md) {
+                JSONOutlineSearchBar(
+                    searchText: $model.jsonSearchText,
+                    scope: $model.jsonSearchScope,
+                    result: result
+                )
+                ScrollView {
+                    JSONOutlineRowView(node: root, depth: 0, searchResult: result)
+                        .padding(Spacing.md)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(maxHeight: 460) // ui-token-check-ignore: pane cap
+                .background(Color.secondary.opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: 4))
             }
-            .frame(maxHeight: 460)  // ui-token-check-ignore: pane cap
-            .background(Color.secondary.opacity(0.08))
-            .clipShape(RoundedRectangle(cornerRadius: 4))
         } else {
             Text("This body did not parse as JSON.")
                 .font(.caption)

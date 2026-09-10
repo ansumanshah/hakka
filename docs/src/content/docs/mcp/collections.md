@@ -13,6 +13,20 @@ The workspace is the only location these tools can write. Each collection is a d
 
 Use `list_collections`, then `create_collection` or `read_collection`. Collection updates and deletes require the `revision` returned by a read. The same optimistic-concurrency rule applies to `read_folder`/`update_folder`, `read_collection_request`/`update_collection_request`, and environments. A stale revision returns `conflict`; read the item again before retrying.
 
+Managed writes validate collection, folder, and request metadata, including body,
+authentication, assertions, and scripts. Invalid fields return their field path and
+leave existing files unchanged. Readers reject unsupported future format versions.
+
+The native editor and MCP writers share an exclusive `.hakka-write.lock` during writes.
+Native saves also compare against their last disk snapshot, so another writer's edit
+returns a conflict instead of silently replacing it. Resolve the changed files before
+retrying; Git helps review the difference but does not perform that resolution.
+
+A leftover lock is never automatically deleted: reclaiming it could race a new writer.
+If a writer crashed, close all Hakka apps and MCP writer processes, remove the named
+`.hakka-write.lock`, then reopen and retry. Direct external editors do not participate
+in this cooperative lock; do not edit the same file while a managed save is running.
+
 Create nested nodes with `create_folder` and `create_collection_request`; requests can be placed under `parentFolderId`. `delete_collection_node` accepts an explicit request or folder ID and its revision. All list operations are bounded to 100 items.
 
 For example, create a runnable health check:

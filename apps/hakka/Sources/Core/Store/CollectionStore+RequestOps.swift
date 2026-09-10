@@ -2,7 +2,13 @@ import Foundation
 import HakkaCommon
 
 extension CollectionStore {
-    func writeSingleRequest(_ request: RequestSpec, in collection: Collection, to directory: URL) throws {
+    func writeSingleRequest(
+        _ request: RequestSpec,
+        in collection: Collection,
+        to directory: URL,
+        expectedDiskRequest: RequestSpec?,
+        requireNewRequest: Bool
+    ) throws {
         let layout = CollectionLayoutResolver.resolve(collection, root: directory)
         guard let targetURL = layout.requestFiles[request.id], let seq = layout.requestSeq[request.id] else {
             throw CollectionStoreError.nodeNotFound(id: request.id)
@@ -10,8 +16,46 @@ extension CollectionStore {
         let fm = FileManager.default
         let parentDirectory = targetURL.deletingLastPathComponent()
         try fm.createDirectory(at: parentDirectory, withIntermediateDirectories: true)
+        if expectedDiskRequest != nil || requireNewRequest {
+            try assertRequestIsCurrent(
+                id: request.id,
+                expected: expectedDiskRequest,
+                targetURL: targetURL,
+                in: parentDirectory
+            )
+        }
         try removeStaleSibling(ofRequestId: request.id, keeping: targetURL, in: parentDirectory)
         try writeFile(RequestFile(seq: seq, spec: request), to: targetURL)
+    }
+
+    /// The editor supplies the request it read when a draft began. If MCP has
+    /// replaced that request since, preserve its bytes and surface a conflict
+    /// instead of letting the native draft silently win.
+    private func assertRequestIsCurrent(
+        id: String,
+        expected: RequestSpec?,
+        targetURL: URL,
+        in parentDirectory: URL
+    ) throws {
+        let fm = FileManager.default
+        let matching = try fm.contentsOfDirectory(at: parentDirectory, includingPropertiesForKeys: nil)
+            .filter { entry in
+                entry.pathExtension == CollectionFileFormat.requestExtension &&
+                    !CollectionFileFormat.isContainerMetadataFilename(entry.lastPathComponent)
+            }
+            .compactMap { entry -> RequestFile? in
+                guard let data = try? Data(contentsOf: entry) else { return nil }
+                return try? CollectionFileFormat.decode(RequestFile.self, from: data)
+            }
+            .first { $0.spec.id == id }
+
+        if let expected {
+            guard matching?.spec == expected else {
+                throw CollectionStoreError.concurrentModification(path: targetURL.standardizedPath)
+            }
+        } else if matching != nil || fm.fileExists(atPath: targetURL.path) {
+            throw CollectionStoreError.concurrentModification(path: targetURL.standardizedPath)
+        }
     }
 
     /// A rename changes `request`'s slug, so its old file (same id, different

@@ -9,10 +9,9 @@ object BenchmarkVariant {
     fun create(context: Context): BenchmarkRuntime {
         val interceptor = HakkaInterceptor {
             maxRequests = 1_000
-            // Match Chucker's 256 KB body-capture cap so the comparison is
-            // apples-to-apples: both tools buffer response bodies up to the same
-            // limit as the workload drains them. (Previously 0 = body capture
-            // off, which understated Hakka's real per-request cost vs Chucker.)
+            // Exercise Hakka with body capture enabled up to the workload's
+            // 256 KB ceiling. A zero cap would skip the body-buffering work this
+            // harness is intended to measure.
             maxBodySize = 262_144L
             redactHeaders = setOf("authorization", "cookie", "set-cookie", "x-api-key")
             sink { }

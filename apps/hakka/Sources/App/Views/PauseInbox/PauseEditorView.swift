@@ -43,9 +43,14 @@ struct PauseEditorView: View {
                 }
             }
             Section("Body") {
-                TextEditor(text: $bodyText)
-                    .font(.system(.body, design: .monospaced))
-                    .frame(minHeight: 160)  // ui-token-check-ignore: body editor min height
+                if pause.device == "Proxy Capture" {
+                    Text("Proxy breakpoints pause before the body is transferred. Resume preserves the original body; body editing is unavailable.")
+                        .foregroundStyle(.secondary)
+                } else {
+                    TextEditor(text: $bodyText)
+                        .font(.system(.body, design: .monospaced))
+                        .frame(minHeight: 160)  // ui-token-check-ignore: body editor min height
+                }
             }
         }
         .formStyle(.grouped)
@@ -74,11 +79,22 @@ struct PauseEditorView: View {
     }
 
     private func resume() {
+        let originalHeaders = pause.phase == .response ? (pause.response?.headers ?? [:]) : pause.request.headers
+        let editedHeaders = headers.asHeaders == originalHeaders ? nil : headers.asHeaders
+        let originalBody = pause.phase == .response ? (pause.response?.body ?? "") : (pause.request.body ?? "")
+        let editedBody = bodyText == originalBody ? nil : bodyText
         if pause.phase == .response {
-            let edits = BreakpointResponseEdits(status: Int(status), headers: headers.asHeaders, body: bodyText)
+            let edits = BreakpointResponseEdits(
+                status: Int(status) == pause.response?.status ? nil : Int(status),
+                headers: editedHeaders, body: editedBody
+            )
             model.pauseInbox.resume(pause, responseEdits: edits)
         } else {
-            let edits = BreakpointRequestEdits(url: url, method: method, headers: headers.asHeaders, body: bodyText)
+            let edits = BreakpointRequestEdits(
+                url: url == pause.request.url ? nil : url,
+                method: method == pause.request.method ? nil : method,
+                headers: editedHeaders, body: editedBody
+            )
             model.pauseInbox.resume(pause, requestEdits: edits)
         }
     }

@@ -35,6 +35,15 @@ async function collection(request: Record<string, unknown>): Promise<string> {
         captures: [],
         followRedirects: true,
         ...request,
+        ...(request.scripts
+          ? {
+              scripts: {
+                preRequestLines: [],
+                postResponseLines: [],
+                ...(request.scripts as Record<string, unknown>),
+              },
+            }
+          : {}),
       },
     }),
   )
@@ -119,7 +128,13 @@ test('OAuth acquisition obeys the request deadline before contacting the API', a
   const base = `http://127.0.0.1:${(app.address() as { port: number }).port}`
   const directory = await collection({
     url: base,
-    auth: { oauth2: { grant: { clientCredentials: { tokenURL: `${base}/token`, clientId: 'test' } } } },
+    auth: {
+      oauth2: {
+        _0: {
+          grant: { clientCredentials: { _0: { tokenURL: `${base}/token`, clientId: 'test', clientSecret: '' } } },
+        },
+      },
+    },
   })
   const report = await runCollection(directory, { timeoutMs: 20 })
   expect(report.items[0]?.error).toBe('request timed out')

@@ -10,8 +10,8 @@ const ECHO_URL = 'wss://ws.postman-echo.com/raw'
  * Opens a real WebSocket, sends one frame, and closes on the echo. The
  * browser's own WebSocket capture (hakka-core's enableWebSocketInterceptor,
  * wired by hakka-browser's start()) tags this `source: 'websocket'`, so the
- * inspector's frame list has something real to show. Postman's public echo
- * server just sends back whatever it receives.
+ * inspector's frame list has something real to show. The public echo server
+ * sends back whatever it receives.
  */
 export function WebSocketCard() {
   const { state, run } = useTimedRun()
