@@ -6,7 +6,13 @@ struct RequestParamsTabView: View {
 
     var body: some View {
         ScrollView {
-            HeaderPairListEditor(pairs: $spec.query, namePlaceholder: "Param", addTitle: "Add Param")
+            HeaderPairListEditor(
+                pairs: $spec.query,
+                namePlaceholder: "Param",
+                addTitle: "Add Param",
+                emptyTitle: "No query parameters",
+                emptyDescription: "Add a parameter to include it in the request URL.",
+            )
         }
     }
 }

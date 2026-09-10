@@ -6,7 +6,13 @@ struct RequestHeadersTabView: View {
 
     var body: some View {
         ScrollView {
-            HeaderPairListEditor(pairs: $spec.headers, namePlaceholder: "Header", addTitle: "Add Header")
+            HeaderPairListEditor(
+                pairs: $spec.headers,
+                namePlaceholder: "Header",
+                addTitle: "Add Header",
+                emptyTitle: "No request headers",
+                emptyDescription: "Add a header to send it with this request.",
+            )
         }
     }
 }

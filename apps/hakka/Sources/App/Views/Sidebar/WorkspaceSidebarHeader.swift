@@ -16,6 +16,7 @@ struct WorkspaceSidebarHeader: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
+            .layoutPriority(1)
 
             Spacer(minLength: Spacing.xs)
 
@@ -24,14 +25,18 @@ struct WorkspaceSidebarHeader: View {
                     Task { await model.openCollectionDirectory() }
                 }
             } label: {
-                Image(systemName: "ellipsis.circle")
+                Image(systemName: "ellipsis")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: ControlHeight.icon, height: ControlHeight.icon)
+                    .background(.quaternary, in: Circle())
             }
             .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
             .fixedSize()
             .help("Project options")
             .accessibilityLabel("Project options")
         }
-        .padding(.horizontal, Layout.gutter)
         .padding(.vertical, Spacing.sm)
         .contextMenu {
             Button(model.collection.directoryURL == nil ? "Open Collection…" : "Open Another Collection…") {

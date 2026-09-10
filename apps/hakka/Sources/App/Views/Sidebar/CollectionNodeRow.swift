@@ -42,7 +42,7 @@ struct CollectionNodeRow: View {
                 }
                 Text(spec.method.rawValue)
                     .font(.caption2.weight(.bold))
-                    .foregroundStyle(Fmt.methodColor(spec.method))
+                    .foregroundStyle(model.selection == .request(id: spec.id) ? Color.primary : Fmt.methodColor(spec.method))
                     .frame(width: 40, alignment: .leading)
                 Text(spec.name)
                     .lineLimit(1)
