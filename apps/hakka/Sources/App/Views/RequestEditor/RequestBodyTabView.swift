@@ -61,7 +61,13 @@ struct RequestBodyTabView: View {
             case .raw:
                 RequestRawBodyEditor(spec: $spec)
             case .form:
-                HeaderPairListEditor(pairs: formBinding, namePlaceholder: "Field", addTitle: "Add Field")
+                HeaderPairListEditor(
+                    pairs: formBinding,
+                    namePlaceholder: "Field",
+                    addTitle: "Add Field",
+                    emptyTitle: "No form fields",
+                    emptyDescription: "Add a field to include it in the form body.",
+                )
             case .multipart:
                 RequestMultipartBodyEditor(spec: $spec)
             case .file:
