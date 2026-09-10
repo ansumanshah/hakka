@@ -113,38 +113,21 @@ final class TrafficModel {
         self.server = server
     }
 
-    /// Starts the bridge listener, then consumes its request stream for the
-    /// lifetime of the calling task — meant to be driven by a SwiftUI
-    /// `.task` at the app root, not spawned as a detached `Task`.
+    /// Registers the bridge streams, then starts the listener and consumes
+    /// those streams for the lifetime of the calling task — meant to be
+    /// driven by a SwiftUI `.task` at the app root, not spawned as a detached
+    /// `Task`.
     func start() async {
         guard !isRunning else { return }
-        do {
-            try await server.start()
-            boundPort = await server.boundPort
-            startupError = nil
-        } catch {
-            if error.localizedDescription.localizedCaseInsensitiveContains("address already in use") {
-                startupError = "Bridge port is already in use. Close the other Hakka hub, then reopen Hakka."
-            } else {
-                startupError = "Bridge server failed to start: \(error.localizedDescription)"
-            }
-            return
-        }
-        // The task group below only returns once every consumer has been
-        // cancelled — e.g. SwiftUI cancelling the driving `.task` when the
-        // window closes. Resetting `isRunning` here (rather than leaving it
-        // `true` forever) is what lets a later `start()` — from a reopened
-        // window — pass the guard above and re-subscribe all four consumers.
-        defer { isRunning = false }
         let hub = await server.hub
-        ruleSender = ControlSender(hub: hub)
-        // Register every stream before advertising readiness. Child tasks may
-        // begin later; their streams already buffer the first incoming frames.
+        // Register every stream before the listener accepts a connection. The
+        // streams buffer even if their child tasks begin later, so a client that
+        // sends immediately after connecting cannot lose its first frame while
+        // startup is still installing subscribers.
         let spans = await hub.subscribeSpans()
         let controls = await hub.subscribeHostControls()
         let captures = await hub.subscribeRequests()
         let devices = await hub.subscribeDeviceEvents()
-        isRunning = true
         // Four indefinitely-running consumers of the same hub: captured
         // requests, device-to-host control frames, framework spans, and
         // connect/disconnect events. All four live under one group so they
@@ -159,7 +142,30 @@ final class TrafficModel {
             group.addTask { await self.consumeHostControls(controls) }
             group.addTask { await self.consumeRequests(captures) }
             group.addTask { await self.consumeDeviceEvents(devices) }
+
+            do {
+                try await server.start()
+                boundPort = await server.boundPort
+                startupError = nil
+            } catch {
+                if error.localizedDescription.localizedCaseInsensitiveContains("address already in use") {
+                    startupError = "Bridge port is already in use. Close the other Hakka hub, then reopen Hakka."
+                } else {
+                    startupError = "Bridge server failed to start: \(error.localizedDescription)"
+                }
+                // Ends every newly-created stream and lets its termination
+                // handler unregister the continuation from BridgeHub.
+                group.cancelAll()
+                return
+            }
+
+            ruleSender = ControlSender(hub: hub)
+            isRunning = true
         }
+        // The task group only returns once every consumer is cancelled — e.g.
+        // SwiftUI cancelling the driving `.task` when the window closes.
+        // Resetting here lets a reopened window subscribe again.
+        isRunning = false
     }
 
     private func consumeRequests(_ captures: AsyncStream<CapturedRequest>) async {

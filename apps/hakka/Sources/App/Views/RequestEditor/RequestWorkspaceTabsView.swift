@@ -17,6 +17,7 @@ struct RequestWorkspaceTabsView: View {
                         }
                     }
                 }
+                .accessibilityLabel("Open requests")
                 .onChange(of: model.requestWorkspaceTabs.selectedRequestID) { _, id in
                     if let id { scroll.scrollTo(id) }
                 }
@@ -29,11 +30,11 @@ struct RequestWorkspaceTabsView: View {
             Button("Save") { Task { await model.saveActiveRequest() } }
                 .disabled(model.editor.draft == nil || (!model.editor.isDirty && model.collection.directoryURL != nil))
                 .help("Save request (⌘S)")
+                .accessibilityLabel("Save request")
         }
         .controlSize(.small)
         .padding(.horizontal, Layout.gutter)
         .frame(height: ControlHeight.bar)
-        .accessibilityLabel("Open requests")
     }
 
     private func tab(for request: RequestSpec) -> some View {
