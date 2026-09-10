@@ -156,6 +156,8 @@ import SwiftUI
 /// Canonical Hakka color tokens for the macOS app — same source as the four
 /// inspector platforms. Data only; status/method/timing mappings live in Fmt.
 enum ThemeTokens {
+${swiftAdaptiveColorGroup('Palette', t.light, t.dark, 'Core interface colors resolve against the active macOS appearance.')}
+
 ${swiftAdaptiveColorGroup('Status', t.statusLight, t.status, 'Semantic status text colors resolve against the active macOS appearance.')}
 
 ${swiftAdaptiveColorGroup('Method', t.methodLight, t.method, 'HTTP method text colors resolve against the active macOS appearance.')}

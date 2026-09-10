@@ -6,6 +6,24 @@ import SwiftUI
 /// Canonical Hakka color tokens for the macOS app — same source as the four
 /// inspector platforms. Data only; status/method/timing mappings live in Fmt.
 enum ThemeTokens {
+    /// Core interface colors resolve against the active macOS appearance.
+    enum Palette {
+        private static func adaptive(light: NSColor, dark: NSColor) -> Color {
+            Color(nsColor: NSColor(name: nil) { appearance in
+                appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light
+            })
+        }
+
+        static let background = adaptive(light: NSColor(srgbRed: 0.9804, green: 0.9725, blue: 0.9569, alpha: 1), dark: NSColor(srgbRed: 0.0706, green: 0.0667, blue: 0.0627, alpha: 1))
+        static let surface = adaptive(light: NSColor(srgbRed: 0.9490, green: 0.9373, blue: 0.9098, alpha: 1), dark: NSColor(srgbRed: 0.1020, green: 0.0941, blue: 0.0863, alpha: 1))
+        static let surfaceRaised = adaptive(light: NSColor(srgbRed: 1.0000, green: 1.0000, blue: 1.0000, alpha: 1), dark: NSColor(srgbRed: 0.1373, green: 0.1255, blue: 0.1098, alpha: 1))
+        static let border = adaptive(light: NSColor(srgbRed: 0.8863, green: 0.8667, blue: 0.8235, alpha: 1), dark: NSColor(srgbRed: 0.2078, green: 0.1882, blue: 0.1647, alpha: 1))
+        static let text = adaptive(light: NSColor(srgbRed: 0.1294, green: 0.1255, blue: 0.1098, alpha: 1), dark: NSColor(srgbRed: 0.9294, green: 0.9176, blue: 0.8941, alpha: 1))
+        static let textSecondary = adaptive(light: NSColor(srgbRed: 0.3412, green: 0.3255, blue: 0.2902, alpha: 1), dark: NSColor(srgbRed: 0.6588, green: 0.6353, blue: 0.5882, alpha: 1))
+        static let textTertiary = adaptive(light: NSColor(srgbRed: 0.5451, green: 0.5216, blue: 0.4784, alpha: 1), dark: NSColor(srgbRed: 0.4314, green: 0.4118, blue: 0.3725, alpha: 1))
+        static let accent = adaptive(light: NSColor(srgbRed: 0.8784, green: 0.4627, blue: 0.1020, alpha: 1), dark: NSColor(srgbRed: 0.9333, green: 0.5137, blue: 0.1255, alpha: 1))
+    }
+
     /// Semantic status text colors resolve against the active macOS appearance.
     enum Status {
         private static func adaptive(light: NSColor, dark: NSColor) -> Color {

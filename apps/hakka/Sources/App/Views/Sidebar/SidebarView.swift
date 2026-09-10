@@ -12,50 +12,15 @@ struct SidebarView: View {
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
 
-            Section("Requests") {
-                Label("All Requests", systemImage: "square.stack.3d.up")
-                    .tag(SidebarSelection.requests)
-                OutlineGroup(model.collection.collection.nodes, id: \.id, children: \.childrenForOutline) { node in
-                    CollectionNodeRow(node: node)
-                }
-            }
-
-            Section("Capture") {
-                Label("Live Traffic", systemImage: "antenna.radiowaves.left.and.right")
-                    .badge(model.traffic.requests.count)
-                    .tag(SidebarSelection.traffic)
-                Label("Rules", systemImage: "slider.horizontal.3")
-                    .badge(model.rules.entries.filter(\.isEnabled).count)
-                    .tag(SidebarSelection.rules)
-                Label("Runs", systemImage: "checklist")
-                    .tag(SidebarSelection.runs)
-                Label("Proxy", systemImage: "network")
-                    .tag(SidebarSelection.proxy)
-            }
-
-            Section("Project") {
-                Label("Changes", systemImage: "point.3.connected.trianglepath.dotted")
-                    .tag(SidebarSelection.changes)
-                Label("Storage", systemImage: "externaldrive")
-                    .badge(model.storage.stores.count)
-                    .tag(SidebarSelection.storage)
-            }
-
-            Section("Diagnostics") {
-                Label("Logs", systemImage: "text.alignleft")
-                    .badge(model.logs.entries.count)
-                    .tag(SidebarSelection.logs)
-            }
-
-
-            if !model.traffic.deviceSummaries.isEmpty {
-                Section("Devices") {
-                    devicesSectionContent
-                }
-            }
-
+            SidebarRequestsSection()
+            SidebarCaptureSection()
+            SidebarProjectSection()
+            SidebarDiagnosticsSection()
+            SidebarDevicesSection()
         }
         .listStyle(.sidebar)
+        .scrollContentBackground(.hidden)
+        .background(ThemeTokens.Palette.surface)
         .navigationTitle("Workspace")
         .toolbar {
             ToolbarItem {
@@ -84,26 +49,90 @@ struct SidebarView: View {
     private var selectionBinding: Binding<SidebarSelection?> {
         Binding(get: { model.selection }, set: { model.select($0) })
     }
+}
 
-    /// Not `List` selection rows — see `DeviceRowView`'s doc comment for why.
-    /// The containing section only appears for connected devices, keeping the
-    /// source list focused.
-    @ViewBuilder
-    private var devicesSectionContent: some View {
-        ForEach(model.traffic.deviceSummaries) { summary in
-            DeviceRowView(summary: summary, isScoped: isScoped(summary.device)) {
-                model.traffic.selectDevice(summary.device)
-                model.select(.traffic)
+/// Keeps collection-tree observation out of the sidebar shell so live capture,
+/// logs, and storage updates do not rebuild every request row.
+private struct SidebarRequestsSection: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        Section("Requests") {
+            Label("All Requests", systemImage: "square.stack.3d.up")
+                .tag(SidebarSelection.requests)
+            OutlineGroup(model.collection.collection.nodes, id: \.id, children: \.childrenForOutline) { node in
+                CollectionNodeRow(node: node)
             }
         }
     }
+}
 
-    /// Whether the traffic list is currently scoped to `device` — drives
-    /// `DeviceRowView`'s highlight. Reads `traffic.searchText` directly
-    /// rather than a stored flag, so it can never drift from the actual
-    /// filter (e.g. if the user edits the search bar by hand).
-    private func isScoped(_ device: ConnectedDevice) -> Bool {
-        guard let label = device.label else { return false }
-        return model.traffic.searchText.trimmingCharacters(in: .whitespaces) == "device:\(label)"
+/// Capture counts change for every incoming request. Isolating them here keeps
+/// that hot stream from invalidating the collection and project sections.
+private struct SidebarCaptureSection: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        Section("Capture") {
+            Label("Live Traffic", systemImage: "antenna.radiowaves.left.and.right")
+                .badge(model.traffic.requests.count)
+                .tag(SidebarSelection.traffic)
+            Label("Rules", systemImage: "slider.horizontal.3")
+                .badge(model.rules.entries.filter(\.isEnabled).count)
+                .tag(SidebarSelection.rules)
+            Label("Runs", systemImage: "checklist")
+                .tag(SidebarSelection.runs)
+            Label("Proxy", systemImage: "network")
+                .tag(SidebarSelection.proxy)
+        }
+    }
+}
+
+private struct SidebarProjectSection: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        Section("Project") {
+            Label("Changes", systemImage: "point.3.connected.trianglepath.dotted")
+                .tag(SidebarSelection.changes)
+            Label("Storage", systemImage: "externaldrive")
+                .badge(model.storage.stores.count)
+                .tag(SidebarSelection.storage)
+        }
+    }
+}
+
+private struct SidebarDiagnosticsSection: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        Section("Diagnostics") {
+            Label("Logs", systemImage: "text.alignleft")
+                .badge(model.logs.entries.count)
+                .tag(SidebarSelection.logs)
+        }
+    }
+}
+
+private struct SidebarDevicesSection: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        let summaries = model.traffic.deviceSummaries
+        let scopedSearch = model.traffic.searchText.trimmingCharacters(in: .whitespaces)
+
+        if !summaries.isEmpty {
+            Section("Devices") {
+                ForEach(summaries) { summary in
+                    DeviceRowView(
+                        summary: summary,
+                        isScoped: summary.device.label.map { scopedSearch == "device:\($0)" } ?? false
+                    ) {
+                        model.traffic.selectDevice(summary.device)
+                        model.select(.traffic)
+                    }
+                }
+            }
+        }
     }
 }
