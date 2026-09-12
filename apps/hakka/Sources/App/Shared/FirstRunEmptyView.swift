@@ -1,11 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// Artboard 6's first-run pitch. `LiveTrafficListView` shows this only while
-/// `TrafficModel.hasEverReceivedTraffic` is still false — the moment traffic
-/// has arrived at least once, a later cleared list falls back to the
-/// generic `EmptyStateView` ("Waiting for traffic") instead. This is a
-/// one-time onboarding moment, not a standing empty state.
+/// Setup guidance shown until the desktop receives its first capture.
 struct FirstRunEmptyView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openURL) private var openURL
@@ -15,6 +11,10 @@ struct FirstRunEmptyView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: Spacing.lg) {
+                Image(systemName: "network")
+                    .font(.system(size: 32)) // ui-token-check-ignore: onboarding illustration
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
                 Text("Connect your app")
                     .font(.headline)
                     .multilineTextAlignment(.center)
@@ -32,10 +32,10 @@ struct FirstRunEmptyView: View {
                 actions
                 Text(listeningCaption)
                     .font(.caption.monospaced())
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity)
-            .padding(Layout.gutter)
+            .padding(Spacing.xxxl)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .chromeMaterial(.panel)
@@ -50,6 +50,7 @@ struct FirstRunEmptyView: View {
                     systemImage: didCopySnippet ? "checkmark" : "doc.on.doc"
                 )
             }
+            .buttonStyle(.borderedProminent)
             .accessibilityLabel("Copy \(selectedTarget.title) setup")
             .accessibilityHint("Copies the development-only setup for the local desktop bridge.")
 

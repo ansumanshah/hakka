@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.react-native.json",
+  "compilerOptions": {
+    "declaration": false,
+    "module": "CommonJS",
+    "moduleResolution": "node10",
+    "outDir": "./dist/react-native/cjs"
+  }
+}

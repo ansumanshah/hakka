@@ -110,7 +110,7 @@ are the release/CI confidence path.
 
 - Modules: `hakka-common`, `hakka-network`, `hakka-network-noop`,
   `hakka-performance`, `hakka-performance-noop`, `hakka-ui`
-- Group: `com.noodleapps.hakka`, version `0.0.1`
+- Group: `com.noodleapps.hakka`, version `0.1.1`
 - AGP `9.1.1`, Kotlin `2.2.21`, Gradle `9.3.1`. The AGP 9.2.x / Gradle 9.5.x upgrade
   is intentionally deferred — do not bump without a deliberate decision.
 - Run Gradle from `android/` or use the root `bun run build:android` script.

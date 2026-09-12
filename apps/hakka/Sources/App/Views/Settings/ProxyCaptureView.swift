@@ -54,9 +54,10 @@ struct ProxyCaptureView: View {
                 }
             }
             .formStyle(.grouped)
-            .controlSize(.small)
+            .scrollContentBackground(.hidden)
+            .controlSize(.regular)
         }
-        .frame(minWidth: 600, minHeight: 560) // ui-token-check-ignore: window chrome
+        .frame(minWidth: isEmbedded ? nil : 600, minHeight: isEmbedded ? nil : 560) // ui-token-check-ignore: window chrome
         .navigationTitle("Proxy Capture")
     }
 
@@ -85,7 +86,7 @@ struct ProxyCaptureView: View {
         }
         .labelsHidden()
         .pickerStyle(.segmented)
-        .controlSize(.small)
+        .controlSize(.regular)
         .fixedSize()
         .accessibilityLabel("Proxy section")
     }

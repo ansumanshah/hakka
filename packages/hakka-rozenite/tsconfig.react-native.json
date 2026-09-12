@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "emitDeclarationOnly": false,
+    "composite": false,
+    "incremental": false,
+    "noEmitOnError": true,
+    "declarationMap": false,
+    "sourceMap": false,
+    "verbatimModuleSyntax": false,
+    "customConditions": null,
+    "rootDir": "."
+  },
+  "files": ["react-native.ts"],
+  "include": ["*.d.ts", "src/**/*.d.ts"]
+}

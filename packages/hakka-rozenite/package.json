@@ -1,6 +1,6 @@
 {
   "name": "hakka-rozenite",
-  "version": "0.0.1",
+  "version": "0.1.1",
   "description": "EXPERIMENTAL — Hakka network inspector as a React Native DevTools panel via Rozenite. Renders hakka-browser/elements' <hakka-request-list>/<hakka-request-detail>/<hakka-filter-bar> (through hakka-browser/react) inside the panel, fed live from hakka-react-native's capture stream over Rozenite's own plugin messaging bridge.",
   "keywords": [
     "debugging",
@@ -52,8 +52,8 @@
     "registry": "https://registry.npmjs.org/"
   },
   "scripts": {
-    "build": "rozenite build && node scripts/postbuild-dual-types.mjs",
-    "dev": "rozenite dev",
+    "build": "node scripts/rozenite.mjs build && node scripts/postbuild-dual-types.mjs",
+    "dev": "node scripts/rozenite.mjs dev",
     "prepublishOnly": "npm run build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "clean": "rm -rf dist",
@@ -61,26 +61,25 @@
   },
   "dependencies": {
     "@rozenite/plugin-bridge": "^2.4.0",
-    "hakka-browser": "0.0.1",
-    "hakka-core": "0.0.1"
+    "hakka-browser": "0.1.1",
+    "hakka-core": "0.1.1"
   },
   "devDependencies": {
     "@rozenite/testing": "^2.4.0",
     "@rozenite/vite-plugin": "^2.4.0",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.7",
-    "hakka-react-native": "0.0.1",
+    "hakka-react-native": "0.1.1",
     "happy-dom": "^20.14.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native-web": "0.21.2",
-    "rozenite": "^2.4.0",
     "typescript": "~5.9.3",
     "vite": "^7.3.6",
     "vitest": "^5.0.0"
   },
   "peerDependencies": {
-    "hakka-react-native": "0.0.1",
+    "hakka-react-native": "0.1.1",
     "react": ">=19.2.3"
   },
   "engines": {

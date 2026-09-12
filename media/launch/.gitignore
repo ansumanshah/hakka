@@ -1,0 +1,5 @@
+node_modules/
+renders/
+checks/
+tmp/
+snapshots/

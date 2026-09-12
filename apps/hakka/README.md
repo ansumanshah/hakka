@@ -20,6 +20,9 @@ swift test
 open Hakka.app
 ```
 
+For incremental builds, repeatable tests, and the manual UI checklist, see
+[the desktop development workflow](../../docs/src/content/docs/desktop/overview.md#repeatable-desktop-checks).
+
 ## Try live traffic
 
 After opening the app, run `node examples/desktop-bridge/run.mjs` from the repository

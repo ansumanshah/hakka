@@ -10,8 +10,8 @@ struct GitHeaderBar: View {
                 branchMenu
             } else {
                 Label("Source Control", systemImage: "arrow.triangle.branch")
-                    .font(.callout.weight(.medium))
-                    .foregroundStyle(.secondary)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
             }
             Spacer()
             if git.isRepository {
@@ -20,7 +20,7 @@ struct GitHeaderBar: View {
             }
             refreshButton
         }
-        .padding(Spacing.lg)
+        .padding(Layout.gutter)
         .chromeMaterial(.panel)
     }
 

@@ -1,6 +1,6 @@
 ---
 title: Resilience
-description: Spec card — crash containment (root error boundary around the web and RN inspectors) and stale-body revalidation in the Detail view.
+description: Spec card — web inspector crash containment and stale-body revalidation in its Detail view.
 ---
 
 ## What it does
@@ -16,7 +16,7 @@ Two behaviors keep the inspector a safe guest in a host app:
   the store lives outside the UI tree (Web Worker / module singleton). React Native
   uses the native iOS and Android inspector surfaces, which follow the host app's
   native exception model and do not add a JS error boundary. Captured traffic remains
-  in the module-level `hakka-core` store.
+  in the native platform's `LogStore`.
 - **Stale-body revalidation.** Switching rows in Detail keeps the previous request's
   body visible (dimmed) while the next body hydrates asynchronously, instead of
   flashing "No request/response body" mid-fetch. Superseded fetches are discarded, so
@@ -26,20 +26,19 @@ Two behaviors keep the inspector a safe guest in a host app:
 
 | Capability              | RN  | iOS | Android | Web | Mac app |
 | ----------------------- | --- | --- | ------- | --- | ------- |
-| Crash containment       | ●   | —   | —       | ●   | —       |
-| Stale-body revalidation | ○   | ⊘   | ⊘       | ●   | ⊘       |
+| Crash containment       | —   | —   | —       | ●   | —       |
+| Stale-body revalidation | ⊘   | ⊘   | ⊘       | ●   | ⊘       |
 
-iOS/Android native panels read bodies in-process with no async gap, so stale-body
-revalidation has nothing to revalidate (out of scope by design), and inspector crash
-containment rides the host app's native exception model instead of a boundary like
-web/RN's. RN's stale-body revalidation (async bridge body fetch) is still roadmap.
+iOS/Android native panels, including those opened from React Native, read bodies
+in-process with no asynchronous hydration gap. Stale-body revalidation is out of
+scope for those panels. They use the host app's native exception model and do not
+offer a web-style render boundary.
 
 ## Limits & non-goals
 
-- Both boundaries catch synchronous render/update throws (Solid-managed async
-  rejections too, on web). Detached raw-async throws (a bare `setTimeout` callback, an
-  unmanaged `.then()`) bypass any error boundary — universal error-boundary behavior,
-  not specific to either implementation.
+- The web boundary catches synchronous render/update throws and Solid-managed
+  async rejections. Detached async throws from a `setTimeout` callback or unmanaged
+  `.then()` bypass it.
 - Reload rebuilds UI state (open tab, filters revert to persisted values); it does not
   clear captured traffic.
 
@@ -47,4 +46,3 @@ web/RN's. RN's stale-body revalidation (async bridge body fetch) is still roadma
 
 - `packages/hakka-browser/src/ui/__tests__/CrashBoundary.test.tsx`
 - `packages/hakka-browser/src/ui/__tests__/Detail.bodyHydration.test.tsx`
-- `packages/hakka-react-native/src/ui/__tests__/CrashBoundary.test.tsx`

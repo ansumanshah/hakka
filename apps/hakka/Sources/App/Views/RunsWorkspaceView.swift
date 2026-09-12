@@ -4,19 +4,27 @@ struct RunsWorkspaceView: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: Spacing.xl) {
-                WorkspaceHeaderView(title: "Runs", subtitle: "Latest folder execution results remain available while you return to requests.")
-                if model.folderRun.isRunning {
-                    ProgressView("Running requests…")
-                } else if let summary = model.folderRun.summary {
+        VStack(spacing: 0) {
+            WorkspaceHeaderView(title: "Runs", subtitle: "Results from your latest folder run.")
+                .padding(Layout.gutter)
+            Divider()
+            if model.folderRun.isRunning {
+                ProgressView("Running requests…")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let summary = model.folderRun.summary {
+                ScrollView {
                     FolderRunSummaryView(summary: summary)
-                } else {
-                    ContentUnavailableView("No runs yet", systemImage: "checklist", description: Text("Run a folder from Requests to inspect its results here."))
+                        .padding(Layout.gutter)
                 }
+            } else {
+                EmptyStateView(
+                    systemImage: "checklist",
+                    title: "No runs yet",
+                    message: "Run a folder from Requests to see response times and test results here.",
+                    actionTitle: "Go to Requests",
+                    action: { model.select(.requests) }
+                )
             }
-            .padding(Layout.gutter)
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }

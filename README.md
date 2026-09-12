@@ -2,23 +2,23 @@
 
 [![hakka-react-native](https://img.shields.io/npm/v/hakka-react-native?label=hakka-react-native&logo=npm&color=cb3837)](https://www.npmjs.com/package/hakka-react-native) [![hakka-browser](https://img.shields.io/npm/v/hakka-browser?label=hakka-browser&logo=npm&color=cb3837)](https://www.npmjs.com/package/hakka-browser) [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](./LICENSE) [![Docs](https://img.shields.io/badge/docs-hakka.noodleapps.com-1f6feb)](https://hakka.noodleapps.com)
 
-Local-first network inspector for React Native, the web, Next.js, Android, and iOS. Captures traffic in-process (no proxy, no CA certificate, no cloud, no accounts), stores it in bounded buffers, and exposes it through in-app overlays, HAR/OpenTelemetry/Postman/cURL export, and an MCP server your AI agent can query.
+Local-first network inspection for React Native, the web, Next.js, Android, and iOS. Find a failing request, inspect its body, and share a reproducible case with your team or coding agent.
+
+SDK capture runs inside your app without a proxy or CA certificate. Hakka for macOS also offers an optional local proxy. Captured traffic stays local by default.
 
 ![Hakka capturing a Next.js app's client and server traffic from the floating overlay button](.github/assets/hakka-demo.gif)
 
-**New: full-stack Next.js tracing.** Two files (`instrumentation.ts`, `instrumentation-client.ts`) and `npm i hakka-node` turn a client fetch, the server route it hits, and the upstream call that route makes into one trace waterfall, built on Next's own OpenTelemetry spans. Mock, breakpoint, and throttle rules reach server-side fetches too, not only what the browser sends.
+**Follow a request across Next.js.** Connect the client fetch, server route, and upstream call in one trace waterfall. The setup uses `instrumentation.ts`, `instrumentation-client.ts`, and Next.js OpenTelemetry spans.
 
 ![A trace waterfall grouping a client GET with the Next.js server spans and the upstream call it triggered](.github/assets/waterfall-full.png)
 
-Production cost is measured, not assumed. `register()` dead-code-eliminates out of prod builds; a 600-request benchmark against `next start` put p50 latency at 1.91ms with Hakka installed versus 1.81ms fully disabled, a gap smaller than the noise between two runs of the same config (see [`examples/next-fullstack`](./examples/next-fullstack/README.md)). An opt-in cohort mode captures a header-gated slice of real production traffic for when local repro isn't enough.
+The MCP server lets coding agents search traffic, inspect failures, apply supported controls, and export a reproduction. **Copy as agent context** also creates a bounded evidence bundle from a request.
 
-For agents: an MCP server with twenty-one tools (search, diagnose, detect a leaked credential or PII, mock, promote a capture straight to a mock, breakpoint, throttle, a `.hakka-repro` bundle with a generated regression test), plus a **Copy as agent context** button on every request that pastes a size-budgeted evidence bundle straight into a chat.
-
-One engine ([`hakka-core`](./packages/hakka-core)) powers every target, so the capture model, record contract, panels, and exports stay identical across React Native, iOS, Android, and the web, including inside WebViews. The web entry point costs 2,996 bytes gzipped until someone opens the panel, 124 KB gzipped once they do.
+JavaScript integrations share [`hakka-core`](./packages/hakka-core). Native SDKs own their capture and storage while using the same record contract. Each platform provides its own inspector. Performance measurements and their limits live with the [runnable examples](./examples/README.md).
 
 ## Packages
 
-7 npm packages, all `0.0.1`, plus native SDKs for Android and iOS.
+Seven npm packages, plus native SDKs for Android and iOS. The coordinated `0.1.1` release is being prepared; check [GitHub Releases](https://github.com/ansumanshah/hakka/releases) for published artifacts.
 
 ### Engine
 
@@ -34,7 +34,7 @@ One engine ([`hakka-core`](./packages/hakka-core)) powers every target, so the c
 | [`hakka-browser`](./packages/hakka-browser)           | Drop-in browser overlay (Solid, Shadow DOM, Web Worker store). Also ships `hakka-browser/vite`, `/webpack`, `/rspack` (dev-time auto-inject plugins), `/elements/*` (six standalone inspector pieces as framework-agnostic custom elements — request list, detail, waterfall, filter bar, stats, JSON tree), and `/react` (thin React wrappers over those elements). | ![Stable](https://img.shields.io/badge/stable-3aa981) |
 | [`hakka-node`](./packages/hakka-node)                 | Framework-agnostic Node server capture (Express, Fastify, Hono, raw `http`) with client↔server trace correlation. Also ships `hakka-node/next` (+ `/next/server`, `/next/client`) — zero-config full-stack Next.js capture, server + client traffic in one UI.                                                                                                       | ![Stable](https://img.shields.io/badge/stable-3aa981) |
 
-Beta: `hakka-react-native` works fully and ships on npm. It has less production soak time than the web and Next.js SDKs.
+Beta: React Native uses native capture on iOS and Android. Its first npm release is being prepared as 0.1.1.
 
 ### Native SDKs
 
@@ -43,7 +43,7 @@ Beta: `hakka-react-native` works fully and ships on npm. It has less production 
 | [`android/`](./android) (Kotlin, Maven `com.noodleapps.hakka`) | OkHttp interceptor, optional native inspector surface, FPS/memory/CPU collectors, noop release artifacts. | ![Alpha](https://img.shields.io/badge/alpha-6b7280) |
 | [`ios/`](./ios) (Swift Package)                                | URLProtocol capture, optional SwiftUI inspector, performance collectors, noop release targets.            | ![Alpha](https://img.shields.io/badge/alpha-6b7280) |
 
-Alpha: both native SDKs work from source in this repo today. `android/` isn't on Maven Central yet and `ios/` doesn't have a published SPM semver tag yet.
+Alpha: native SDKs are available from source. Maven publication and the coordinated 0.1.1 Swift Package release are pending. The existing `v0.1.0` source tag predates this release.
 
 ### Tooling & Embedding
 
@@ -55,20 +55,18 @@ Alpha: both native SDKs work from source in this repo today. `android/` isn't on
 
 ## Highlights
 
-- **Dead-simple setup** — `npx hakka-cli init` detects your framework and wires it, or one line does it: `OkHttpClient.Builder().installHakka(context)` on Android, `Hakka.start()` on RN, one `<script>` on the web.
-- **Native capture on both mobile platforms** — OkHttp interceptor (Android), URLProtocol (iOS); JS fetch/XHR/WebSocket fallback where native can't see traffic.
-- **Change traffic, don't just watch it** — pause-and-edit breakpoints, mocking, block, Map Remote redirect, rewrite, and network-condition throttling, all in-process with no proxy or cert. See [Breakpoints](https://hakka.noodleapps.com/features/breakpoints) and [Mocking](https://hakka.noodleapps.com/features/mocking).
-- **Agent-native** — one command wires it up: `claude mcp add hakka -- npx -y hakka-cli mcp`. The MCP server gives Claude Code and other AI agents read tools, a one-call `diagnose` ("why did checkout 500?"), and write tools (mock, breakpoint, throttle). An agent can find the failure, fix it, then package a repro. See [MCP server](https://hakka.noodleapps.com/mcp/overview).
-- **Structured logging and performance** — write app logs that land in the inspector's Logs tab (Timber, os_log, or console), plus FPS, slow and frozen frames, memory, and CPU.
-- **Exports, including OpenTelemetry** — HAR, Postman, shell-safe cURL, and OTel JSON (requests as spans, performance as metrics, health as logs) on every platform. The JS packages (`hakka-core`, `hakka-browser`, `hakka-react-native`) add a **live OTLP/HTTP push** to any collector — Grafana, Honeycomb, an OTel Collector.
-- **Reproduce bundle** — one `.hakka-repro` file with a failing request, the mocks that replay it, and a generated test.
-- **Release-safe no-op artifacts** — zero overhead in production builds.
+- **Framework setup:** `npx hakka-cli init` detects the framework and writes its integration.
+- **Native mobile capture:** Android uses OkHttp; iOS uses URLProtocol. React Native supports native capture only.
+- **Traffic controls:** [breakpoints](https://hakka.noodleapps.com/features/breakpoints), [mocking](https://hakka.noodleapps.com/features/mocking), redirects, and throttling, with platform-specific capabilities documented.
+- **Agent access:** [MCP tools](https://hakka.noodleapps.com/mcp/overview) for inspection and supported runtime controls.
+- **Portable evidence:** HAR, Postman, cURL, OpenTelemetry exports, and `.hakka-repro` bundles.
+- **Optional native modules:** performance collectors, inspector UI, and no-op artifacts for release configurations.
 
 ## Install
 
 Full guide: [hakka.noodleapps.com/getting-started/install](https://hakka.noodleapps.com/getting-started/install). Or run `npx hakka-cli init` to detect your framework and wire it up.
 
-Working with an AI coding agent? Paste [the setup prompt](https://hakka.noodleapps.com/getting-started/overview) into it and it does the framework detection and file writes itself, same result as `npx hakka-cli init` with no manual steps. Once this repo is public, the same flow installs as a reusable skill: `npx skills add ansumanshah/hakka@hakka-setup`.
+Working with a coding agent? Use the [setup guide](https://hakka.noodleapps.com/getting-started/overview) or install the reusable skill with `npx skills add ansumanshah/hakka@hakka-setup`.
 
 ### React Native
 
@@ -86,16 +84,12 @@ Hakka.start()
 Open the native inspector from a debug menu, shake gesture, or another app action:
 
 ```tsx
-Hakka.start()
 const didOpen = await Hakka.show({ as: 'bubble' }) // 'bubble' | 'sheet' | 'fullscreen'
 // Hakka.hide() dismisses the native surface.
 ```
 
 `Hakka.show()` resolves to `true` after native presentation and `false` when native UI is not
-available. Native UI requires native capture; it is unavailable in `js`, `store`,
-or stopped mode. The React Native package no longer exports a bundled JS inspector or its UI-only
-peer graph. Hooks, capture, monitors, WebView support, clipboard shake-to-share, and Rozenite
-remain available programmatically.
+available. React Native uses native capture only; call `Hakka.start()` before showing the inspector. See the [React Native guide](https://hakka.noodleapps.com/react-native/package/) for hooks, optional monitors, and WebView support.
 
 ### Expo (development build only — Expo Go is not supported)
 
@@ -155,13 +149,13 @@ Server and client requests show up in one overlay. Requires Next 15.3+.
 
 ```kotlin
 dependencies {
-    debugImplementation("com.noodleapps.hakka:hakka-network:0.0.1")
-    debugImplementation("com.noodleapps.hakka:hakka-ui:0.0.1")
-    releaseImplementation("com.noodleapps.hakka:hakka-network-noop:0.0.1")
+    debugImplementation("com.noodleapps.hakka:hakka-network:0.1.1")
+    debugImplementation("com.noodleapps.hakka:hakka-ui:0.1.1")
+    releaseImplementation("com.noodleapps.hakka:hakka-network-noop:0.1.1")
 
     // optional performance collectors
-    debugImplementation("com.noodleapps.hakka:hakka-performance:0.0.1")
-    releaseImplementation("com.noodleapps.hakka:hakka-performance-noop:0.0.1")
+    debugImplementation("com.noodleapps.hakka:hakka-performance:0.1.1")
+    releaseImplementation("com.noodleapps.hakka:hakka-performance-noop:0.1.1")
 }
 ```
 
@@ -213,6 +207,7 @@ guided checklist, desktop-mode bridging, and production cohort capture.
 - [hakka-core engine](https://hakka.noodleapps.com/core/overview)
 - [Architecture](https://hakka.noodleapps.com/contributing/architecture)
 - [Contributing](./CONTRIBUTING.md)
+- [Editable launch animation](./media/launch/README.md)
 
 ## License
 

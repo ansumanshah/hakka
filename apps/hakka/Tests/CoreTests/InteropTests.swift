@@ -288,7 +288,7 @@ struct HarImporterTests {
     {
       "log": {
         "version": "1.2",
-        "creator": { "name": "Hakka", "version": "0.1.0" },
+        "creator": { "name": "Hakka", "version": "0.1.1" },
         "entries": [
           {
             "startedDateTime": "2026-08-20T10:00:00.000Z",

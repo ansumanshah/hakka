@@ -16,6 +16,17 @@ struct ProjectOverviewView: View {
                 emptyProject
             } else {
                 requestTable
+                    .overlay {
+                        if filteredRows.isEmpty {
+                            EmptyStateView(
+                                systemImage: "magnifyingglass",
+                                title: "No matching requests",
+                                message: "Try a different name, URL, or method.",
+                                actionTitle: "Clear Search",
+                                action: { searchText = "" }
+                            )
+                        }
+                    }
                     .searchable(text: $searchText, prompt: "Find requests")
             }
         }
@@ -39,14 +50,14 @@ struct ProjectOverviewView: View {
             } label: {
                 Label(model.collection.directoryURL == nil ? "Open" : "Open Another", systemImage: "folder")
             }
-            .controlSize(.small)
+            .controlSize(.regular)
 
             Button {
                 model.select(.proxy)
             } label: {
                 Label("Capture", systemImage: "record.circle")
             }
-            .controlSize(.small)
+            .controlSize(.regular)
 
             Button {
                 model.newRequest()
@@ -54,7 +65,7 @@ struct ProjectOverviewView: View {
                 Label("New Request", systemImage: "plus")
             }
             .buttonStyle(.borderedProminent)
-            .controlSize(.small)
+            .controlSize(.regular)
         }
         .padding(.horizontal, Layout.gutter)
         .frame(minHeight: ControlHeight.bar)
@@ -97,21 +108,13 @@ struct ProjectOverviewView: View {
     }
 
     private var emptyProject: some View {
-        ContentUnavailableView {
-            Label("No requests", systemImage: "square.stack.3d.up")
-        } description: {
-            Text("Create a request or open a collection to begin.")
-        } actions: {
-            HStack {
-                Button("Open Collection…") {
-                    Task { await model.openCollectionDirectory() }
-                }
-                Button("New Request") {
-                    model.newRequest()
-                }
-                .buttonStyle(.borderedProminent)
-            }
-        }
+        EmptyStateView(
+            systemImage: "square.stack.3d.up",
+            title: "No requests yet",
+            message: "Create a request to begin, or open an existing collection from the toolbar.",
+            actionTitle: "New Request",
+            action: { model.newRequest() }
+        )
     }
 
     private var requestRows: [RequestRow] {

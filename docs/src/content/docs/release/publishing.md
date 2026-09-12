@@ -1,206 +1,131 @@
 ---
 title: Publishing to npm
-description: The exact command sequence for Hakka's first npm release, what to check between steps, and how to roll back a bad publish.
+description: Build, verify and publish Hakka's seven npm packages in dependency order.
 ---
 
-None of the seven Hakka npm packages have ever been published. Every `npm install
-hakka-core` / `npx hakka-cli` line in these docs is correct and today resolves to
-nothing. This page is the runbook that closes that gap. Read
-[Release Checklist](/release/checklist/) first for the full multi-platform
-release (Android Maven, iOS SPM, the macOS app); this page is only the npm leg.
+Use this runbook with the [Release Checklist](/release/checklist/), which also
+covers Android Maven, iOS SPM, and the macOS app. Run checks against the exact
+commit and version you will publish; earlier successful runs do not validate
+later changes.
 
-It does not publish anything itself. Every step below is either read-only or a
-dry run until the explicit `npm publish` commands in
-[Step 4](#step-4-publish-in-dependency-order).
-
-## Step 0: pre-flight, already verified
-
-These gates were run against the current tree and passed. Re-run them yourself
-before you publish: code moves between when this page was written and when you
-read it.
+## 1. Choose and align the release version
 
 ```bash
-just version-audit    # all 7 package.json + internal pins + Android Gradle + iOS podspec agree
-node scripts/spec-api-check.mjs   # every documented symbol actually resolves from its export
-just smoke-tarballs   # packs all 7, installs the tarballs in a throwaway project, runs a hello-world per package under bun + node
-```
-
-`smoke-tarballs` is the one that matters most: `npm pack --dry-run` only proves
-the file list is right, not that a fresh consumer can actually `import`/`require`
-the package. Last real run:
-
-```
-==> Result matrix (package[:subpath check] | bun | node)
-  hakka-core                       bun=PASS  node=PASS
-  hakka-core (test)                bun=PASS  node=PASS
-  hakka-bridge                     bun=PASS  node=PASS
-  hakka-node                       bun=PASS  node=PASS
-  hakka-node (next)                bun=PASS  node=PASS
-  hakka-cli (cdp)                  bun=PASS  node=PASS
-  hakka-react-native               bun=SKIP  node=SKIP
-  hakka-react-native (metro)       bun=PASS  node=PASS
-  hakka-cli                        bun=PASS  node=PASS
-  hakka-cli (mcp)                  bun=PASS  node=PASS
-  hakka-browser                    bun=PASS  node=PASS
-  hakka-browser (elements)         bun=PASS  node=PASS
-  hakka-browser (react)            bun=PASS  node=PASS
-  hakka-rozenite                   bun=PASS  node=PASS
-
-smoke-tarball-install: PASS
-```
-
-Expect 14 rows. If you see fewer, with only `hakka-cli (cdp)` and no bare
-`hakka-cli` or `hakka-cli (mcp)` row, the script's check keys have drifted from
-the real directory names again: they were keyed `hakka` after the directory was
-renamed `packages/hakka-cli`, so `dirOf('hakka')` matched nothing and both CLI
-bin checks were dropped from `covered` silently, while the matrix still printed
-a clean PASS. A shrinking matrix is the only symptom, which is why the expected
-row count is written down here.
-
-The two `hakka-react-native SKIP` rows are expected, not a gap: its main entry
-imports the real `react-native` package at module scope, and `react-native`
-itself cannot be imported outside Metro/Babel (it uses Flow syntax node/bun
-can't parse). The script verifies structurally instead: tarball extracted,
-`lib/module/index.js` present, `hakka-core` resolves through the same
-`overrides` every other package uses, and documents why inline.
-
-Also check `bun changeset status`: it should list exactly the 7 fixed-group
-packages (`hakka-core`, `hakka-browser`, `hakka-bridge`, `hakka-node`,
-`hakka-react-native`, `hakka-rozenite`, `hakka-cli`) and nothing else. If a
-private example workspace shows up in that list, `.changeset/config.json`'s
-`ignore` array is missing its `name` field. Add it there, not by touching the
-example itself.
-
-## Step 1: confirm the version
-
-The tree sits at `0.0.1`, set across every package and native artifact by
-commit `f131a773`. `just version-audit` checks that the 7 publishable JS
-packages, `ios/Hakka.podspec` and the Android artifacts all agree, and it
-passes at `0.0.1` today. Run it before you do anything else here.
-
-One changeset is pending and unconsumed: `.changeset/publish-ready-tarballs.md`
-is a `patch` covering a tarball-contents fix in `hakka-browser`, which the
-fixed group would carry to all 7 packages. You do not have to consume it to
-ship. Pick one:
-
-- **Ship `0.0.1` as the first release, defer the changeset.** The version
-  already in every `package.json` is what publishes. The changeset stays
-  pending and rolls into whatever the _next_ release is.
-- **Consume the changeset first, ship `0.0.2`.** Run `bun run version-packages`
-  before Step 2; it bumps all 7 `package.json` files + internal pins and
-  deletes the changeset file. Do this if you'd rather the first published
-  version already include the tarball-contents fix.
-
-Either is safe; nothing below depends on which you pick. If you bump, re-run
-`just version-audit` afterward: the native versions (`android/**/build.gradle.kts`,
-`ios/Hakka.podspec`, the iOS git tag) need a matching manual bump, since
-changesets only tracks the JS side.
-
-## Step 2: build once, from a clean tree
-
-```bash
-git status --porcelain   # must be empty; a stray file changes what npm pack picks up
-bun install --frozen-lockfile
-bun run build             # rebuilds all 7 packages' dist/ in dependency order
-bun run test
-```
-
-## Step 3: re-verify the tarballs at the version you're about to ship
-
-```bash
+bun run changeset status
 just version-audit
-bun run pack:npm:dry-run   # every packages/*/, private hakka-bench included harmlessly (pack --dry-run, not publish)
+git tag --list
+```
+
+The seven npm packages form one Changesets fixed group. To consume pending
+changesets, run `bun run version-packages`, then align the native versions and
+source version constants reported by `just version-audit`. Changesets does not
+update Android, iOS, or `apps/hakka/version.env`.
+
+The first coordinated publication is prepared as **0.1.1**. Keep the existing
+`v0.1.0` source tag unchanged. The pending package-content changeset is included
+in the root changelog for 0.1.1.
+
+Check existing tags before choosing a version. The SDK audit checks npm, Android,
+iOS podspecs, source constants, and documented Maven coordinates. It does not
+check the macOS version or tag targets. Confirm those separately and keep
+existing published tags pointing at their original commits.
+
+## 2. Verify the release commit
+
+Commit the intended source changes and run from a clean checkout:
+
+```bash
+git status --porcelain
+bun install --frozen-lockfile
+bun run build
+bun run phase:verify:ci
+just version-audit
+bun run docs:build
+bun run pack:npm:dry-run
 just smoke-tarballs
 ```
 
-If any of these fail, stop: fix it, commit, and restart Step 2. Do not publish
-a package whose smoke check didn't run at the exact version you're about to tag.
+`pack:npm:dry-run` checks package contents. `smoke-tarballs` builds and packs the
+publishable packages, installs them in a fresh consumer outside the workspace,
+and exercises their entrypoints under Bun and Node. Keep its complete result
+matrix with the release evidence, including the CLI and MCP checks.
 
-## Step 4: publish, in dependency order
+The bare React Native entry is expected to skip execution outside Metro because
+React Native contains Flow syntax. The separate Metro check exercises its
+bundled entry. Neither replaces native app launch and capture checks.
 
-Publish order matters because each package's `dependencies` pin an **exact**
-internal version (`"hakka-core": "0.0.1"`, not a range): a dependent published
-before its dependency exists on the registry will resolve to nothing for
-anyone who installs it in that window.
+The RN package also requires a device/simulator XCFramework matching its sources.
+The npm release workflow builds and verifies it. For a local release, run
+`bash scripts/build-rn-ios-xcframework.sh` and
+`node scripts/verify-rn-ios-xcframework.mjs` before packing. See
+[Prebuilt iOS SDK](/react-native/package/#prebuilt-ios-sdk) for consumer behavior.
+
+## 3. Establish the release tag, then publish dependencies
+
+All release workflows must select the same verified commit and version. Start
+with `release-ios.yml`: after its Swift build, tests and podspec validation, it
+creates `vVERSION` at the selected commit and the shared GitHub Release. An
+existing tag is accepted only when it already points at that commit.
+
+Next run `release-android.yml` and wait for all six matching Maven Central
+coordinates to resolve. Then run `release-npm.yml`. Android, npm and desktop
+workflows require the shared tag to exist at their selected commit; none moves
+an existing tag. Configure the credentials named in each workflow before
+dispatch. These are publishing actions, not dry runs.
+
+The npm workflow publishes in this order:
+
+1. `hakka-core`
+2. `hakka-bridge`
+3. `hakka-browser`
+4. `hakka-node`
+5. `hakka-react-native`
+6. `hakka-rozenite`
+7. `hakka-cli`
+
+Internal dependencies use exact version pins, so earlier packages must resolve
+before their dependents are installed.
+
+After the release checks pass, dispatch the
+[`release-npm.yml` workflow](https://github.com/ansumanshah/hakka/blob/main/.github/workflows/release-npm.yml)
+with the chosen version and verified commit or branch:
 
 ```bash
-npm whoami   # confirm you're authenticated as the right account before anything below
+gh workflow run release-npm.yml --ref <verified-ref> -f version=<release-version>
+```
 
+This command publishes packages. The workflow builds the iOS binary, checks
+versions, builds and tests the packages, previews tarballs, checks Maven Central,
+and publishes using `NPM_TOKEN` with provenance. Configure the token and verify
+the local consumer smoke first; the workflow does not run `smoke-tarballs`.
+
+Confirm each exact version is available after the workflow finishes:
+
+```bash
 for pkg in hakka-core hakka-bridge hakka-browser hakka-node hakka-react-native hakka-rozenite hakka-cli; do
-  echo "=== publishing $pkg ==="
-  (cd "packages/$pkg" && npm publish --access public --provenance)
-  echo "=== verifying $pkg landed ==="
-  npm view "$pkg" version
+  npm view "$pkg@<release-version>" version
 done
 ```
 
-Why this order:
+Already published npm versions are skipped on a rerun only after a successful
+registry lookup confirms the exact version. Other registry errors stop the job.
 
-- `hakka-core` has no internal deps, so it publishes first.
-- `hakka-bridge` and `hakka-browser` depend only on `hakka-core`.
-- `hakka-node` depends on `hakka-core` + `hakka-bridge` (`hakka-browser` is an
-  optional peer, only for its `./next/client` entry, so it doesn't block ordering).
-- `hakka-react-native` depends on `hakka-core`. It also needs the Android Maven
-  coordinates (`com.noodleapps.hakka:hakka-network:<version>` etc.) and the iOS
-  SPM tag published first: see the Release Checklist's Maven-artifact-published
-  check. If those aren't up yet, publish this package last, not third.
-- `hakka-rozenite` depends on `hakka-core` + `hakka-browser` (`hakka-react-native`
-  is a peer, so it doesn't block ordering here).
-- `hakka-cli` depends on `hakka-core` + `hakka-bridge` + `hakka-node`, so it
-  publishes last.
+Then install the published packages in a fresh consumer and repeat the relevant
+runtime checks. A local tarball pass does not prove registry installation.
 
-Between each `npm publish`, the `npm view <pkg> version` line above is the
-check: it queries the real registry, so it also confirms the previous
-package's publish is actually visible before the next one's install-time
-resolution needs it (registry propagation is normally instant, but don't chain
-publishes faster than you can read the output).
+Finally run `release-desktop.yml` for the same commit and version. It attaches
+the signed, notarized macOS archive to the existing GitHub Release. Verify the
+archive on another Mac before announcing desktop availability. Deploy the docs
+and confirm their public URLs before sharing installation instructions.
 
-`--provenance` requires publishing from CI with OIDC (GitHub Actions'
-`id-token: write` permission), not a local machine. Omit it for a manual
-publish from your laptop, or use the GitHub Action (see below), which runs in CI.
+## Correcting a bad release
 
-### The GitHub Action path
-
-`.github/workflows/release-npm.yml` is the intended "single command" path
-(`gh workflow run release-npm.yml -f version=0.0.1`) and does everything Steps
-2–4 do, plus the Android Maven-artifact-published check and `--provenance`.
-
-Its publish loop walks the 7 package directories in dependency order and ends
-at `hakka-cli`. That last entry read `hakka` for a while, left over from before
-the CLI package's directory was renamed `packages/hakka` → `packages/hakka-cli`
-(the bare `hakka` name is permanently blocked on npm, see below, so the package
-is `hakka-cli` and only its `bin` is still `hakka`). `cd packages/hakka` would
-have errored with no such directory. That was corrected in commit `2bd45fc1`;
-the workflow is right as committed and needs no edit before you dispatch it.
-
-## Rolling back a bad publish
-
-**Use `npm deprecate`, never `npm unpublish`.**
+Publish a fixed version, then deprecate the affected version with a short reason:
 
 ```bash
-npm deprecate hakka-node@0.0.1 "Broken next/server export, use 0.0.2"
+npm deprecate 'hakka-node@<affected-version>' 'Use <fixed-version> instead.'
 ```
 
-This leaves `0.0.1` installable (so nobody's lockfile breaks) but prints a
-warning on every install and in `npm audit`/`npm outdated` output, steering
-people to the fixed version you publish right after. Cut the fix as a normal
-new version through Steps 1–4: `0.0.2`, not a republish of `0.0.1`.
-
-`npm unpublish` doesn't just remove your release: it forfeits the name's
-history. A later attempt to reuse that name is treated as a brand-new claim,
-which npm's automated anti-typosquat filter can reject outright. That's
-exactly what happened to the original bare `hakka` package: published in
-September 2024, unpublished in October 2024. A real, authenticated
-`npm publish hakka` attempt in August 2026 came back `403 Package name too
-similar to existing package hasha`. The name is gone permanently, not
-because anyone squatted it, but because unpublishing reset it to "new," and
-"new" collided with an existing popular package's similarity radius. There is
-no support ticket that reverses this once the filter has rejected it; `hasha`
-is too established for an override. It's the reason the CLI ships as
-`hakka-cli` today instead of bare `hakka`.
-
-If a publish is actively harmful (leaked secret, broken install for
-everyone) and deprecation isn't fast enough, npm does allow unpublishing
-within a short window after publish with no other packages depending on the
-version yet, but treat that as a last resort for the current version only,
-never as a way to "undo and retry" a name or version you might want back.
+Keep released versions available for existing lockfiles. Do not use unpublishing
+as a way to replace an already published version. The CLI package is `hakka-cli`;
+its executable is `hakka`.

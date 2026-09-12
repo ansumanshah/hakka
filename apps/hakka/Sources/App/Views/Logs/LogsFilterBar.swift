@@ -32,7 +32,7 @@ struct LogsFilterBar: View {
                 .foregroundStyle(.secondary)
             TextField("Search message or metadata", text: $logs.searchText)
                 .textFieldStyle(.plain)
-                .font(.caption)
+                .font(.callout)
             if !logs.searchText.isEmpty {
                 Button {
                     logs.searchText = ""
@@ -45,7 +45,7 @@ struct LogsFilterBar: View {
             }
         }
         .padding(.horizontal, Spacing.md)
-        .padding(.vertical, Spacing.sm)
+        .frame(height: ControlHeight.field)
         .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: Radius.md))
         .frame(minWidth: 160)
     }

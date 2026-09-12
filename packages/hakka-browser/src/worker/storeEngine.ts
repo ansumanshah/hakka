@@ -300,7 +300,7 @@ export const storeEngine = {
 
   /** Full-fidelity body lookup for one request, by id — the on-demand half of slimEcho. */
   getBody(id: string): BodyPair | null {
-    const req = Hakka.getLogs().find((r) => r.id === id)
+    const req = Hakka.getLog(id)
     if (!req) return null
     return { requestBody: req.requestBody ?? null, responseBody: req.responseBody ?? null }
   },

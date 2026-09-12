@@ -53,7 +53,7 @@ the repo root (`justfile`):
 
 ```bash
 just verify                # Headless gate; builds shared packages first, then runs:
-                            # typecheck, lint, fmt-check, sync-ios-check,
+                            # typecheck, lint, fmt-check, cleanup-check, version-audit, sync-ios-check,
                             # sync-tokens-check, UI/spec/dependency checks, rn-jest,
                             # web-jsside (every remaining JS package),
                             # android-unit, ios-swift, desktop-swift. iOS benchmarks are

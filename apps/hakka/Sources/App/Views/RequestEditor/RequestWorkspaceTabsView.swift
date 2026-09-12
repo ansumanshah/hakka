@@ -24,7 +24,9 @@ struct RequestWorkspaceTabsView: View {
             }
             Button(action: model.newRequest) {
                 Image(systemName: "plus")
+                    .frame(width: ControlHeight.icon, height: ControlHeight.icon)
             }
+            .buttonStyle(.borderless)
             .help("New request (⌘N)")
             .accessibilityLabel("New request")
             Button("Save") { Task { await model.saveActiveRequest() } }
@@ -32,7 +34,7 @@ struct RequestWorkspaceTabsView: View {
                 .help("Save request (⌘S)")
                 .accessibilityLabel("Save request")
         }
-        .controlSize(.small)
+        .controlSize(.regular)
         .padding(.horizontal, Layout.gutter)
         .frame(height: ControlHeight.bar)
     }
@@ -62,13 +64,15 @@ struct RequestWorkspaceTabsView: View {
             Button {
                 model.closeRequestTab(id: request.id)
             } label: {
-                Image(systemName: "xmark").font(.caption2)
+                Image(systemName: "xmark").font(.caption)
+                    .frame(width: ControlHeight.chip, height: ControlHeight.chip)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Close \(request.name)")
             .help(dirty ? "Close tab; unsaved edits remain available when reopened" : "Close tab")
         }
-        .font(.caption.weight(selected ? .semibold : .regular))
+        .font(.callout.weight(selected ? .semibold : .regular))
         .foregroundStyle(selected ? .primary : .secondary)
         .padding(.horizontal, Spacing.md)
         .frame(height: ControlHeight.md)

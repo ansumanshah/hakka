@@ -26,8 +26,8 @@ enum SidebarSelection: Hashable {
     /// the regular response inspector would leave an inert third column.
     var usesFullWidthWorkspace: Bool {
         switch self {
-        case .requests, .changes, .proxy, .runs, .folderRun, .logs, .storage: true
-        case .request, .traffic, .rules: false
+        case .requests, .changes, .proxy, .runs, .folderRun, .logs, .storage, .rules: true
+        case .request, .traffic: false
         }
     }
 }

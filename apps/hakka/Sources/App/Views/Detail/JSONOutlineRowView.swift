@@ -64,7 +64,7 @@ struct JSONOutlineRowView: View {
                 Text(value).foregroundStyle(colorForLeaf)
             }
         }
-        .font(.caption.monospaced())
+        .font(.callout.monospaced())
         .background(rowBackground)
     }
 
@@ -73,7 +73,7 @@ struct JSONOutlineRowView: View {
             Spacer().frame(width: 12)
             Text(closeBracket).foregroundStyle(.secondary)
         }
-        .font(.caption.monospaced())
+        .font(.callout.monospaced())
     }
 
     private var openBracket: String {

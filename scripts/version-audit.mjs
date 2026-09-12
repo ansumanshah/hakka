@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -7,6 +7,28 @@ const rnPackagePath = 'packages/hakka-react-native/package.json'
 const rnPackage = JSON.parse(read(rnPackagePath))
 const expectedVersion = rnPackage.version
 const failures = []
+const skippedDirectoryNames = new Set([
+  '__tests__',
+  'DerivedData',
+  'Pods',
+  'artifacts',
+  'bin',
+  'build',
+  'coverage',
+  'dist',
+  'lib',
+  'node_modules',
+  'playwright-report',
+  'target',
+  'test-results',
+  '__pycache__',
+])
+
+const skippedPaths = new Set([
+  'examples/react-native-benchmark',
+  'examples/expo-example/android',
+  'examples/expo-example/ios',
+])
 
 checkFileVersion('ios/Hakka.podspec', /s\.version\s*=\s*"([^"]+)"/, 'iOS podspec')
 // Hardcoded source constants — misreport themselves in health reports if they
@@ -135,35 +157,22 @@ function findMavenCoordinateVersions() {
 }
 
 function* walk(dir) {
-  for (const entry of readdirSync(dir)) {
-    if (shouldSkip(entry)) continue
-    const path = join(dir, entry)
-    const stat = statSync(path)
-    if (stat.isDirectory()) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    // Tool state, test fixtures and pinned benchmark baselines are not release coordinates.
+    if (entry.name.startsWith('.') && entry.name !== '.github') continue
+    if (skippedDirectoryNames.has(entry.name)) continue
+    const path = join(dir, entry.name)
+    if (skippedPaths.has(relative(root, path))) continue
+    if (entry.isDirectory()) {
       yield* walk(path)
-    } else if (isTextFile(path)) {
+    } else if (entry.isFile() && isTextFile(path)) {
       yield path
     }
   }
 }
 
-function shouldSkip(entry) {
-  return new Set([
-    '.git',
-    '.gradle',
-    '.astro',
-    'DerivedData',
-    'Pods',
-    'artifacts',
-    'build',
-    'dist',
-    'lib',
-    'node_modules',
-  ]).has(entry)
-}
-
 function isTextFile(path) {
-  return /\.(gradle|kts|md|mjs|js|json|podspec|properties|swift|ts|tsx|xml)$/.test(path)
+  return /\.(gradle|kts|md|mjs|js|json|podspec|properties|swift|ts|tsx|xml|ya?ml)$/.test(path)
 }
 
 function read(path) {

@@ -32,7 +32,7 @@ object HarExporter {
         }
         val log = JSONObject().apply {
             put("version", "1.2")
-            put("creator", JSONObject().put("name", "Hakka").put("version", "0.1.0"))
+            put("creator", JSONObject().put("name", "Hakka").put("version", "0.1.1"))
             put("entries", entries)
         }
         return JSONObject().put("log", log).toString(2)

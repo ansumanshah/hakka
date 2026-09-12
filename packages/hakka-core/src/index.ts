@@ -1,7 +1,7 @@
 /**
  * hakka-core — platform-neutral network-capture engine.
  */
-export const HAKKA_CORE_VERSION = '0.0.1'
+export const HAKKA_CORE_VERSION = '0.1.1'
 
 export type {
   NetworkRequest,

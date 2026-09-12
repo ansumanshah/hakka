@@ -1,6 +1,5 @@
 /**
- * `rozenite build` owns the package's root entry and rewrites it on every
- * build. Rozenite 2 emits a module-aware layout with ESM in
+ * The package's build emits a module-aware layout with ESM in
  * `dist/react-native/` and CommonJS in `dist/react-native/cjs/`, so its
  * managed root export is already safe for both consumers.
  *
@@ -18,7 +17,7 @@ const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'))
 
 const managedEntry = pkg.exports?.['.']
 if (!managedEntry) {
-  throw new Error('rozenite build did not generate the root package export')
+  throw new Error('package.json is missing the root React Native export')
 }
 pkg.exports['./react-native'] = managedEntry
 

@@ -7,5 +7,5 @@ import com.noodleapps.hakka.NetworkRequest
  * Same API as [com.noodleapps.hakka.export.HarExporter].
  */
 object HarExporter {
-    fun export(requests: List<NetworkRequest>): String = """{"log":{"version":"1.2","creator":{"name":"Hakka","version":"0.1.0"},"entries":[]}}"""
+    fun export(requests: List<NetworkRequest>): String = """{"log":{"version":"1.2","creator":{"name":"Hakka","version":"0.1.1"},"entries":[]}}"""
 }

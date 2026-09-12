@@ -79,4 +79,4 @@ export async function register(options?: ServerCaptureOptions): Promise<void> {
 export type { ServerCaptureOptions, ServerCapture } from './serverCapture'
 export type { NetworkRequest, RequestRuntime } from 'hakka-core'
 
-export const HAKKA_NODE_NEXT_VERSION = '0.1.0'
+export const HAKKA_NODE_NEXT_VERSION = '0.1.1'

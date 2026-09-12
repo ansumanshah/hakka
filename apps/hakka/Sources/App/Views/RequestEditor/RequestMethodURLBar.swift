@@ -23,14 +23,14 @@ struct RequestMethodURLBar: View {
                     }
                 }
                 .labelsHidden()
-                .controlSize(.small)
+                .controlSize(.regular)
                 .frame(width: 80)
                 .help("HTTP method")
             }
 
             TextField("https://example.com/{{path}} or grpc://host:port/pkg.Service/Method", text: $spec.url)
                 .textFieldStyle(.roundedBorder)
-                .controlSize(.small)
+                .controlSize(.regular)
                 .font(.system(.body, design: .monospaced))
                 .accessibilityLabel("Request URL")
                 .help("Request URL. Paste a cURL command to import it.")
@@ -53,20 +53,20 @@ struct RequestMethodURLBar: View {
             } label: {
                 if model.editor.isSending {
                     ProgressView()
-                        .controlSize(.small)
+                        .controlSize(.regular)
                         .frame(minWidth: 44)
                 } else {
-                    Text("Send").frame(minWidth: 44)
+                    Label("Send", systemImage: "arrow.up").frame(minWidth: 44)
                 }
             }
             .keyboardShortcut(.return, modifiers: .command)
-            .controlSize(.small)
+            .controlSize(.regular)
             .buttonStyle(.borderedProminent)
             .disabled(model.editor.isSending || spec.url.isEmpty)
             .accessibilityLabel(model.editor.isSending ? "Sending request" : "Send request")
             .help("Send request (⌘↩)")
         }
-        .frame(height: ControlHeight.bar)
+        .frame(minHeight: ControlHeight.bar + Spacing.md)
         .padding(.horizontal, Layout.gutter)
     }
 

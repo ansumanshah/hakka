@@ -16,9 +16,10 @@ struct ProxyCaptureStatusHeader: View {
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: Spacing.xxs) {
-                Text(proxy.message)
+                Text(title)
                     .font(.callout.weight(.semibold))
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
                     .textSelection(.enabled)
                     .help(proxy.message)
                     .accessibilityIdentifier("proxy.status")
@@ -33,32 +34,45 @@ struct ProxyCaptureStatusHeader: View {
 
             if proxy.isActive {
                 Button("View Traffic", action: showConnection)
-                    .controlSize(.small)
+                    .controlSize(.regular)
                 Button("Stop", systemImage: "stop.fill") {
                     Task { _ = await proxy.stop() }
                 }
-                .controlSize(.small)
+                .controlSize(.regular)
                 .disabled(proxy.state == .stopping)
                 .accessibilityIdentifier("proxy.stop")
             } else if !bridgeRunning {
                 Button("Show Connection", action: showConnection)
-                    .controlSize(.small)
+                    .controlSize(.regular)
             } else {
                 Button("Start", systemImage: "play.fill") {
                     proxy.start(bridgePort: bridgePort ?? 8989)
                 }
                 .buttonStyle(.borderedProminent)
-                .controlSize(.small)
+                .controlSize(.regular)
                 .disabled(!bridgeRunning)
                 .accessibilityIdentifier("proxy.start")
             }
         }
         .padding(.horizontal, Layout.gutter)
+        .padding(.vertical, Spacing.lg)
         .frame(minHeight: ControlHeight.bar + Spacing.md)
         .accessibilityElement(children: .contain)
     }
 
+    private var title: String {
+        switch proxy.state {
+        case .stopped: "Proxy ready"
+        case .starting: "Starting capture…"
+        case .running: "Capturing traffic"
+        case .stopping: "Stopping capture…"
+        case .failed: "Capture failed"
+        }
+    }
+
     private var detail: String {
+        if proxy.state == .failed { return proxy.message }
+        if proxy.state == .stopped, bridgeRunning { return "Start capture, then connect an app or device." }
         if bridgeRunning {
             return proxy.capturedCount == 1 ? "1 captured request" : "\(proxy.capturedCount) captured requests"
         }

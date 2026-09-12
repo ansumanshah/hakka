@@ -17,7 +17,7 @@ struct JSONOutlineSearchBar: View {
                 }
             }
             .labelsHidden()
-            .controlSize(.small)
+            .controlSize(.regular)
             .frame(width: 92)
 
             Image(systemName: "magnifyingglass")
@@ -25,7 +25,7 @@ struct JSONOutlineSearchBar: View {
                 .foregroundStyle(.secondary)
             TextField(scope.placeholder, text: $searchText)
                 .textFieldStyle(.roundedBorder)
-                .font(.caption.monospaced())
+                .font(.callout.monospaced())
             if !searchText.isEmpty {
                 Button {
                     searchText = ""
@@ -39,7 +39,7 @@ struct JSONOutlineSearchBar: View {
             }
             if let result {
                 Text(status(for: result))
-                    .font(.caption.monospaced())
+                    .font(.callout.monospaced())
                     .foregroundStyle(result.isEmpty ? .secondary : .primary)
             }
         }

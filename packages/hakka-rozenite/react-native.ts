@@ -1,5 +1,5 @@
 /**
- * React Native entry point — what `rozenite build` bundles into
+ * React Native entry point — compiled by the package build into
  * `dist/react-native/react-native.{js,d.ts}` plus the nested CommonJS build.
  *
  * Lazy-required and a no-op outside dev/RN: an RN app is expected to call

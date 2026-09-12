@@ -104,6 +104,31 @@ Requires macOS 15 or later and a Swift 6.1 or newer toolchain. The real WebSocke
 transport tests also require Bun. The package consumes `ios/` by
 path; there is no separate checkout to clone.
 
+## Repeatable desktop checks
+
+From any directory, use `Scripts/compile_and_run.sh --debug` for an incremental
+debug build, package, and launch. Paths are relative to this app directory; from
+the repository root use `./apps/hakka/Scripts/compile_and_run.sh --debug`.
+The default remains an optimized release build; `--test` runs native tests first.
+
+Repeat checks from the repository root:
+
+```bash
+./apps/hakka/Scripts/retest.sh                         # all desktop tests
+./apps/hakka/Scripts/retest.sh --filter RequestEditor  # focused iteration
+./apps/hakka/Scripts/retest.sh --live                  # tests + running bridge smoke
+```
+
+Logs and elapsed time are saved under `artifacts/desktop-retest/`. The live check
+requires Hakka listening on port 8989 and built JS packages (`bun run build`). It
+verifies capture, redaction, trace correlation, and relay using four local requests.
+It does not automate visual interaction or change system proxy settings.
+
+Before a UI release, also check request Send/Save/reopen, independent tab drafts,
+traffic selection and response bodies, Proxy start/stop, light/dark appearance,
+narrow windows, keyboard navigation, and accessibility labels in the running app.
+Use release builds for app performance measurements; debug builds are for iteration.
+
 ## Verify local capture
 
 Build the JavaScript packages with `bun run build`, then bundle and open the desktop:

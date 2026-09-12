@@ -1,7 +1,6 @@
 # Hakka SPEC — cross-platform parity ledger
 
-The **16 published spec cards** at [hakka.noodleapps.com/spec](https://hakka.noodleapps.com/spec/)
-(source: `docs/src/content/docs/spec/`) are the per-capability source of truth — what each
+The [spec cards](./docs/src/content/docs/spec/) are the per-capability source of truth — what each
 capability does, its public API, config defaults, wire format, test anchors, and limits. This
 file does not compete with them. It holds what no single card owns:
 
@@ -11,37 +10,17 @@ file does not compete with them. It holds what no single card owns:
   Edit a status cell here, or in a card, and the other must follow.
 - **§2/§3** — the panel set and UX feature checklist, grouped by user-facing category rather
   than by capability, so no one card owns them.
-- **§4/§6** — the plugin contract pointer and the release roadmap.
+- **§4/§6** — the plugin contract pointer and release scope.
 
-The invariant: React Native (TS), iOS (Swift), Android (Kotlin), and web (TS) share **one**
-capability set and **one** wire contract (`RECORD_SCHEMA_VERSION`, OTel semconv). Rendering is
-native per platform — no shared UI code crosses the boundary.
+React Native, iOS, Android, and web use the shared record contract
+(`RECORD_SCHEMA_VERSION`, OTel semconv). The parity matrix records their supported
+capabilities and gaps. React Native uses the native iOS and Android inspectors;
+web renders its own inspector.
 
 > Colors are unified via [`design-tokens.json`](./design-tokens.json) (generated to every
 > platform by `scripts/sync-design-tokens.mjs`). The record schema is pinned by
 > [`fixtures/hakka-records/`](./fixtures/hakka-records). Both are pinned contracts checked in CI,
 > same as §5.
-
-## Spec cards
-
-| Capability                         | Card                                                                         |
-| ---------------------------------- | ---------------------------------------------------------------------------- |
-| Capture (fetch/XHR/native/console) | [/spec/capture/](https://hakka.noodleapps.com/spec/capture/)                 |
-| WebSocket                          | [/spec/websocket/](https://hakka.noodleapps.com/spec/websocket/)             |
-| GraphQL detail                     | [/spec/graphql/](https://hakka.noodleapps.com/spec/graphql/)                 |
-| Trace correlation                  | [/spec/trace/](https://hakka.noodleapps.com/spec/trace/)                     |
-| Mock                               | [/spec/mock/](https://hakka.noodleapps.com/spec/mock/)                       |
-| Breakpoints                        | [/spec/breakpoints/](https://hakka.noodleapps.com/spec/breakpoints/)         |
-| Throttle                           | [/spec/throttle/](https://hakka.noodleapps.com/spec/throttle/)               |
-| Search DSL                         | [/spec/search-dsl/](https://hakka.noodleapps.com/spec/search-dsl/)           |
-| Export                             | [/spec/export/](https://hakka.noodleapps.com/spec/export/)                   |
-| Retention                          | [/spec/retention/](https://hakka.noodleapps.com/spec/retention/)             |
-| Redaction                          | [/spec/redaction/](https://hakka.noodleapps.com/spec/redaction/)             |
-| Bridge                             | [/spec/bridge/](https://hakka.noodleapps.com/spec/bridge/)                   |
-| Control channel                    | [/spec/control-channel/](https://hakka.noodleapps.com/spec/control-channel/) |
-| Plugins                            | [/spec/plugins/](https://hakka.noodleapps.com/spec/plugins/)                 |
-| Storage panel                      | [/spec/storage/](https://hakka.noodleapps.com/spec/storage/)                 |
-| Theming                            | [/spec/theming/](https://hakka.noodleapps.com/spec/theming/)                 |
 
 ## 1. Capture model
 
@@ -57,8 +36,9 @@ dispatches to listeners, record sinks, and the desktop bridge. Detail: [capture]
 
 ## 2. Panel set
 
-Every platform UI renders the same panels (by `id`), mapping each to a native renderer. Not
-covered by an individual spec card except storage:
+SDK inspectors use the panel IDs below, with platform-specific renderers and
+capabilities. The standalone Mac app has a different panel set; see §5 for
+platform status. Storage also has its own spec card:
 
 | id        | Panel                                                                                                                                                                                                                  | Status                                                                                                                     |
 | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
@@ -146,20 +126,11 @@ shake gesture, a floating bubble, a device's own UA/platform info) are `⊘` or
 section for the different, unrelated question of which platforms the capture
 SDK itself builds and ships for — do not conflate the two tables.
 
-Mac-column audit 2026-08-30: Postman export, status-code chips, cookie inspector
-and GraphQL detail were each marked missing here while already shipping. They
-landed in `5e08798f`, after this table's previous 2026-08-22 sweep, and nothing
-re-read the table afterwards. Each of the four was re-verified reachable from the
-UI before the mark was changed, not merely present as a file:
-`AppCommands.swift`'s Postman export action, `TrafficFilterChipsView`'s
-`statusClasses`, and `NetworkRequestDetailView`'s dispatch to
-`DetailCookiesTabView` / `DetailGraphQLTabView`.
-
-Worth stating plainly, because this table is what anyone plans the next sprint
-from: `spec-drift-check` does not validate these marks, only the documented
-symbols and links elsewhere in this file. A stale `—` reads as "still to build"
-and nearly caused four already-shipped features to be scoped again. Re-sweep the
-Mac column whenever desktop work lands.
+`spec-drift-check` compares card matrices with §5, including the Mac column.
+It does not verify that a documented feature works in source or in the running
+UI. Unmatched card rows are reported separately; seven cards with independent
+capability rows are explicitly allowlisted. Recheck affected features when
+changing a status, rather than treating matching documentation as runtime proof.
 
 | Capability                        | RN      | iOS | Android | Web | Mac app |
 | --------------------------------- | ------- | --- | ------- | --- | ------- |
@@ -193,8 +164,8 @@ Mac column whenever desktop work lands.
 | Verbose span toggle¹⁴ ³⁰          | —       | —   | —       | ●   | ●       |
 | Cache-status tags¹⁵               | —       | —   | —       | ●   | —       |
 | Request-kind filter¹⁶             | —       | —   | —       | ●   | —       |
-| Crash containment¹⁸               | ●       | —   | —       | ●   | —       |
-| Stale-body revalidation¹⁹         | ○       | ⊘   | ⊘       | ●   | ⊘       |
+| Crash containment¹⁸               | —       | —   | —       | ●   | —       |
+| Stale-body revalidation¹⁹         | ⊘       | ⊘   | ⊘       | ●   | ⊘       |
 | Cross-target trace waterfall³¹    | —       | —   | —       | —   | ●       |
 | Device attribution³²              | —       | —   | —       | —   | ●       |
 | Deterministic failure diagnosis³³ | —       | —   | —       | —   | ●       |
@@ -229,8 +200,8 @@ Mac column whenever desktop work lands.
 ¹⁶ `FrameworkSpan.requestKind` (`'document' | 'rsc' | 'route-handler' | 'server-action'`) is classified per-trace by `classifyRequestKind()` in `spanProcessor.ts` from the `next.rsc` span attribute plus an inbound `server-action` header hint (`trace.ts`'s `requestKindHint`), then exposed as a segmented filter (`FilterBar.tsx`'s `requestKindFilter`) that narrows visible trace GROUPS by their root span's kind. Client-side only, shown while grouped by trace. Web only.
 
 ¹⁸ The web overlay wraps the inspector in a root error boundary (`CrashBoundary.tsx`, Solid's `<Errored>`): a crashed inspector renders a compact "Inspector crashed — reload" bar inside its own shadow root instead of freezing or unstyling the host page, and Reload tears down the entire crashed tree and mounts a fresh one. Captured traffic survives the reload — the store lives outside the UI tree (Worker/singleton). React Native uses the native iOS and Android panels, which ride the host app's native exception model and do not offer a JS error boundary. Mac app is a standalone native application, not embedded in any host — it rides the same OS-level exception model as iOS/Android's native panels, so the same reasoning applies and no boundary of this kind is offered there either.
-¹⁹ Switching rows in the web Detail keeps the previous request's body visible (dimmed while `isPending`) while the next body hydrates asynchronously, instead of flashing an empty state (`Detail.tsx` async memo + `<Loading>`). iOS/Android read bodies in-process with no async gap, so there is nothing to revalidate (out of scope by design). RN fetches bodies over the bridge (async) — roadmap. Mac app also reads bodies in-process from its own in-memory `TrafficStore` (`apps/hakka/Sources/Core/Traffic/TrafficStore.swift`) with no async gap — same reasoning as iOS/Android, out of scope by design.
-¹⁷ All four platforms capture WebSocket connections and frames: RN and web through core's JS interceptor (`capture/websocket.ts`), iOS through `WebSocketMonitor.swift`, Android through `HakkaWebSocketWrapper.kt`. The sub-protocol frame-decoder registry (MQTT / Socket.IO / STOMP / graphql-ws) is now implemented on all four: `engine/wsDecoders.ts` in core-TS, ported to Swift in `ios/Sources/Common/BodyDecoders/WsFrameDecoders+*.swift` and to Kotlin in `android/hakka-common/.../{Mqtt,SocketIo,Stomp,GraphqlWs}WsDecoder.kt`, each verified against the TypeScript fixtures. Native panels render the decoded kind and payload summary, falling back to raw frame text when no decoder matches. Server-side outbound WebSocket capture (`hakka-node`) is not offered on any platform.
+¹⁹ Switching rows in the web Detail keeps the previous request's body visible (dimmed while `isPending`) while the next body hydrates asynchronously, instead of flashing an empty state (`Detail.tsx` async memo + `<Loading>`). iOS/Android read bodies in-process with no async gap, so there is nothing to revalidate (out of scope by design). RN uses those native inspector panels, so it has the same out-of-scope status. Mac app also reads bodies in-process from its own in-memory `TrafficStore` (`apps/hakka/Sources/Core/Traffic/TrafficStore.swift`) with no async gap — same reasoning as iOS/Android, out of scope by design.
+¹⁷ All four platforms capture WebSocket connections and frames: web through core's JS interceptor (`capture/websocket.ts`), iOS through `WebSocketMonitor.swift`, Android through `HakkaWebSocketWrapper.kt`, and RN through its native integration. The sub-protocol frame-decoder registry (MQTT / Socket.IO / STOMP / graphql-ws) is now implemented on all four: `engine/wsDecoders.ts` in core-TS, ported to Swift in `ios/Sources/Common/BodyDecoders/WsFrameDecoders+*.swift` and to Kotlin in `android/hakka-common/.../{Mqtt,SocketIo,Stomp,GraphqlWs}WsDecoder.kt`, each verified against the TypeScript fixtures. Native panels render the decoded kind and payload summary, falling back to raw frame text when no decoder matches. Server-side outbound WebSocket capture (`hakka-node`) is not offered on any platform.
 
 ²⁰ Mac app ships its own interactive WebSocket console (`Sources/App/Views/Detail/DetailFramesTabView.swift`, driven by `WebSocketConnectionModel` over a real `URLSessionWebSocketTask`) — connect, send, and watch frames arrive live, the same job the API-client's other request types do, with a lifecycle bar and dropped-frame counter (`WebSocketCaps.perConnectionFrameCount`). It does **not** render `WsMessage` frames relayed inside a bridge-captured `NetworkRequest` from a connected device (`ios/Sources/Common/NetworkRequest.swift`'s `messages` field) — grepped for it, no view reads that field. So the mark reflects "Mac app can act as its own WS client," not "Mac app can inspect a device's captured WS traffic."
 
@@ -292,40 +263,21 @@ the same build, not a distinct target, so it does not get its own row here.
 It is not an announcement of a macOS host-app SDK, and nobody should point an app at it expecting
 support — that product does not exist today.
 
-## 6. Roadmap
+## 6. Release scope and follow-ups
 
-- **1.0 (current wave)** — RN + iOS + Android + web at panel parity
-  (network/console/storage/stats/info), P0 features, plugin infra, **breakpoints**,
-  **mocking** (block/redirect/rewrite executing in the fetch interceptor), HAR /
-  OTel / cURL / **Postman** export, request-initiator, the desktop **bridge**,
-  full-stack **Next.js** capture (with **client↔server trace correlation**), the
-  **MCP** server, `hakka-core`'s `/test` subpath, and cross-target **trace
-  correlation** (a native client → any Node backend joins into one causal chain
-  via `hakka-node`, ADR 0001).
-  Publishes **7 npm packages** (`hakka-core`, `hakka-browser`, `hakka-bridge`,
-  `hakka-node`, `hakka-react-native`, `hakka-rozenite`, `hakka`) + Maven (6
-  Android artifacts) + SPM. The CDP capture, standalone elements, React
-  wrappers, Next.js capture, MCP server, and test helpers that previously
-  published as their own packages (`hakka-cdp`, `hakka-components`,
-  `hakka-react`, `hakka-next`, `hakka-mcp`, `hakka-test`) now ship as subpaths
-  of the 7: `hakka-cli/cdp`, `hakka-browser/elements/*`, `hakka-browser/react`,
-  `hakka-node/next`, `hakka-cli/mcp`, `hakka-core/test`. The Vite/webpack/rspack
-  plugins ship as `hakka-browser` subpaths (`hakka-browser/vite`, `/webpack`,
-  `/rspack`) the same way, not a separate package.
-- **1.1** — first-class sessions and the iOS live-stats notification inbox.
-  (Byte-rate throttle enforcement, previously listed here, shipped in 1.0 on every
-  platform: core-TS drips response bytes at `downloadKbps` on the fetch path
-  (`ThrottleEngine.throttleResponse`) and applies an equivalent completion-delay
-  formula on XHR — a timing approximation, not a streamed drip, since XHR cannot
-  substitute a response stream; iOS drips via `URLProtocol`, Android via an OkHttp
-  `ForwardingSource`. See §5 footnotes 5–6.)
-- **2.0** — plugin marketplace, custom renderers, runtime userland plugins.
+The first registry release candidate is **0.1.1**: seven npm packages
+(`hakka-core`, `hakka-browser`, `hakka-bridge`, `hakka-node`,
+`hakka-react-native`, `hakka-rozenite`, `hakka-cli`), six Android Maven artifacts,
+and the iOS Swift Package. The macOS app uses the same coordinated version.
+The existing `v0.1.0` source tag is not evidence of registry publication.
 
-There is no Flutter target in this tree today — no Dart code, no `hakka_flutter` package. A
-prior draft of this roadmap listed one; treat that as withdrawn until real work starts, at which
-point it gets its own column back in §5.
+Package exports, publishing order and release gates are maintained in the
+[publishing guide](./docs/src/content/docs/release/publishing.md) and
+[release checklist](./docs/src/content/docs/release/checklist.md). Use the spec
+cards and §5 for implemented features and platform gaps; do not duplicate that
+inventory as a list of future work.
 
-> Note: `rewrite` / map-local executes in the **fetch** interceptor (canned mock,
-> `block`, `redirectTo`, and `rewriteRequest`/`rewriteResponse` are all wired and
-> tested). **XHR** supports mock + block but passes `rewrite` through untransformed
-> by design — XHR cannot substitute a response body.
+Follow-ups include richer sessions and the iOS live-stats notification inbox.
+Plugin marketplace and runtime userland plugin work remain longer-term ideas
+without a committed release version. No Flutter, watchOS or tvOS SDK is currently
+planned in this repository.

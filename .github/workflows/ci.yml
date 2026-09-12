@@ -55,6 +55,10 @@ jobs:
       # Build first so workspace imports can resolve dist declarations.
       - run: bun run build
       - run: bun run typecheck
+      - run: bun run cleanup:check
+      - run: node scripts/release-tag-fixture-test.mjs
+      - run: node scripts/version-audit-fixture-test.mjs
+      - run: node scripts/version-audit.mjs
       - run: node scripts/spec-drift-check.mjs
       - run: node scripts/spec-api-check.mjs
       - run: node scripts/smoke-control-roundtrip.mjs

@@ -9,7 +9,7 @@ import SwiftUI
 enum JSONSyntaxHighlighter {
     static func attributed(_ json: String) -> AttributedString {
         var attributed = AttributedString(json)
-        attributed.font = .system(.caption, design: .monospaced)
+        attributed.font = .system(.callout, design: .monospaced)
         attributed.foregroundColor = .primary
 
         var index = json.startIndex

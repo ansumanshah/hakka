@@ -40,21 +40,13 @@ const styles = {
   },
 }
 
-/**
- * The Rozenite panel entry point (`rozenite.config.ts`'s `panels[0].source`).
- * Renders `hakka-browser/react`'s wrappers over `hakka-browser/elements`'s
- * `<hakka-filter-bar>`/`<hakka-request-list>`/`<hakka-request-detail>` custom
- * elements, fed by `./panelStore.ts`'s adapter instead of those elements'
- * own default store singleton.
- */
+/** Inspector backed by the device capture mirror. */
 export default function App() {
   const client = useRozeniteDevToolsClient<HakkaRozeniteEventMap>({
     pluginId: HAKKA_ROZENITE_PLUGIN_ID,
   })
 
-  // One store per client instance — `useRozeniteDevToolsClient` hands back a
-  // new client if it ever has to reconnect, and the old store's subscriptions
-  // to that stale client would otherwise leak.
+  // Reconnecting replaces the client; dispose subscriptions to the old one.
   const store = useMemo<PanelStore | null>(() => (client ? createPanelStore(client) : null), [client])
   useEffect(() => {
     return () => store?.destroy()
@@ -63,9 +55,7 @@ export default function App() {
   const [requests, setRequests] = useState<NetworkRequest[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
-  // Reset the mirror when the store identity changes (including to null) —
-  // done during render per React's derived-state-reset pattern rather than
-  // as a setState inside the effect.
+  // Reset during render so a new client never displays the previous snapshot.
   const [prevStore, setPrevStore] = useState<PanelStore | null>(store)
   if (prevStore !== store) {
     setPrevStore(store)

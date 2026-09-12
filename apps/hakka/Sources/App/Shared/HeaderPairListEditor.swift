@@ -14,15 +14,14 @@ struct HeaderPairListEditor: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             if pairs.isEmpty {
-                ContentUnavailableView {
-                    Label(emptyTitle, systemImage: "list.bullet.rectangle")
-                } description: {
-                    Text(emptyDescription)
-                } actions: {
-                    Button(addTitle, systemImage: "plus", action: addPair)
-                        .buttonStyle(.bordered)
-                }
-                .frame(maxWidth: .infinity, minHeight: 180)  // ui-token-check-ignore: compact empty-state viewport
+                EmptyStateView(
+                    systemImage: "list.bullet.rectangle",
+                    title: emptyTitle,
+                    message: emptyDescription,
+                    actionTitle: addTitle,
+                    action: addPair
+                )
+                .frame(minHeight: 220) // ui-token-check-ignore: empty-state viewport
             } else {
                 ForEach($pairs) { $pair in
                     KeyValueEditorRow(
@@ -39,7 +38,7 @@ struct HeaderPairListEditor: View {
                 Button(action: addPair) {
                     Label(addTitle, systemImage: "plus")
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.bordered)
                 .padding(.top, Spacing.md)
             }
         }

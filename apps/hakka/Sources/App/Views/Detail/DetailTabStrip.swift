@@ -14,7 +14,7 @@ struct DetailTabStrip: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .frame(height: ControlHeight.field)
-        .controlSize(.small)
+        .controlSize(.regular)
     }
 
     private var primaryTabs: [DetailTab] {

@@ -4,6 +4,7 @@ import Testing
 @Suite("Workspace navigation")
 struct WorkspaceNavigationTests {
     @Test func fullWidthToolsDoNotRequestAnEmptyInspector() {
+        #expect(SidebarSelection.rules.usesFullWidthWorkspace)
         #expect(SidebarSelection.changes.usesFullWidthWorkspace)
         #expect(SidebarSelection.proxy.usesFullWidthWorkspace)
         #expect(SidebarSelection.runs.usesFullWidthWorkspace)

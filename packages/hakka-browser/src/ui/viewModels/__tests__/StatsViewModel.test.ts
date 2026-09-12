@@ -35,6 +35,32 @@ beforeEach(() => {
 afterEach(() => destroyStore())
 
 describe('StatsViewModel', () => {
+  it('preserves live inserts and updates received before the initial snapshot resolves', async () => {
+    let resolveSnapshot!: (rows: NetworkRequest[]) => void
+    let emit!: (row: NetworkRequest) => void
+    const vm = createStatsViewModel({
+      store: {
+        getSnapshot: () =>
+          new Promise((resolve) => {
+            resolveSnapshot = resolve
+          }),
+        subscribe: (callback) => {
+          emit = callback
+          return () => {}
+        },
+      },
+    })
+
+    emit(req({ id: 'live', duration: 20 }))
+    emit(req({ id: 'existing', duration: 30 }))
+    resolveSnapshot([req({ id: 'existing', duration: 10 }), req({ id: 'backfill', duration: 40 })])
+    await flush()
+
+    expect(vm.getSnapshot().total).toBe(3)
+    expect(vm.getSnapshot().duration?.avg).toBe(30)
+    vm.destroy()
+  })
+
   it('dedups a headers-emit + body-emit pair for the same id, not double-counted', async () => {
     client.ingest(req({ duration: undefined, responseBodySize: undefined }))
     const vm = createStatsViewModel({ store: client })

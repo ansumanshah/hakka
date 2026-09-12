@@ -1,36 +1,14 @@
 name: Release Desktop (macOS)
 
-# Builds, packages, and (when secrets are configured) signs and notarizes
-# Hakka for macOS, then attaches the result to a GitHub Release.
-#
-# Required secrets for the signing/notarization/release steps — set under
-# Settings > Secrets and variables > Actions. Without them, this workflow
-# still builds, tests, and packages a real .app (adhoc-signed, uploaded as a
-# build artifact); it just skips codesign/notarytool/gh release. Full detail
-# on obtaining each of these: docs/src/content/docs/desktop/distribution.md.
-#
-#   MACOS_CERTIFICATE_P12_BASE64    Developer ID Application cert + private
-#                                    key, exported from Keychain Access as a
-#                                    .p12 and base64-encoded (`base64 -i cert.p12`).
-#   MACOS_CERTIFICATE_PASSWORD      Password the .p12 was exported with.
-#   MACOS_KEYCHAIN_PASSWORD         Any password for the throwaway CI keychain
-#                                    this workflow creates — not an Apple
-#                                    credential, just needs to exist.
-#   APPLE_ID                        Apple ID email used for notarization.
-#   APPLE_TEAM_ID                   Developer Team ID (e.g. BR3WT6376A).
-#   APPLE_APP_SPECIFIC_PASSWORD     App-specific password for that Apple ID
-#                                    from appleid.apple.com, scoped to
-#                                    notarization use.
-#
-# This workflow does not touch the Homebrew tap — that step lives only in the
-# local `Scripts/make_release.sh` flow, which depends on a tap checkout on
-# the releaser's machine and is intentionally not reproduced in CI.
+# Without signing credentials, upload an adhoc build artifact only.
+# Credential setup: docs/src/content/docs/desktop/distribution.md.
+# Homebrew tap updates remain in the local Scripts/make_release.sh flow.
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to release (e.g., 0.1.0). Must match apps/hakka/version.env MARKETING_VERSION.'
+        description: 'Version to release (e.g., 0.1.1). Must match apps/hakka/version.env MARKETING_VERSION.'
         required: true
 
 permissions:
@@ -46,6 +24,14 @@ jobs:
         working-directory: apps/hakka
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Require shared release tag for this commit
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_COMMIT: ${{ github.sha }}
+        run: node ../../scripts/release-tag.mjs require
 
       - name: Verify version matches version.env
         env:
@@ -160,15 +146,13 @@ jobs:
           path: apps/hakka/Hakka-*.zip
           if-no-files-found: error
 
-      - name: Create GitHub Release
+      - name: Upload notarized archive to the shared GitHub Release
         if: steps.secrets-check.outputs.have-secrets == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ inputs.version }}
         run: |
-          gh release create "v${VERSION}" Hakka-*.zip \
-            --title "Hakka for macOS ${VERSION}" \
-            --generate-notes
+          gh release upload "v${VERSION}" Hakka-*.zip --clobber
 
       - name: Clean up the throwaway keychain
         if: always() && steps.secrets-check.outputs.have-secrets == 'true'

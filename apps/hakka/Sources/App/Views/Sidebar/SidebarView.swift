@@ -19,8 +19,7 @@ struct SidebarView: View {
             SidebarDevicesSection()
         }
         .listStyle(.sidebar)
-        .scrollContentBackground(.hidden)
-        .background(ThemeTokens.Palette.surface)
+        .symbolRenderingMode(.monochrome)
         .navigationTitle("Workspace")
         .toolbar {
             ToolbarItem {

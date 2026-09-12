@@ -10,6 +10,7 @@ DEBUG_PROCESS_PATTERN="${ROOT_DIR}/.build/debug/${APP_NAME}"
 RELEASE_PROCESS_PATTERN="${ROOT_DIR}/.build/release/${APP_NAME}"
 RUN_TESTS=0
 RELEASE_ARCHES=""
+CONFIGURATION=release
 
 log() { printf '%s\n' "$*"; }
 fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
@@ -17,25 +18,32 @@ fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 for arg in "$@"; do
   case "${arg}" in
     --test|-t) RUN_TESTS=1 ;;
+    --debug) CONFIGURATION=debug ;;
+    --release) CONFIGURATION=release ;;
     --release-universal) RELEASE_ARCHES="arm64 x86_64" ;;
     --release-arches=*) RELEASE_ARCHES="${arg#*=}" ;;
     --help|-h)
-      log "Usage: $(basename "$0") [--test] [--release-universal] [--release-arches=\"arm64 x86_64\"]"
+      log "Usage: $(basename "$0") [--test] [--debug|--release] [--release-universal] [--release-arches=\"arm64 x86_64\"]"
       exit 0
       ;;
+    *) fail "Unknown argument: ${arg}" ;;
   esac
 done
+
+if [[ -n "${RELEASE_ARCHES}" && "${CONFIGURATION}" != release ]]; then
+  fail "Release architecture flags require --release."
+fi
+
+if [[ "${RUN_TESTS}" == "1" ]]; then
+  log "==> swift test"
+  "${ROOT_DIR}/Scripts/retest.sh"
+fi
 
 log "==> Killing existing ${APP_NAME} instances"
 pkill -f "${APP_PROCESS_PATTERN}" 2>/dev/null || true
 pkill -f "${DEBUG_PROCESS_PATTERN}" 2>/dev/null || true
 pkill -f "${RELEASE_PROCESS_PATTERN}" 2>/dev/null || true
 pkill -x "${APP_NAME}" 2>/dev/null || true
-
-if [[ "${RUN_TESTS}" == "1" ]]; then
-  log "==> swift test"
-  swift test -q
-fi
 
 HOST_ARCH="$(uname -m)"
 ARCHES_VALUE="${HOST_ARCH}"
@@ -44,14 +52,10 @@ if [[ -n "${RELEASE_ARCHES}" ]]; then
 fi
 
 log "==> package app"
-SIGNING_MODE=adhoc ARCHES="${ARCHES_VALUE}" "${ROOT_DIR}/Scripts/package_app.sh" release
+SIGNING_MODE=adhoc ARCHES="${ARCHES_VALUE}" "${ROOT_DIR}/Scripts/package_app.sh" "${CONFIGURATION}"
 
 log "==> launch app"
-if ! open "${APP_BUNDLE}"; then
-  log "WARN: open failed; launching binary directly."
-  "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}" >/dev/null 2>&1 &
-  disown
-fi
+open -n "${APP_BUNDLE}"
 
 for _ in {1..10}; do
   if pgrep -f "${APP_PROCESS_PATTERN}" >/dev/null 2>&1; then

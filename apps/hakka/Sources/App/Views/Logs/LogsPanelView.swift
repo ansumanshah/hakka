@@ -20,12 +20,14 @@ struct LogsPanelView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
+            Divider()
             LogsFilterBar(logs: model.logs)
+                .padding(.top, Spacing.lg)
             if model.logs.entries.isEmpty {
                 EmptyStateView(
                     systemImage: "text.alignleft",
                     title: "No log entries yet",
-                    message: "Structured logs from HakkaInterceptor.log(...) on a connected device show up here live."
+                    message: "Connect your app and publish structured logs with Hakka to inspect messages and metadata here."
                 )
             } else if model.logs.filteredEntries.isEmpty {
                 EmptyStateView(
@@ -52,7 +54,7 @@ struct LogsPanelView: View {
             }
             .disabled(model.logs.entries.isEmpty)
         }
-        .padding(Spacing.lg)
+        .padding(Layout.gutter)
     }
 
     /// Matches `LiveTrafficHeader.countText`'s "N of total" shape so the

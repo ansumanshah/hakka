@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "com.noodleapps.hakka"
-version = "0.0.1"
+version = "0.1.1"
 
 android {
     namespace = "com.noodleapps.hakka.ui"
@@ -82,7 +82,7 @@ mavenPublishing {
     if (providers.gradleProperty("signingInMemoryKey").isPresent) {
         signAllPublications()
     }
-    coordinates("com.noodleapps.hakka", "hakka-ui", "0.0.1")
+    coordinates("com.noodleapps.hakka", "hakka-ui", "0.1.1")
     pom {
         name.set("Hakka UI")
         description.set("Native Android notification + overlay UI for Hakka — depends only on androidx.recyclerview")

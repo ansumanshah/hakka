@@ -2,6 +2,7 @@ import HakkaCore
 import SwiftUI
 
 struct GitPaneView: View {
+    @Environment(AppModel.self) private var model
     let directoryURL: URL?
 
     @State private var git = GitModel()
@@ -33,7 +34,9 @@ struct GitPaneView: View {
             EmptyStateView(
                 systemImage: "folder.badge.questionmark",
                 title: "No collection open",
-                message: "Open a collection folder to manage its git history."
+                message: "Open a collection folder to manage its git history.",
+                actionTitle: "Open Collection…",
+                action: { Task { await model.openCollectionDirectory() } }
             )
         } else if !git.isRepository {
             GitInitEmptyStateView(git: git)

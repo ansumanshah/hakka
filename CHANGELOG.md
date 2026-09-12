@@ -4,7 +4,7 @@ This project follows the spirit of Keep a Changelog. Hakka is pre-1.0, and every
 package — npm, Maven, and the Swift Package — moves in lockstep at one version,
 so there is a single entry per release rather than one per package.
 
-## Unreleased
+## 0.1.1 (unreleased)
 
 ### Added
 
@@ -16,14 +16,28 @@ so there is a single entry per release rather than one per package.
   `hakka-core`, iOS (`HakkaCommon`/`HakkaNetwork`), Android (`hakka-network`), the RN native
   bridges, and the desktop app's Rules surface.
 
-## 0.1.0 - 2026-08-02
+### Changed
 
-First public release. Ships as seven npm packages, six Android Maven artifacts,
-and six Swift Package products, all moving in lockstep at one version:
+- Align npm, Maven, Swift, desktop and runtime version reports at 0.1.1.
+- Use one verified commit and `vVERSION` tag across release workflows.
+- Build the experimental Rozenite panel directly with Vite and TypeScript,
+  removing the unused Electron development toolchain.
+- Look up browser response bodies by request ID without copying the full log list.
+
+- `hakka-browser` no longer ships internal Vitest support files or their
+  generated declarations in its npm tarball. They were not reachable through
+  the package exports, so this reduces package contents without changing the
+  public API.
+
+## 0.1.0 source baseline
+
+The existing source tag predates the first registry publication. This baseline
+contains seven npm packages, six Android Maven artifacts, and six Swift Package
+products; the coordinated public release is being prepared as 0.1.1:
 
 - **npm**, published in dependency order: `hakka-core`, `hakka-bridge`,
   `hakka-browser`, `hakka-node`, `hakka-react-native`, `hakka-rozenite`, and
-  `hakka` (the CLI, which also carries the `hakka mcp` and `hakka cdp`
+  `hakka-cli` (the CLI, which also carries the `hakka mcp` and `hakka cdp`
   subcommands). Capabilities that were briefly their own packages are subpath
   exports — see [ADR 0005](./docs/src/content/docs/contributing/adr/0005-package-consolidation.md).
 - **Android** (`com.noodleapps.hakka`): `hakka-common`, `hakka-network`,
@@ -72,7 +86,6 @@ certificate. `-noop` artifacts keep it out of release builds entirely.
 - `SPEC.md` — the cross-platform capability + parity source of truth for RN/iOS/Android/web (and Flutter, v3).
 - Astro + Starlight docs site at `docs/` covering install, the core engine, capture modes, RN/Expo, web overlay + Vite plugin, full-stack Next.js, the CLI, desktop bridge, MCP server, test helpers, breakpoints, mocking/throttling, Android, iOS, contributing, and release. Includes `/llms.txt`, `/llms-full.txt`, `/llms-small.txt`, and focused LLM text subsets for agents.
 - `justfile` developer recipes (run `just` to list) covering build, test, lint, format, docs, simulator, benchmarks, and release gates — replaces fragmented npm scripts.
-- Claude Desktop `.claude/launch.json` configuring `docs` (port 4321) and `serve-sim` (port 3200) preview entries.
 - Contributing and reference sections merged into the docs site: architecture, design principles, SDK design, decisions, and benchmark reference.
 - Canonical Hakka record contracts across TypeScript, Kotlin, and Swift.
 - Shared v1 fixtures for network, trace, and health record wire shapes.
@@ -114,7 +127,6 @@ certificate. `-noop` artifacts keep it out of release builds entirely.
 - `android/README.md` studio-core script updated to `just studio-core`.
 - `ios/README.md` docs path references updated to `docs/`.
 - `package.json` trimmed from 50+ scripts to 17 CI-essential ones; all developer workflows moved to `justfile`.
-- Private agent notes moved from committed `docs/` to gitignored `.claude/memory/`.
 - Documentation now uses Hakka naming consistently.
 - The active architecture direction is native-first: Android and iOS SDKs own
   capture, redaction, storage, and export behavior; React Native wraps them.

@@ -23,9 +23,10 @@ struct DetailActionBar: View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
             ViewThatFits(in: .horizontal) {
                 actions.labelStyle(.titleAndIcon).fixedSize(horizontal: true, vertical: false)
+                actions.labelStyle(.titleOnly).fixedSize(horizontal: true, vertical: false)
                 actions.labelStyle(.iconOnly)
             }
-            .controlSize(.small)
+            .controlSize(.regular)
             .buttonStyle(.bordered)
             if let note = mockNote ?? copiedLabel {
                 Text(note)

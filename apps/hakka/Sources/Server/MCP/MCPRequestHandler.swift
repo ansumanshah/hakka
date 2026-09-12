@@ -40,7 +40,7 @@ public actor MCPRequestHandler {
     private let serverName: String
     private let serverVersion: String
 
-    public init(registry: MCPToolRegistry, serverName: String = "hakka-desktop", serverVersion: String = "0.1.0") {
+    public init(registry: MCPToolRegistry, serverName: String = "hakka-desktop", serverVersion: String = "0.1.1") {
         self.registry = registry
         self.serverName = serverName
         self.serverVersion = serverVersion

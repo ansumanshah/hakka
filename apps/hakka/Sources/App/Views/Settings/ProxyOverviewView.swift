@@ -8,7 +8,7 @@ struct ProxyOverviewView: View {
 
     var body: some View {
         Section("Capture") {
-            LabeledContent("Status", value: proxy.message)
+            LabeledContent("Status", value: proxy.state == .stopped ? "Stopped" : proxy.message)
             LabeledContent("Desktop bridge", value: bridgeRunning ? "Ready" : "Offline")
             LabeledContent("Listen address", value: "127.0.0.1:\(proxy.port)")
                 .textSelection(.enabled)

@@ -1,6 +1,6 @@
 {
   "name": "hakka-browser",
-  "version": "0.0.1",
+  "version": "0.1.1",
   "description": "Hakka network inspector for the web — a framework-agnostic, self-contained overlay for mobile and desktop browsers where devtools aren't available. Captures fetch/XHR/WebSocket + real Resource Timing, exports HAR. Drop-in via one <script> tag or npm. Also ships the six Inspector panels as standalone, individually tree-shakeable custom elements (`hakka-browser/elements/*`) and a thin React wrapper (`hakka-browser/react`) for embedding one piece of the UI instead of the full overlay.",
   "keywords": [
     "custom-elements",
@@ -127,7 +127,7 @@
     "@solidjs/element": "2.0.0-rc.6",
     "@solidjs/signals": "2.0.0-rc.6",
     "@solidjs/web": "2.0.0-rc.6",
-    "hakka-core": "0.0.1",
+    "hakka-core": "0.1.1",
     "unplugin": "^3.3.0"
   },
   "devDependencies": {
@@ -138,7 +138,7 @@
     "@types/node": "^26.4.1",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.7",
-    "hakka-bridge": "0.0.1",
+    "hakka-bridge": "0.1.1",
     "happy-dom": "^20.14.0",
     "html-webpack-plugin": "^5.6.8",
     "lightningcss": "^1.33.0",
