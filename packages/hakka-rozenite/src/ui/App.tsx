@@ -40,6 +40,13 @@ const styles = {
   },
 }
 
+const responsiveStyles = `
+@media (max-width: 679px) {
+  .hakka-rozenite-list.has-selection { display: none; }
+  .hakka-rozenite-detail:not(.has-selection) { display: none; }
+  .hakka-rozenite-list { border-right: 0 !important; }
+}`
+
 /** Inspector backed by the device capture mirror. */
 export default function App() {
   const client = useRozeniteDevToolsClient<HakkaRozeniteEventMap>({
@@ -96,12 +103,13 @@ export default function App() {
 
   return (
     <div style={styles.root}>
+      <style>{responsiveStyles}</style>
       <FilterBar store={store} />
       <div style={styles.panes}>
-        <div style={styles.list}>
+        <div className={`hakka-rozenite-list${selected ? ' has-selection' : ''}`} style={styles.list}>
           <RequestList store={store} onSelect={({ id }) => setSelectedId(id)} />
         </div>
-        <div style={styles.detail}>
+        <div className={`hakka-rozenite-detail${selected ? ' has-selection' : ''}`} style={styles.detail}>
           <RequestDetail request={selected} onBack={() => setSelectedId(null)} />
         </div>
       </div>

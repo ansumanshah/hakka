@@ -93,4 +93,11 @@ describe.skipIf(!vite)('vite dev-server HTML transform', () => {
     // failure output rather than only surfacing as a missing html-proxy.
     expect(plugin.transformIndexHtml?.order).toBe('pre')
   })
+
+  it('runs before the app entry so on-load requests are captured', async () => {
+    const out = await transformThroughViteDevServer(
+      '<!doctype html><html><head></head><body><script type="module" src="/src/main.ts"></script></body></html>',
+    )
+    expect(out.indexOf('html-proxy')).toBeLessThan(out.indexOf('/src/main.ts'))
+  })
 })

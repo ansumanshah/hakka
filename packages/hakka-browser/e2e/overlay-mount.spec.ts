@@ -39,3 +39,15 @@ test('the built overlay mounts <hakka-inspector> with a clean console on the pla
   )
   expect(pageErrors, `uncaught page error while mounting the overlay: ${JSON.stringify(pageErrors)}`).toEqual([])
 })
+
+test('show() reopens an already-mounted inspector', async ({ page }) => {
+  await page.goto('/examples/browser-demo/index.html')
+  const panel = page.locator('.hakka-panel')
+  await expect(panel).toHaveClass(/open/, { timeout: 15_000 })
+
+  await page.getByRole('button', { name: 'Close inspector' }).click()
+  await expect(panel).not.toHaveClass(/open/)
+
+  await page.evaluate(() => (window as Window & { Hakka: { show(): Promise<void> } }).Hakka.show())
+  await expect(panel).toHaveClass(/open/)
+})

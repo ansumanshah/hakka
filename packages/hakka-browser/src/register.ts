@@ -1,6 +1,7 @@
 import { customElement } from '@solidjs/element'
 
 import { InspectorRoot } from './ui/CrashBoundary'
+import type { InspectorApi } from './ui/Inspector'
 
 /**
  * Register the framework-agnostic <hakka-inspector> custom element.
@@ -15,5 +16,11 @@ import { InspectorRoot } from './ui/CrashBoundary'
 const TAG = 'hakka-inspector'
 
 if (typeof customElements !== 'undefined' && !customElements.get(TAG)) {
-  customElement(TAG, {}, InspectorRoot)
+  customElement(TAG, {}, (_props, { element }) =>
+    InspectorRoot({
+      onReady: (api) => {
+        ;(element as typeof element & { hakkaApi?: InspectorApi }).hakkaApi = api
+      },
+    }),
+  )
 }

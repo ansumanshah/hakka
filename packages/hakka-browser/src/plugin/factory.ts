@@ -177,7 +177,7 @@ const unpluginFactory: UnpluginFactory<HakkaPluginOptions | undefined> = (option
             {
               tag: 'script',
               attrs: { type: 'module', 'data-hakka': 'true', ...(options.nonce ? { nonce: options.nonce } : {}) },
-              injectTo: 'body',
+              injectTo: 'body-prepend',
               children: snippet,
             },
           ]

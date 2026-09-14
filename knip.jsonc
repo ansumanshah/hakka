@@ -64,6 +64,7 @@
     "packages/hakka-rozenite/src/react-native/useHakkaRozeniteDevTools.ts",
     // Driven by justfile recipes (knip can't see justfile recipes).
     "scripts/bench-heap.mjs",
+    "scripts/spec-api-check-fixture-test.mjs",
     "scripts/smoke-tarball-install.mjs",
     // Chained from verify-smoke.sh, not imported directly.
     "scripts/smoke-bridge-replay.mjs",

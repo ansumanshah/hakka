@@ -373,11 +373,9 @@ button, input, select, textarea {
    >= 680px and in embedded mode. ── */
 .hakka-mobile-grip {
   display: none;
-  position: absolute;
-  top: -4px;
-  left: 0;
-  right: 0;
+  position: relative;
   height: var(--hakka-ctl-h-sm);
+  flex-shrink: 0;
   z-index: 2;
   background: none;
   border: none;

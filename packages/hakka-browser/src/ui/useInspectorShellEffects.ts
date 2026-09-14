@@ -1,7 +1,7 @@
 // Shell-level side effects that mount once and touch no component state
 // besides a single `errorCount` signal: adopting the shared stylesheet onto
 // whatever root this instance rendered into, registering the theme root
-// (ui/presets.ts), handing the embed API's imperative handle to
+// (ui/presets.ts), handing the host its imperative handle through
 // `props.onReady`, and mirroring the console-error badge count. A factory
 // (not a component) called once from Inspector's render body — see
 // ./viewModels for the same "factory owns onSettled" pattern.
@@ -38,9 +38,10 @@ export function sharedStylesSheet(): CSSStyleSheet | null {
 
 export interface InspectorShellEffectsDeps {
   panelRootEl: () => HTMLDivElement | undefined
-  onReady?: (api: { setTab: (id: string) => void }) => void
+  onReady?: (api: { setTab: (id: string) => void; setOpen: (open: boolean) => void }) => void
   panels: HakkaPanel[]
   setTab: (id: string) => void
+  setOpen: (open: boolean) => void
 }
 
 export function useInspectorShellEffects(deps: InspectorShellEffectsDeps): { errorCount: () => number } {
@@ -81,8 +82,7 @@ export function useInspectorShellEffects(deps: InspectorShellEffectsDeps): { err
     return registerThemeRoot(themeRoot)
   })
 
-  // Hand the embed API (mount.tsx) an imperative handle; floating mode never
-  // sets onReady, so this is a no-op there.
+  // Hand the embed or floating host its imperative handle.
   onSettled(() => {
     deps.onReady?.({
       // Validated (unlike Inspector's internal setTab) — the embed API's
@@ -90,6 +90,7 @@ export function useInspectorShellEffects(deps: InspectorShellEffectsDeps): { err
       setTab: (id: string) => {
         if (deps.panels.some((p) => p.id === id)) deps.setTab(id)
       },
+      setOpen: deps.setOpen,
     })
   })
 

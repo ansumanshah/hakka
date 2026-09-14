@@ -38,8 +38,9 @@ That is all the configuration needed for most projects.
 
 ### How it works
 
-The plugin uses Vite's `transformIndexHtml` hook (order: `post`) to append a `<script type="module">` tag
-to the page body. The script imports `start` from `hakka-browser` and calls it with the options you pass.
+The plugin uses Vite's `transformIndexHtml` hook (order: `pre`) to prepend a `<script type="module">` tag
+to the page body. The script imports `start` from `hakka-browser` and calls it before the app entry, so
+requests fired during app startup are captured.
 
 When `devOnly` is `true` (the default), the plugin sets `apply: 'serve'`, so it runs only during
 `vite serve` and is excluded from `vite build` entirely. No Hakka code reaches the production bundle.

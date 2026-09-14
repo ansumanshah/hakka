@@ -46,10 +46,12 @@ const LEGACY_TAB_IDS: Record<string, string> = {
 // Panel tab type is dynamic — derived from Hakka.getPanels() panel ids.
 type MainTab = string
 
-/** Imperative handle handed to `props.onReady` once — the embed API's (`mount.tsx`) only way to drive tabs from outside. */
+/** Imperative handle handed to `props.onReady` once for embed and floating hosts. */
 export interface InspectorApi {
   /** Switch the active panel/tab (e.g. 'network', 'console', 'settings'). No-op for an unknown id. */
   setTab: (id: string) => void
+  /** Open or close the floating inspector. */
+  setOpen: (open: boolean) => void
 }
 
 export interface InspectorProps {
@@ -63,7 +65,7 @@ export interface InspectorProps {
   embedded?: boolean
   /** Initial panel id when embedded (e.g. 'network', 'console'). Falls back to the persisted/default tab if omitted or unknown. */
   initialTab?: string
-  /** Called once after mount with an imperative handle. Embedded mode's only use for this today is `setTab`. */
+  /** Called once after mount with an imperative handle. */
   onReady?: (api: InspectorApi) => void
 }
 
@@ -279,6 +281,7 @@ export const Inspector: Component<InspectorProps> = (props) => {
     onReady: props.onReady,
     panels,
     setTab,
+    setOpen,
   })
 
   const clearLogs = () => {

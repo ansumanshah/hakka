@@ -43,7 +43,7 @@ That is the entire integration. Nothing in `index.html` or `src/main.ts` mention
 
 ## What the plugin does automatically
 
-`hakka()` hooks Vite's `transformIndexHtml` and appends a `<script type="module" data-hakka>` tag
+`hakka()` hooks Vite's `transformIndexHtml` and prepends a `<script type="module" data-hakka>` tag
 to `index.html`'s `<body>` that imports `start` from `hakka-browser` and calls it with whatever
 you passed under `start`. Run `npm run dev` and open the served page's source — the tag is there,
 generated, with no app code involved:
@@ -78,7 +78,7 @@ ships nothing Hakka-related. Run the two commands above yourself to reproduce.
 
 ## How the injection works
 
-`hakka()` registers a Vite `transformIndexHtml` hook at `order: 'pre'` that appends a module
+`hakka()` registers a Vite `transformIndexHtml` hook at `order: 'pre'` that prepends a module
 `<script>` importing `hakka-browser` and calling `start()`. The `order` matters: Vite's dev server
 runs its HTML chain as `[...preHooks, htmlEnvHook, devHtmlHook, ...normalHooks, ...postHooks]`, and
 `devHtmlHook` is the pass that rewrites each inline `<script type="module">` into a proxied module

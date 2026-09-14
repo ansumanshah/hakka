@@ -26,6 +26,7 @@ import { enableResourceTimingEnrichment } from './capture/resourceTiming'
 import { enableSendBeaconCapture } from './capture/sendBeacon'
 import { enableConsoleMirror, disableConsoleMirror } from './consoleMirror'
 import { connect, disconnect } from './desktopBridge'
+import type { InspectorApi } from './ui/Inspector'
 import { loadMocks } from './ui/mockPersist'
 // Type-only — erased at compile time, so this does NOT pull the Solid UI
 // (ui/mount.tsx -> ui/Inspector.tsx) into the eager bundle; fetched lazily
@@ -93,7 +94,7 @@ export interface HakkaWebOptions extends HakkaConfig {
 const OVERLAY_TAG = 'hakka-inspector'
 
 let teardowns: Array<() => void> = []
-let overlayEl: HTMLElement | null = null
+let overlayEl: (HTMLElement & { hakkaApi?: InspectorApi }) | null = null
 let launcherEl: HTMLButtonElement | null = null
 let uiLoading: Promise<void> | null = null
 let started = false
@@ -258,10 +259,11 @@ export async function show(): Promise<void> {
   }
   await uiLoading
   if (!overlayEl) {
-    overlayEl = document.createElement(OVERLAY_TAG)
+    overlayEl = document.createElement(OVERLAY_TAG) as HTMLElement & { hakkaApi?: InspectorApi }
     document.body.appendChild(overlayEl)
   }
   overlayEl.style.display = ''
+  overlayEl.hakkaApi?.setOpen(true)
   // The Solid UI now owns the floating toggle; drop the bootstrap launcher.
   launcherEl?.remove()
   launcherEl = null

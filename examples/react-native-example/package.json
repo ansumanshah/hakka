@@ -9,7 +9,7 @@
     "ios": "react-native run-ios",
     "prestart": "node scripts/ensure-webview-asset.js",
     "start": "react-native start",
-    "start:rozenite": "WITH_ROZENITE=true ROZENITE_DEV_MODE=hakka-rozenite react-native start",
+    "start:rozenite": "WITH_ROZENITE=true react-native start",
     "test": "jest",
     "pretypecheck": "node scripts/ensure-webview-asset.js",
     "typecheck": "tsc --noEmit",

@@ -3,6 +3,7 @@
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from socketserver import TCPServer
 import sys
 
 
@@ -14,8 +15,14 @@ class DemoHandler(SimpleHTTPRequestHandler):
         return super().translate_path(path)
 
 
+class DemoServer(ThreadingHTTPServer):
+    def server_bind(self):
+        TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
+
+
 if __name__ == "__main__":
     root = Path(__file__).resolve().parent.parent
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 4173
     handler = partial(DemoHandler, directory=str(root))
-    ThreadingHTTPServer(("127.0.0.1", port), handler).serve_forever()
+    DemoServer(("127.0.0.1", port), handler).serve_forever()

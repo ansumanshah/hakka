@@ -7,6 +7,7 @@ export default {
   entry: './src/index.js',
   output: {
     filename: 'bundle.js',
+    clean: true,
   },
   plugins: [new HtmlWebpackPlugin({ title: 'hakka webpack probe' }), hakka({ start: { overlay: true } })],
 }
