@@ -57,8 +57,8 @@
     <hakka-inspector> overlay, no panel shell).
 
     Loads the BUILT components bundle from ./components-dist/ (copied there by
-    the spec's own beforeAll from packages/hakka-browser/dist/elements — see that
-    file for why). Mounts <hakka-request-list> + <hakka-filter-bar> against a
+    e2e/setup.ts from packages/hakka-browser/dist/elements, once before workers
+    start). Mounts <hakka-request-list> + <hakka-filter-bar> against a
     custom in-memory store injected via the `store` property (the documented
     escape hatch — see docs/src/content/docs/embedding/components.md's "Theming"
     section and elements/shared.ts's `StoreClient`

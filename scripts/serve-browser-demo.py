@@ -16,6 +16,9 @@ class DemoHandler(SimpleHTTPRequestHandler):
 
 
 class DemoServer(ThreadingHTTPServer):
+    # Parallel browser engines open module connections in bursts.
+    request_queue_size = 128
+
     def server_bind(self):
         TCPServer.server_bind(self)
         self.server_name, self.server_port = self.server_address[:2]

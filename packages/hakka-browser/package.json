@@ -118,7 +118,7 @@
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
     "test": "vitest run",
-    "test:e2e": "bun run build && playwright test components-standalone.spec.ts inspector.mobile.spec.ts overlay-mount.spec.ts page-debugger.spec.ts page-mcp-bridge.spec.ts cdp-debugger.spec.ts",
+    "test:e2e": "bun run build && playwright test components-standalone.spec.ts docs-embeds.spec.ts inspector.mobile.spec.ts overlay-mount.spec.ts page-debugger.spec.ts page-mcp-bridge.spec.ts cdp-debugger.spec.ts",
     "test:e2e:install": "playwright install chromium firefox webkit",
     "bench:e2e": "bun run build && playwright test render-bench.spec.ts scale-10k.spec.ts overlay-open-latency.spec.ts",
     "bench:render": "bun run build && playwright test render-bench.spec.ts"

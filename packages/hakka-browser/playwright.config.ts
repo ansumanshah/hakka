@@ -9,10 +9,16 @@ import { defineConfig, devices } from '@playwright/test'
  * Build first: the `test:e2e` script runs `bun run build` before this.
  */
 const PORT = 4173
-const commonUiTests = ['components-standalone.spec.ts', 'inspector.mobile.spec.ts', 'overlay-mount.spec.ts']
+const commonUiTests = [
+  'components-standalone.spec.ts',
+  'docs-embeds.spec.ts',
+  'inspector.mobile.spec.ts',
+  'overlay-mount.spec.ts',
+]
 
 export default defineConfig({
   testDir: './e2e',
+  globalSetup: './e2e/setup.ts',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,

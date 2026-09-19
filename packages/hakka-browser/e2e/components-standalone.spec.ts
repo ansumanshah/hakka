@@ -1,7 +1,3 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
-
 import { expect, test } from '@playwright/test'
 
 /**
@@ -16,45 +12,14 @@ import { expect, test } from '@playwright/test'
  * docs/src/content/docs/web/overview.mdx.
  *
  * Build the package before running E2E (the test:e2e script does this).
- * Copy the built elements into the fixture directory without rebuilding shared
- * dist files while the other browser tests are reading them.
+ * Global setup copies the built elements into the fixture directory once, before
+ * any browser project reads them.
  */
-
-const here = dirname(fileURLToPath(import.meta.url))
-const webPkgDir = join(here, '..')
-const distDir = join(webPkgDir, 'dist', 'elements')
-const fixtureDistDir = join(here, 'fixtures', 'components-dist')
-
-test.beforeAll(() => {
-  test.setTimeout(120_000)
-  if (!existsSync(join(distDir, 'index.js'))) {
-    throw new Error('Build hakka-browser before running E2E: bun run build')
-  }
-
-  rmSync(fixtureDistDir, { recursive: true, force: true })
-  mkdirSync(fixtureDistDir, { recursive: true })
-  for (const name of readdirSync(distDir)) {
-    if (!name.endsWith('.js') || name.endsWith('.map')) continue
-    const raw = readFileSync(join(distDir, name), 'utf8')
-    // Strip the sourceMappingURL comment — .map files aren't copied, so an
-    // uncommented reference is just a harmless 404 in devtools; matches the
-    // `just sync-embed` convention for docs/public/embed/hakka-browser.global.js.
-    const stripped = raw.replace(/\/\/# sourceMappingURL=\S*$/m, '')
-    writeFileSync(join(fixtureDistDir, name), stripped)
-  }
-  if (!existsSync(join(fixtureDistDir, 'index.js'))) {
-    throw new Error(`components-dist copy failed — no index.js in ${fixtureDistDir}`)
-  }
-})
 
 const TOTAL = 100
 const ERROR_EVERY = 10 // ids synth-0, synth-10, ... synth-90 => 10 rows with status 500
 
 test.describe('standalone components (no overlay)', () => {
-  // Serial: fullyParallel would run this file's two tests in separate worker
-  // processes, and `beforeAll` above races on the shared filesystem state
-  // (rmSync + copy of fixtures/components-dist/) between them — each worker
-  // stomping the other's in-flight copy, intermittent ENOTEMPTY/404s.
   test.describe.configure({ mode: 'serial' })
 
   test('<hakka-request-list> renders, filters via <hakka-filter-bar>, and fires hakka:select', async ({ page }) => {
