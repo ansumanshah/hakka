@@ -4,8 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to publish (e.g., 0.1.0). Must match package.json.'
+        description: 'Version to publish (e.g., 0.1.1). Must match package.json.'
         required: true
+
+permissions:
+  contents: read
 
 jobs:
   ios-binary:
@@ -13,7 +16,16 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Require release tag for this selected commit
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_COMMIT: ${{ github.sha }}
+        run: node scripts/release-tag.mjs require
       - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
       - name: Install binary build tools
         run: brew install xcodegen xcbeautify
       - name: Build device and simulator XCFramework
@@ -33,7 +45,15 @@ jobs:
       id-token: write # npm provenance attestation
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24.20.0'
+          registry-url: 'https://registry.npmjs.org'
       - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
       - run: bun install --frozen-lockfile
       - uses: actions/download-artifact@v8
         with:
@@ -43,16 +63,15 @@ jobs:
         run: node scripts/verify-rn-ios-xcframework.mjs
 
       - name: Verify all npm package versions match the input
+        env:
+          VERSION: ${{ inputs.version }}
         run: |
-          # Every packages/* directory is named for the package it publishes, so
-          # the glob is the list — nothing to keep in sync by hand. private:true
-          # packages (hakka-bench) never publish, so their versions don't track
-          # the release and are skipped here.
+          # Benchmark packages are private and keep their own version.
           for dir in packages/*/; do
             if [ "$(node -e "console.log(require('./$dir/package.json').private === true)")" = "true" ]; then continue; fi
             PKG_VERSION=$(node -e "console.log(require('./$dir/package.json').version)")
-            if [ "$PKG_VERSION" != "${{ inputs.version }}" ]; then
-              echo "Version mismatch in $dir: $PKG_VERSION != ${{ inputs.version }}"
+            if [ "$PKG_VERSION" != "$VERSION" ]; then
+              echo "Version mismatch in $dir: $PKG_VERSION != $VERSION"
               echo "Run 'bun run version-packages' (changesets), commit, then re-run."
               exit 1
             fi
@@ -60,7 +79,14 @@ jobs:
       - name: Verify all JS package + native versions are in lockstep
         run: node scripts/version-audit.mjs
 
+      - name: Require release tag for this selected commit
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_COMMIT: ${{ github.sha }}
+        run: node scripts/release-tag.mjs require
+
       - run: bun run build
+      - run: bun run typecheck
       - run: bun run test
       - run: bun run pack:npm:dry-run
       - name: Verify Android Maven dependencies are published
@@ -82,24 +108,12 @@ jobs:
               exit 1
             fi
           done
-      - uses: actions/setup-node@v7
-        with:
-          node-version: '22.12.0'
-          registry-url: 'https://registry.npmjs.org'
       - name: Publish to npm (dependency order — core, then its dependents, then leaves)
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          VERSION: ${{ inputs.version }}
         run: |
-          # Seven packages after the ADR 0005 consolidation, in dependency order —
-          # this is the one list that can't be a glob. Each directory under
-          # packages/ is named for the package it publishes, so these are both.
-          # hakka-core has no internal deps. hakka-bridge and hakka-browser depend
-          # only on core. hakka-node depends on core + bridge (browser is an
-          # optional peer, for its ./next/client entry only). hakka-react-native
-          # depends on core. hakka-rozenite depends on core + browser
-          # (hakka-react-native is a peer, so ordering against it is not required).
-          # hakka (CLI) depends on core + bridge — it gained bridge when hakka-mcp
-          # merged in. Each package's prepublishOnly rebuilds its dist first.
+          # Exact internal pins require this dependency order.
           for pkg in \
             hakka-core \
             hakka-bridge \
@@ -110,6 +124,21 @@ jobs:
             hakka-cli
           do
             echo "::group::Publishing $pkg"
-            (cd "packages/$pkg" && npm publish --access public --provenance)
+            view_error=$(mktemp)
+            if published_version=$(npm view "${pkg}@${VERSION}" version --registry=https://registry.npmjs.org 2>"$view_error"); then
+              if [ "$published_version" != "$VERSION" ]; then
+                echo "Registry returned unexpected version for $pkg: $published_version"
+                cat "$view_error"
+                exit 1
+              fi
+              echo "$pkg@$VERSION is already published; skipping it."
+            elif grep -q 'E404' "$view_error"; then
+              (cd "packages/$pkg" && npm publish --access public --provenance)
+            else
+              echo "Could not determine whether $pkg@$VERSION is already published."
+              cat "$view_error"
+              exit 1
+            fi
+            rm -f "$view_error"
             echo "::endgroup::"
           done

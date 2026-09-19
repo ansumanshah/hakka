@@ -13,11 +13,12 @@ struct StoragePanelView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
+            Divider()
             if model.storage.stores.isEmpty {
                 EmptyStateView(
                     systemImage: "externaldrive",
                     title: "No storage snapshots yet",
-                    message: "Call HakkaInterceptor.shared.publishStorageSnapshot(store:entries:) on a connected device to see its storage here."
+                    message: "Connect your app and publish a storage snapshot with Hakka to inspect its keys and values."
                 )
             } else {
                 StorageFilterBar(storage: model.storage)
@@ -47,7 +48,7 @@ struct StoragePanelView: View {
             }
             .disabled(model.storage.stores.isEmpty)
         }
-        .padding(Spacing.lg)
+        .padding(Layout.gutter)
     }
 
     /// Matches `LiveTrafficHeader.countText`'s "N of total" shape, counting

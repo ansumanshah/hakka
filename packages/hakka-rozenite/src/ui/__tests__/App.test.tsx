@@ -175,6 +175,8 @@ describe('<App>', () => {
 
     const detail = container.querySelector(REQUEST_DETAIL_TAG) as HTMLElement & { request: NetworkRequest | null }
     expect(detail.request).toEqual(request)
+    expect(container.querySelector('.hakka-rozenite-list')?.classList).toContain('has-selection')
+    expect(container.querySelector('.hakka-rozenite-detail')?.classList).toContain('has-selection')
 
     await unmount(container, root)
   })

@@ -16,21 +16,21 @@ struct DetailHeadersSection: View {
     var body: some View {
         if !headers.isEmpty {
             VStack(alignment: .leading, spacing: Spacing.md) {
-                Text(title).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
                 headerList
             }
         }
     }
 
     private var headerList: some View {
-        VStack(alignment: .leading, spacing: Spacing.xxs) {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
             ForEach(headers.keys.sorted(), id: \.self) { key in
                 HStack(alignment: .top, spacing: Spacing.sm) {
                     Text(key)
-                        .font(.caption.weight(.medium))
+                        .font(.callout.weight(.medium))
                         .frame(width: 140, alignment: .leading)
                     Text((headers[key] ?? []).joined(separator: ", "))
-                        .font(.caption)
+                        .font(.callout)
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
                 }

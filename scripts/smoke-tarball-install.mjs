@@ -1,45 +1,8 @@
 #!/usr/bin/env node
-/**
- * Consumer-side tarball install smoke gate.
- *
- * `npm pack --dry-run` only proves the file list going into each tarball is
- * right — it never actually installs one. This script proves a real consumer
- * can:
- *
- *   1. `npm pack` every publishable package (the dir list is read live from
- *      `packages/`, never hardcoded — each directory there is named for the
- *      package it publishes).
- *   2. Install those tarballs into a fresh project outside this repo (a
- *      `mkdtemp` dir — no bun workspace, no hoisted monorepo `node_modules`,
- *      no repo `bun.lock`), with every inter-package name (`hakka-core`,
- *      `hakka-bridge`, …) forced via `overrides` to resolve to its own
- *      tarball — none of these are published yet, so an un-overridden
- *      semver dependency would 404 against the real registry.
- *   3. Actually `import`/`require` each package's real entry point (+ two
- *      subpath exports) and run a tiny hello-world exercising it, under both
- *      `bun` and the system `node`, and assert on the output.
- *
- * This is the last-mile check `bun run pack:npm:dry-run` doesn't cover: a bad
- * `exports` map, a missing runtime `dependencies` entry (vs. devDependencies),
- * or a package that only ever worked because the monorepo's hoisted
- * `node_modules` papered over a real resolution gap would all pass
- * `npm pack --dry-run` and fail here.
- *
- * Usage:
- *   bun scripts/smoke-tarball-install.mjs
- *   node scripts/smoke-tarball-install.mjs
- *
- * Env:
- *   SMOKE_KEEP_TEMP=1   Skip cleanup of the tarball + consumer temp dirs
- *                       (paths are printed either way) — useful when a run
- *                       fails and you want to poke at the installed tree.
- *
- * Exit code 0 + a per-package/per-runtime PASS/SKIP/FAIL matrix on success;
- * exit code 1 + the same matrix (with the failing cells called out) on any
- * real failure. A SKIP is not a failure — it is only used for the one
- * package (`hakka-react-native`) whose main entry cannot execute outside an
- * actual React Native/Metro/Hermes runtime; see its check for why.
- */
+// Build and pack publishable packages, install in an isolated consumer, then
+// exercise exports under Bun and Node. Internal dependencies resolve to tarballs.
+// Run with Bun or Node; SMOKE_KEEP_TEMP=1 retains failed consumer installs.
+// The result matrix names skipped checks; any failure exits nonzero.
 
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -56,6 +19,10 @@ const INSTALL_TIMEOUT_MS = 5 * 60_000
 const CHECK_TIMEOUT_MS = 30_000
 
 const KEEP_TEMP = process.env.SMOKE_KEEP_TEMP === '1'
+const WEB_ONLY = process.argv.includes('--web')
+if (process.argv.slice(2).some((arg) => arg !== '--web')) {
+  throw new Error('Usage: smoke-tarball-install.mjs [--web]')
+}
 
 function section(msg) {
   process.stdout.write(`\n==> ${msg}\n`)
@@ -99,6 +66,7 @@ function readPackageDirs() {
   const dirs = readdirSync(dir, { withFileTypes: true })
     .filter((e) => e.isDirectory() && existsSync(path.join(dir, e.name, 'package.json')))
     .filter((e) => JSON.parse(readFileSync(path.join(dir, e.name, 'package.json'), 'utf8')).private !== true)
+    .filter((e) => !WEB_ONLY || !['hakka-react-native', 'hakka-rozenite'].includes(e.name))
     .map((e) => e.name)
     .sort()
   if (dirs.length === 0) fail('parse-package-list', `no packages found under ${dir}`)
@@ -299,9 +267,9 @@ const require = createRequire(import.meta.url)
 const pkgJsonPath = require.resolve(${JSON.stringify(n['hakka-rozenite'] + '/package.json')})
 const pkgDir = pkgJsonPath.replace(/[\\\\/]package\\.json$/, '')
 assert.ok(existsSync(\`\${pkgDir}/dist/rozenite.json\`), 'expected the Rozenite panel manifest in the installed tarball')
-assert.ok(existsSync(\`\${pkgDir}/dist/react-native/index.js\`), 'expected the RN entry in the installed tarball')
 const rn = await import(${JSON.stringify(n['hakka-rozenite'] + '/react-native')})
 assert.equal(typeof rn.useHakkaRozeniteDevTools, 'function', 'expected the RN hook export')
+assert.equal(rn.useHakkaRozeniteDevTools(), undefined, 'expected the hook to be inert outside React Native')
 console.log('PASS ${n['hakka-rozenite']}: panel manifest + RN entry present, hook importable')
 `,
 
@@ -473,8 +441,9 @@ async function main() {
   const dirs = readPackageDirs()
   section(`Package list (from packages/): ${dirs.join(', ')}`)
 
-  section('Building all publishable packages (bun run build)')
-  run('bun', ['run', 'build'], { cwd: repoRoot, step: 'build', timeout: BUILD_TIMEOUT_MS })
+  section(WEB_ONLY ? 'Building web packages' : 'Building all publishable packages (bun run build)')
+  const buildArgs = WEB_ONLY ? ['run', ...dirs.flatMap((dir) => ['--filter', dir]), 'build'] : ['run', 'build']
+  run('bun', buildArgs, { cwd: repoRoot, step: 'build', timeout: BUILD_TIMEOUT_MS })
 
   const tarballDir = mkdtempSync(path.join(tmpdir(), 'hakka-smoke-tarballs-'))
   tarballDirToClean = tarballDir
@@ -510,7 +479,7 @@ async function main() {
     private: true,
     version: '0.0.0',
     type: 'module',
-    // Direct deps: every tarball (so bun installs + hoists all 7), plus the
+    // Direct deps: every selected tarball, plus the
     // few genuinely-third-party packages the check scripts need (react/
     // react-dom for hakka-browser/react's peer requirement, happy-dom for the
     // hakka-browser/elements custom-element check).

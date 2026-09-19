@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises'
+
 import { expect, test } from '@playwright/test'
 
 /**
@@ -45,6 +47,63 @@ test('panel fills the mobile viewport width', async ({ page }) => {
   expect(viewport).not.toBeNull()
   // Phone layout: the panel spans (near) the full viewport width (bottom-sheet / full-screen).
   expect(box!.width).toBeGreaterThan(viewport!.width * 0.9)
+})
+
+test('filtered exports download full bodies and a saved session can be loaded again', async ({ page }) => {
+  await page.locator('.hakka-search').fill('/auth/login')
+  await expect(page.locator('.hakka-row')).toHaveCount(1)
+  await page.getByLabel('More actions', { exact: true }).click()
+
+  async function downloadJson(action: string) {
+    const pending = page.waitForEvent('download')
+    await page.getByRole('button', { name: action, exact: true }).click()
+    const download = await pending
+    expect(await download.failure()).toBeNull()
+    const path = await download.path()
+    expect(path).toBeTruthy()
+    return { payload: JSON.parse(await readFile(path!, 'utf8')), path: path! }
+  }
+
+  const har = await downloadJson('Export HAR')
+  const otel = await downloadJson('Export OTel')
+  const postman = await downloadJson('Export Postman')
+  const session = await downloadJson('Save session')
+  const entries = har.payload.log.entries
+  expect(entries).toHaveLength(1)
+  expect(entries[0].request.url).toBe('https://api.example.com/auth/login')
+  expect(JSON.parse(entries[0].request.postData.text).password).toBe('[REDACTED]')
+  expect(JSON.parse(entries[0].response.content.text).expiresIn).toBe(3600)
+  expect(otel.payload.spans).toHaveLength(1)
+  expect(otel.payload.spans[0].name).toContain('/auth/login')
+  const items = postman.payload.item
+  expect(items).toHaveLength(1)
+  expect(JSON.parse(items[0].request.body.raw).password).toBe('[REDACTED]')
+  expect(session.payload.requests).toHaveLength(1)
+
+  await page.getByRole('button', { name: 'Clear', exact: true }).click()
+  await expect(page.locator('.hakka-row')).toHaveCount(0)
+  const chooser = page.waitForEvent('filechooser')
+  await page.getByRole('button', { name: 'Load session', exact: true }).click()
+  await (await chooser).setFiles(session.path)
+  await expect(page.locator('.hakka-row')).toHaveCount(1)
+  await page.getByLabel('More actions', { exact: true }).click()
+  await page.getByText('/auth/login').first().click()
+  await page.getByRole('button', { name: 'Response', exact: true }).click()
+  await expect(page.locator('.hakka-detail')).toContainText('3600')
+})
+
+test('command palette and tour accept pointer clicks above the host page', async ({ page }) => {
+  await page.keyboard.press('ControlOrMeta+k')
+  const palette = page.getByRole('dialog', { name: 'Command palette', exact: true })
+  await palette.getByRole('textbox').fill('Show quick tour')
+  await palette.getByRole('option', { name: /Show quick tour/ }).click()
+  await expect(palette).toBeHidden()
+  const tour = page.getByRole('dialog', { name: 'Inspector tour', exact: true })
+  await expect(tour).toContainText('Search your traffic')
+  await tour.getByRole('button', { name: 'Next', exact: true }).click()
+  await expect(tour).toContainText('Explore other panels')
+  await tour.getByRole('button', { name: 'Skip tour' }).click()
+  await expect(tour).toBeHidden()
 })
 
 test('detail actions stay on one row at phone width', async ({ page }) => {

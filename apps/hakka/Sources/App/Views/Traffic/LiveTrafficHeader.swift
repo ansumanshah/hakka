@@ -17,10 +17,11 @@ struct LiveTrafficHeader: View {
     @FocusState private var searchFieldFocused: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.xs) {
-            HStack(spacing: Spacing.sm) {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            searchField
+            HStack(spacing: Spacing.md) {
                 statusIndicator
-                searchField
+                Spacer(minLength: Spacing.sm)
                 Toggle("Errors only", isOn: errorsOnlyBinding)
                     .toggleStyle(.button)
                     .font(.caption)
@@ -34,7 +35,8 @@ struct LiveTrafficHeader: View {
             }
         }
         .padding(.horizontal, Layout.gutter)
-        .padding(.vertical, Spacing.sm)
+        .padding(.vertical, Spacing.lg)
+        .controlSize(.regular)
         .onChange(of: model.traffic.focusSearchToken) { _, _ in
             searchFieldFocused = true
         }
@@ -152,8 +154,9 @@ struct LiveTrafficHeader: View {
             }
         }
         .padding(.horizontal, Spacing.md)
-        .frame(height: ControlHeight.md)
-        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: Radius.md))
+        .frame(height: ControlHeight.field)
+        .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: Radius.md))
+        .overlay(RoundedRectangle(cornerRadius: Radius.md).strokeBorder(Color(nsColor: .separatorColor)))
         .frame(minWidth: 120, maxWidth: .infinity)
     }
 

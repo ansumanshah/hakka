@@ -4,8 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to publish (e.g., 0.1.0)'
+        description: 'Version to publish (e.g., 0.1.1)'
         required: true
+
+permissions:
+  contents: read
 
 jobs:
   release:
@@ -16,6 +19,13 @@ jobs:
         working-directory: android
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Require release tag for this selected commit
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_COMMIT: ${{ github.sha }}
+        run: node ../scripts/release-tag.mjs require
       - uses: actions/setup-java@v6
         with:
           distribution: temurin

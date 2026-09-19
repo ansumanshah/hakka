@@ -214,6 +214,28 @@ describe('RequestListViewModel', () => {
     vm.destroy()
   })
 
+  it('restores imported session bodies to the store and matches an active body search after clearing', async () => {
+    const saved = req('session', { requestBody: '{"query":"saved"}', responseBody: '{"restored":true}' })
+    client.ingest(saved)
+    const filters = createFilterViewModel()
+    const vm = createRequestListViewModel({ store: client, filters })
+    await flush()
+    filters.intents.setFilterText('body:restored')
+    vm.intents.clearLogs()
+    vm.intents.importRequests([saved])
+    await flush()
+
+    expect(vm.getSnapshot().filtered.map((r) => r.id)).toEqual(['session'])
+    expect(await client.getBody('session')).toEqual({
+      requestBody: saved.requestBody,
+      responseBody: saved.responseBody,
+    })
+    vm.intents.importRequests([saved])
+    await flush()
+    expect(vm.getSnapshot().count).toBe(1)
+    vm.destroy()
+  })
+
   it('search suggestions rank recent filters, then matching hosts, then scope hints', async () => {
     client.ingest(req('r1', { url: 'https://api.example.com/x' }))
     const filters = createFilterViewModel()

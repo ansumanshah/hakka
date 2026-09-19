@@ -212,7 +212,7 @@ class MainApplication : Application() {
 
   it('applies the default production capture change through the plugin entrypoint', () => {
     const result = withHakka({ modResults: { contents: appBuildGradle } })
-    expect(result.modResults.contents).toContain('implementation("com.noodleapps.hakka:hakka-network:0.0.1")')
+    expect(result.modResults.contents).toContain('implementation("com.noodleapps.hakka:hakka-network:0.1.1")')
     expect(result.modResults.contents).toContain('android.dynamicFeatures += [":hakkaInspector"]')
   })
 })

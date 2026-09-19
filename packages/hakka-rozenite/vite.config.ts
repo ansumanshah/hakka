@@ -1,9 +1,8 @@
 import { rozenitePlugin } from '@rozenite/vite-plugin'
 import { defineConfig } from 'vite'
 
-/** Drives `rozenite build`/`rozenite dev` (panel + react-native.ts entry
- * bundling) — `rozenitePlugin()` reads `rozenite.config.ts`'s panel list and
- * the `VITE_ROZENITE_TARGET` env var to decide what to bundle. */
+/** Drives the panel build and development host. `rozenitePlugin()` reads
+ * `rozenite.config.ts` to discover the panel and generate its manifest. */
 export default defineConfig({
   root: __dirname,
   plugins: rozenitePlugin(),

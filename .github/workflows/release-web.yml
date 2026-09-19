@@ -1,0 +1,103 @@
+name: Release web npm
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to verify or publish (e.g., 0.1.1). Must match package.json.'
+        required: true
+      publish:
+        description: 'Publish the verified web packages and shared source tag'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-web-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Verify web packages and optionally publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Shared source tag, only after verification and npm authentication.
+      id-token: write # npm provenance attestation.
+    env:
+      WEB_PACKAGES: hakka-core hakka-bridge hakka-browser hakka-node hakka-cli
+      RELEASE_VERSION: ${{ inputs.version }}
+      RELEASE_COMMIT: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24.20.0'
+          registry-url: 'https://registry.npmjs.org'
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - run: bun install --frozen-lockfile
+      - name: Verify version alignment and existing tag target
+        run: |
+          node scripts/version-audit.mjs
+          node scripts/release-tag.mjs verify
+          for pkg in $WEB_PACKAGES; do
+            test "$(node -p "require('./packages/$pkg/package.json').version")" = "$RELEASE_VERSION"
+          done
+      - name: Build, pack and test fresh web consumers
+        run: node scripts/smoke-tarball-install.mjs --web
+      - name: Typecheck and test web packages
+        run: |
+          for pkg in $WEB_PACKAGES; do
+            bun run --cwd "packages/$pkg" typecheck
+            bun run --cwd "packages/$pkg" test
+          done
+      - name: Browser interaction gate
+        working-directory: packages/hakka-browser
+        run: |
+          bunx playwright install --with-deps chromium firefox webkit
+          bun run test:e2e
+      - name: Bundler consumer gate
+        working-directory: examples/webpack-probe
+        run: |
+          npm ci --no-audit --no-fund
+          npm run test:rspack
+          npm run build:prod
+      - name: Verify npm authentication
+        if: inputs.publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm whoami
+      - name: Create shared source tag at the verified commit
+        if: inputs.publish
+        env:
+          GIT_AUTHOR_NAME: github-actions[bot]
+          GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+        run: |
+          node scripts/release-tag.mjs create
+          git push origin "refs/tags/v${RELEASE_VERSION}"
+      - name: Publish web packages in dependency order
+        if: inputs.publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          for pkg in $WEB_PACKAGES; do
+            view_error=$(mktemp)
+            if published_version=$(npm view "${pkg}@${RELEASE_VERSION}" version --registry=https://registry.npmjs.org 2>"$view_error"); then
+              test "$published_version" = "$RELEASE_VERSION"
+              echo "$pkg@$RELEASE_VERSION is already published; skipping it."
+            elif grep -q 'E404' "$view_error"; then
+              (cd "packages/$pkg" && npm publish --access public --provenance)
+            else
+              cat "$view_error"
+              exit 1
+            fi
+            rm -f "$view_error"
+            npm view "${pkg}@${RELEASE_VERSION}" version --registry=https://registry.npmjs.org
+          done

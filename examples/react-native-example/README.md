@@ -39,7 +39,7 @@ bun run android
 
 `just dev-android` publishes the current Android artifacts to Maven Local before launching. When
 running the package script directly, publish them first so Gradle does not reuse an older local
-`0.0.1` artifact. There is no Expo CLI here; `npx expo run:ios`/`run:android` do not apply to this
+`0.1.1` artifact. There is no Expo CLI here; `npx expo run:ios`/`run:android` do not apply to this
 app.
 
 ## Android minified validation

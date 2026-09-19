@@ -8,7 +8,7 @@ struct ContentView: View {
 
     var body: some View {
         workspace
-            .frame(minWidth: 960, minHeight: 560) // ui-token-check-ignore: window chrome
+            .frame(minWidth: 960, maxWidth: .infinity, minHeight: 560, maxHeight: .infinity, alignment: .topLeading) // ui-token-check-ignore: window chrome
             // Mounted once here, above the split view, so it is visible from
             // every pane — see `PauseInboxBanner`'s own doc comment for why that
             // matters more than it would for an ordinary status strip.
@@ -89,6 +89,7 @@ struct ContentView: View {
                 sidebar
             } detail: {
                 CenterPaneView()
+                    .background(Color(nsColor: .windowBackgroundColor))
             }
         } else if isInspectorVisible, inspectorPlacement == .bottom {
             NavigationSplitView {
@@ -96,8 +97,10 @@ struct ContentView: View {
             } detail: {
                 VSplitView {
                     CenterPaneView()
+                        .background(Color(nsColor: .windowBackgroundColor))
                         .frame(minHeight: 250) // ui-token-check-ignore: split pane minimum
                     DetailPaneView()
+                        .background(Color(nsColor: .textBackgroundColor))
                         .frame(minHeight: 220) // ui-token-check-ignore: split pane minimum
                 }
             }
@@ -106,9 +109,11 @@ struct ContentView: View {
                 sidebar
             } content: {
                 CenterPaneView()
+                    .background(Color(nsColor: .windowBackgroundColor))
                     .navigationSplitViewColumnWidth(min: 360, ideal: 520)
             } detail: {
                 DetailPaneView()
+                    .background(Color(nsColor: .textBackgroundColor))
                     .navigationSplitViewColumnWidth(min: 320, ideal: 440)
             }
         } else {
@@ -116,6 +121,7 @@ struct ContentView: View {
                 sidebar
             } detail: {
                 CenterPaneView()
+                    .background(Color(nsColor: .windowBackgroundColor))
             }
         }
     }

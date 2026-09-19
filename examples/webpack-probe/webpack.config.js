@@ -7,6 +7,10 @@ export default {
   entry: './src/index.js',
   output: {
     filename: 'bundle.js',
+    clean: true,
+  },
+  module: {
+    rules: [{ test: /rspack-probe\.txt$/, type: 'asset/resource', generator: { filename: 'rspack-probe.txt' } }],
   },
   plugins: [new HtmlWebpackPlugin({ title: 'hakka webpack probe' }), hakka({ start: { overlay: true } })],
 }

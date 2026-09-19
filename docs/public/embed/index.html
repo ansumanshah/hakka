@@ -33,18 +33,19 @@
       reqs.forEach(function (r) { Hakka.ingest(r) })
       Hakka.show()
 
-      // Map ?tab= to a tab label.
-      var TAB = { network: 'Network', stats: 'Stats', mock: 'Mock', breaks: 'Breaks', breakpoints: 'Breaks', throttle: 'Throttle', logs: 'Logs', storage: 'Storage', info: 'Info', settings: 'Settings' }
-      var want = TAB[(new URLSearchParams(location.search).get('tab') || 'network').toLowerCase()] || 'Network'
+      // Feature pages can target a top-level tab and its lazy Rules section.
+      var TAB = { network: ['Network'], stats: ['Stats'], mock: ['Rules', 'Mock'], breaks: ['Rules', 'Breakpoints'], breakpoints: ['Rules', 'Breakpoints'], throttle: ['Rules', 'Throttle'], logs: ['Logs'], storage: ['Storage'], info: ['Settings'], settings: ['Settings'] }
+      var want = TAB[(new URLSearchParams(location.search).get('tab') || 'network').toLowerCase()] || TAB.network
 
       // Once the (lazily-loaded) panel mounts: fill the frame, drop the launcher,
       // and select the requested tab. The host page owns the overlay it created.
       var tries = 0
       var iv = setInterval(function () {
+        if (++tries > 120) { clearInterval(iv); return }
         var host = document.querySelector('hakka-inspector')
         var root = host && host.shadowRoot
         var panel = root && root.querySelector('.hakka-panel')
-        if (!panel) { if (++tries > 120) clearInterval(iv); return }
+        if (!panel) return
         if (!root.getElementById('hakka-embed-style')) {
           var s = document.createElement('style')
           s.id = 'hakka-embed-style'
@@ -56,8 +57,14 @@
             '*::-webkit-scrollbar{width:0!important;height:0!important;display:none!important}'
           root.appendChild(s)
         }
-        var tab = [].slice.call(root.querySelectorAll('.hakka-tab')).find(function (b) { return b.textContent.trim() === want })
-        if (tab && !tab.classList.contains('active')) tab.click()
+        var tab = [].slice.call(root.querySelectorAll('.hakka-tab')).find(function (b) { return b.textContent.trim() === want[0] })
+        if (!tab) return
+        if (tab.getAttribute('aria-selected') !== 'true') tab.click()
+        if (want[1]) {
+          var section = [].slice.call(root.querySelectorAll('.hakka-rules-switch [role="tab"]')).find(function (b) { return b.textContent.trim() === want[1] })
+          if (!section) return
+          section.click()
+        }
         clearInterval(iv)
       }, 60)
     })()

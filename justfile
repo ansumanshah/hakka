@@ -180,6 +180,7 @@ spec-drift-check:
 # a card documenting an API that doesn't exist, or the wrong entry point.
 spec-api-check:
     node scripts/spec-api-check.mjs
+    node scripts/spec-api-check-fixture-test.mjs
 
 # Fail if a publishable package's PUBLISHED .d.ts imports another workspace
 # package it doesn't declare as a dependency. That defect shipped twice
@@ -262,7 +263,7 @@ bench-e2e: build-core build-bridge
 test-e2e-next: build-core build-bridge build-node build-browser
     cd examples/next-fullstack && npm install && npx playwright install chromium && npm run test:e2e
 
-# Install the Playwright browser (Chromium) for `just test-e2e` / `just bench-e2e`.
+# Install Chromium, Firefox, and WebKit for `just test-e2e` / `just bench-e2e`.
 e2e-install:
     bun run --cwd packages/hakka-browser test:e2e:install
 
@@ -289,7 +290,7 @@ fmt-check:
 
 # Unused dependency / export / file audit (knip)
 audit:
-    bunx knip --include files,exports,types,dependencies,devDependencies --no-progress --treat-config-hints-as-errors
+    bun run cleanup:check
 
 # Regenerate the RN package's iOS sources from the canonical ios/Sources package
 sync-ios:
@@ -426,6 +427,8 @@ size-android:
 
 # Audit version numbers across all modules
 version-audit:
+    node scripts/release-tag-fixture-test.mjs
+    node scripts/version-audit-fixture-test.mjs
     node scripts/version-audit.mjs
 
 # Create a new changeset entry (interactive prompt) for the 7 npm packages

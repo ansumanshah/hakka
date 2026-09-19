@@ -1,4 +1,4 @@
-# hakka-browser/webpack probe
+# hakka-browser webpack + Rspack probe
 
 Throwaway probe, built to resolve an UNVERIFIED risk recorded in
 `src/plugin/factory.ts`: webpack has no equivalent to Vite's `devHtmlHook`, so
@@ -7,7 +7,7 @@ the reasoning went that an injected inline module script's bare
 a real webpack app to check.
 
 This app is minimal on purpose: `webpack` + `webpack-cli` + `html-webpack-plugin`,
-`hakka-browser/webpack` as a plugin, one console.log entry point, no framework.
+`hakka-browser/webpack` as a plugin, one entry point that fetches an emitted text asset, no framework.
 
 ## What running it found
 
@@ -114,7 +114,37 @@ itself (not just this probe), so `src/plugin/__tests__/webpackTransform.test.ts`
 — the real vitest regression test covering bug 1, driven off this same
 investigation, running an actual webpack compilation and reading its output
 from disk — runs for real in this repo's own `bun run test` / CI, not just as
-a probe you have to rerun by hand. `@rspack/core` is not a devDependency here,
-so bug 2's fix (verified against rspack too, see above) has no equivalent
-automated regression test — only this probe's manual recipe, adapted to
-`hakka-browser/rspack` and `@rspack/core`, reconfirms it.
+a probe you have to rerun by hand. The Rspack consumer check below covers the
+same injection path with a real browser and verifies production stripping.
+
+## Rspack consumer check
+
+This same minimal app exercises the Rspack entry point with
+`@rspack/core` + `@rspack/cli` and the compatible `html-webpack-plugin`.
+`rspack.config.js` uses `hakka-browser/rspack`, opens the overlay, and the
+entry fetches an emitted `rspack-probe` asset.
+
+After a normal `npm install`, run the real-browser check:
+
+```bash
+npm run test:rspack
+```
+
+It resolves the repository's existing `@playwright/test` installation from
+`packages/hakka-browser`, without linking a workspace `node_modules` into the
+consumer.
+
+It starts `rspack dev` on `127.0.0.1:5292`, confirms the live inspector's
+open panel contains the probe fetch with no browser errors, stops the dev
+server, then runs a production build. Because `output.clean` runs for both
+builds, that final assertion proves `dist/hakka-inject.js` was removed rather
+than merely omitted from `index.html`; it also rejects `data-hakka` and
+`Hakka.start` in production HTML.
+
+The linked consumer needs Hakka's prebuilt global bundle. In an isolated
+worktree, copy only `packages/hakka-browser/dist/` from a verified main
+checkout build before `npm install`; this is consumer fixture output, not a
+source change. The probe retains a local package link, so its direct
+`unplugin` development dependency is present at the consumer root and the
+verifier preserves that link while loading the plugin. The test is intentionally
+limited to the Rspack client runtime and does not assert server-side capture.

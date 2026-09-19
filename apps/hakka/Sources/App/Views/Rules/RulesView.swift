@@ -23,14 +23,15 @@ struct RulesView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
+            Divider()
             ScrollView {
                 VStack(alignment: .leading, spacing: Spacing.xl) {
-                    RulesSection(title: "Mocks", isEmpty: mocks.isEmpty, empty: "No mocks — promote one from a captured request's Mock action, or Add rule above.") {
+                    RulesSection(title: "Mocks", isEmpty: mocks.isEmpty, empty: "Return a saved response without contacting the server. Add a rule or choose Mock on a captured request.") {
                         ForEach(mocks) { entry in
                             RuleRowView(entry: entry, rules: model.rules)
                         }
                     }
-                    RulesSection(title: "Breakpoints", isEmpty: breakpoints.isEmpty, empty: "No breakpoints — add one from a captured request, or Add rule above.") {
+                    RulesSection(title: "Breakpoints", isEmpty: breakpoints.isEmpty, empty: "Pause a matching request before it continues. Add a rule to choose which requests to pause.") {
                         ForEach(breakpoints) { entry in
                             RuleRowView(entry: entry, rules: model.rules)
                         }
@@ -38,7 +39,7 @@ struct RulesView: View {
                     throttleSection
                     if let note = model.rules.deliveryNote {
                         Text(note)
-                            .font(.caption2)
+                            .font(.callout)
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -68,7 +69,7 @@ struct RulesView: View {
                 Label("Add rule", systemImage: "plus")
             }
             .buttonStyle(.borderedProminent)
-            .controlSize(.small)
+            .controlSize(.regular)
         }
         .padding(.horizontal, Layout.gutter)
         .padding(.vertical, Spacing.md)
@@ -76,7 +77,7 @@ struct RulesView: View {
 
     private var pushedText: String {
         let count = model.traffic.devices.filter(\.isConnected).count
-        return "Pushed to \(count) device\(count == 1 ? "" : "s")"
+        return count == 0 ? "No connected devices" : "Applied to \(count) device\(count == 1 ? "" : "s")"
     }
 
     private var throttleSection: some View {
@@ -84,11 +85,11 @@ struct RulesView: View {
             VStack(alignment: .leading, spacing: Spacing.sm) {
                 ThrottlePillRow(selection: throttleBinding)
                 Text(Fmt.throttleReadout(model.rules.throttleProfile))
-                    .font(.caption2.monospaced())
+                    .font(.callout.monospaced())
                     .foregroundStyle(.secondary)
             }
             Text("Applies to every connected device until set back to Off.")
-                .font(.caption2)
+                .font(.callout)
                 .foregroundStyle(.secondary)
         }
     }
@@ -114,20 +115,20 @@ private struct RulesSection<Content: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
-            Text(title.uppercased())
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+            Text(title)
+                .font(.headline)
+                .foregroundStyle(.primary)
             if isEmpty, let empty {
                 Text(empty)
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
             } else {
                 content
             }
         }
-        .padding(Spacing.lg)
+        .padding(Layout.gutter)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.secondary.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: Radius.md))
+        .overlay(RoundedRectangle(cornerRadius: Radius.md).strokeBorder(Color(nsColor: .separatorColor).opacity(0.5)))
     }
 }

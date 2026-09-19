@@ -1,9 +1,5 @@
 #!/bin/sh
-# Tier-0 headless verify gate. Runs every leg in parallel (backgrounded jobs +
-# `wait`), then prints a PASS/FAIL summary table. Exits non-zero if any leg
-# failed. Target: <5 min warm (warm gradle daemon, warm bun/node caches).
-#
-#   just verify
+# Headless gate for `just verify`: build shared dist, then run independent checks.
 
 set -u
 
@@ -16,8 +12,6 @@ printf 'Verification logs: %s\n' "$LOG_DIR"
 names=""
 start=$(date +%s)
 
-# run_leg <name> <command...> — backgrounds the command, logs stdout+stderr,
-# and remembers <name> so we can collect exit codes after `wait`.
 run_leg() {
     name=$1
     shift
@@ -33,45 +27,30 @@ run_leg() {
     names="$names $slug"
 }
 
-# ── Pre-build shared dist (sequential, BEFORE any leg starts) ───────────────
-# core+bridge+node+browser dist is read by the typecheck leg and by every JS
-# test leg (packages/hakka-cli's ciBaseline tests import the "hakka-node/ci"
-# subpath; hakka-rozenite's tests import "hakka-browser/elements/*").
-# Building it inside the parallel phase (test-web's build-core/build-bridge/
-# build-node dep recipes) wipes dist mid-typecheck, producing nondeterministic
-# TS2307/TS7006 failures. Build once here; the web leg then runs the
-# no-build variant (test-web-prebuilt).
+# Build before readers start: concurrent rebuilds erase dist during typechecks/tests.
 if ! just build-core build-bridge build-node build-browser >"$LOG_DIR/prebuild.log" 2>&1; then
     echo "FAIL: pre-build of hakka-core/hakka-bridge/hakka-node/hakka-browser dist" >&2
     cat "$LOG_DIR/prebuild.log" >&2
     exit 1
 fi
 
-# ── Legs (all backgrounded, run concurrently) ───────────────────────────────
-
 run_leg "typecheck" bun run typecheck
 run_leg "lint" bun run lint
 run_leg "fmt-check" bun run fmt:check
+run_leg "cleanup-check" bun run cleanup:check
+run_leg "version-audit" just version-audit
 run_leg "sync-ios-check" just sync-ios-check
 run_leg "sync-tokens-check" just sync-tokens-check
 run_leg "ui-token-check" just ui-token-check
-# Both doc gates read only markdown and source, so they cost nothing here and
-# catch drift before a push rather than in CI.
 run_leg "spec-drift-check" just spec-drift-check
 run_leg "spec-api-check" just spec-api-check
-# Cross-package dependency-declaration gate. Runs after the pre-build above, so
-# it sees dist/ for the packages that pre-build covers and names the ones it
-# could not scan rather than passing silently on them.
 run_leg "dep-declaration-check" just dep-declaration-check
 run_leg "rn-jest" just test
 run_leg "web-jsside" just test-web-prebuilt
 run_leg "android-unit" just test-android
-# Benchmarks are excluded here (CPU contention makes their thresholds flaky
-# under the parallel gate) — run them solo via `just bench-ios`.
+# Run timing-sensitive benchmarks alone with `just bench-ios`.
 run_leg "ios-swift" just test-ios-nobench
 run_leg "desktop-swift" just test-desktop
-
-# ── Wait for every leg, then report ─────────────────────────────────────────
 
 wait
 

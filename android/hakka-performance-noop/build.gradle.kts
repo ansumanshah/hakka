@@ -8,7 +8,7 @@ repositories {
 }
 
 group = "com.noodleapps.hakka"
-version = "0.0.1"
+version = "0.1.1"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
@@ -34,7 +34,7 @@ mavenPublishing {
     if (providers.gradleProperty("signingInMemoryKey").isPresent) {
         signAllPublications()
     }
-    coordinates("com.noodleapps.hakka", "hakka-performance-noop", "0.0.1")
+    coordinates("com.noodleapps.hakka", "hakka-performance-noop", "0.1.1")
     pom {
         name.set("Hakka Performance Noop")
         description.set("No-op implementation of Hakka Android performance collectors")

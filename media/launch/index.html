@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hakka launch</title>
+    <link rel="stylesheet" href="assets/launch.css" />
+    <script src="node_modules/gsap/dist/gsap.min.js"></script>
+  </head>
+  <body>
+    <div id="root" data-composition-id="root" data-start="0" data-width="1280" data-height="720" data-duration="30">
+      <div
+        id="scene-intro"
+        class="clip"
+        data-composition-id="intro"
+        data-composition-src="compositions/intro.html"
+        data-start="0"
+        data-duration="5"
+        data-track-index="0"
+      ></div>
+      <div
+        id="scene-inspector"
+        class="clip"
+        data-composition-id="inspector"
+        data-composition-src="compositions/inspector.html"
+        data-start="5"
+        data-duration="8"
+        data-track-index="0"
+      ></div>
+      <div
+        id="scene-flow"
+        class="clip"
+        data-composition-id="flow"
+        data-composition-src="compositions/flow.html"
+        data-start="13"
+        data-duration="8"
+        data-track-index="0"
+      ></div>
+      <div
+        id="scene-actions"
+        class="clip"
+        data-composition-id="actions"
+        data-composition-src="compositions/actions.html"
+        data-start="21"
+        data-duration="5"
+        data-track-index="0"
+      ></div>
+      <div
+        id="scene-outro"
+        class="clip"
+        data-composition-id="outro"
+        data-composition-src="compositions/outro.html"
+        data-start="26"
+        data-duration="4"
+        data-track-index="0"
+      ></div>
+    </div>
+    <script>
+      window.__timelines = window.__timelines || {}
+      window.__timelines.root = gsap.timeline({ paused: true })
+    </script>
+  </body>
+</html>

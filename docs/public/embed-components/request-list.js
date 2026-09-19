@@ -1,1 +1,1 @@
-import{n as s,t}from"./request-list-D841CZNw.js";export{t as TAG,s as register};
+import{n as s,t as r}from"./request-list-DHXEmP8h.js";export{r as TAG,s as register};

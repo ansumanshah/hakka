@@ -6,13 +6,21 @@
   "type": "module",
   "scripts": {
     "build": "webpack build",
-    "build:prod": "webpack build --mode production"
+    "build:prod": "webpack build --mode production",
+    "build:rspack": "rspack build --config rspack.config.js",
+    "build:rspack:prod": "rspack build --config rspack.config.js --mode production",
+    "dev:rspack": "rspack dev --config rspack.config.js --host 127.0.0.1 --port 5292 --no-open",
+    "test:rspack": "node scripts/verify-rspack.mjs"
   },
   "dependencies": {
     "hakka-browser": "file:../../packages/hakka-browser"
   },
   "devDependencies": {
+    "@rspack/cli": "^2.2.6",
+    "@rspack/core": "^2.2.6",
+    "@rspack/dev-server": "^2.2.1",
     "html-webpack-plugin": "^5.6.8",
+    "unplugin": "^3.3.0",
     "webpack": "^5.110.3",
     "webpack-cli": "^7.2.3"
   }

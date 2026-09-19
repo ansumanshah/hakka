@@ -50,4 +50,4 @@ export {
 } from './spanProcessor'
 export type { FrameworkSpan, NetworkRequest, RequestKind, RequestRuntime } from 'hakka-core'
 
-export const HAKKA_NODE_VERSION = '0.1.0'
+export const HAKKA_NODE_VERSION = '0.1.1'

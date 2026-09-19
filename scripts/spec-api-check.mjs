@@ -125,7 +125,12 @@ for (const file of readdirSync(specDir).filter((f) => f.endsWith('.md'))) {
 
   for (const match of text.matchAll(/import\s+(?:type\s+)?\{([^}]*)\}\s+from\s+'([^']+)'/g)) {
     const pkg = match[2]
-    if (!(pkg in packageEntries)) continue
+    if (!(pkg in packageEntries)) {
+      if (pkg === 'hakka' || pkg.startsWith('hakka-')) {
+        problems.push(`${file}: no source entry is configured for Hakka import '${pkg}'`)
+      }
+      continue
+    }
 
     const available = exportsFor(pkg)
     if (!available) {

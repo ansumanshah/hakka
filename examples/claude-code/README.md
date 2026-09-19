@@ -161,7 +161,7 @@ move on.
 | Client                                    | File                                                       | Where it goes                                                                         |
 | ----------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------- |
 | Claude Code, Windsurf, any generic client | [`configs/mcp.json`](./configs/mcp.json)                   | `.mcp.json` at your project root                                                      |
-| Cursor                                    | [`configs/cursor-mcp.json`](./configs/cursor-mcp.json)     | `.cursor/mcp.json` (project) or `~/.cursor/mcp.json` (global)                         |
+| Cursor                                    | [`configs/mcp.json`](./configs/mcp.json)                   | Copy to `.cursor/mcp.json` (project) or `~/.cursor/mcp.json` (global)                 |
 | VS Code                                   | [`configs/vscode-mcp.json`](./configs/vscode-mcp.json)     | `.vscode/mcp.json`                                                                    |
 | Codex CLI                                 | [`configs/codex-config.toml`](./configs/codex-config.toml) | `~/.codex/config.toml`, or run `codex mcp add hakka -- npx -y hakka-cli mcp` directly |
 

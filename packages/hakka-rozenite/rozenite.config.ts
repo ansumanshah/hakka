@@ -1,8 +1,8 @@
 import type { RozeniteConfig } from '@rozenite/vite-plugin'
 
 /**
- * Rozenite plugin manifest — read by `rozenite build`/`rozenite dev`, and at
- * runtime by the host app's Metro/Re.Pack config via
+ * Rozenite plugin manifest — read by `@rozenite/vite-plugin` during build and
+ * development, and at runtime by the host app's Metro/Re.Pack config via
  * `@rozenite/metro`/`@rozenite/repack`'s plugin auto-discovery.
  */
 export default {
@@ -20,8 +20,13 @@ export default {
       {
         name: 'Request snapshot',
         autoRun: true,
-        async run({ send, waitForMessage }) {
-          await waitForMessage({ type: 'get-snapshot', direction: 'in' })
+        async run({ send, getMessages, waitForMessage }) {
+          const snapshotRequest = { type: 'get-snapshot', direction: 'out' } as const
+
+          // The panel can request its snapshot before this auto-run starts.
+          if (getMessages(snapshotRequest).length === 0) {
+            await waitForMessage(snapshotRequest)
+          }
           const endTime = Date.now()
           send('request', {
             id: 'dev-flow-1',

@@ -12,7 +12,7 @@ import TOKENS from './tokens.css?raw'
 export const STYLES = `${TOKENS}
 /* ── Host isolation: the overlay never intercepts the host page's clicks ── */
 :host { pointer-events: none; }
-.hakka-toggle, .hakka-panel { pointer-events: auto; }
+.hakka-toggle, .hakka-panel, .hakka-palette-overlay, .hakka-tour-overlay { pointer-events: auto; }
 
 /* ── Base typography — lives on :host, not just .hakka-panel ── declared
    here so a standalone element with no .hakka-panel ancestor
@@ -373,11 +373,9 @@ button, input, select, textarea {
    >= 680px and in embedded mode. ── */
 .hakka-mobile-grip {
   display: none;
-  position: absolute;
-  top: -4px;
-  left: 0;
-  right: 0;
+  position: relative;
   height: var(--hakka-ctl-h-sm);
+  flex-shrink: 0;
   z-index: 2;
   background: none;
   border: none;
@@ -417,6 +415,12 @@ button, input, select, textarea {
 
 /* Vertical padding stays 0 so the 44px tabs set the row height and their
    active underline sits exactly on the header's bottom border. */
+.hakka-header,
+.hakka-detail-status {
+  /* Backdrop filtering creates a stacking context; keep its menus above content. */
+  position: relative;
+  z-index: 2;
+}
 .hakka-header {
   display: flex;
   align-items: center;

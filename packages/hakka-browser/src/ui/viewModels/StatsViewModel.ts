@@ -89,11 +89,12 @@ export function createStatsViewModel(opts: { store: StatsStore }): StatsViewMode
     emitter.notify()
   }
 
-  // Subscribe synchronously before the snapshot promise can resolve, so no
-  // live request slips through the gap.
+  // Live records may arrive before the initial snapshot resolves; keep their newer values.
   void opts.store.getSnapshot().then((snap) => {
     if (destroyed) return
-    reqs = snap
+    const byId = new Map(snap.map((req) => [req.id, req]))
+    for (const req of reqs) byId.set(req.id, req)
+    reqs = [...byId.values()]
     emitter.notify()
   })
   const unsubscribe = opts.store.subscribe(upsert)

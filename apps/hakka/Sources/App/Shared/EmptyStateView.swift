@@ -1,33 +1,39 @@
 import SwiftUI
 
-/// Generic placeholder for a pane with nothing to show yet — "no request
-/// selected", "send a request to see the response", "select a captured row".
-/// This is exactly Artboard 8's "sparse detail pane" chrome surface, so the
-/// chrome-material background lives here once rather than at each of its
-/// ~20 call sites across the detail pane, center pane, and sheets.
+/// Consistent, readable placeholder for an empty workspace or inspector.
 struct EmptyStateView: View {
     let systemImage: String
     let title: String
     var message: String?
+    var actionTitle: String?
+    var action: (() -> Void)?
 
     var body: some View {
         VStack(spacing: Spacing.lg) {
             Image(systemName: systemImage)
-                .font(.system(size: 40))  // ui-token-check-ignore: empty-state illustration
-                .foregroundStyle(.tertiary)
+                .font(.system(size: 32, weight: .regular)) // ui-token-check-ignore: empty-state illustration
+                .symbolRenderingMode(.monochrome)
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
             Text(title)
                 .font(.headline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.primary)
             if let message {
                 Text(message)
                     .font(.callout)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: 320)
             }
+            if let actionTitle, let action {
+                Button(actionTitle, action: action)
+                    .buttonStyle(.bordered)
+                    .controlSize(.regular)
+                    .padding(.top, Spacing.xs)
+            }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding()
-        .chromeMaterial(.panel)
+        .padding(Spacing.xxxl)
+        .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
     }
 }

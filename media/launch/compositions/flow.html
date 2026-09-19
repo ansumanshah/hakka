@@ -1,0 +1,97 @@
+<template id="flow-template">
+  <section id="root" class="scene flow" data-composition-id="flow" data-width="1280" data-height="720">
+    <div class="scene-content">
+      <p class="eyebrow flow-kicker">Local capture</p>
+      <h2 class="flow-title">Across the stack.</h2>
+      <div
+        class="flow-diagram"
+        aria-label="React Native, Web, Next.js, Android and iOS connect to local capture, then inspect, mock, export and agent actions."
+      >
+        <div class="flow-sources">
+          <span>React Native</span>
+          <span>Web</span>
+          <span>Next.js</span>
+          <span>Android</span>
+          <span>iOS</span>
+        </div>
+        <div class="flow-capture">Local<br /><strong>capture</strong></div>
+        <div class="flow-actions">
+          <span>Inspect</span>
+          <span>Mock</span>
+          <span>Export</span>
+          <span>Agent</span>
+        </div>
+      </div>
+    </div>
+    <p class="corner">03 / 05</p>
+  </section>
+  <style>
+    @font-face {
+      font-family: 'Hakka System';
+      src: local('Arial');
+    }
+    #root {
+      font-family: 'Hakka System', sans-serif;
+    }
+    .flow-title {
+      font-size: 68px;
+      letter-spacing: -0.03em;
+      margin: 16px 0 46px;
+    }
+    .flow-diagram {
+      align-items: center;
+      display: grid;
+      gap: 24px;
+      grid-template-columns: 1fr 200px 1fr;
+    }
+    .flow-sources,
+    .flow-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .flow-sources span,
+    .flow-actions span {
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      font-size: 20px;
+      font-weight: 600;
+      padding: 13px 16px;
+    }
+    .flow-capture {
+      background: var(--orange);
+      color: var(--graphite);
+      font-size: 26px;
+      font-weight: 600;
+      line-height: 1;
+      padding: 32px 22px;
+      text-align: center;
+    }
+    .flow-capture strong {
+      font-size: 34px;
+    }
+  </style>
+  <script>
+    const flowRoot = document.querySelector('[data-composition-id="flow"]')
+    const flowTimeline = gsap.timeline({ paused: true })
+    flowTimeline
+      .from(flowRoot.querySelector('.flow-kicker'), {
+        duration: 0.35,
+        opacity: 0,
+        y: 18,
+      })
+      .from(flowRoot.querySelector('.flow-title'), { duration: 0.55, opacity: 0, y: 28 }, '-=0.1')
+      .from(
+        flowRoot.querySelectorAll('.flow-sources span'),
+        { duration: 0.38, opacity: 0, x: -28, stagger: 0.09 },
+        '-=0.1',
+      )
+      .from(flowRoot.querySelector('.flow-capture'), { duration: 0.42, opacity: 0, scale: 0.8 }, '-=0.15')
+      .from(
+        flowRoot.querySelectorAll('.flow-actions span'),
+        { duration: 0.36, opacity: 0, x: 24, stagger: 0.09 },
+        '-=0.1',
+      )
+    window.__timelines.flow = flowTimeline
+  </script>
+</template>

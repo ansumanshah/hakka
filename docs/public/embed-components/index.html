@@ -147,6 +147,17 @@
       }
 
       const store = makeDemoStore()
+      const requests = buildDemoRequests()
+      const listSnapshot = {
+        logs: requests,
+        filtered: requests,
+        groups: null,
+        count: requests.length,
+        isFiltered: false,
+        hasServerCaptures: false,
+        searchSuggestions: [],
+        spansByTrace: new Map(),
+      }
 
       // Elements are created (not written as static markup) so `.store` can be
       // set BEFORE the element connects — the view-model that backs each
@@ -164,6 +175,14 @@
       // hit-test through. Documented in /guides/build-your-own-devtools/.
       list.style.pointerEvents = 'auto'
       list.store = store
+      // This read-only preview has no filter controls. Keep its curated list
+      // independent of the full inspector's persisted filters on this origin.
+      list.viewModel = {
+        getSnapshot: () => listSnapshot,
+        subscribe: () => () => {},
+        intents: { clearLogs() {}, async loadSampleTraffic() {}, importRequests() {}, removeFromView() {} },
+        destroy() {},
+      }
       document.getElementById('list-mount').appendChild(list)
 
       const stats = document.createElement('hakka-stats')
@@ -171,7 +190,7 @@
       stats.store = store
       document.getElementById('stats-mount').appendChild(stats)
 
-      for (const req of buildDemoRequests()) store.ingest(req)
+      for (const req of requests) store.ingest(req)
     </script>
   </body>
 </html>

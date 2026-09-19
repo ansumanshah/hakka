@@ -1,0 +1,78 @@
+<template id="inspector-template">
+  <section id="root" class="scene inspector" data-composition-id="inspector" data-width="1280" data-height="720">
+    <div class="scene-content inspector-layout">
+      <div class="inspector-copy">
+        <p class="eyebrow inspector-kicker">Demo traffic · selected failing request</p>
+        <h2 class="inspector-title">The failure has a trail.</h2>
+      </div>
+      <figure class="inspector-frame">
+        <img
+          class="inspector-image"
+          data-layout-allow-overflow
+          src="assets/inspector.png"
+          alt="Hakka inspector showing a selected failing request"
+        />
+      </figure>
+    </div>
+    <p class="corner">02 / 05</p>
+  </section>
+  <style>
+    @font-face {
+      font-family: 'Hakka System';
+      src: local('Arial');
+    }
+    #root {
+      font-family: 'Hakka System', sans-serif;
+    }
+    .inspector-layout {
+      justify-content: flex-start;
+      padding-top: 47px;
+    }
+    .inspector-title {
+      font-size: 40px;
+      letter-spacing: -0.03em;
+      line-height: 1;
+      margin: 10px 0 20px;
+    }
+    .inspector-frame {
+      background: #24211f;
+      border: 1px solid var(--line);
+      box-shadow: 16px 18px 0 var(--orange);
+      margin: 0 auto;
+      overflow: hidden;
+      width: 1050px;
+    }
+    .inspector-image {
+      display: block;
+      height: auto;
+      width: 100%;
+    }
+  </style>
+  <script>
+    const inspectorRoot = document.querySelector('[data-composition-id="inspector"]')
+    const inspectorTimeline = gsap.timeline({ paused: true })
+    inspectorTimeline
+      .from(inspectorRoot.querySelector('.inspector-copy'), {
+        duration: 0.45,
+        opacity: 0,
+        y: 20,
+      })
+      .from(
+        inspectorRoot.querySelector('.inspector-frame'),
+        { duration: 0.7, opacity: 0, scale: 0.96, y: 28 },
+        '-=0.15',
+      )
+      .to(
+        inspectorRoot.querySelector('.inspector-image'),
+        {
+          duration: 5.6,
+          scale: 1.05,
+          transformOrigin: '60% 45%',
+          ease: 'none',
+        },
+        1.1,
+      )
+      .to(inspectorRoot.querySelector('.inspector-frame'), { duration: 0.35, scale: 0.97, opacity: 0 }, 7.6)
+    window.__timelines.inspector = inspectorTimeline
+  </script>
+</template>

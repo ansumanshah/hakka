@@ -16,9 +16,9 @@ struct RequestTabsView: View {
             allSectionsMenu
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: ControlHeight.field)
+        .frame(height: ControlHeight.bar)
         .padding(.horizontal, Layout.gutter)
-        .controlSize(.small)
+        .controlSize(.regular)
         .background(sectionShortcuts)
     }
 

@@ -18,7 +18,7 @@ struct JSONViewerView: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            .controlSize(.small)
+            .controlSize(.regular)
             .frame(maxWidth: 220)
 
             switch model.mode {
