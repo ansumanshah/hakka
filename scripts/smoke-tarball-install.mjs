@@ -19,6 +19,10 @@ const INSTALL_TIMEOUT_MS = 5 * 60_000
 const CHECK_TIMEOUT_MS = 30_000
 
 const KEEP_TEMP = process.env.SMOKE_KEEP_TEMP === '1'
+const WEB_ONLY = process.argv.includes('--web')
+if (process.argv.slice(2).some((arg) => arg !== '--web')) {
+  throw new Error('Usage: smoke-tarball-install.mjs [--web]')
+}
 
 function section(msg) {
   process.stdout.write(`\n==> ${msg}\n`)
@@ -62,6 +66,7 @@ function readPackageDirs() {
   const dirs = readdirSync(dir, { withFileTypes: true })
     .filter((e) => e.isDirectory() && existsSync(path.join(dir, e.name, 'package.json')))
     .filter((e) => JSON.parse(readFileSync(path.join(dir, e.name, 'package.json'), 'utf8')).private !== true)
+    .filter((e) => !WEB_ONLY || !['hakka-react-native', 'hakka-rozenite'].includes(e.name))
     .map((e) => e.name)
     .sort()
   if (dirs.length === 0) fail('parse-package-list', `no packages found under ${dir}`)
@@ -436,8 +441,9 @@ async function main() {
   const dirs = readPackageDirs()
   section(`Package list (from packages/): ${dirs.join(', ')}`)
 
-  section('Building all publishable packages (bun run build)')
-  run('bun', ['run', 'build'], { cwd: repoRoot, step: 'build', timeout: BUILD_TIMEOUT_MS })
+  section(WEB_ONLY ? 'Building web packages' : 'Building all publishable packages (bun run build)')
+  const buildArgs = WEB_ONLY ? ['run', ...dirs.flatMap((dir) => ['--filter', dir]), 'build'] : ['run', 'build']
+  run('bun', buildArgs, { cwd: repoRoot, step: 'build', timeout: BUILD_TIMEOUT_MS })
 
   const tarballDir = mkdtempSync(path.join(tmpdir(), 'hakka-smoke-tarballs-'))
   tarballDirToClean = tarballDir
@@ -473,7 +479,7 @@ async function main() {
     private: true,
     version: '0.0.0',
     type: 'module',
-    // Direct deps: every tarball (so bun installs + hoists all 7), plus the
+    // Direct deps: every selected tarball, plus the
     // few genuinely-third-party packages the check scripts need (react/
     // react-dom for hakka-browser/react's peer requirement, happy-dom for the
     // hakka-browser/elements custom-element check).

@@ -1,6 +1,6 @@
 ---
 title: Publishing to npm
-description: Build, verify and publish Hakka's seven npm packages in dependency order.
+description: Build, verify and publish Hakka's web packages or all seven npm packages in dependency order.
 ---
 
 Use this runbook with the [Release Checklist](/release/checklist/), which also
@@ -60,7 +60,51 @@ The npm release workflow builds and verifies it. For a local release, run
 `node scripts/verify-rn-ios-xcframework.mjs` before packing. See
 [Prebuilt iOS SDK](/react-native/package/#prebuilt-ios-sdk) for consumer behavior.
 
-## 3. Establish the release tag, then publish dependencies
+## 3. Choose the publication scope
+
+### Web first
+
+`release-web.yml` publishes five packages in dependency order:
+`hakka-core` → `hakka-bridge` → `hakka-browser` → `hakka-node` → `hakka-cli`.
+This includes the browser overlay and components, Vite/webpack/Rspack plugins,
+Node/Next.js capture, bridge, CLI, MCP, and CDP entrypoints. These packages do not
+require Maven artifacts or an iOS binary. `hakka-rozenite` stays with the native
+release because it requires the matching `hakka-react-native` peer.
+
+All seven package versions and native source versions still move in lockstep.
+Publishing the web subset first does not change the Changesets fixed group or
+the exact internal dependency pins.
+
+Run the fresh-consumer gate locally:
+
+```bash
+node scripts/smoke-tarball-install.mjs --web
+```
+
+Then dispatch a verification-only run at the selected commit or branch:
+
+```bash
+gh workflow run release-web.yml --ref <verified-ref> -f version=0.1.1 -f publish=false
+```
+
+The workflow checks versions and any existing tag target, builds and packs the
+five packages, tests fresh consumers under Bun and Node, runs package tests and
+typechecks, and exercises the browser UI. Verification-only runs do not require
+`NPM_TOKEN` and do not create tags or publish packages. The PR's Next.js consumer
+and E2E checks must also pass at the selected commit.
+
+After these checks pass, configure `NPM_TOKEN`, deploy and verify the docs, and
+dispatch the same workflow with `publish=true`. It authenticates to npm before
+creating the shared `vVERSION` source tag and publishing the five packages with
+provenance. If the tag exists, it must point to the selected commit; otherwise
+publish mode creates it after verification and npm authentication. This path
+does not create a GitHub Release announcing native availability.
+
+Verify the published versions in fresh consumers before announcing them. Later
+native workflows must use that same source tag and commit; if native fixes are
+needed, select a new coordinated version instead of moving the existing tag.
+
+### Coordinated web and native publication
 
 All release workflows must select the same verified commit and version. Start
 with `release-ios.yml`: after its Swift build, tests and podspec validation, it

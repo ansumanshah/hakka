@@ -263,7 +263,7 @@ bench-e2e: build-core build-bridge
 test-e2e-next: build-core build-bridge build-node build-browser
     cd examples/next-fullstack && npm install && npx playwright install chromium && npm run test:e2e
 
-# Install the Playwright browser (Chromium) for `just test-e2e` / `just bench-e2e`.
+# Install Chromium, Firefox, and WebKit for `just test-e2e` / `just bench-e2e`.
 e2e-install:
     bun run --cwd packages/hakka-browser test:e2e:install
 

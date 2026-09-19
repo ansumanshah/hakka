@@ -168,6 +168,10 @@ Release harness: `examples/react-native-example`
   root `CHANGELOG.md` rather than seven generated ones. Native versions are not
   managed by changesets at all — bump `android/**/build.gradle.kts` and
   `ios/Hakka.podspec` by hand, then let `version-audit` catch any drift.
+- Publication can happen in stages at that same version and source tag.
+  `release-web.yml` verifies or publishes core, bridge, browser, node, and CLI
+  without native prerequisites; the coordinated workflows publish the native
+  packages later from the same commit. See `docs/src/content/docs/release/publishing.md`.
 - **TypeScript tracks npm `latest`** (currently 6.x) per the studio's
   latest-stable policy. `strict` is on in every package tsconfig.
 

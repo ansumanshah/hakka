@@ -6,8 +6,9 @@
  * same pattern as CommandPalette/RequestDiff/Tour, so opening Rules fetches
  * only the picked section.
  */
+import { breakpointEngine } from 'hakka-core'
 import type { Component } from 'solid-js'
-import { createSignal, lazy, Show, For, Loading } from 'solid-js'
+import { createSignal, lazy, Show, For, Loading, onSettled } from 'solid-js'
 
 import type { PanelProps } from './panelRegistry'
 
@@ -26,6 +27,15 @@ const SECTIONS: { id: RulesSection; label: string }[] = [
 const [section, setSection] = createSignal<RulesSection>('mock')
 
 export const RulesTab: Component<PanelProps> = (props) => {
+  onSettled(() => {
+    const revealPausedRequest = () => {
+      if (breakpointEngine.hasPaused()) setSection('breakpoints')
+    }
+    const off = breakpointEngine.subscribe(revealPausedRequest)
+    revealPausedRequest()
+    return off
+  })
+
   return (
     <div class="hakka-rules">
       <div class="hakka-rules-switch">

@@ -63,6 +63,8 @@ jobs:
       - run: node scripts/spec-api-check.mjs
       - run: node scripts/smoke-control-roundtrip.mjs
       - run: bun run test
+      - name: Fresh web package consumers
+        run: node scripts/smoke-tarball-install.mjs --web
       # Shared-runner timing is advisory; local benchmark budgets remain enforced.
       - name: Perf gates (advisory)
         if: github.ref == 'refs/heads/main'
@@ -94,15 +96,21 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-      - name: Install Playwright Chromium (+ OS deps)
+          key: playwright-all-engines-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+      - name: Install Playwright browsers (+ OS deps)
         if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: bunx playwright install --with-deps chromium
+        run: bunx playwright install --with-deps chromium firefox webkit
       - name: Install Playwright OS deps only (browser cached)
         if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: bunx playwright install-deps chromium
+        run: bunx playwright install-deps chromium firefox webkit
       - name: just test-e2e
         run: just test-e2e
+      - name: Rspack consumer and webpack production build
+        working-directory: examples/webpack-probe
+        run: |
+          npm ci --no-audit --no-fund
+          npm run test:rspack
+          npm run build:prod
 
   android-sdk:
     name: Android SDK

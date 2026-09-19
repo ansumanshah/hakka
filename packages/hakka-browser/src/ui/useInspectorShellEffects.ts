@@ -6,6 +6,7 @@
 // (not a component) called once from Inspector's render body — see
 // ./viewModels for the same "factory owns onSettled" pattern.
 import type { HakkaPanel } from 'hakka-core'
+import { breakpointEngine } from 'hakka-core'
 import { createSignal, onSettled } from 'solid-js'
 
 import { onConsoleEntry } from '../capture/console'
@@ -99,6 +100,17 @@ export function useInspectorShellEffects(deps: InspectorShellEffectsDeps): { err
     // Settle-gap resync — see the view-model subscriptions in Inspector.tsx.
     setErrorCount(getErrorCount())
     return consoleSub
+  })
+
+  onSettled(() => {
+    const revealPausedRequest = () => {
+      if (!breakpointEngine.hasPaused()) return
+      deps.setTab('rules')
+      deps.setOpen(true)
+    }
+    const off = breakpointEngine.subscribe(revealPausedRequest)
+    revealPausedRequest()
+    return off
   })
 
   return { errorCount }

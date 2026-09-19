@@ -9,7 +9,7 @@
         "examples/browser-demo/assets/tick.js",
         "examples/build-your-own-devtools/{vite.config.ts,src/panel.ts,src/react-main.tsx}",
         "examples/vite-app/{vite.config.ts,src/main.ts}",
-        "examples/webpack-probe/{webpack.config.js,src/index.js}",
+        "examples/webpack-probe/{webpack.config.js,rspack.config.js,src/index.js,scripts/*.mjs}",
         "examples/cdp-playwright/{playwright.config.ts,fixtures/demo-server.ts,tests/*.spec.ts}",
         "examples/framework-servers/*.mjs",
         "examples/desktop-bridge/run.mjs",
@@ -65,7 +65,6 @@
     // Driven by justfile recipes (knip can't see justfile recipes).
     "scripts/bench-heap.mjs",
     "scripts/spec-api-check-fixture-test.mjs",
-    "scripts/smoke-tarball-install.mjs",
     // Chained from verify-smoke.sh, not imported directly.
     "scripts/smoke-bridge-replay.mjs",
     "scripts/smoke-mcp-handshake.mjs",

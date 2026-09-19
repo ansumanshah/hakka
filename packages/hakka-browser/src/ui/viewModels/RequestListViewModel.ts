@@ -43,7 +43,7 @@ export interface RequestListState {
 export interface RequestListIntents {
   clearLogs(): void
   loadSampleTraffic(): Promise<void>
-  /** Replace a live request in the mirror with a full session/import record (upsert-by-id, same as a live upsert). */
+  /** Merge session records through the store so body search, details, and exports share the same data. */
   importRequests(reqs: NetworkRequest[]): void
   /** Remove one request from the mirror only (local UI action — does not touch the store), e.g. the bulk "Remove" button. */
   removeFromView(id: string): void
@@ -332,14 +332,7 @@ export function createRequestListViewModel(opts: RequestListViewModelOptions): R
       for (const req of buildSampleRequests()) store.ingest(req)
     },
     importRequests(reqs) {
-      const filterSnap = filters.getSnapshot()
-      const predicate = currentPredicate()
-      for (const req of reqs) {
-        const prev = upsertOne(req)
-        filteredCache.applyChange(req, prev, predicate, filterSnap.sortField, filterSnap.sortOrder)
-      }
-      logsVersion++
-      recomputeAndNotifyIncremental()
+      for (const req of reqs) store.ingest(req)
     },
     removeFromView(id) {
       const idx = logs.findIndex((r) => r.id === id)

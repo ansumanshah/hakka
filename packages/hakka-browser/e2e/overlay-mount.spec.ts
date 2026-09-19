@@ -51,3 +51,16 @@ test('show() reopens an already-mounted inspector', async ({ page }) => {
   await page.evaluate(() => (window as Window & { Hakka: { show(): Promise<void> } }).Hakka.show())
   await expect(panel).toHaveClass(/open/)
 })
+
+test('a paused request reopens directly to Resume and Abort controls', async ({ page }) => {
+  await page.goto('/examples/browser-demo/index.html')
+  await expect(page.locator('.hakka-panel.open')).toBeVisible()
+  for (const action of ['Resume', 'Abort']) {
+    await page.getByRole('button', { name: 'Close inspector' }).click()
+    await page.getByRole('button', { name: "fetch('/breakpoint-demo') (pauses)", exact: true }).click()
+    await expect(page.getByRole('tab', { name: 'Rules', exact: true })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByRole('tab', { name: 'Breakpoints', exact: true })).toHaveAttribute('aria-selected', 'true')
+    await page.getByRole('button', { name: `${action} paused request`, exact: true }).click()
+    await expect(page.getByRole('button', { name: 'Resume paused request', exact: true })).toHaveCount(0)
+  }
+})

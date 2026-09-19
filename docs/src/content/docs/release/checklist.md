@@ -86,6 +86,13 @@ Physical-device benchmarks require their own device runs and retained measuremen
 
 ## Release Order
 
+For a web-first release, use the [web publication path](/release/publishing/#web-first):
+`release-web.yml` verifies and publishes core, bridge, browser, node, and CLI at
+the same version. Its default is verification only (`publish=false`). Native and
+Rozenite artifacts remain unavailable until their separate release completes;
+keep those platforms clearly marked as unpublished. The coordinated path below
+continues at the same source tag and commit when native artifacts are ready.
+
 Publish in dependency order so each package's pinned deps resolve:
 
 1. `release-ios.yml`: build/test Swift, create the shared `vVERSION` tag at the verified commit and the GitHub Release.
