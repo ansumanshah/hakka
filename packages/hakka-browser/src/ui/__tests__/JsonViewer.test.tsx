@@ -101,6 +101,40 @@ describe('JsonViewer', () => {
 })
 
 describe('JsonViewer — search', () => {
+  it('cancels pending searches when switching bodies', async () => {
+    const [text, setText] = createSignal('{"first":"old body"}')
+    const { container } = render(() => <JsonViewer text={text()} />)
+    fireEvent.input(container.querySelector('input')!, { target: { value: 'missing' } })
+    setText('{"second":"new body"}')
+    await new Promise((resolve) => setTimeout(resolve, 200))
+    const input = container.querySelector('input')!
+    expect(input.value).toBe('')
+    expect(input.classList.contains('no-match')).toBe(false)
+  })
+
+  it('exposes the expanded state of a named JSON branch', async () => {
+    const { getByRole, container } = render(() => <JsonViewer text='{"nested":{"value":"visible"}}' />)
+    const toggle = getByRole('button', { name: 'Collapse nested' })
+    expect(toggle.getAttribute('aria-expanded')).toBe('true')
+    fireEvent.click(toggle)
+    await waitFor(() => {
+      expect(getByRole('button', { name: 'Expand nested' }).getAttribute('aria-expanded')).toBe('false')
+      expect(container.textContent).not.toContain('visible')
+    })
+  })
+
+  it('returns to a bounded preview when switching large bodies', async () => {
+    const [text, setText] = createSignal('a'.repeat(51_000))
+    const { container, getByRole } = render(() => <JsonViewer text={text()} />)
+    fireEvent.click(getByRole('button', { name: /Show raw/ }))
+    await waitFor(() => expect(container.querySelector('pre')!.textContent!.length).toBe(51_000))
+    setText('b'.repeat(52_000))
+    await waitFor(() => {
+      expect(container.querySelector('pre')!.textContent!.length).toBeLessThan(2_100)
+      expect(getByRole('button', { name: /Show raw/ })).toBeTruthy()
+    })
+  })
+
   it('shows a plain, neutral search input above the tree (no query language, no tint at rest)', () => {
     const { container } = render(() => <JsonViewer text='{"name":"hakka"}' />)
     const input = container.querySelector('.hakka-json-search') as HTMLInputElement

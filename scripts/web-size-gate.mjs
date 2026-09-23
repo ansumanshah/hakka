@@ -76,8 +76,10 @@ const NAMED = {
     // runtime entry and agent page controls. Fresh Node 24.20.0 CI output
     // measures 150.59 KB; retain about 1% headroom for this accepted feature
     // cost. This is a budget adjustment, not a compression improvement.
+    // Solid 2.0 rc.9 measured 154.38 KB (+3.79 KB from the prior Node 24
+    // baseline); retain about 1% headroom for the accepted runtime update.
     label: 'IIFE (<script>)',
-    budget: Number(process.env.HAKKA_WEB_GLOBAL_BUDGET) || 152 * 1024,
+    budget: Number(process.env.HAKKA_WEB_GLOBAL_BUDGET) || 156 * 1024,
   },
   'worker.js': {
     // workerCapture.ts's own build (vite.config.ts's `worker` mode, `hakka-browser/worker`)
@@ -118,7 +120,8 @@ const NAMED = {
 // Re-baselined 2026-09-08 (160 -> 163 KB) alongside the IIFE adjustment.
 // The fresh integrated build measures 161.26 KB across 36 chunks under
 // Node 24.20.0, leaving approximately 1% headroom. Eager/worker caps stay fixed.
-const LAZY_BUDGET = Number(process.env.HAKKA_WEB_LAZY_BUDGET) || 163 * 1024
+// Solid 2.0 rc.9 measures 165.24 KB across the same 36 chunks; ~1% headroom.
+const LAZY_BUDGET = Number(process.env.HAKKA_WEB_LAZY_BUDGET) || 167 * 1024
 
 const kb = (n) => `${(n / 1024).toFixed(2)} KB`
 const pad = (s, n) => String(s).padEnd(n)
@@ -289,7 +292,8 @@ if (existsSync(COMPONENTS_DIST)) {
     // store bucket. Solid 2.0 rc.6 then moved the Linux measurement from
     // 87.73 KB to 90.03 KB; 93 KB keeps roughly 3% headroom without charging
     // the individual element entries.
-    const budget = Number(process.env.HAKKA_COMPONENTS_SHARED_BUDGET) || 93 * 1024
+    // Solid 2.0 rc.9 measures 95.66 KB here; ~1.4% headroom.
+    const budget = Number(process.env.HAKKA_COMPONENTS_SHARED_BUDGET) || 97 * 1024
     const over = g > budget
     if (over) failed = true
     componentRows.push({ label: 'Shared runtime chunk', raw, gz: g, budget, over })

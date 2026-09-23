@@ -1,95 +1,284 @@
-:root {
-  --graphite: #121110;
-  --paper: #ede8e2;
-  --orange: #ee8320;
-  --jade: #3aa981;
-  --muted: #bdb6ad;
-  --line: rgba(237, 232, 226, 0.2);
-  color: var(--paper);
-  font-family: 'Hakka System', sans-serif;
+@font-face {
+  font-family: 'Geist';
+  src: url('fonts/Geist-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: block;
 }
 @font-face {
-  font-family: 'Hakka System';
-  src: local('Arial');
+  font-family: 'Geist Mono';
+  src: url('fonts/GeistMono-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: block;
+}
+:root {
+  color: #f2eee8;
+  background: #111110;
+  font-family: 'Geist', sans-serif;
 }
 * {
   box-sizing: border-box;
 }
-body {
+body,
+h1,
+h2,
+p,
+pre {
   margin: 0;
-  background: var(--graphite);
 }
-[data-composition-id] {
-  width: 1280px;
-  height: 720px;
-  overflow: hidden;
+#root {
   position: relative;
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  background: #111110;
 }
-.scene {
-  background: var(--graphite);
-  color: var(--paper);
-  isolation: isolate;
-}
-.scene::before {
-  background-image:
-    linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
-  background-size: 80px 80px;
-  content: '';
-  inset: 0;
-  opacity: 0.16;
+.layer {
   position: absolute;
+  inset: 0;
 }
-.eyebrow {
-  color: var(--orange);
-  font-size: 20px;
+.brand {
+  position: absolute;
+  top: 52px;
+  left: 104px;
+  font-size: 34px;
   font-weight: 700;
-  letter-spacing: 0.1em;
-  margin: 0;
-  text-transform: uppercase;
+  letter-spacing: -1.5px;
+  z-index: 5;
 }
-.headline {
-  font-size: 92px;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  line-height: 0.92;
-  margin: 0;
-  max-width: 940px;
-}
-.copy {
-  color: var(--muted);
-  font-size: 24px;
-  line-height: 1.35;
-  margin: 0;
-}
-.label {
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  color: var(--paper);
+.brand-dot {
   display: inline-block;
-  font-size: 18px;
-  font-weight: 600;
-  padding: 10px 16px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ee8320;
+  margin-right: 9px;
+}
+.demo {
+  position: absolute;
+  right: 104px;
+  top: 68px;
+  font:
+    16px 'Geist Mono',
+    monospace;
+  letter-spacing: 1px;
+  color: #b8b4ad;
+  z-index: 5;
+}
+.kicker {
+  color: #b8b4ad;
+  font:
+    18px 'Geist Mono',
+    monospace;
+  letter-spacing: 2px;
+}
+.mask {
+  display: block;
+  overflow: hidden;
+  padding-bottom: 0.12em;
+  margin-bottom: -0.12em;
+}
+.word {
+  display: inline-block;
+}
+.variable {
+  --weight: 700;
+  font-variation-settings: 'wght' var(--weight);
+}
+em {
+  font-style: normal;
+  color: #ee8320;
+}
+#intro {
+  padding: 217px 104px 0;
+}
+#intro h1 {
+  font-size: 174px;
+  line-height: 0.99;
+  letter-spacing: -10px;
+  font-weight: 450;
+  margin-top: 35px;
+}
+#intro .failure {
+  position: absolute;
+  top: 720px;
+  left: 104px;
+  width: 1712px;
+  border: 1px solid #43342d;
+  box-shadow: 0 20px 80px #0005;
+}
+.failure img {
+  width: 100%;
+  display: block;
+}
+.intro-note {
+  position: absolute;
+  top: 846px;
+  color: #b8b4ad;
+  font-size: 28px;
+}
+.chapter {
+  position: absolute;
+  top: 157px;
+  left: 104px;
+}
+.chapter h2 {
+  font-size: 88px;
+  font-weight: 450;
+  letter-spacing: -4px;
+  line-height: 1.15;
+  margin-top: 16px;
+}
+#product-frame {
+  position: absolute;
+  left: 104px;
+  top: 306px;
+  width: 1712px;
+  height: 722px;
+  overflow: hidden;
+  border: 1px solid #48413a;
+  border-radius: 16px;
+  box-shadow: 0 30px 90px #0006;
+}
+#product-camera {
+  width: 1712px;
+  height: 722.25px;
+  transform-origin: 0 0;
+}
+#workflow {
+  display: block;
+  width: 1712px;
+  height: 722.25px;
+}
+.side-note {
+  position: absolute;
+  right: 146px;
+  top: 638px;
+  width: 350px;
+  font-size: 42px;
+  line-height: 1.25;
+  letter-spacing: -1px;
+  color: #b8b4ad;
+  padding: 25px;
+  background: #111110f2;
+}
+.small-rule {
+  display: block;
+  width: 42px;
+  height: 3px;
+  margin-bottom: 24px;
+  background: #ee8320;
+}
+.side-note strong {
+  font-weight: 700;
+  color: #f2eee8;
+}
+.output {
+  position: absolute;
+  left: 1110px;
+  top: 402px;
+  width: 714px;
+}
+.code-label {
+  color: #58bb98;
+  font:
+    18px 'Geist Mono',
+    monospace;
+  margin-top: 36px;
+  margin-bottom: 18px;
+}
+.output pre {
+  font:
+    22px/1.75 'Geist Mono',
+    monospace;
+  color: #f2eee8;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+#agent-output {
+  margin-top: 55px;
+}
+#agent-output p {
+  margin-top: 22px;
+  font-size: 23px;
+  color: #b8b4ad;
+}
+#overview {
+  padding: 264px 104px;
+}
+#overview h2 {
+  font-size: 112px;
+  line-height: 1.07;
+  letter-spacing: -6px;
+  font-weight: 450;
 }
 .accent {
-  color: var(--orange);
+  color: #ee8320;
 }
-.jade {
-  color: var(--jade);
+.overview-copy {
+  margin-top: 40px;
+  font-size: 29px;
+  color: #b8b4ad;
+  max-width: 380px;
+  line-height: 1.5;
 }
-.corner {
-  bottom: 52px;
-  font-size: 18px;
-  font-weight: 700;
-  left: 64px;
-  letter-spacing: 0.08em;
+#overview img {
   position: absolute;
-  text-transform: uppercase;
+  width: 1030px;
+  right: 104px;
+  top: 508px;
+  border: 1px solid #48413a;
+  border-radius: 12px;
+  box-shadow: 0 25px 70px #0005;
 }
-.scene-content {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  justify-content: center;
-  padding: 64px;
-  position: relative;
+#outro {
+  padding: 230px 104px 0;
+}
+.end-rule {
+  width: 110px;
+  height: 8px;
+  background: #ee8320;
+  transform-origin: left;
+  margin-bottom: 34px;
+}
+#outro h2 {
+  font-size: 264px;
+  line-height: 1.04;
+  letter-spacing: -17px;
+}
+.logo-stop {
+  color: #ee8320;
+}
+.tagline {
+  font-size: 49px;
+  letter-spacing: -1.8px;
+  margin-top: 48px;
+}
+.tagline span {
+  display: inline-block;
+}
+.url {
+  margin-top: 92px;
+  font:
+    29px 'Geist Mono',
+    monospace;
+  color: #b8b4ad;
+}
+.url span {
+  color: #ee8320;
+  margin-left: 20px;
+}
+
+.status {
+  position: absolute;
+  left: 1365px;
+  top: 338px;
+}
+.status span {
+  display: block;
+  margin-top: 16px;
+  color: #ef745e;
+  font:
+    170px/1.25 'Geist Mono',
+    monospace;
+  letter-spacing: -12px;
 }

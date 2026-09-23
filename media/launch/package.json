@@ -7,11 +7,11 @@
   "scripts": {
     "preview": "hyperframes preview . --foreground",
     "lint": "hyperframes lint .",
-    "check": "hyperframes check . --at 1,7,19,24,28 --snapshots",
+    "check": "hyperframes check . --at 0,1,5,10,15,17,20,24,27,29.9 --snapshots",
     "render": "hyperframes render . --output renders/hakka-launch.mp4"
   },
   "devDependencies": {
-    "gsap": "3.13.0",
-    "hyperframes": "0.8.35"
+    "gsap": "3.15.0",
+    "hyperframes": "0.8.60"
   }
 }

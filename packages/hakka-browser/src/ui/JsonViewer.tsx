@@ -87,7 +87,12 @@ const JsonNode: Component<NodeProps> = (props) => {
     <div class="hakka-json-node">
       <Show when={isComplex()}>
         <div class="hakka-json-row">
-          <button class="hakka-json-toggle" onClick={() => setCollapsed((c) => !c)}>
+          <button
+            class="hakka-json-toggle"
+            aria-label={`${collapsed() ? 'Expand' : 'Collapse'} ${props.keyName ?? (isArray() ? 'array' : 'object')}`}
+            aria-expanded={collapsed() ? 'false' : 'true'}
+            onClick={() => setCollapsed((c) => !c)}
+          >
             {collapsed() ? <IconChevronRight size={9} /> : <IconChevronDown size={9} />}
           </button>
           <Show when={props.keyName !== undefined}>
@@ -190,8 +195,10 @@ export const JsonViewer: Component<JsonViewerProps> = (props) => {
   createEffect(
     () => props.text,
     () => {
+      clearTimeout(debounceTimer)
       setSearchInput('')
       setQuery('')
+      setShowRaw(false)
     },
   )
 

@@ -3,61 +3,159 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Hakka launch</title>
+    <title>Hakka — from failure to evidence</title>
     <link rel="stylesheet" href="assets/launch.css" />
     <script src="node_modules/gsap/dist/gsap.min.js"></script>
   </head>
   <body>
-    <div id="root" data-composition-id="root" data-start="0" data-width="1280" data-height="720" data-duration="30">
-      <div
-        id="scene-intro"
-        class="clip"
-        data-composition-id="intro"
-        data-composition-src="compositions/intro.html"
-        data-start="0"
-        data-duration="5"
-        data-track-index="0"
-      ></div>
-      <div
-        id="scene-inspector"
-        class="clip"
-        data-composition-id="inspector"
-        data-composition-src="compositions/inspector.html"
-        data-start="5"
-        data-duration="8"
-        data-track-index="0"
-      ></div>
-      <div
-        id="scene-flow"
-        class="clip"
-        data-composition-id="flow"
-        data-composition-src="compositions/flow.html"
-        data-start="13"
-        data-duration="8"
-        data-track-index="0"
-      ></div>
-      <div
-        id="scene-actions"
-        class="clip"
-        data-composition-id="actions"
-        data-composition-src="compositions/actions.html"
-        data-start="21"
-        data-duration="5"
-        data-track-index="0"
-      ></div>
-      <div
-        id="scene-outro"
-        class="clip"
-        data-composition-id="outro"
-        data-composition-src="compositions/outro.html"
-        data-start="26"
-        data-duration="4"
-        data-track-index="0"
-      ></div>
-    </div>
+    <main id="root" data-composition-id="root" data-start="0" data-width="1920" data-height="1080" data-duration="30">
+      <div class="brand"><span class="brand-dot"></span> hakka</div>
+      <p class="demo">REAL INSPECTOR / DEMO TRAFFIC</p>
+      <section id="intro" class="layer">
+        <p class="kicker">EVERY BUG LEAVES A TRACE.</p>
+        <h1>
+          <span class="mask"><span class="word" data-layout-allow-overflow>Something</span></span
+          ><span class="mask"><span class="word variable" data-layout-allow-overflow>broke.</span></span>
+        </h1>
+        <div class="status">
+          <p class="kicker">HTTP STATUS</p>
+          <span>500</span>
+        </div>
+        <div class="failure">
+          <img src="assets/failed-request.png" alt="Captured GET search request returning 500 in 512 milliseconds" />
+        </div>
+        <p class="intro-note">Start with the request.</p>
+      </section>
+      <div id="product-frame" data-layout-allow-overflow>
+        <div id="product-camera" data-layout-allow-overflow>
+          <video
+            id="workflow"
+            class="clip"
+            src="assets/workflow.mp4"
+            data-start="3"
+            data-duration="19"
+            data-track-index="0"
+            muted
+            playsinline
+          ></video>
+        </div>
+      </div>
+      <div id="find" class="chapter">
+        <p class="kicker">FOLLOW THE FAILURE</p>
+        <h2 class="mask">
+          <span class="word" data-layout-allow-overflow>Find the <em>request.</em></span>
+        </h2>
+      </div>
+      <div id="response" class="chapter">
+        <p class="kicker">READ THE EVIDENCE</p>
+        <h2 class="mask">
+          <span class="word" data-layout-allow-overflow>See what <em>came back.</em></span>
+        </h2>
+      </div>
+      <div id="reproduce" class="chapter">
+        <p class="kicker">TAKE THE NEXT STEP</p>
+        <h2 class="mask">
+          <span class="word" data-layout-allow-overflow>Make it <em class="variable">reproducible.</em></span>
+        </h2>
+      </div>
+      <div id="response-note" class="side-note">
+        <span class="small-rule"></span>
+        <p>The response.<br />The error.<br /><strong>The clue.</strong></p>
+      </div>
+      <div id="output" class="output">
+        <p class="kicker">COPIED FROM HAKKA</p>
+        <div class="code-label">cURL</div>
+        <pre id="curl">curl -X GET 'https://api.example.com/search?q=hakka'</pre>
+        <div id="agent-output">
+          <div class="code-label">AGENT CONTEXT · RESPONSE EXCERPT</div>
+          <pre>
+# GET /search?q=hakka -&gt; 500
+
+"error": "internal_error"
+"traceId": "abc123"</pre>
+          <p>Request + response + diagnosis</p>
+        </div>
+      </div>
+      <section id="overview" class="layer">
+        <h2>
+          <span class="mask"><span class="word" data-layout-allow-overflow>Your traffic.</span></span
+          ><span class="mask"><span class="word accent" data-layout-allow-overflow>Your tools.</span></span>
+        </h2>
+        <p class="overview-copy">Local-first network inspection.</p>
+        <img src="assets/overview.png" alt="Hakka network inspector with eight demo requests" />
+      </section>
+      <section id="outro" class="layer">
+        <div class="end-rule"></div>
+        <h2 class="mask">
+          <span class="word variable" data-layout-allow-overflow>hakka<span class="logo-stop">.</span></span>
+        </h2>
+        <p class="tagline"><span>Inspect.</span> <span>Understand.</span> <span>Reproduce.</span></p>
+        <p class="url">github.com/ansumanshah/hakka <span>↗</span></p>
+      </section>
+    </main>
     <script>
-      window.__timelines = window.__timelines || {}
-      window.__timelines.root = gsap.timeline({ paused: true })
+      const tl = gsap.timeline({ paused: true, defaults: { ease: 'power3.out' } })
+      window.__timelines = { root: tl }
+      const reveal = (selector, start, duration = 0.65) => {
+        tl.fromTo(`${selector} .word`, { yPercent: 110 }, { yPercent: 0, duration, stagger: 0.08 }, start)
+      }
+      gsap.set(
+        ['#find', '#response', '#reproduce', '#response-note', '#output', '#overview', '#outro', '#agent-output'],
+        { autoAlpha: 0 },
+      )
+      gsap.set('#product-frame', { autoAlpha: 0 })
+      tl.fromTo('.brand', { opacity: 0 }, { opacity: 1, duration: 0.4 }, 0)
+      tl.fromTo('#intro .kicker', { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.4 }, 0.1)
+      reveal('#intro', 0.15)
+      tl.fromTo(
+        '#intro .variable',
+        { '--weight': 450, color: '#f2eee8' },
+        { '--weight': 700, color: '#ef745e', duration: 0.65 },
+        0.6,
+      )
+      tl.fromTo('.status', { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.55 }, 0.55)
+      tl.fromTo('.failure', { opacity: 0, x: 60 }, { opacity: 1, x: 0, duration: 0.65 }, 0.65)
+      tl.fromTo('.intro-note', { opacity: 0 }, { opacity: 1, duration: 0.4 }, 1.1)
+      tl.to('#intro', { opacity: 0, y: -24, duration: 0.35 }, 2.7)
+      tl.to('#product-frame', { autoAlpha: 1, duration: 0.4 }, 3)
+      tl.fromTo('#product-frame', { y: 40, scale: 0.975 }, { y: 0, scale: 1, duration: 0.75 }, 3)
+      tl.set('#find', { autoAlpha: 1 }, 3)
+      reveal('#find', 3.05)
+      tl.to('#find', { autoAlpha: 0, y: -15, duration: 0.3 }, 6.8)
+      tl.set('#response', { autoAlpha: 1 }, 7.15)
+      reveal('#response', 7.15)
+      // Push into the real response panel, keeping its tabs and error body in frame.
+      tl.to('#product-camera', { scale: 1.7, x: -570, y: -86, duration: 1.1, ease: 'power3.inOut' }, 8.2)
+      tl.to('#response-note', { autoAlpha: 1, y: -10, duration: 0.65 }, 9.15)
+      tl.to('#response-note', { autoAlpha: 0, duration: 0.3 }, 12.9)
+      tl.to('#response', { autoAlpha: 0, y: -15, duration: 0.3 }, 13.15)
+      tl.set('#reproduce', { autoAlpha: 1 }, 13.5)
+      reveal('#reproduce', 13.5)
+      tl.fromTo('#reproduce .variable', { '--weight': 450 }, { '--weight': 700, duration: 0.7 }, 13.75)
+      // Track down to Copy as, then Agent. The recording contains the real confirmations.
+      tl.to('#product-camera', { scale: 1.65, x: -565, y: -480, duration: 0.95, ease: 'power3.inOut' }, 13.6)
+      tl.to('#product-frame', { width: 925, duration: 0.75, ease: 'power3.inOut' }, 16.3)
+      tl.to('#product-camera', { x: -1040, duration: 0.8, ease: 'power3.inOut' }, 17.5)
+      tl.to('#output', { autoAlpha: 1, x: -20, duration: 0.6 }, 16.65)
+      tl.to('#agent-output', { autoAlpha: 1, y: -12, duration: 0.55 }, 19.1)
+      tl.to(['#product-frame', '#reproduce', '#output'], { autoAlpha: 0, y: -20, duration: 0.4 }, 21.6)
+      tl.set('#overview', { autoAlpha: 1 }, 22)
+      reveal('#overview', 22.1)
+      tl.fromTo(
+        '#overview img',
+        { x: 120, opacity: 0, scale: 0.98 },
+        { x: 0, opacity: 1, scale: 1, duration: 0.85 },
+        22.1,
+      )
+      tl.fromTo('.overview-copy', { opacity: 0 }, { opacity: 1, duration: 0.4 }, 22.6)
+      tl.to('#overview', { autoAlpha: 0, y: -20, duration: 0.4 }, 25.6)
+      tl.to(['.brand', '.demo'], { autoAlpha: 0, duration: 0.3 }, 25.6)
+      tl.set('#outro', { autoAlpha: 1 }, 26)
+      reveal('#outro', 26, 0.7)
+      tl.fromTo('#outro .variable', { '--weight': 450 }, { '--weight': 700, duration: 0.75 }, 26.05)
+      tl.fromTo('.end-rule', { scaleX: 0 }, { scaleX: 1, duration: 0.65 }, 26.05)
+      tl.fromTo('.tagline span', { opacity: 0, y: 15 }, { opacity: 1, y: 0, duration: 0.4, stagger: 0.1 }, 26.3)
+      tl.fromTo('.url', { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.4 }, 26.6)
     </script>
   </body>
 </html>

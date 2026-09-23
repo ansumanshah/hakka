@@ -2,7 +2,7 @@
 // exports it).
 import type { JSX } from '@solidjs/web'
 import type { Component } from 'solid-js'
-import { createMemo, createSignal, onSettled, Show } from 'solid-js'
+import { createEffect, createMemo, createSignal, onSettled, Show } from 'solid-js'
 
 import { IconArrowDown, IconArrowUp } from './icons'
 import { JsonViewer } from './LazyJsonViewer'
@@ -30,6 +30,15 @@ export const BodySearch: Component<BodySearchProps> = (props) => {
 
   let debounceTimer: ReturnType<typeof setTimeout> | undefined
   onSettled(() => () => clearTimeout(debounceTimer))
+  createEffect(
+    () => props.text,
+    () => {
+      clearTimeout(debounceTimer)
+      setInputValue('')
+      setQuery('')
+      setActiveIdx(0)
+    },
+  )
 
   // Body clipped to the same window highlightedBody displays — matches past
   // BODY_DISPLAY_CAP can never be shown, so there's no point scanning past it.
@@ -118,6 +127,7 @@ export const BodySearch: Component<BodySearchProps> = (props) => {
           style="flex:1;height:var(--hakka-ctl-h);padding:0 var(--hakka-space-md)"
           type="text"
           placeholder="Search body…"
+          aria-label="Search body"
           value={inputValue()}
           onInput={(e) => {
             const next = e.currentTarget.value

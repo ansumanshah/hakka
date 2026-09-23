@@ -17,6 +17,7 @@
     "fmt": "oxfmt --write .",
     "fmt:check": "oxfmt --check .",
     "cleanup:check": "bunx knip --include files,exports,types,dependencies,devDependencies --no-progress --treat-config-hints-as-errors",
+    "media:capture": "node media/launch/capture.cjs",
     "docs:dev": "bun run --cwd docs dev",
     "docs:build": "bun run --cwd docs build",
     "docs:preview": "bun run --cwd docs preview",
@@ -35,12 +36,12 @@
     "prepare": "lefthook install --force"
   },
   "devDependencies": {
-    "@changesets/cli": "^3.0.2",
+    "@changesets/cli": "^3.0.3",
     "@tsconfig/react-native": "^3.0.9",
-    "knip": "^6.35.1",
-    "lefthook": "2.1.12",
-    "oxfmt": "^0.67.0",
-    "oxlint": "1.82.0",
+    "knip": "^6.37.0",
+    "lefthook": "2.1.14",
+    "oxfmt": "^0.70.0",
+    "oxlint": "1.85.0",
     "typescript": "^7.0.2",
     "unrun": "^0.3.1"
   },
@@ -53,10 +54,10 @@
     "vite-plugin-dts": "^5.0.3"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=22.12.0"
   },
   "packageManager": "bun@1.4.2",
   "patchedDependencies": {
-    "@solidjs/web@2.0.0-rc.6": "patches/@solidjs%2Fweb@2.0.0-rc.6.patch"
+    "@solidjs/web@2.0.0-rc.9": "patches/@solidjs%2Fweb@2.0.0-rc.9.patch"
   }
 }

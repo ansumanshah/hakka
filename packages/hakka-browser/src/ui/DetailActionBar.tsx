@@ -125,10 +125,7 @@ export const DetailActionBar: Component<DetailActionBarProps> = (props) => {
   const contextItems = createMemo(() => Hakka.getContextMenuItems())
 
   return (
-    <div
-      class="hakka-detail-status"
-      style="display:flex;flex-wrap:nowrap;gap:var(--hakka-space-xs);align-items:center;overflow-x:auto;-webkit-overflow-scrolling:touch"
-    >
+    <div class="hakka-detail-status">
       <Show when={props.urlHasEncoding()}>
         {/* Solid 2.0 RC's dom-expressions drops `aria-*` attrs entirely on a
             `false` value instead of serializing "false" (verified against a

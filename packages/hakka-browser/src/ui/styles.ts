@@ -1789,6 +1789,8 @@ button, input, select, textarea {
 .hakka-detail-status .hakka-menu-list {
   top: auto;
   bottom: calc(100% + 4px);
+  left: 0;
+  right: auto;
 }
 /* ← back control leading the detail tab strip. */
 /* Scoped under .hakka-tabs to outrank .hakka-back-btn's fixed height below. */
@@ -1838,8 +1840,9 @@ button, input, select, textarea {
 }
 .hakka-detail-status {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--hakka-space-sm);
+  gap: var(--hakka-space-xs);
   flex-shrink: 0;
 }
 /* Geometry (height/radius/font-size/padding) comes from the shared .hakka-ctl
@@ -2689,10 +2692,8 @@ textarea.hakka-input {
 /* ── Mobile (< 680px) — full-screen inspector ergonomics. Kept last so these
    win the cascade over the component rules above at equal specificity. ── */
 @media (max-width: 679px) {
-  /* Keep the request actions in one thumb-reachable row. At 375px the
-     default desktop inset makes the final Agent action wrap despite the bar
-     already supporting horizontal overflow; the narrower mobile inset keeps
-     the common five actions visible together. */
+  /* Narrower insets keep common actions together; extra actions wrap without
+     a scrolling container clipping the upward copy menu. */
   .hakka-detail-status {
     padding-left: var(--hakka-space-lg);
     padding-right: var(--hakka-space-lg);

@@ -49,6 +49,22 @@ test('panel fills the mobile viewport width', async ({ page }) => {
   expect(box!.width).toBeGreaterThan(viewport!.width * 0.9)
 })
 
+test('copy menu actions are reachable on phone and desktop', async ({ page }) => {
+  for (const width of [393, 1280]) {
+    await page.setViewportSize({ width, height: 851 })
+    await page.locator('.hakka-list .hakka-row').filter({ hasText: '/search?q=hakka' }).click()
+    const menu = page.locator('.hakka-detail-status .hakka-menu')
+    await menu.locator('summary').click()
+    for (const name of ['cURL', 'fetch', 'axios', 'HTTPie', 'Python', 'MSW handler', 'Playwright route', 'Share']) {
+      const action = menu.getByRole('button', { name, exact: true })
+      await expect(action).toBeInViewport()
+      await action.click({ trial: true })
+    }
+    await menu.locator('summary').click()
+    if (width === 393) await page.getByRole('button', { name: 'Back to request list' }).click()
+  }
+})
+
 test('filtered exports download full bodies and a saved session can be loaded again', async ({ page }) => {
   await page.locator('.hakka-search').fill('/auth/login')
   await expect(page.locator('.hakka-row')).toHaveCount(1)

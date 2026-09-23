@@ -20,14 +20,15 @@ import HakkaIcon from '../../components/HakkaIcon.astro'
 <div class="hakka-hero">
   <div>
     <HakkaIcon id="hakka-hero" size={76} class="hakka-hero-mark" />
-    <span class="hakka-eyebrow">Local-first · no proxy · no cloud</span>
+    <span class="hakka-eyebrow">Local-first · in-app capture · no account</span>
     <h1>
-      Inspect every request,
+      Find the failing request,
       <br />
       <span class="hakka-grad">right inside your app.</span>
     </h1>
     <p class="hakka-sub">
-      One engine for React Native, web, Next.js, Android, and iOS. In-process capture — no certificate, no account.
+      Find the failing request, inspect its response, and share the evidence. Start with web or Next.js — no
+      certificate, no account.
     </p>
     <div class="hakka-cta">
       <a class="hakka-btn primary" href="/getting-started/install/">
@@ -56,7 +57,7 @@ import HakkaIcon from '../../components/HakkaIcon.astro'
 </div>
 
 <div class="hakka-strip">
-  <span>Works in</span> <b>React Native</b> · <b>Web</b> · <b>Next.js</b> · <b>Android</b> · <b>iOS</b>
+  <span>Works in</span> <b>Web</b> · <b>Next.js</b> · <b>React Native</b> · <b>Android</b> · <b>iOS</b>
 </div>
 
 <div class="hakka-components-strip">
@@ -82,25 +83,25 @@ import HakkaIcon from '../../components/HakkaIcon.astro'
 </div>
 
 <Aside type="tip" title="Local-first, always">
-  Hakka runs entirely on your machine. No account, no cloud, no data leaves your device — safe to point at real traffic
-  while you build.
+  Hakka has no default cloud upload. Captures stay on your machine unless you explicitly export them or connect a local
+  bridge or sink.
 </Aside>
 
 ## Pick your platform
 
 <CardGrid>
-  <LinkCard
-    title="React Native"
-    href="/react-native/package/"
-    description="Capture fetch, XHR, WebSocket, and native OkHttp/URLSession. Zero proxy."
-  />
-  <LinkCard title="Expo" href="/react-native/expo/" description="Use a development build. Expo Go is not supported." />
   <LinkCard title="Web" href="/web/overview/" description="A Shadow-DOM overlay for any browser app." />
   <LinkCard
     title="Next.js"
     href="/nextjs/overview/"
     description="Server + client traffic in one inspector. Two one-line files."
   />
+  <LinkCard
+    title="React Native"
+    href="/react-native/package/"
+    description="Native HTTP capture on iOS and Android, with an optional native inspector."
+  />
+  <LinkCard title="Expo" href="/react-native/expo/" description="Use a development build. Expo Go is not supported." />
   <LinkCard title="Android" href="/android/sdk/" description="Maven artifacts with a debug/release no-op split." />
   <LinkCard title="iOS" href="/ios/sdk/" description="Swift Package products with a no-op release variant." />
 </CardGrid>
@@ -111,19 +112,21 @@ import HakkaIcon from '../../components/HakkaIcon.astro'
 | ------------------------------- | :-------------------------------------: | :---------------------------------------: | :---------------------------------------: | :-----------------------------------: | :-----------------------------------: |
 | Status                          | <Badge text="Beta" variant="caution" /> | <Badge text="Stable" variant="success" /> | <Badge text="Stable" variant="success" /> | <Badge text="Alpha" variant="note" /> | <Badge text="Alpha" variant="note" /> |
 | HTTP capture (fetch/XHR/native) |                    ●                    |                     ●                     |                     ●                     |                   ●                   |                   ●                   |
-| WebSocket                       |                    ●                    |                     ●                     |                     —                     |                   ◐                   |                   ◐                   |
+| WebSocket                       |                    ◐                    |                     ●                     |                     —                     |                   ◐                   |                   ◐                   |
 | Timing waterfall                |                    ●                    |                     ●                     |                     ●                     |                   ●                   |                   ●                   |
 | Mocking & throttling            |                    ●                    |                     ●                     |                     ●                     |                   ●                   |                   ●                   |
 | Breakpoints (pause & edit)      |                    ●                    |                     ●                     |                     ●                     |                   ●                   |                   ●                   |
 | Release-safe no-op build        |                    ●                    |                     ●                     |                     ●                     |                   ●                   |                   ●                   |
 
 <p style="font-size:0.85em;opacity:0.75">
-  ● full · ◐ metadata only (message count + close code, opt-in) · — not yet. WebSocket frame payloads need the JS layer.
+  ● full · ◐ metadata only (message count + close code, opt-in) · — not yet. WebSocket frame payloads are supported by
+  browser capture; React Native uses native metadata capture only.
 </p>
 
 <p style="font-size:0.85em;opacity:0.75">
-  Alpha: works from source in this repo; published packages (Maven Central, the SPM tag) aren't out yet. Beta: works and
-  ships on npm, with less production soak time than the Stable platforms.
+  Alpha: works from source in this repo; published native packages (Maven Central, the SPM tag) aren't out yet. Beta:
+  works with less production soak time than the Stable platforms; the coordinated React Native npm release is still
+  being prepared.
 </p>
 
 ## Do more
@@ -137,7 +140,7 @@ import HakkaIcon from '../../components/HakkaIcon.astro'
     Canned responses, block, Map Remote redirect, rewrite, and slow-network profiles. [Read more](/features/mocking/)
   </Card>
   <Card title="Ship it safely" icon="approve-check">
-    Zero overhead in production builds. [Production safety](/guides/production-safety/)
+    Keep debug capture out of production builds. [Production safety](/guides/production-safety/)
   </Card>
   <Card title="Ask your AI agent" icon="comment-alt">
     Query live captured traffic from Claude Code via the [MCP server](/mcp/overview/).

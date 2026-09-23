@@ -172,8 +172,8 @@ Release harness: `examples/react-native-example`
   `release-web.yml` verifies or publishes core, bridge, browser, node, and CLI
   without native prerequisites; the coordinated workflows publish the native
   packages later from the same commit. See `docs/src/content/docs/release/publishing.md`.
-- **TypeScript tracks npm `latest`** (currently 6.x) per the studio's
-  latest-stable policy. `strict` is on in every package tsconfig.
+- **TypeScript tracks npm `latest`** per the studio's latest-stable policy.
+  `strict` is on in every package tsconfig.
 
 ## Commit Format
 
@@ -200,7 +200,7 @@ Scopes: `core`, `rn`, `web`, `next`, `vite`, `cli`, `mcp`, `bridge`, `android`, 
 
 Maintainers only. Contributors do not publish.
 
-- npm (7 packages): `hakka-core`, `hakka-browser`, `hakka-bridge`, `hakka-node`, `hakka-react-native`, `hakka-rozenite`, `hakka` (CLI) — published in dependency order (core first).
+- npm (7 packages): `hakka-core`, `hakka-browser`, `hakka-bridge`, `hakka-node`, `hakka-react-native`, `hakka-rozenite`, `hakka-cli` — published in dependency order (core first). The published CLI package is `hakka-cli`; its executable is named `hakka`.
 - Android artifacts → Maven Central (`com.noodleapps.hakka:hakka-*`)
 - iOS products → Swift Package Manager tags
 
