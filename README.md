@@ -34,7 +34,7 @@ Seven npm packages, plus native SDKs for Android and iOS. The coordinated `0.1.1
 | [`hakka-browser`](./packages/hakka-browser)           | Drop-in browser overlay (Solid, Shadow DOM, Web Worker store). Also ships `hakka-browser/vite`, `/webpack`, `/rspack` (dev-time auto-inject plugins), `/elements/*` (six standalone inspector pieces as framework-agnostic custom elements — request list, detail, waterfall, filter bar, stats, JSON tree), and `/react` (thin React wrappers over those elements). | ![Stable](https://img.shields.io/badge/stable-3aa981) |
 | [`hakka-node`](./packages/hakka-node)                 | Framework-agnostic Node server capture (Express, Fastify, Hono, raw `http`) with client↔server trace correlation. Also ships `hakka-node/next` (+ `/next/server`, `/next/client`) — zero-config full-stack Next.js capture, server + client traffic in one UI.                                                                                                       | ![Stable](https://img.shields.io/badge/stable-3aa981) |
 
-Beta: React Native uses native capture on iOS and Android. Its first npm release is being prepared as 0.1.1.
+Beta: React Native uses native capture on iOS and Android. Its coordinated 0.1.1 npm release is still being prepared.
 
 ### Native SDKs
 

@@ -1,7 +1,7 @@
 {
   "name": "hakka-react-native",
   "version": "0.1.1",
-  "description": "React Native network inspector — capture fetch/XHR/WebSocket requests, mock responses, export HAR, shake-to-open overlay",
+  "description": "Hakka for React Native — native-only iOS/Android network capture, an optional native inspector, traffic controls, and HAR export.",
   "keywords": [
     "debugging",
     "devtools",
@@ -96,10 +96,10 @@
     "@types/jest": "30.0.0",
     "@types/react": "19.2.18",
     "@types/react-test-renderer": "19.1.0",
-    "babel-jest": "30.5.1",
-    "jest": "30.5.1",
-    "jest-environment-node": "30.5.1",
-    "react-native-builder-bob": "^0.43.0",
+    "babel-jest": "30.5.2",
+    "jest": "30.5.2",
+    "jest-environment-node": "30.5.2",
+    "react-native-builder-bob": "^0.43.1",
     "react-test-renderer": "19.2.3",
     "typescript": "^7.0.2"
   },

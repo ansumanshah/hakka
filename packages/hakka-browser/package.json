@@ -124,33 +124,33 @@
     "bench:render": "bun run build && playwright test render-bench.spec.ts"
   },
   "dependencies": {
-    "@solidjs/element": "2.0.0-rc.6",
-    "@solidjs/signals": "2.0.0-rc.6",
-    "@solidjs/web": "2.0.0-rc.6",
+    "@solidjs/element": "2.0.0-rc.9",
+    "@solidjs/signals": "2.0.0-rc.9",
+    "@solidjs/web": "2.0.0-rc.9",
     "hakka-core": "0.1.1",
-    "unplugin": "^3.3.0"
+    "unplugin": "^3.4.0"
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@playwright/test": "^1.63.0",
     "@solidjs/testing-library": "1.0.0-beta.3",
-    "@solidjs/vite-plugin": "3.0.0-next.39",
-    "@types/node": "^26.4.1",
+    "@solidjs/vite-plugin": "3.0.0-next.44",
+    "@types/node": "^26.6.2",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.7",
     "hakka-bridge": "0.1.1",
-    "happy-dom": "^20.14.0",
+    "happy-dom": "^20.14.5",
     "html-webpack-plugin": "^5.6.8",
     "lightningcss": "^1.33.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "solid-js": "2.0.0-rc.6",
+    "solid-js": "2.0.0-rc.9",
     "terser": "^5.51.2",
     "tsdown": "^0.23.0",
     "typescript": "^7.0.2",
-    "vite": "^8.2.2",
-    "vitest": "^5.0.0",
-    "webpack": "^5.110.3"
+    "vite": "^8.3.0",
+    "vitest": "^5.0.1",
+    "webpack": "^5.111.1"
   },
   "peerDependencies": {
     "html-webpack-plugin": ">=5.0.0",
@@ -177,6 +177,6 @@
     }
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=22.12.0"
   }
 }

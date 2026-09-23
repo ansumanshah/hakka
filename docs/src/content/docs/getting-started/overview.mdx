@@ -5,11 +5,20 @@ description: The 3-minute tour — what Hakka is, what it doesn't require, and w
 
 import { CardGrid, LinkCard, Aside, Badge } from '@astrojs/starlight/components'
 
-Hakka is a local-first network inspector. One engine ([`hakka-core`](/core/overview/)) powers every target — React Native, the web, Next.js, Android, and iOS — so the capture model, record contract, panels, and exports stay identical while rendering stays native.
+Hakka is a local-first network inspector. JavaScript integrations share [`hakka-core`](/core/overview/), while the native SDKs own platform capture and storage. All targets use the same record contract, with platform-specific inspector surfaces.
 
 <Aside type="tip" title="In-process, on-device">
-  Capture happens inside your app: no proxy, no CA certificate, no cloud, no accounts. Nothing leaves your machine.
+  Capture happens inside your app: no proxy, no CA certificate, no default cloud upload, and no account. Data stays
+  local unless you explicitly export it or connect a bridge or sink.
 </Aside>
+
+## Inspect your first request
+
+1. Follow the [web quickstart](/web/overview/) or [Next.js quickstart](/nextjs/overview/), then start your development server.
+2. Open the app, trigger an action that sends a request, and open the Hakka launcher. Select the request to inspect its status, response, and timing.
+3. Use **Copy as → cURL** to reproduce it, or **Copy as agent context** to collect debugging evidence. Review captured bodies before sharing them.
+
+The coordinated 0.1.1 release is being prepared. To try the current source locally, see the [runnable examples](/examples/overview/); check [GitHub Releases](https://github.com/ansumanshah/hakka/releases) for published artifacts.
 
 ## Set up with your AI agent
 
@@ -49,15 +58,20 @@ Set up Hakka (local-first network inspector, https://github.com/ansumanshah/hakk
      plugin for Expo, manual native linking otherwise). Don't improvise the native steps.
 
 4. Plain web or any other framework:
-   - Install `hakka-browser`, call `start()` once from the app's entry file
-     (or drop the CDN <script> tag from its README if there's no bundler).
+   - Install `hakka-browser` and call `start()` behind the framework's development
+     guard. For Vite, use `if (import.meta.env.DEV)`. For a script-tag setup,
+     load Hakka only on development pages.
 
 5. Verify. Do not report success without doing this:
-   - Start the dev server.
-   - Next.js: `curl -s http://localhost:8989` should connect (not "connection
-     refused"). That's the embedded bridge hub. Or check with `lsof -i :8989`.
-   - Web/RN: load the app and confirm a floating bubble/launcher renders, or
-     curl the page and check the bundle references `hakka-inspector` / `hakka-browser`.
+   - Start the dev server and load the app.
+   - Next.js: make a real client request and confirm the overlay shows both the
+     client request and a server request. If the embedded bridge is disabled,
+     start a separate bridge and verify the app uses its configured URL
+     (the default is ws://localhost:8989).
+   - Web: load the app in a browser, make a real request, open the Hakka launcher, and confirm that request appears
+     in the inspector. A bundle reference or a successful page fetch alone does not verify capture.
+   - React Native: rebuild the native app, call `Hakka.start()`, call `await Hakka.show({ as: 'bubble' })`, make a
+     real request, and confirm it appears in the native inspector. `Hakka.show()` is not automatic.
    - State exactly which check passed. If none did, report the real error, don't guess.
 ```
 
@@ -68,14 +82,14 @@ Want this as a reusable, installable skill instead of a paste? Once this repo is
 ## Where to go next
 
 <CardGrid>
+  <LinkCard title="Web" href="/web/overview/" description="A Shadow-DOM overlay for any browser app." />
+  <LinkCard title="Next.js" href="/nextjs/overview/" description="Server + client traffic in one inspector." />
   <LinkCard
     title="React Native"
     href="/react-native/package/"
-    description="Capture fetch, XHR, WebSocket, and native OkHttp/URLSession."
+    description="Native HTTP capture on iOS and Android, with an optional native inspector."
   />
   <LinkCard title="Expo" href="/react-native/expo/" description="Use a development build. Expo Go is not supported." />
-  <LinkCard title="Web" href="/web/overview/" description="A Shadow-DOM overlay for any browser app." />
-  <LinkCard title="Next.js" href="/nextjs/overview/" description="Server + client traffic in one inspector." />
   <LinkCard title="Android" href="/android/sdk/" description="Maven artifacts with a debug/release no-op split." />
   <LinkCard title="iOS" href="/ios/sdk/" description="Swift Package products with a no-op release variant." />
 </CardGrid>
@@ -89,8 +103,9 @@ Want this as a reusable, installable skill instead of a paste? Once this repo is
 | iOS          | <Badge text="Alpha" variant="note" />     |
 
 <p style="font-size:0.85em;opacity:0.75">
-  Beta: works and ships on npm, with less production soak time than the Stable platforms. Alpha: works from source in
-  this repo; published packages (Maven Central, the SPM tag) aren't out yet.
+  Beta: works with less production soak time than the Stable platforms; the coordinated React Native npm release is
+  still being prepared. Alpha: works from source in this repo; published native packages (Maven Central, the SPM tag)
+  aren't out yet.
 </p>
 
 ## How it fits together

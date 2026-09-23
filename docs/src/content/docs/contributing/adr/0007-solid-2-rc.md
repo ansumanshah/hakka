@@ -1,6 +1,6 @@
 ---
 title: 'ADR 0007 — Ship on Solid 2.0 at the RC'
-description: Why hakka-browser launches on solid-js 2.0.0-rc.0 with a carried @solidjs/web patch instead of staying on 1.9.x, and what must stay true until 2.0 stable.
+description: Why hakka-browser launches on Solid 2.0 RC with a carried DOM runtime patch, and what must stay true until 2.0 stable.
 ---
 
 Status: Implemented · Date: 2026-08-16 · Amends [ADR 0003](/contributing/adr/0003-embeddable-components/)
@@ -47,7 +47,7 @@ whose brand is small size and low overhead.
 ## Decision
 
 Option **B**. `hakka-browser` (overlay, worker store client, and all six
-elements) runs on `solid-js@2.0.0-rc.0` + `@solidjs/web` +
+elements) currently runs on `solid-js@2.0.0-rc.9` + `@solidjs/web` +
 `@solidjs/signals` + `@solidjs/element`, compiled by `@solidjs/vite-plugin`.
 `solid-element` and `vite-plugin-solid` are removed entirely.
 
@@ -65,16 +65,17 @@ as house patterns (each enforced by tests):
 
 ### The carried patch
 
-One RC regression is carried as a package patch
-(`patches/@solidjs%2Fweb@2.0.0-rc.0.patch`): 2.0 dropped 1.x's
-stringify-before-insert for numbers, so inserting the number `0` can create
-no text node at all on DOM implementations whose `textContent` setter tests
-raw truthiness (happy-dom, which the test suite runs on). The patch restores
-1.x's stringify-first behavior; a minimal repro and a source-level fix are
-staged for upstream. The patch is **load-bearing for the test suite** — do
-not drop it, and do not float the dependency version (it must stay pinned to
-`2.0.0-rc.0` so the patch applies), until 2.0 stable or a merged upstream
-fix replaces it.
+Two text-insertion cases are carried as a package patch
+(`patches/@solidjs%2Fweb@2.0.0-rc.9.patch`). Numeric values are stringified
+before insertion so `0` creates a text node in happy-dom. An empty-to-nonempty
+text update recreates a missing text node rather than assigning to a null
+`firstChild`.
+
+The RC.9 upgrade on 2026-09-22 confirmed these cases are still unfixed upstream:
+the unpatched browser suite failed 27 tests with null text-node errors. The
+patch covers all three client artifacts: production, development, and observe.
+Keep the runtime packages pinned together, and only remove the patch after the
+upstream fix passes the browser and element suites without it.
 
 ## Consequences / scope
 
@@ -97,8 +98,8 @@ fix replaces it.
   props/events contract, and lazy-registration guarantees are unchanged;
   only the underlying element machinery moved from `solid-element` to
   `@solidjs/element`.
-- **Exit criteria**: when Solid 2.0 stable ships, bump the pins, drop the
-  carried patch, and re-run the full gate battery. Until then the RC pin is
+- **Exit criteria**: when Solid 2.0 stable ships, update the pins, check whether
+  the carried patch is still needed, and re-run the full gate battery. Until then the RC pin is
   deliberate, not drift.
 
 ## Verification plan

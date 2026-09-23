@@ -1,6 +1,7 @@
 import { render, fireEvent } from '@solidjs/testing-library'
 import { Hakka } from 'hakka-core'
 import type { NetworkRequest } from 'hakka-core'
+import { createSignal } from 'solid-js'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 import { getSystemInfo } from '../../adapters/deviceInfo'
@@ -361,6 +362,18 @@ describe('Panel registry', () => {
 })
 
 describe('BodySearch', () => {
+  it('clears pending search and match state when switching bodies', async () => {
+    const [text, setText] = createSignal('first body')
+    const { container, getByRole } = render(() => <BodySearch text={text()} />)
+    const input = getByRole('textbox', { name: 'Search body' }) as HTMLInputElement
+    fireEvent.input(input, { target: { value: 'first' } })
+    setText('second body')
+    await new Promise((resolve) => setTimeout(resolve, 180))
+    expect(input.value).toBe('')
+    expect(container.textContent).not.toContain('No matches')
+    expect(container.querySelector('mark')).toBeNull()
+  })
+
   // The query signal is debounced ~120ms behind the input, so post-input
   // assertions must waitFor the debounced value instead of reading synchronously.
 

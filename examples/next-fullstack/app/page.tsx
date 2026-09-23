@@ -10,7 +10,7 @@ import { TrafficPanel } from './components/TrafficPanel'
 export default async function Home() {
   const repo = await fetch('https://api.github.com/repos/vercel/next.js', {
     headers: { accept: 'application/json' },
-    next: { revalidate: 60 },
+    cache: 'no-store',
   })
     .then((r) => r.json() as Promise<{ stargazers_count?: number }>)
     .catch(() => ({ stargazers_count: undefined }))

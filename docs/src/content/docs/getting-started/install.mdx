@@ -19,6 +19,8 @@ npx hakka-cli init
 Each platform page has a copy-paste quickstart that ends with a captured request.
 
 <CardGrid>
+  <LinkCard title="Web" href="/web/overview/" description="A drop-in overlay for any browser app." />
+  <LinkCard title="Next.js" href="/nextjs/overview/" description="Server + client traffic in one inspector." />
   <LinkCard
     title="React Native"
     href="/react-native/package/"
@@ -29,8 +31,6 @@ Each platform page has a copy-paste quickstart that ends with a captured request
     href="/react-native/expo/"
     description="Development build required — Expo Go is not supported."
   />
-  <LinkCard title="Web" href="/web/overview/" description="A drop-in overlay for any browser app." />
-  <LinkCard title="Next.js" href="/nextjs/overview/" description="Server + client traffic in one inspector." />
   <LinkCard title="Android" href="/android/sdk/" description="Maven artifacts, debug/release no-op split." />
   <LinkCard title="iOS" href="/ios/sdk/" description="Swift Package products + no-op release variant." />
 </CardGrid>
@@ -44,13 +44,16 @@ Each platform page has a copy-paste quickstart that ends with a captured request
 | iOS          | <Badge text="Alpha" variant="note" />     |
 
 <p style="font-size:0.85em;opacity:0.75">
-  Beta: works and ships on npm, with less production soak time than the Stable platforms. Alpha: works from source in
-  this repo; published packages (Maven Central, the SPM tag) aren't out yet.
+  Beta: works with less production soak time than the Stable platforms; the coordinated React Native npm release is
+  still being prepared. Alpha: works from source in this repo; published native packages (Maven Central, the SPM tag)
+  aren't out yet.
 </p>
 
 ## Install commands
 
-The npm packages, if you'd rather wire them up by hand. Follow the platform page for the full setup.
+The npm packages, if you'd rather wire them up by hand. Follow the platform page for the full setup. The coordinated
+0.1.1 release is still being prepared; check [GitHub Releases](https://github.com/ansumanshah/hakka/releases) for
+published artifacts.
 
 <Tabs syncKey="pkg-manager">
   <TabItem label="npm">
@@ -58,7 +61,8 @@ The npm packages, if you'd rather wire them up by hand. Follow the platform page
 ```bash
 npm install hakka-react-native   # React Native / Expo
 npm install hakka-browser            # Web
-npm install hakka-node           # Next.js
+npm install hakka-node hakka-browser # Next.js
+npm install hakka-cli            # CLI setup, diagnostics, MCP, and CDP
 ```
 
   </TabItem>
@@ -67,7 +71,8 @@ npm install hakka-node           # Next.js
 ```bash
 pnpm add hakka-react-native   # React Native / Expo
 pnpm add hakka-browser            # Web
-pnpm add hakka-node           # Next.js
+pnpm add hakka-node hakka-browser # Next.js
+pnpm add hakka-cli            # CLI setup, diagnostics, MCP, and CDP
 ```
 
   </TabItem>
@@ -76,7 +81,8 @@ pnpm add hakka-node           # Next.js
 ```bash
 yarn add hakka-react-native   # React Native / Expo
 yarn add hakka-browser            # Web
-yarn add hakka-node           # Next.js
+yarn add hakka-node hakka-browser # Next.js
+yarn add hakka-cli            # CLI setup, diagnostics, MCP, and CDP
 ```
 
   </TabItem>
@@ -85,14 +91,18 @@ yarn add hakka-node           # Next.js
 ```bash
 bun add hakka-react-native   # React Native / Expo
 bun add hakka-browser            # Web
-bun add hakka-node           # Next.js
+bun add hakka-node hakka-browser # Next.js
+bun add hakka-cli            # CLI setup, diagnostics, MCP, and CDP
 ```
 
   </TabItem>
 </Tabs>
 
+For a separate local hub, run `npx hakka-bridge`; `hakka-node`, the browser overlay, and the CLI can also host or
+connect to the same local bridge. See the [bridge guide](/bridge/overview/) for the connection options.
+
 Native SDKs install through their own package managers — see [Android](/android/sdk/) (Maven) and [iOS](/ios/sdk/) (Swift Package Manager).
 
 <Aside type="tip" title="Local-first, always">
-  Whichever path you pick, Hakka runs on-device. No account, no cloud, no data leaves your machine.
+  Hakka has no default cloud upload. Captures stay local unless you explicitly export them or connect a bridge or sink.
 </Aside>

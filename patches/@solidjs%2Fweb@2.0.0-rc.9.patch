@@ -1,6 +1,8 @@
---- a/dist/dev.cjs
-+++ b/dist/dev.cjs
-@@ -1633,9 +1633,15 @@
+diff --git a/dist/web.dev.js b/dist/web.dev.js
+index 5ee5e6d541ff568dc5f7061d4804a1a9acdb7781..c57735fc4c1790b1673c3dc4a867d053e0b239e2 100644
+--- a/dist/web.dev.js
++++ b/dist/web.dev.js
+@@ -1811,9 +1811,15 @@ function insertExpression(parent, value, current, marker) {
    const t = typeof value,
      multi = marker !== undefined;
    if (t === "string" || t === "number") {
@@ -17,47 +19,32 @@
      } else {
        if (ownsAllChildren(parent, current)) parent.textContent = value;else {
          removeOwnedChildren(parent, current);
---- a/dist/dev.js
-+++ b/dist/dev.js
-@@ -1632,9 +1632,15 @@
-   const t = typeof value,
-     multi = marker !== undefined;
-   if (t === "string" || t === "number") {
-+    // Keep renderer state aligned with hosts that do not create a text node for 0.
-+    if (t === "number") {
-+      value = "" + value;
-+      if (value === current) return value;
-+    }
-     const tc = typeof current;
-     if (tc === "string" || tc === "number") {
--      parent.firstChild.data = value;
-+      // Empty text has no child node, so recreate it before the next non-empty update.
-+      if (parent.firstChild) parent.firstChild.data = value;else parent.appendChild(document.createTextNode(value));
-     } else {
-       if (ownsAllChildren(parent, current)) parent.textContent = value;else {
-         removeOwnedChildren(parent, current);
---- a/dist/web.cjs
-+++ b/dist/web.cjs
-@@ -1546,9 +1546,15 @@
-   const t = typeof value,
-     multi = marker !== undefined;
-   if (t === "string" || t === "number") {
-+    // Keep renderer state aligned with hosts that do not create a text node for 0.
-+    if (t === "number") {
-+      value = "" + value;
-+      if (value === current) return value;
-+    }
-     const tc = typeof current;
-     if (tc === "string" || tc === "number") {
--      parent.firstChild.data = value;
-+      // Empty text has no child node, so recreate it before the next non-empty update.
-+      if (parent.firstChild) parent.firstChild.data = value;else parent.appendChild(document.createTextNode(value));
-     } else {
-       if (ownsAllChildren(parent, current)) parent.textContent = value;else {
-         removeOwnedChildren(parent, current);
+diff --git a/dist/web.js b/dist/web.js
+index 5b1c72d030d88df78f1eb0508b2c88f7178d22b8..e0f10ca7519af3ddc1f9617807112dc308bf1c85 100644
 --- a/dist/web.js
 +++ b/dist/web.js
-@@ -1545,9 +1545,15 @@
+@@ -1655,9 +1655,15 @@ function insertExpression(parent, value, current, marker) {
+   const t = typeof value,
+     multi = marker !== undefined;
+   if (t === "string" || t === "number") {
++    // Keep renderer state aligned with hosts that do not create a text node for 0.
++    if (t === "number") {
++      value = "" + value;
++      if (value === current) return value;
++    }
+     const tc = typeof current;
+     if (tc === "string" || tc === "number") {
+-      parent.firstChild.data = value;
++      // Empty text has no child node, so recreate it before the next non-empty update.
++      if (parent.firstChild) parent.firstChild.data = value;else parent.appendChild(document.createTextNode(value));
+     } else {
+       if (ownsAllChildren(parent, current)) parent.textContent = value;else {
+         removeOwnedChildren(parent, current);
+diff --git a/dist/web.observe.js b/dist/web.observe.js
+index 6c8ec47421b06b4867537c79c9622b8acb000ff8..804dbbf0c2a9e3a2a4244760777a607829d40ea2 100644
+--- a/dist/web.observe.js
++++ b/dist/web.observe.js
+@@ -1677,9 +1677,15 @@ function insertExpression(parent, value, current, marker) {
    const t = typeof value,
      multi = marker !== undefined;
    if (t === "string" || t === "number") {
