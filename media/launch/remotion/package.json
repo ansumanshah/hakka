@@ -1,0 +1,17 @@
+{
+  "name": "hakka-launch-remotion-comparison",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "studio": "remotion studio src/index.ts --public-dir ../assets",
+    "render": "remotion render src/index.ts HakkaIntroComparison renders/hakka-remotion-intro.mp4 --codec h264 --pixel-format yuv420p --public-dir ../assets"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.529",
+    "@remotion/fonts": "4.0.529",
+    "@remotion/media": "4.0.529",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "remotion": "4.0.529"
+  }
+}
