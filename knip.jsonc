@@ -55,6 +55,8 @@
     "docs/public/embed-components/**",
     // Standalone Next.js consumer outside the workspace graph and plugin discovery.
     "examples/next-fullstack/**",
+    // Standalone Remotion project is rendered by its own CLI outside the workspace graph.
+    "media/launch/remotion/**",
     // Worker loaded by string path.
     "examples/browser-demo/traced-worker.js",
     // Manual docs-screenshot script, run ad hoc, never imported.
