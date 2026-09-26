@@ -4,11 +4,11 @@ import { Comparison } from './Comparison'
 
 export const Root = () => (
   <Composition
-    id="HakkaIntroComparison"
+    id="HakkaMobileComparison"
     component={Comparison}
-    durationInFrames={300}
+    durationInFrames={360}
     fps={30}
-    width={1920}
-    height={1080}
+    width={1080}
+    height={1920}
   />
 )

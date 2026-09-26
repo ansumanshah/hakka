@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "studio": "remotion studio src/index.ts --public-dir ../assets",
-    "render": "remotion render src/index.ts HakkaIntroComparison renders/hakka-remotion-intro.mp4 --codec h264 --pixel-format yuv420p --public-dir ../assets"
+    "render": "remotion render src/index.ts HakkaMobileComparison renders/hakka-remotion-mobile.mp4 --codec h264 --pixel-format yuv420p --public-dir ../assets"
   },
   "dependencies": {
     "@remotion/cli": "4.0.529",

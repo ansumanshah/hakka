@@ -18,30 +18,62 @@ loadFont({ family: 'Geist Mono', url: staticFile('fonts/GeistMono-Variable.woff2
 const progress = (frame: number, from: number, to: number) =>
   interpolate(frame, [from, to], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })
 
+// Remotion trim props use composition-frame units. The source recording is VFR,
+// so keep the timeline anchored to source timestamps at the 30 fps composition rate.
+const sourceFrame = (seconds: number) => Math.round(seconds * 30)
+
+const cues = [
+  { from: 0, to: 60, lead: 'Something ', accent: 'failed.', color: '#ef745e' },
+  { from: 60, to: 135, lead: 'Caught ', accent: 'on device.', color: '#ee8320' },
+  { from: 135, to: 240, lead: 'Open the ', accent: 'request.', color: '#ee8320' },
+  { from: 240, to: 300, lead: 'Read the ', accent: 'response.', color: '#ee8320' },
+  { from: 300, to: 360, lead: 'Debug ', accent: 'on device.', color: '#ee8320' },
+]
+
+const MobileClip = ({
+  from,
+  durationInFrames,
+  trimBefore,
+  trimAfter,
+  offsetY,
+}: {
+  from: number
+  durationInFrames: number
+  trimBefore: number
+  trimAfter: number
+  offsetY: number
+}) => (
+  <Sequence from={from} durationInFrames={durationInFrames} premountFor={15}>
+    <Video
+      src={staticFile('mobile-ios-demo.mp4')}
+      trimBefore={trimBefore}
+      trimAfter={trimAfter}
+      muted
+      style={{
+        display: 'block',
+        width: 940,
+        height: 2044,
+        transform: `translateY(${offsetY}px)`,
+        filter: offsetY ? 'brightness(1.18)' : undefined,
+      }}
+    />
+  </Sequence>
+)
+
 export const Comparison = () => {
   const frame = useCurrentFrame()
   const { fps } = useVideoConfig()
-  const entrance = (start: number) =>
-    spring({ frame: Math.max(0, frame - start), fps, config: { damping: 21, stiffness: 130 } })
-  const introOut = progress(frame, 82, 100)
-  const productIn = progress(frame, 90, 103)
-  const weight = progress(frame, 31, 60)
-  const productScale = interpolate(frame, [90, 190, 245, 299], [0.98, 1.02, 1.35, 1.35], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  })
-  const responseIn = progress(frame, 216, 226)
-  const requestOut = progress(frame, 205, 216)
+  const phoneIn = spring({ frame: Math.max(0, frame - 3), fps, config: { damping: 22, stiffness: 110 } })
 
   return (
     <AbsoluteFill style={{ background: '#111110', color: '#f2eee8', fontFamily: 'Geist' }}>
       <div
         style={{
           position: 'absolute',
-          top: 52,
-          left: 104,
-          zIndex: 5,
-          fontSize: 34,
+          top: 48,
+          left: 64,
+          zIndex: 10,
+          fontSize: 32,
           fontWeight: 700,
           letterSpacing: -1.5,
         }}
@@ -51,170 +83,107 @@ export const Comparison = () => {
       <div
         style={{
           position: 'absolute',
-          top: 68,
-          right: 104,
-          zIndex: 5,
-          fontFamily: 'Geist Mono',
-          fontSize: 16,
-          letterSpacing: 1,
+          top: 57,
+          right: 64,
+          zIndex: 10,
           color: '#b8b4ad',
+          fontFamily: 'Geist Mono',
+          fontSize: 14,
+          letterSpacing: 1,
         }}
       >
-        REAL INSPECTOR / DEMO TRAFFIC
+        NATIVE IOS / REAL CAPTURE
       </div>
 
-      <AbsoluteFill
+      {cues.map(({ from, to, lead, accent, color }) => {
+        const entering = progress(frame, from, from + 6)
+        const weight = progress(frame, from + 10, from + 34)
+        return (
+          <div
+            key={from}
+            style={{
+              position: 'absolute',
+              top: 139,
+              left: 64,
+              right: 64,
+              zIndex: 10,
+              fontSize: 76,
+              lineHeight: 1,
+              letterSpacing: -4,
+              opacity: frame >= from && frame < to ? entering : 0,
+              transform: `translateY(${(1 - entering) * 24}px)`,
+            }}
+          >
+            <span>{lead}</span>
+            <span
+              style={{
+                color: interpolateColors(weight, [0, 1], ['#f2eee8', color]),
+                fontVariationSettings: `'wght' ${450 + 250 * weight}`,
+              }}
+            >
+              {accent}
+            </span>
+          </div>
+        )
+      })}
+
+      <div
         style={{
-          opacity: 1 - introOut,
-          transform: `translateY(${-24 * introOut}px)`,
+          position: 'absolute',
+          top: 236,
+          left: 70,
+          width: 940,
+          height: 1650,
+          overflow: 'hidden',
+          border: '1px solid #4a443e',
+          borderRadius: 24,
+          boxShadow: '0 28px 90px #0009',
+          opacity: 0.98,
+          transform: `translateY(${(1 - phoneIn) * 48}px) scale(${0.985 + phoneIn * 0.015})`,
+          transformOrigin: 'top center',
         }}
       >
-        <div
-          style={{
-            position: 'absolute',
-            top: 217,
-            left: 104,
-            color: '#b8b4ad',
-            fontFamily: 'Geist Mono',
-            fontSize: 18,
-            letterSpacing: 2,
-            opacity: progress(frame, 3, 15),
-          }}
-        >
-          EVERY BUG LEAVES A TRACE.
-        </div>
-        <div style={{ position: 'absolute', top: 258, left: 104, fontSize: 174, lineHeight: 0.99, letterSpacing: -10 }}>
-          <div>
-            <span
-              style={{
-                display: 'inline-block',
-                opacity: progress(frame, 9, 25),
-                transform: `translateY(${(1 - entrance(9)) * 42}px)`,
-                fontWeight: 450,
-              }}
-            >
-              Something
-            </span>
-          </div>
-          <div>
-            <span
-              style={{
-                display: 'inline-block',
-                opacity: progress(frame, 18, 34),
-                transform: `translateY(${(1 - entrance(18)) * 42}px)`,
-                fontVariationSettings: `'wght' ${450 + 250 * weight}`,
-                color: interpolateColors(weight, [0, 1], ['#f2eee8', '#ef745e']),
-              }}
-            >
-              broke.
-            </span>
-          </div>
-        </div>
-        <div
-          style={{
-            position: 'absolute',
-            top: 410,
-            right: 260,
-            opacity: progress(frame, 25, 42),
-            transform: `translateY(${(1 - entrance(26)) * 32}px)`,
-          }}
-        >
-          <div style={{ color: '#b8b4ad', fontFamily: 'Geist Mono', fontSize: 18, letterSpacing: 2 }}>HTTP STATUS</div>
-          <div style={{ color: '#ef745e', fontSize: 176, lineHeight: 1, fontWeight: 600, letterSpacing: -10 }}>500</div>
-        </div>
-        <div
-          style={{
-            position: 'absolute',
-            top: 720,
-            left: 104,
-            width: 1712,
-            border: '1px solid #43342d',
-            boxShadow: '0 20px 80px #0005',
-            opacity: progress(frame, 38, 54),
-            transform: `translateX(${(1 - entrance(38)) * 68}px)`,
-          }}
-        >
-          <Img src={staticFile('failed-request.png')} style={{ display: 'block', width: '100%' }} />
-        </div>
-        <div
-          style={{
-            position: 'absolute',
-            top: 846,
-            left: 104,
-            fontSize: 28,
-            color: '#b8b4ad',
-            opacity: progress(frame, 52, 66),
-          }}
-        >
-          Start with the request.
-        </div>
-      </AbsoluteFill>
-
-      <AbsoluteFill style={{ opacity: productIn, pointerEvents: 'none' }}>
-        <div
-          style={{
-            position: 'absolute',
-            top: 149,
-            left: 104,
-            color: '#b8b4ad',
-            fontFamily: 'Geist Mono',
-            fontSize: 18,
-            letterSpacing: 2,
-          }}
-        >
-          {frame < 220 ? 'FOLLOW THE FAILURE' : 'READ THE EVIDENCE'}
-        </div>
-        <div
-          style={{
-            position: 'absolute',
-            top: 190,
-            left: 104,
-            fontSize: 96,
-            letterSpacing: -5,
-            opacity: progress(frame, 96, 106) * (1 - requestOut),
-          }}
-        >
-          <div style={{ transform: `translateY(${(1 - entrance(102)) * 30}px)` }}>
-            Find the <span style={{ color: '#ee8320' }}>request.</span>
-          </div>
-        </div>
-        <div
-          style={{ position: 'absolute', top: 190, left: 104, fontSize: 96, letterSpacing: -5, opacity: responseIn }}
-        >
-          <div style={{ transform: `translateY(${(1 - entrance(216)) * 30}px)` }}>
-            See what <span style={{ color: '#ee8320' }}>came back.</span>
-          </div>
-        </div>
-        <div
-          style={{
-            position: 'absolute',
-            top: 330,
-            left: 104,
-            width: 1712,
-            height: 722,
-            border: '1px solid #43342d',
-            borderRadius: 18,
-            overflow: 'hidden',
-            boxShadow: '0 30px 90px #0008',
-            transform: `translateY(${(1 - productIn) * 36}px)`,
-          }}
-        >
-          <Sequence from={90}>
-            <Video
-              src={staticFile('workflow.mp4')}
-              muted
-              objectFit="cover"
-              style={{
-                width: '100%',
-                height: '100%',
-                transform: `scale(${productScale})`,
-                transformOrigin: '72% 58%',
-                filter: 'brightness(1.42) contrast(1.04)',
-              }}
-            />
-          </Sequence>
-        </div>
-      </AbsoluteFill>
+        <MobileClip
+          from={0}
+          durationInFrames={60}
+          trimBefore={sourceFrame(20.5)}
+          trimAfter={sourceFrame(22.5)}
+          offsetY={0}
+        />
+        <MobileClip
+          from={60}
+          durationInFrames={75}
+          trimBefore={sourceFrame(59)}
+          trimAfter={sourceFrame(61.5)}
+          offsetY={-340}
+        />
+        <MobileClip
+          from={135}
+          durationInFrames={105}
+          trimBefore={sourceFrame(68)}
+          trimAfter={sourceFrame(71.5)}
+          offsetY={-340}
+        />
+        <MobileClip
+          from={240}
+          durationInFrames={60}
+          trimBefore={sourceFrame(77.5)}
+          trimAfter={sourceFrame(79.5)}
+          offsetY={-340}
+        />
+        <Sequence from={300} durationInFrames={60}>
+          <Img
+            src={staticFile('mobile-ios-response.png')}
+            style={{
+              display: 'block',
+              width: 940,
+              height: 2044,
+              transform: 'translateY(-340px)',
+              filter: 'brightness(1.18)',
+            }}
+          />
+        </Sequence>
+      </div>
     </AbsoluteFill>
   )
 }
