@@ -41,40 +41,49 @@ private enum class DetailTab(val label: String) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun HakkaDetailCompose(activity: Activity, request: NetworkRequest, onClose: () -> Unit) {
-    val tabs = remember(request) {
-        buildList {
-            addAll(listOf(DetailTab.OVERVIEW, DetailTab.REQUEST, DetailTab.RESPONSE, DetailTab.TIMING))
-            if (request.graphqlOperationName != null || request.url.contains("graphql", true)) add(DetailTab.GRAPHQL)
-            if (request.wsMessages.isNotEmpty() || request.wsProtocol != null) add(DetailTab.FRAMES)
+    val store = remember(activity) { HakkaUI.getInstance(activity).logStore }
+    var liveRequest by remember(request.id) { mutableStateOf(request) }
+    LaunchedEffect(request.id, store) {
+        while (true) {
+            store?.get(request.id)?.let { liveRequest = it }
+            kotlinx.coroutines.delay(750)
         }
     }
-    var selected by remember { mutableStateOf(0) }
+    val tabs = remember(liveRequest) {
+        buildList {
+            addAll(listOf(DetailTab.OVERVIEW, DetailTab.REQUEST, DetailTab.RESPONSE, DetailTab.TIMING))
+            if (liveRequest.graphqlOperationName != null || liveRequest.url.contains("graphql", true)) add(DetailTab.GRAPHQL)
+            if (liveRequest.wsMessages.isNotEmpty() || liveRequest.wsProtocol != null) add(DetailTab.FRAMES)
+        }
+    }
+    var selected by remember(request.id) { mutableStateOf(DetailTab.OVERVIEW) }
     var decoded by remember { mutableStateOf(true) }
     var actionsOpen by remember { mutableStateOf(false) }
+    val selectedTab = selected.takeIf { it in tabs } ?: DetailTab.OVERVIEW
     MaterialTheme(colorScheme = hakkaColorScheme(activity), typography = HakkaTypography) {
         Scaffold(containerColor = MaterialTheme.colorScheme.background, topBar = {
             TopAppBar(
-                title = { DetailTitle(request) },
+                title = { DetailTitle(liveRequest) },
                 navigationIcon = { IconButton(onClick = onClose) { Icon(painterResource(R.drawable.hakka_ic_back), "Back") } },
                 actions = { Box {
                     IconButton(onClick = { actionsOpen = true }) { Icon(painterResource(R.drawable.hakka_ic_more), "More actions") }
-                    DetailActions(activity, request, actionsOpen) { actionsOpen = false }
+                    DetailActions(activity, liveRequest, actionsOpen) { actionsOpen = false }
                 } },
             )
         }) { inset ->
             Column(Modifier.fillMaxSize().padding(inset)) {
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    tabs.forEachIndexed { index, tab -> FilterChip(index == selected, { selected = index }, { Text(tab.label) }) }
+                    tabs.forEach { tab -> FilterChip(tab == selectedTab, { selected = tab }, { Text(tab.label) }) }
                 }
                 HorizontalDivider()
                 LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    item { when (tabs[selected]) {
-                        DetailTab.OVERVIEW -> OverviewPage(request)
-                        DetailTab.REQUEST -> RequestPage(request, decoded) { decoded = it }
-                        DetailTab.RESPONSE -> ResponsePage(request)
-                        DetailTab.TIMING -> TimingPage(request)
-                        DetailTab.GRAPHQL -> GraphQlPage(request)
-                        DetailTab.FRAMES -> FramesPage(activity, request)
+                    item { when (selectedTab) {
+                        DetailTab.OVERVIEW -> OverviewPage(liveRequest)
+                        DetailTab.REQUEST -> RequestPage(liveRequest, decoded) { decoded = it }
+                        DetailTab.RESPONSE -> ResponsePage(liveRequest)
+                        DetailTab.TIMING -> TimingPage(liveRequest)
+                        DetailTab.GRAPHQL -> GraphQlPage(liveRequest)
+                        DetailTab.FRAMES -> FramesPage(activity, liveRequest)
                     } }
                 }
             }

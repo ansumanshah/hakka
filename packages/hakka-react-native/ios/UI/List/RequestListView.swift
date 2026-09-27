@@ -73,6 +73,7 @@ struct RequestListView: View {
             }
         }
         .onChange(of: filterText) { _ in pushRecentFilter() }
+        .onChange(of: selectedDomains) { _ in pushRecentFilter() }
         .onChange(of: selectedMethods) { _ in pushRecentFilter() }
         .onChange(of: selectedStatusGroup) { _ in pushRecentFilter() }
         .onChange(of: sortField) { _ in pushRecentFilter() }
@@ -247,6 +248,7 @@ struct RequestListView: View {
         let preset = FilterPreset(
             searchQuery: filterText,
             methodFilters: selectedMethods,
+            domainFilters: selectedDomains,
             statusGroup: selectedStatusGroup,
             sortField: sortField,
             sortAscending: sortAscending,

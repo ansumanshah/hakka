@@ -25,13 +25,15 @@ Add Hakka to the Expo plugins array:
 ```json
 {
   "expo": {
-    "plugins": ["hakka-react-native"]
+    "plugins": [["hakka-react-native", { "uiDelivery": "bundled" }]]
   }
 }
 ```
 
-The config plugin adds the Android debug/release Hakka network, performance, and
-UI artifacts during prebuild when native SDK support is enabled. iOS dependencies,
+The config plugin adds Android network capture and the selected inspector artifacts
+during prebuild. Performance collectors are opt-in. Use `uiDelivery: "bundled"`
+for local development or installs outside Google Play; the default `"play"` mode
+requires an App Bundle and Play delivery testing. iOS dependencies,
 including the canonical native UI, are handled by React Native autolinking and
 CocoaPods. The native inspector is opened with `Hakka.show({ as: 'bubble' | 'sheet'
 | 'fullscreen' })` after native capture starts.
@@ -39,7 +41,7 @@ CocoaPods. The native inspector is opened with `Hakka.show({ as: 'bubble' | 'she
 ```json
 {
   "expo": {
-    "plugins": [["hakka-react-native", {}]]
+    "plugins": [["hakka-react-native", { "uiDelivery": "bundled" }]]
   }
 }
 ```
@@ -53,7 +55,7 @@ enable the plugin option:
 ```json
 {
   "expo": {
-    "plugins": [["hakka-react-native", { "androidPerformance": true }]]
+    "plugins": [["hakka-react-native", { "uiDelivery": "bundled", "androidPerformance": true }]]
   }
 }
 ```

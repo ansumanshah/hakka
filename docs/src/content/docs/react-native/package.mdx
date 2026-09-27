@@ -7,7 +7,7 @@ import { Tabs, TabItem, Steps, Aside, Card, CardGrid, LinkCard, Badge } from '@a
 
 <Aside type="tip" title="What you'll have">
   By the end of this page, your React Native app captures network requests and shows them in the Hakka inspector —
-  trigger a call, shake the device or long-press the bubble, and see it. No proxy, no certificate, no cloud account.
+  trigger a call, open the inspector with `Hakka.show()`, and see it. No proxy, no certificate, no cloud account.
 </Aside>
 
 `hakka-react-native` is the app-facing package for React Native. It provides a TypeScript API, a TurboModule bridge to the native Hakka SDKs and optional monitors. The inspector is rendered by the native iOS and Android SDKs.
@@ -80,6 +80,21 @@ the platform clipboard directly.
     cd ios && pod install
     ```
 
+    For bare Android, also add the native SDK artifacts in `android/app/build.gradle`
+    for a bundled inspector:
+
+    ```groovy
+    dependencies {
+        implementation("com.noodleapps.hakka:hakka-network:0.1.1")
+        implementation("com.noodleapps.hakka:hakka-ui:0.1.1")
+    }
+    ```
+
+    These require Maven publication or a local Maven build. For Play delivery,
+    use the [on-demand setup](/android/on-demand-ui/) instead of bundling the UI.
+    [Expo prebuild](/react-native/expo/) generates this native configuration;
+    bare Android setup still requires Gradle changes. Rebuild the native apps.
+
 2.  **Start capture**
 
     Call `Hakka.start` once, before any network traffic — top of your entry file works well.
@@ -112,7 +127,7 @@ the platform clipboard directly.
 4.  **Verify it works**
 
     Trigger any network call in your app (an API fetch, an image load, anything). Then open the native
-    inspector with the bubble or shake gesture. The request should appear with method, URL, status,
+    inspector with `Hakka.show({ as: 'sheet' })` or the bubble opened in the previous step. The request should appear with method, URL, status,
     and timing.
 
 </Steps>

@@ -95,6 +95,8 @@ class LogStore(config: HakkaConfig) {
     fun update(id: String, transform: (NetworkRequest) -> NetworkRequest): Boolean = lock.write {
         val existing = index[id] ?: return@write false
         val updated = transform(existing)
+        removeMetrics(existing)
+        addMetrics(updated)
         index[id] = updated
         val pos = deque.indexOf(existing)
         if (pos >= 0) {

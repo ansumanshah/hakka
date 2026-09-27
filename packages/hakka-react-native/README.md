@@ -9,6 +9,21 @@ npm install hakka-react-native
 cd ios && pod install
 ```
 
+On iOS, autolinking includes capture and the native inspector. Bare Android apps
+must also add the native SDK dependencies to `android/app/build.gradle`:
+
+```groovy
+dependencies {
+    implementation("com.noodleapps.hakka:hakka-network:0.1.1")
+    implementation("com.noodleapps.hakka:hakka-ui:0.1.1")
+}
+```
+
+These coordinates require published Maven artifacts (or a local Maven build).
+For on-demand delivery, follow the [Android Play feature setup](https://hakka.noodleapps.com/android/on-demand-ui/)
+instead of bundling `hakka-ui`. Expo prebuild configures Android automatically as
+shown below. Rebuild both native apps after installation.
+
 No clipboard package or React Native UI peer is required. The native inspector uses
 the platform clipboard directly. Only the optional JavaScript `copyToClipboard` and
 `useShakeToShare` helpers need `@react-native-clipboard/clipboard` or `expo-clipboard`
@@ -78,10 +93,13 @@ Add the config plugin:
 ```json
 {
   "expo": {
-    "plugins": ["hakka-react-native"]
+    "plugins": [["hakka-react-native", { "uiDelivery": "bundled" }]]
   }
 }
 ```
+
+The bundled option works with local APK installs. Use `uiDelivery: "play"` for
+Play-distributed builds; verify downloads through Internal App Sharing.
 
 Rebuild native projects:
 

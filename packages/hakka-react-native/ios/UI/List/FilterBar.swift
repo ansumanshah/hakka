@@ -174,6 +174,7 @@ struct FilterBar: View {
         FilterPreset(
             searchQuery: filterText,
             methodFilters: selectedMethods,
+            domainFilters: selectedDomains,
             statusGroup: selectedStatusGroup,
             sortField: sortField,
             sortAscending: sortAscending,
@@ -188,8 +189,7 @@ struct FilterBar: View {
         sortField = preset.sortField
         sortAscending = preset.sortAscending
         groupBy = preset.groupBy
-        // collapse domains when applying a preset (domain filter not in preset model)
-        selectedDomains = []
+        selectedDomains = preset.domainFilters
     }
 
     // MARK: - Search Field
@@ -305,7 +305,7 @@ struct FilterBar: View {
     }
 
     private var hasActiveFilters: Bool {
-        !filterText.isEmpty || !selectedDomains.isEmpty || !selectedMethods.isEmpty || selectedStatusGroup != nil
+        !currentPreset.isEmpty
     }
 }
 
@@ -449,6 +449,7 @@ struct FilterPresetsSheet: View {
         var parts: [String] = []
         if !preset.searchQuery.isEmpty { parts.append("\"\(preset.searchQuery)\"") }
         if !preset.methodFilters.isEmpty { parts.append(preset.methodFilters.sorted().joined(separator: ",")) }
+        if !preset.domainFilters.isEmpty { parts.append("host:\(preset.domainFilters.sorted().joined(separator: ","))") }
         if let sg = preset.statusGroup { parts.append(sg) }
         if preset.groupBy != .none { parts.append("group:\(preset.groupBy.rawValue)") }
         if preset.sortField != .time || preset.sortAscending {

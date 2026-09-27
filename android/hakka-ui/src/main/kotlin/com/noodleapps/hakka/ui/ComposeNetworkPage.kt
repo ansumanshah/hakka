@@ -91,7 +91,7 @@ internal fun ComposeNetworkPage(activity: Activity, onClose: () -> Unit) {
         onDispose { subscription?.close() }
     }
     LaunchedEffect(logStore, ui.interceptor) {
-        if (logStore != null && ui.interceptor == null) {
+        if (logStore != null) {
             while (true) {
                 kotlinx.coroutines.delay(1_000)
                 revision++
@@ -138,75 +138,81 @@ internal fun ComposeNetworkPage(activity: Activity, onClose: () -> Unit) {
             onDone = { selectionMode = false; selectedIds = emptyList() },
             onClose = onClose,
         )
-        OutlinedTextField(
-            value = query,
-            onValueChange = { query = it },
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            singleLine = true,
-            label = { Text("Search or filter…") },
-            supportingText = { Text("Supports url:, header:, body:, regex, wildcard, and negation") },
-        )
-        NetworkChipRow("Method") {
-            listOf("GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS").forEach { method ->
-                FilterChip(
-                    selected = method in methods,
-                    onClick = { methods = if (method in methods) methods - method else methods + method },
-                    label = { Text(method) },
-                )
-            }
-        }
-        val activeAdvanced = listOf(status, protocol, host, outcome).count { it != null } +
-            (if (sortField != SortField.TIME || sortAscending) 1 else 0) + (if (groupBy != GroupBy.NONE) 1 else 0)
-        OutlinedButton(
-            onClick = { filtersExpanded = !filtersExpanded },
-            modifier = Modifier.padding(horizontal = 16.dp).heightIn(min = 48.dp),
-        ) {
-            Icon(painterResource(R.drawable.hakka_ic_sort), null, Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
-            Text(if (activeAdvanced == 0) "Filters" else "Filters · $activeAdvanced")
-        }
-        if (filtersExpanded) {
-            NetworkAdvancedFilters(
-                status, { status = it }, protocol, { protocol = it }, host, { host = it },
-                outcome, { outcome = it }, sortField, sortAscending,
-                onSort = { field -> if (sortField == field) sortAscending = !sortAscending else { sortFieldName = field.name; sortAscending = false } },
-                groupBy, { groupByName = it.name }, availableProtocols, availableHosts,
-                availableStatuses, savedPresets, recentPresets,
-                onSavePreset = { showPresetName = true },
-                onApplyPreset = { preset ->
-                    query = preset.query; methods = preset.methods; status = preset.status; protocol = preset.protocol
-                    host = preset.host; outcome = preset.outcome; sortFieldName = preset.sortField.name; sortAscending = preset.sortAscending
-                    groupByName = preset.groupBy.name
-                },
-                onDeletePreset = { deletePresetName = it },
-            )
-        }
         val requestCount = visibleRequests.size
         val errors = visibleRequests.count { it.error != null || (it.status ?: 0) >= 400 }
         val pending = visibleRequests.count { it.status == null && it.error == null }
-        Text(
-            buildString { append("$requestCount request${if (requestCount == 1) "" else "s"}"); if (errors > 0) append(" · $errors errors"); if (pending > 0) append(" · $pending pending") },
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.bodySmall,
-        )
-        if (logStore?.isPaused == true) Text(
-            "Capture paused — new requests are buffered until Resume.",
-            color = Color(Theme.warning),
-            modifier = Modifier.fillMaxWidth().background(Color(Theme.warning).copy(alpha = .1f)).padding(12.dp),
-            style = MaterialTheme.typography.bodySmall,
-        )
-        if (visibleItems.isEmpty()) {
-            val hasFilters = query.isNotBlank() || methods.isNotEmpty() || activeAdvanced > 0
-            InspectorEmptyState(
-                if (hasFilters) "No matching requests" else "No captured requests",
-                if (hasFilters) "Try clearing one or more search filters." else "Requests appear here as Hakka records traffic.",
-            )
-        } else LazyColumn(
+        val activeAdvanced = listOf(status, protocol, host, outcome).count { it != null } +
+            (if (sortField != SortField.TIME || sortAscending) 1 else 0) + (if (groupBy != GroupBy.NONE) 1 else 0)
+        LazyColumn(
             state = listState,
             contentPadding = PaddingValues(bottom = 16.dp),
         ) {
-            items(visibleItems, key = {
+            item {
+                Column {
+                    OutlinedTextField(
+                        value = query,
+                        onValueChange = { query = it },
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        singleLine = true,
+                        label = { Text("Search or filter…") },
+                        supportingText = { Text("Supports url:, header:, body:, regex, wildcard, and negation") },
+                    )
+                    NetworkChipRow("Method") {
+                        listOf("GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS").forEach { method ->
+                            FilterChip(
+                                selected = method in methods,
+                                onClick = { methods = if (method in methods) methods - method else methods + method },
+                                label = { Text(method) },
+                            )
+                        }
+                    }
+                    OutlinedButton(
+                        onClick = { filtersExpanded = !filtersExpanded },
+                        modifier = Modifier.padding(horizontal = 16.dp).heightIn(min = 48.dp),
+                    ) {
+                        Icon(painterResource(R.drawable.hakka_ic_sort), null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(if (activeAdvanced == 0) "Filters" else "Filters · $activeAdvanced")
+                    }
+                    if (filtersExpanded) {
+                        NetworkAdvancedFilters(
+                            status, { status = it }, protocol, { protocol = it }, host, { host = it },
+                            outcome, { outcome = it }, sortField, sortAscending,
+                            onSort = { field -> if (sortField == field) sortAscending = !sortAscending else { sortFieldName = field.name; sortAscending = false } },
+                            groupBy, { groupByName = it.name }, availableProtocols, availableHosts,
+                            availableStatuses, savedPresets, recentPresets,
+                            onSavePreset = { showPresetName = true },
+                            onApplyPreset = { preset ->
+                                query = preset.query; methods = preset.methods; status = preset.status; protocol = preset.protocol
+                                host = preset.host; outcome = preset.outcome; sortFieldName = preset.sortField.name; sortAscending = preset.sortAscending
+                                groupByName = preset.groupBy.name
+                            },
+                            onDeletePreset = { deletePresetName = it },
+                        )
+                    }
+                    Text(
+                        buildString { append("$requestCount request${if (requestCount == 1) "" else "s"}"); if (errors > 0) append(" · $errors errors"); if (pending > 0) append(" · $pending pending") },
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    if (logStore?.isPaused == true) Text(
+                        "Capture paused — new requests are buffered until Resume.",
+                        color = Color(Theme.warning),
+                        modifier = Modifier.fillMaxWidth().background(Color(Theme.warning).copy(alpha = .1f)).padding(12.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+            if (visibleItems.isEmpty()) {
+                val hasFilters = query.isNotBlank() || methods.isNotEmpty() || activeAdvanced > 0
+                item {
+                    InspectorEmptyState(
+                        if (hasFilters) "No matching requests" else "No captured requests",
+                        if (hasFilters) "Try clearing one or more search filters." else "Requests appear here as Hakka records traffic.",
+                    )
+                }
+            } else items(visibleItems, key = {
                 when (it) { is ComposeNetworkItem.Header -> "group:${it.label}"; is ComposeNetworkItem.Request -> it.value.id }
             }) { item ->
                 when (item) {

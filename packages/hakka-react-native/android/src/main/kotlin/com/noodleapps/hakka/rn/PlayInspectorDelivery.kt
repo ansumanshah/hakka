@@ -82,6 +82,7 @@ internal class PlayInspectorInstallCoordinator(
         val moduleName: String,
         val listener: SplitInstallStateUpdatedListener,
         var sessionId: Int? = null,
+        var cancellationRequested: Boolean = false,
     )
 
     fun install(moduleName: String, completion: (Boolean) -> Unit) {
@@ -138,8 +139,26 @@ internal class PlayInspectorInstallCoordinator(
                     if (id <= 0) {
                         finish(attempt.token, isModuleInstalled(attempt.moduleName))
                     } else {
-                        synchronized(lock) {
-                            activeAttempt?.takeIf { it.token == attempt.token }?.sessionId = id
+                        val query = synchronized(lock) {
+                            val active = activeAttempt?.takeIf { it.token == attempt.token }
+                            if (active == null) false
+                            else {
+                                active.sessionId = id
+                                !active.cancellationRequested
+                            }
+                        }
+                        if (query) {
+                            try {
+                                manager.getSessionState(id)
+                                    .addOnSuccessListener(callbackExecutor) { state -> handleState(attempt.token, state) }
+                                    .addOnFailureListener(callbackExecutor) { finish(attempt.token, false) }
+                            } catch (_: LinkageError) {
+                                finish(attempt.token, false)
+                            } catch (_: Exception) {
+                                finish(attempt.token, false)
+                            }
+                        } else if (attempt.cancellationRequested) {
+                            cancelInstall(id)
                         }
                     }
                 }
@@ -154,10 +173,7 @@ internal class PlayInspectorInstallCoordinator(
     private fun handleState(token: Long, state: SplitInstallSessionState) {
         val acceptsState = synchronized(lock) {
             val active = activeAttempt
-            active != null && active.token == token && when (val id = active.sessionId) {
-                null -> active.moduleName in state.moduleNames()
-                else -> state.sessionId() == id
-            }
+            active != null && active.token == token && active.sessionId == state.sessionId()
         }
         if (!acceptsState) return
 
@@ -172,16 +188,14 @@ internal class PlayInspectorInstallCoordinator(
     }
 
     fun cancelPending() {
-        val attempt = synchronized(lock) { activeAttempt } ?: return
-        attempt.sessionId?.takeIf { it > 0 }?.let { id ->
-            try {
-                manager.cancelInstall(id)
-            } catch (_: LinkageError) {
-                // Completion below still releases every caller.
-            } catch (_: Exception) {
-                // Completion below still releases every caller.
+        val cancellation = synchronized(lock) {
+            activeAttempt?.let {
+                it.cancellationRequested = true
+                it to it.sessionId
             }
-        }
+        } ?: return
+        val (attempt, sessionId) = cancellation
+        sessionId?.takeIf { it > 0 }?.let(::cancelInstall)
         finish(attempt.token, false)
     }
 
@@ -190,6 +204,7 @@ internal class PlayInspectorInstallCoordinator(
         val completions: List<(Boolean) -> Unit>
         synchronized(lock) {
             attempt = activeAttempt?.takeIf { it.token == token } ?: return
+            if (!installed && attempt.sessionId == null) attempt.cancellationRequested = true
             activeAttempt = null
             completions = pending.toList()
             pending.clear()
@@ -201,8 +216,21 @@ internal class PlayInspectorInstallCoordinator(
         } catch (_: Exception) {
             // A manager can reject unregister after registration failed.
         }
-        val available = installed && loadInstalledSplit()
+        if (!installed && !attempt.cancellationRequested) {
+            attempt.sessionId?.takeIf { it > 0 }?.let(::cancelInstall)
+        }
+        val available = installed && !attempt.cancellationRequested && loadInstalledSplit()
         completions.forEach { it(available) }
+    }
+
+    private fun cancelInstall(id: Int) {
+        try {
+            manager.cancelInstall(id)
+        } catch (_: LinkageError) {
+            // Cancellation is best effort; pending callers still receive their result.
+        } catch (_: Exception) {
+            // Play may have already removed a completed or failed session.
+        }
     }
 
     private fun loadInstalledSplit(): Boolean = try {

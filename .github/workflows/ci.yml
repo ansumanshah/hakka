@@ -168,6 +168,15 @@ jobs:
       - run: swift build
       # Blocking pause/resume tests must not compete for runner threads.
       - run: swift test --no-parallel
+      - name: Run UIKit filter preset regression on iOS Simulator
+        run: |
+          SIMULATOR_ID=$(xcrun simctl list devices available --json | python3 -c 'import json,sys; print(next(d["udid"] for runtime, devices in json.load(sys.stdin)["devices"].items() if "iOS" in runtime for d in devices if d["name"].startswith("iPhone")))')
+          set -o pipefail
+          xcodebuild test -scheme Hakka-Package \
+            -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
+            '-only-testing:HakkaTests/FilterPresetStoreTests/savedDomainFiltersSurvivePersistenceAndOldEntriesDecode()' \
+            -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee /tmp/hakka-ios-ui-tests.log | xcbeautify --quiet --is-ci
       # RN flattens the canonical SDK sources into a single module.
       - name: Typecheck RN iOS copy (flattened single module)
         run: |
@@ -310,6 +319,10 @@ jobs:
       - name: Prepare WebView demo asset
         if: matrix.variant == 'Release'
         run: node examples/react-native-example/scripts/ensure-webview-asset.js
+      - name: React Native Android bridge unit tests
+        if: matrix.variant == 'Debug'
+        working-directory: examples/react-native-example/android
+        run: ./gradlew :hakka-react-native:testDebugUnitTest
       # Separate runners avoid Gradle output/cache contention between variants.
       - name: Assemble ${{ matrix.variant }} APK
         working-directory: examples/react-native-example/android
