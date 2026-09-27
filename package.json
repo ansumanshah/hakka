@@ -16,7 +16,7 @@
     "lint": "oxlint .",
     "fmt": "oxfmt --write .",
     "fmt:check": "oxfmt --check .",
-    "cleanup:check": "bunx knip --include files,exports,types,dependencies,devDependencies --no-progress --treat-config-hints-as-errors",
+    "cleanup:check": "sh scripts/cleanup-check.sh",
     "media:capture": "node media/launch/capture.cjs",
     "docs:dev": "bun run --cwd docs dev",
     "docs:build": "bun run --cwd docs build",
