@@ -390,4 +390,27 @@ class LogStoreTest {
         store.resume()
         assertEquals(1, store.metricsSummary().totalRequests)
     }
+
+    @Test
+    fun `update replaces metrics before later retention eviction`() {
+        val store = LogStore(HakkaConfig(maxRequests = 1))
+        store.add(reqWith("a", status = 200, durationMs = 100L, responseBodySize = 10L))
+        assertTrue(store.update("a") { it.copy(status = 500, durationMs = 300L, responseBodySize = 30L) })
+
+        val updated = store.metricsSummary()
+        assertEquals(0, updated.successCount)
+        assertEquals(1, updated.errorCount)
+        assertEquals(300.0, updated.averageResponseTimeMs, 0.0001)
+        assertEquals(30L, updated.totalDataTransferredBytes)
+
+        store.add(reqWith("b", status = 200, durationMs = 50L, responseBodySize = 5L))
+
+        val summary = store.metricsSummary()
+        assertEquals(1, summary.totalRequests)
+        assertEquals(1, summary.completedRequests)
+        assertEquals(1, summary.successCount)
+        assertEquals(0, summary.errorCount)
+        assertEquals(50.0, summary.averageResponseTimeMs, 0.0001)
+        assertEquals(5L, summary.totalDataTransferredBytes)
+    }
 }

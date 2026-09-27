@@ -42,15 +42,17 @@ React Native UI peer is required.
    ```json title="app.json"
    {
      "expo": {
-       "plugins": [["hakka-react-native", {}]]
+       "plugins": [["hakka-react-native", { "uiDelivery": "bundled" }]]
      }
    }
    ```
 
-   The plugin generates an app-owned `:hakkaInspector` Play Feature Delivery
-   module by default. Capture stays in the base application and `Hakka.show()`
-   downloads the inspector when needed. Set `uiDelivery: "bundled"` to package
-   the inspector in the base app. Set `uiDelivery: "disabled"` or
+   Use `uiDelivery: "bundled"` for local development and installs outside Google
+   Play. This includes the inspector in the app, so `expo run:android` can open it.
+   For Play-distributed builds, set `uiDelivery: "play"` (the plugin default) to
+   generate an app-owned `:hakkaInspector` on-demand module. Capture stays in the
+   base app and `Hakka.show()` downloads the inspector when needed. Verify that
+   path through [Internal App Sharing](/android/on-demand-ui/#verification). Set `uiDelivery: "disabled"` or
    `androidUI: false` to omit it. iOS includes the canonical native UI in the
    React Native pod through autolinking and CocoaPods.
 
@@ -59,7 +61,7 @@ React Native UI peer is required.
    ```json title="app.json"
    {
      "expo": {
-       "plugins": [["hakka-react-native", { "androidPerformance": true }]]
+       "plugins": [["hakka-react-native", { "uiDelivery": "bundled", "androidPerformance": true }]]
      }
    }
    ```
@@ -76,7 +78,18 @@ React Native UI peer is required.
 
 4. **Verify it works**
 
-   Shake the device or press `m` in the Expo CLI to open the dev menu, then open the Hakka overlay. Make any network request in your app — you should see it appear in the inspector with method, status, and timing.
+   Start capture in your app entry point before requests run:
+
+   ```ts
+   import { Hakka } from 'hakka-react-native'
+
+   if (__DEV__) Hakka.start()
+   ```
+
+   From an app button or your own debug menu, call
+   `await Hakka.show({ as: 'sheet' })` and check that it returns `true`.
+   Make a network request and confirm it appears with method, status, and timing.
+   Hakka does not add an item to Expo's development menu automatically.
 
 </Steps>
 

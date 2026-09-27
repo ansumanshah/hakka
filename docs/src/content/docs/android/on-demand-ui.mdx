@@ -67,7 +67,10 @@ Call `Hakka.show()` only after your app's existing authorization check. Hakka
 coalesces concurrent requests for the same feature, waits for
 `SplitInstallSessionStatus.INSTALLED`, then attaches the base capture store and
 presents the inspector. It resolves `false` for a rejected, cancelled, or failed
-install, or when no current activity remains. Install SplitCompat in the base
+install, or when no current activity remains. It also resolves `false` if Play
+requires user confirmation; the bridge does not currently present Play's confirmation dialog. Handle a `false` result in your app.
+
+Install SplitCompat in the base
 application before React Native loads:
 
 ```kotlin

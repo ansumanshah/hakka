@@ -11,6 +11,7 @@ import Foundation
 struct FilterPreset: Equatable {
     var searchQuery: String
     var methodFilters: Set<String>
+    var domainFilters: Set<String>
     var statusGroup: String?     // nil = all
     var sortField: SortField
     var sortAscending: Bool
@@ -21,6 +22,7 @@ struct FilterPreset: Equatable {
     static let `default` = FilterPreset(
         searchQuery: "",
         methodFilters: [],
+        domainFilters: [],
         statusGroup: nil,
         sortField: .time,
         sortAscending: false,
@@ -31,6 +33,7 @@ struct FilterPreset: Equatable {
     var isEmpty: Bool {
         searchQuery.isEmpty &&
         methodFilters.isEmpty &&
+        domainFilters.isEmpty &&
         statusGroup == nil &&
         sortField == .time &&
         !sortAscending &&
@@ -50,6 +53,7 @@ struct FilterPreset: Equatable {
          sortField.rawValue,
          sortAscending ? "true" : "false",
          groupBy.rawValue,
+         domainFilters.sorted().joined(separator: ","),
         ].joined(separator: Self.delim)
     }
 
@@ -58,11 +62,16 @@ struct FilterPreset: Equatable {
         guard parts.count >= 7, parts[0] == "v1" else { return nil }
         let search   = parts[1]
         let methods  = Set(parts[2].split(separator: ",").map(String.init).filter { !$0.isEmpty })
+        // Older entries have seven fields and no domain filter.
+        let domains  = parts.count >= 8
+            ? Set(parts[7].split(separator: ",").map(String.init).filter { !$0.isEmpty })
+            : []
         let sg       = parts[3].isEmpty ? nil : parts[3]
         let sf       = SortField(rawValue: parts[4]) ?? .time
         let asc      = parts[5] == "true"
         let gb       = GroupBy(rawValue: parts[6]) ?? .none
         return FilterPreset(searchQuery: search, methodFilters: methods,
+                            domainFilters: domains,
                             statusGroup: sg, sortField: sf,
                             sortAscending: asc, groupBy: gb)
     }
@@ -156,7 +165,7 @@ final class FilterPresetStore: ObservableObject {
 
     private func saveRecent(_ list: [FilterPreset]) {
         let oldCount = defaults.integer(forKey: Self.keyRecentCount)
-        for i in list.count ..< oldCount {
+        for i in list.count ..< max(list.count, oldCount) {
             defaults.removeObject(forKey: "\(Self.keyRecentItem)\(i)")
         }
         defaults.set(list.count, forKey: Self.keyRecentCount)
@@ -167,7 +176,7 @@ final class FilterPresetStore: ObservableObject {
 
     private func saveSaved(_ list: [NamedPreset]) {
         let oldCount = defaults.integer(forKey: Self.keySavedCount)
-        for i in list.count ..< oldCount {
+        for i in list.count ..< max(list.count, oldCount) {
             defaults.removeObject(forKey: "\(Self.keySavedName)\(i)")
             defaults.removeObject(forKey: "\(Self.keySavedData)\(i)")
         }

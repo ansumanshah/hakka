@@ -228,6 +228,7 @@ public final class OverlayWindow {
         BubbleWindow.shared.setHiddenForOverlay(true)
         topVC.present(hostingController, animated: true)
         self.sheetController = hostingController
+        self.presentationMode = .sheet
     }
 
     /// Toggle visibility.

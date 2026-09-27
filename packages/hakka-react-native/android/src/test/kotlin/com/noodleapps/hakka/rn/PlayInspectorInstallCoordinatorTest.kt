@@ -47,16 +47,33 @@ class PlayInspectorInstallCoordinatorTest {
 
         coordinator.install("hakkaInspector", firstResults::add)
         val oldTask = manager.tasks.single()
-        manager.emit(state(0, SplitInstallSessionStatus.FAILED))
+        coordinator.cancelPending()
         assertEquals(listOf(false), firstResults)
 
         coordinator.install("hakkaInspector", secondResults::add)
+        manager.emit(state(41, SplitInstallSessionStatus.FAILED))
         oldTask.setException(IllegalStateException("late failure"))
         assertTrue(secondResults.isEmpty())
 
+        manager.sessionStates[42] = state(42, SplitInstallSessionStatus.INSTALLED)
         manager.tasks.last().setResult(42)
-        manager.emit(state(42, SplitInstallSessionStatus.INSTALLED))
         assertEquals(listOf(true), secondResults)
+    }
+
+    @Test
+    fun replaysTheCurrentSessionTerminalStateThatArrivesBeforeTheSessionIdTask() {
+        val manager = FakeSplitInstallManager()
+        val coordinator = createCoordinator(manager) { true }
+        val results = mutableListOf<Boolean>()
+
+        coordinator.install("hakkaInspector", results::add)
+        manager.sessionStates[41] = state(41, SplitInstallSessionStatus.INSTALLED)
+        manager.emit(state(41, SplitInstallSessionStatus.INSTALLED))
+        assertTrue(results.isEmpty())
+
+        manager.tasks.single().setResult(41)
+
+        assertEquals(listOf(true), results)
     }
 
     @Test
@@ -119,6 +136,36 @@ class PlayInspectorInstallCoordinatorTest {
         assertTrue(manager.requests.isEmpty())
     }
 
+    @Test
+    fun cancelsAStartedSessionThatReportsItsIdAfterTheCallerIsCancelled() {
+        val manager = FakeSplitInstallManager()
+        val coordinator = createCoordinator(manager) { true }
+        val results = mutableListOf<Boolean>()
+
+        coordinator.install("hakkaInspector", results::add)
+        coordinator.cancelPending()
+
+        assertEquals(listOf(false), results)
+        assertEquals(emptyList<Int>(), manager.cancelledSessionIds)
+
+        manager.tasks.single().setResult(43)
+
+        assertEquals(listOf(43), manager.cancelledSessionIds)
+        assertEquals(0, manager.listenerCount)
+    }
+
+    @Test
+    fun cancelsTheSessionWhenItsStateCannotBeRead() {
+        val manager = FakeSplitInstallManager().apply { stateQueryFails = true }
+        val coordinator = createCoordinator(manager) { true }
+        val results = mutableListOf<Boolean>()
+        coordinator.install("hakkaInspector", results::add)
+        manager.tasks.single().setResult(44)
+        assertEquals(listOf(false), results)
+        assertEquals(listOf(44), manager.cancelledSessionIds)
+        assertEquals(0, manager.listenerCount)
+    }
+
     private fun state(sessionId: Int, status: Int): SplitInstallSessionState =
         SplitInstallSessionState.create(
             sessionId,
@@ -143,7 +190,10 @@ class PlayInspectorInstallCoordinatorTest {
         val installedModules = mutableSetOf<String>()
         val requests = mutableListOf<SplitInstallRequest>()
         val tasks = mutableListOf<TaskCompletionSource<Int>>()
+        val cancelledSessionIds = mutableListOf<Int>()
+        val sessionStates = mutableMapOf<Int, SplitInstallSessionState>()
         var registrationFailures = 0
+        var stateQueryFails = false
         private val listeners = linkedSetOf<SplitInstallStateUpdatedListener>()
 
         val listenerCount: Int get() = listeners.size
@@ -175,13 +225,33 @@ class PlayInspectorInstallCoordinatorTest {
                     requests.add(args[0] as SplitInstallRequest)
                     TaskCompletionSource<Int>().also(tasks::add).task
                 }
-                "cancelInstall" -> Tasks.forResult(null)
+                "getSessionState" -> if (stateQueryFails) {
+                    Tasks.forException<SplitInstallSessionState>(IllegalStateException("state unavailable"))
+                } else Tasks.forResult(
+                    sessionStates[args[0] as Int]
+                        ?: pendingState(args[0] as Int),
+                )
+                "cancelInstall" -> {
+                    cancelledSessionIds += args[0] as Int
+                    Tasks.forResult(null)
+                }
                 "toString" -> "FakeSplitInstallManager"
                 "hashCode" -> System.identityHashCode(proxy)
                 "equals" -> proxy === args[0]
                 else -> throw UnsupportedOperationException(method.name)
             }
         }
+
+        private fun pendingState(sessionId: Int): SplitInstallSessionState =
+            SplitInstallSessionState.create(
+                sessionId,
+                SplitInstallSessionStatus.PENDING,
+                0,
+                0,
+                0,
+                listOf("hakkaInspector"),
+                emptyList(),
+            )
 
         fun emit(state: SplitInstallSessionState) {
             listeners.toList().forEach { it.onStateUpdate(state) }
