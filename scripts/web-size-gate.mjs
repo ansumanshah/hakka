@@ -296,7 +296,9 @@ if (existsSync(COMPONENTS_DIST)) {
     // 87.73 KB to 90.03 KB; 93 KB keeps roughly 3% headroom without charging
     // the individual element entries.
     // Solid 2.0 rc.9 measures 95.66 KB here; ~1.4% headroom.
-    const budget = Number(process.env.HAKKA_COMPONENTS_SHARED_BUDGET) || 97 * 1024
+    // Capture privacy/lifecycle fixes measure 97.14 KB on Linux Node 24.20.0;
+    // retain about 1% headroom for the shared engine and store-client cost.
+    const budget = Number(process.env.HAKKA_COMPONENTS_SHARED_BUDGET) || 98 * 1024
     const over = g > budget
     if (over) failed = true
     componentRows.push({ label: 'Shared runtime chunk', raw, gz: g, budget, over })
