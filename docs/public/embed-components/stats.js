@@ -1,1 +1,1 @@
-import{n as s,t as r}from"./stats-7PEPTiY4.js";export{r as TAG,s as register};
+import{n as s,t as r}from"./stats-CII1MPGp.js";export{r as TAG,s as register};

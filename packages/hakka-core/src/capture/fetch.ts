@@ -685,11 +685,7 @@ export function enableFetchInterceptor(
         redirectUrls,
         networkProtocol,
       }
-      try {
-        onRequest(request)
-      } catch {
-        /* never break the real request */
-      }
+      onRequest(request)
 
       // Skip the body clone where cloning is harmful — application/wasm: clone() makes the
       // browser re-fetch the module and breaks WebAssembly.instantiateStreaming(). Plain
@@ -791,11 +787,7 @@ export function enableFetchInterceptor(
         initiator,
         graphql,
       }
-      try {
-        onRequest(request)
-      } catch {
-        /* never break the real request */
-      }
+      onRequest(request)
       throw err
     }
   }

@@ -78,8 +78,11 @@ const NAMED = {
     // cost. This is a budget adjustment, not a compression improvement.
     // Solid 2.0 rc.9 measured 154.38 KB (+3.79 KB from the prior Node 24
     // baseline); retain about 1% headroom for the accepted runtime update.
+    // The 2026-09-30 capture privacy/lifecycle fixes measure 156.10 KB on
+    // Node 24.20.0 (+1.72 KB). Keep about 1% headroom for that safety cost;
+    // the eager entry stays 3.42 KB under its unchanged 5 KB budget.
     label: 'IIFE (<script>)',
-    budget: Number(process.env.HAKKA_WEB_GLOBAL_BUDGET) || 156 * 1024,
+    budget: Number(process.env.HAKKA_WEB_GLOBAL_BUDGET) || 158 * 1024,
   },
   'worker.js': {
     // workerCapture.ts's own build (vite.config.ts's `worker` mode, `hakka-browser/worker`)

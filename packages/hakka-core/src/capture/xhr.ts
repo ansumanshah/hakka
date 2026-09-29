@@ -285,11 +285,7 @@ export function enableXHRInterceptor(
           source: 'xhr',
           initiator: state.initiator,
         }
-        try {
-          onRequest(errRecord)
-        } catch {
-          /* never break callers */
-        }
+        onRequest(errRecord)
         // Dispatch a synthetic error event so the caller's onerror/event handler fires.
         // _fire is the test suite's FakeXHR hook; ProgressEvent may be undefined in non-DOM envs.
         ;(xhr as unknown as { _fire?: (e: string) => void })._fire?.('error')
@@ -336,11 +332,7 @@ export function enableXHRInterceptor(
           initiator: state.initiator,
           mocked: true,
         }
-        try {
-          onRequest(errRecord)
-        } catch {
-          /* never break callers */
-        }
+        onRequest(errRecord)
         ;(xhr as unknown as { _fire?: (e: string) => void })._fire?.('error')
         if (typeof ProgressEvent !== 'undefined') {
           xhr.dispatchEvent?.(new ProgressEvent('error'))
@@ -379,11 +371,7 @@ export function enableXHRInterceptor(
           initiator: state.initiator,
           mocked: true,
         }
-        try {
-          onRequest(errRecord)
-        } catch {
-          /* never break callers */
-        }
+        onRequest(errRecord)
         // Dispatch a synthetic error event so the caller's onerror / event handler fires.
         ;(xhr as unknown as { _fire?: (e: string) => void })._fire?.('error')
         if (typeof ProgressEvent !== 'undefined') {
@@ -433,11 +421,7 @@ export function enableXHRInterceptor(
           initiator: state.initiator,
           mocked: true,
         }
-        try {
-          onRequest(request)
-        } catch {
-          /* never break the real request */
-        }
+        onRequest(request)
         completeMockedXHR(xhr, mockRule.response.status, bodyStr)
       }
 
@@ -617,11 +601,7 @@ export function enableXHRInterceptor(
         ttfbMs,
         downloadMs,
       }
-      try {
-        onRequest(request)
-      } catch {
-        /* never break callers */
-      }
+      onRequest(request)
     }
     xhr.addEventListener('loadend', captureResponse)
     if (state) {
