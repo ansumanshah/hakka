@@ -32,7 +32,7 @@ class CaptureProcessorTest {
         processor.enqueue(
             RawNetworkCapture(
                 id = "capture-1",
-                url = "https://api.example.com/graphql?token=secret&page=1",
+                url = "https://api.example.com/graphql?token=secret&%ZZ=value&page=1",
                 method = "POST",
                 startTimeMs = 100,
                 durationMs = 42,
@@ -57,7 +57,7 @@ class CaptureProcessorTest {
         assertEquals("capture-1", request.id)
         assertEquals(HttpMethod.POST, request.method)
         assertEquals(200, request.status)
-        assertTrue(request.url.contains("token=██"))
+        assertEquals("https://api.example.com/graphql?token=██&%ZZ=██&page=1", request.url)
         assertTrue(request.url.contains("page=1"))
         assertEquals("██", request.requestHeaders.firstValue("Authorization"))
         assertTrue(request.requestBody!!.contains("Checkout"))
@@ -70,6 +70,46 @@ class CaptureProcessorTest {
         assertEquals("network.request", record.kind.value)
         assertEquals(listOf("capture-1"), processed)
         assertTrue(processor.close())
+    }
+
+    @Test
+    fun `late download timing reaches sinks and listeners only for stored records`() {
+        val config = HakkaConfig()
+        val store = LogStore(config)
+        val records = CopyOnWriteArrayList<NetworkRecord>()
+        val requests = CopyOnWriteArrayList<NetworkRequest>()
+        val pluginRequests = CopyOnWriteArrayList<NetworkRequest>()
+        val processed = CopyOnWriteArrayList<String>()
+        val sinks = RecordSinkHub()
+        sinks.add { records.add(it as NetworkRecord) }
+        val processor = CaptureProcessor(
+            configProvider = { config },
+            logStore = store,
+            listeners = listOf(HakkaListener { requests.add(it) }),
+            onRecord = sinks::emit,
+            onProcessed = { processed.add(it) },
+            pluginListeners = CopyOnWriteArrayList<(NetworkRequest) -> Unit>().apply {
+                add { pluginRequests.add(it) }
+            },
+        )
+        try {
+            processor.enqueue(capture("late-timing"))
+            processor.enqueuePatch("late-timing") { it.copy(downloadMs = 35) }
+            processor.enqueuePatch("missing") { it.copy(downloadMs = 99) }
+            assertTrue(processor.flush())
+            assertTrue(sinks.flush())
+
+            assertEquals(listOf(null, 35L), requests.map { it.downloadMs })
+            assertEquals(requests, pluginRequests)
+            assertEquals(requests, records.map { it.request })
+            assertEquals(listOf("late-timing", "late-timing"), records.map { it.id })
+            assertEquals(listOf(100L, 100L), records.map { it.timestampMs })
+            assertEquals(requests.last(), store.get("late-timing"))
+            assertEquals(listOf("late-timing"), processed)
+        } finally {
+            assertTrue(processor.close())
+            assertTrue(sinks.shutdown())
+        }
     }
 
     @Test

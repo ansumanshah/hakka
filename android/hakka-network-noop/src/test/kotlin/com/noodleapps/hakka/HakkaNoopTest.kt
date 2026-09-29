@@ -48,8 +48,12 @@ class HakkaNoopTest {
             val request = Request.Builder()
                 .url(server.url("/test"))
                 .build()
+            interceptor.pause()
             val response = client.newCall(request).execute()
+            interceptor.resume()
 
+            assertEquals(setOf("password"), interceptor.config.sensitiveBodyFields)
+            assertFalse(interceptor.isPaused)
             assertEquals(200, response.code)
             assertEquals("OK", response.body?.string())
             // Noop: nothing stored

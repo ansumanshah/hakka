@@ -4,7 +4,7 @@ import type { Server } from 'node:http'
 
 import type { NetworkRequest } from 'hakka-core'
 
-import { stopEdgeCapture } from '../edgeCapture'
+import { startEdgeCapture, stopEdgeCapture } from '../edgeCapture'
 import { register } from '../index'
 
 /**
@@ -44,6 +44,43 @@ afterEach(() => {
 })
 
 describe('register — Edge runtime branch', () => {
+  test('a stopped Edge handle cannot stop a later capture', async () => {
+    const first = startEdgeCapture()
+    first.stop()
+    const records: NetworkRequest[] = []
+    const second = startEdgeCapture({ sink: (r) => records.push(r) })
+    first.stop()
+    expect(startEdgeCapture()).toBe(second)
+    const server = http.createServer((_req, res) => res.end('ok'))
+    const port = await listen(server)
+    try {
+      await fetch(`http://127.0.0.1:${port}/edge-restarted`)
+      await settle()
+      expect(records.some((r) => r.url.endsWith('/edge-restarted'))).toBe(true)
+    } finally {
+      server.close()
+    }
+  })
+
+  test.each([{ captureFetch: false }, { sampleRate: 0 }, { shouldCapture: () => false }])(
+    'honors Edge pre-capture options: %j',
+    async (gate) => {
+      process.env.NEXT_RUNTIME = 'edge'
+      process.env.NODE_ENV = 'development'
+      const records: NetworkRequest[] = []
+      await register({ ...gate, sink: (r) => records.push(r) })
+      const server = http.createServer((_req, res) => res.end('ok'))
+      const port = await listen(server)
+      try {
+        await fetch(`http://127.0.0.1:${port}/edge-gated`)
+        await settle()
+        expect(records).toHaveLength(0)
+      } finally {
+        server.close()
+      }
+    },
+  )
+
   test('captures fetch and forwards records to options.sink', async () => {
     process.env.NEXT_RUNTIME = 'edge'
     process.env.NODE_ENV = 'development'

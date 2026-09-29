@@ -20,8 +20,9 @@ const CHECK_TIMEOUT_MS = 30_000
 
 const KEEP_TEMP = process.env.SMOKE_KEEP_TEMP === '1'
 const WEB_ONLY = process.argv.includes('--web')
-if (process.argv.slice(2).some((arg) => arg !== '--web')) {
-  throw new Error('Usage: smoke-tarball-install.mjs [--web]')
+const NATIVE_ONLY = process.argv.includes('--native')
+if ((WEB_ONLY && NATIVE_ONLY) || process.argv.slice(2).some((arg) => !['--web', '--native'].includes(arg))) {
+  throw new Error('Usage: smoke-tarball-install.mjs [--web | --native]')
 }
 
 function section(msg) {
@@ -67,6 +68,7 @@ function readPackageDirs() {
     .filter((e) => e.isDirectory() && existsSync(path.join(dir, e.name, 'package.json')))
     .filter((e) => JSON.parse(readFileSync(path.join(dir, e.name, 'package.json'), 'utf8')).private !== true)
     .filter((e) => !WEB_ONLY || !['hakka-react-native', 'hakka-rozenite'].includes(e.name))
+    .filter((e) => !NATIVE_ONLY || ['hakka-core', 'hakka-react-native'].includes(e.name))
     .map((e) => e.name)
     .sort()
   if (dirs.length === 0) fail('parse-package-list', `no packages found under ${dir}`)
@@ -169,7 +171,7 @@ assert.equal(result, undefined, 'register() should no-op (return undefined) outs
 console.log('PASS ${n['hakka-node']}/next: subpath export — register() is edge-safe (no-ops outside Next.js\\'s node runtime) (formerly the standalone hakka-next package)')
 `,
 
-  // `./metro` is the one hakka-react-native entry point that CAN be checked here.
+  // Metro configuration can be checked without transforming React Native's Flow syntax.
   // The main entry imports the real `react-native` package at module scope, which
   // node/bun cannot parse (Flow syntax), hence the SKIP rows for it. `metro.js` is
   // plain CommonJS with no react-native import, so a consumer really can require it
@@ -193,6 +195,44 @@ const context = { resolveRequest: () => { throw new Error('Unable to resolve mod
 assert.deepEqual(config.resolver.resolveRequest(context, optional, 'ios'), { type: 'empty' }, 'a missing optional peer must resolve to { type: "empty" }')
 assert.throws(() => config.resolver.resolveRequest(context, './not-optional', 'ios'), 'a missing NON-optional module must still throw')
 console.log('PASS ${n['hakka-react-native']}/metro: subpath export — withHakka() stubs a missing optional peer and still throws for a real miss')
+`,
+
+  'hakka-react-native:expo': (n) => `
+import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
+import { readFileSync, writeFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import path from 'node:path'
+const require = createRequire(import.meta.url)
+const expoCli = path.join(path.dirname(require.resolve('expo/package.json')), 'bin/cli')
+writeFileSync('app.json', JSON.stringify({ expo: {
+  name: 'HakkaConsumer', slug: 'hakka-consumer',
+  android: { package: 'com.noodleapps.hakkaconsumer' },
+  plugins: [[${JSON.stringify(n['hakka-react-native'])}, { uiDelivery: 'bundled' }]],
+} }))
+writeFileSync('index.js', "import { Hakka } from '${n['hakka-react-native']}'; Hakka.start();\\n")
+writeFileSync('babel.config.js', "module.exports = { presets: ['babel-preset-expo'] };\\n")
+writeFileSync('metro.config.js', "const { getDefaultConfig } = require('expo/metro-config'); const { withHakka } = require('${n['hakka-react-native']}/metro'); module.exports = withHakka(getDefaultConfig(__dirname));\\n")
+// Expo loads these CommonJS configuration files from the installed package.
+const pkg = JSON.parse(readFileSync('package.json', 'utf8'))
+delete pkg.type
+pkg.main = 'index.js'
+writeFileSync('package.json', JSON.stringify(pkg))
+const options = { encoding: 'utf8', env: { ...process.env, CI: '1' }, timeout: 240_000, maxBuffer: 10 * 1024 * 1024 }
+execFileSync('node', [expoCli, 'prebuild', '--platform', 'android', '--no-install'], options)
+const gradle = readFileSync('android/app/build.gradle', 'utf8')
+assert.match(gradle, /debugImplementation\\("com\\.noodleapps\\.hakka:hakka-network:/)
+assert.match(gradle, /releaseImplementation\\("com\\.noodleapps\\.hakka:hakka-network-noop:/)
+assert.match(gradle, /debugImplementation\\("com\\.noodleapps\\.hakka:hakka-ui:/)
+assert.doesNotMatch(gradle, /(?:^|\\n)\\s*implementation\\("com\\.noodleapps\\.hakka:hakka-network:/)
+execFileSync('node', [expoCli, 'export:embed', '--entry-file', 'index.js', '--platform', 'android', '--dev', 'true', '--bundle-output', 'consumer.bundle.js', '--assets-dest', 'consumer-assets'], options)
+assert.ok(readFileSync('consumer.bundle.js', 'utf8').includes('Hakka'), 'installed SDK must bundle through Metro')
+if (process.env.HAKKA_NATIVE_CONSUMER_COMPILE === '1') {
+  // Until Maven publication, CI supplies the SDK artifacts through its local repository.
+  writeFileSync('maven-local.init.gradle', 'allprojects { repositories { mavenLocal() } }\\n')
+  execFileSync(path.resolve('android/gradlew'), ['-p', 'android', '--init-script', path.resolve('maven-local.init.gradle'), ':app:compileDebugKotlin', ':app:compileReleaseKotlin', '-PreactNativeArchitectures=arm64-v8a'], { ...options, timeout: 15 * 60_000 })
+}
+console.log('PASS ${n['hakka-react-native']}/app.plugin: fresh Expo prebuild uses debug capture/release noop and Metro bundles the installed SDK')
 `,
 
   'hakka-core:test': (n) => `
@@ -394,6 +434,7 @@ const CHECK_ORDER = [
   'hakka-cli:cdp',
   'hakka-react-native',
   'hakka-react-native:metro',
+  'hakka-react-native:expo',
   'hakka-cli',
   'hakka-cli:mcp',
   'hakka-browser',
@@ -404,7 +445,8 @@ const CHECK_ORDER = [
 
 function runCheck(runtimeBin, filePath, cwd) {
   const start = Date.now()
-  const res = spawnSync(runtimeBin, [filePath], { cwd, encoding: 'utf8', timeout: CHECK_TIMEOUT_MS })
+  const timeout = filePath.includes('hakka-react-native-expo') ? 20 * 60_000 : CHECK_TIMEOUT_MS
+  const res = spawnSync(runtimeBin, [filePath], { cwd, encoding: 'utf8', timeout })
   const durationMs = Date.now() - start
   const stdout = (res.stdout ?? '').trim()
   const stderr = (res.stderr ?? '').trim()
@@ -441,8 +483,15 @@ async function main() {
   const dirs = readPackageDirs()
   section(`Package list (from packages/): ${dirs.join(', ')}`)
 
-  section(WEB_ONLY ? 'Building web packages' : 'Building all publishable packages (bun run build)')
-  const buildArgs = WEB_ONLY ? ['run', ...dirs.flatMap((dir) => ['--filter', dir]), 'build'] : ['run', 'build']
+  section(
+    WEB_ONLY
+      ? 'Building web packages'
+      : NATIVE_ONLY
+        ? 'Building native consumer packages'
+        : 'Building all publishable packages (bun run build)',
+  )
+  const buildArgs =
+    WEB_ONLY || NATIVE_ONLY ? ['run', ...dirs.flatMap((dir) => ['--filter', dir]), 'build'] : ['run', 'build']
   run('bun', buildArgs, { cwd: repoRoot, step: 'build', timeout: BUILD_TIMEOUT_MS })
 
   const tarballDir = mkdtempSync(path.join(tmpdir(), 'hakka-smoke-tarballs-'))
@@ -474,6 +523,7 @@ async function main() {
   section(`Fresh consumer project at ${consumerDir}`)
 
   const overrides = Object.fromEntries(Object.entries(tarballs).map(([name, tgz]) => [name, `file:${tgz}`]))
+  const expoExample = readJson(path.join(repoRoot, 'examples/expo-example/package.json'))
   const consumerPkg = {
     name: 'hakka-tarball-smoke-consumer',
     private: true,
@@ -489,6 +539,13 @@ async function main() {
       'react-dom': '19.2.3',
       'happy-dom': '^20.10.6',
       '@happy-dom/global-registrator': '^20.10.6',
+      ...(NATIVE_ONLY
+        ? {
+            expo: expoExample.dependencies.expo,
+            'react-native': expoExample.dependencies['react-native'],
+            'babel-preset-expo': expoExample.devDependencies['babel-preset-expo'],
+          }
+        : {}),
     },
     // Every inter-package name forced to its own tarball — none of these are
     // published yet, so an un-overridden internal "hakka-core": "0.1.0"
@@ -508,7 +565,9 @@ async function main() {
   // matrix for every check this script DOES cover — so it's tracked and
   // surfaced as its own "NO CHECK" row (still fails the gate overall)
   // instead of a hard `fail()` here.
-  const covered = CHECK_ORDER.filter((key) => dirs.includes(dirOf(key)))
+  const covered = CHECK_ORDER.filter(
+    (key) => dirs.includes(dirOf(key)) && (NATIVE_ONLY || key !== 'hakka-react-native:expo'),
+  )
   const builderDirs = new Set(Object.keys(CHECK_BUILDERS).map(dirOf))
   const uncovered = dirs.filter((dir) => !builderDirs.has(dir))
   if (uncovered.length > 0) {
@@ -527,10 +586,7 @@ async function main() {
     checkFiles[key] = file
   })
 
-  const runtimes = [
-    { label: 'bun', bin: 'bun' },
-    { label: 'node', bin: 'node' },
-  ]
+  const runtimes = (NATIVE_ONLY ? ['node'] : ['bun', 'node']).map((bin) => ({ label: bin, bin }))
   for (const rt of runtimes) {
     const v = run(rt.bin, ['--version'], { step: `${rt.label} --version` }).trim()
     process.stdout.write(`    ${rt.label}: ${v}\n`)
@@ -550,7 +606,7 @@ async function main() {
     }
   }
 
-  section('Result matrix (package[:subpath check] | bun | node)')
+  section(`Result matrix (package[:subpath check] | ${runtimes.map((rt) => rt.label).join(' | ')})`)
   const glyph = (s) => (s === 'pass' ? 'PASS' : s === 'skip' ? 'SKIP' : 'FAIL')
   // A subpath check's row label is "<npm name> (<label>)" so a failure
   // identifies which surface broke even when several checks share a dir
@@ -560,10 +616,13 @@ async function main() {
     return i === -1 ? names[key] : `${names[dirOf(key)]} (${key.slice(i + 1)})`
   }
   const rows = covered.map(
-    (key) => `  ${label(key).padEnd(32)} bun=${glyph(matrix[key].bun.status)}  node=${glyph(matrix[key].node.status)}`,
+    (key) =>
+      `  ${label(key).padEnd(32)} ${runtimes.map((rt) => `${rt.label}=${glyph(matrix[key][rt.label].status)}`).join('  ')}`,
   )
   for (const dir of uncovered) {
-    rows.push(`  ${dir.padEnd(32)} bun=NO_CHECK  node=NO_CHECK  <- add a CHECK_BUILDERS['${dir}'] entry`)
+    rows.push(
+      `  ${dir.padEnd(32)} ${runtimes.map((rt) => `${rt.label}=NO_CHECK`).join('  ')}  <- add a CHECK_BUILDERS['${dir}'] entry`,
+    )
   }
   process.stdout.write(`${rows.join('\n')}\n`)
 

@@ -7,7 +7,7 @@ import { HAKKA_TRACE_HEADER, resolveOutgoingTrace } from '../engine/trace'
 import { TRACEPARENT_HEADER, buildTraceparent } from '../engine/traceparent'
 import type { NetworkRequest, HttpMethod, RequestListener, NetworkTiming } from '../model/types'
 import { getBodyRedactionFields, redactJsonBody } from '../utils/bodyRedaction'
-import { isSensitiveHeader } from '../utils/headerRedaction'
+import { isSensitiveHeader, redactHeaders as redactCapturedHeaders } from '../utils/headerRedaction'
 import { captureBody } from './bodyCapture'
 import { isOwnBridgeUrl } from './bridgeHosts'
 import { captureInitiator } from './stackTrace'
@@ -34,6 +34,7 @@ interface XHRState {
   setHeaderNamesLower: Set<string>
   /** Resolved once per `send()`; mirrors fetch.ts's trace correlation. Undefined when trace propagation is disabled or no ambient/server context applies. */
   correlationId?: string
+  cleanup?: () => void
 }
 
 const xhrState = new WeakMap<XMLHttpRequest, XHRState>()
@@ -43,11 +44,21 @@ let origSend: typeof XMLHttpRequest.prototype.send | null = null
 let origSetHeader: typeof XMLHttpRequest.prototype.setRequestHeader | null = null
 
 export function enableXHRInterceptor(
-  onRequest: RequestListener,
+  listener: RequestListener,
   maxBodySize: number,
   redactHeaders: string[],
 ): () => void {
   if (origOpen) return () => disableXHRInterceptor()
+
+  let active = true
+  const onRequest: RequestListener = (request) => {
+    if (!active) return
+    try {
+      listener(request)
+    } catch {
+      // Capture listeners must not break application transport callbacks.
+    }
+  }
 
   origOpen = XMLHttpRequest.prototype.open
   origSend = XMLHttpRequest.prototype.send
@@ -159,6 +170,8 @@ export function enableXHRInterceptor(
   }
 
   XMLHttpRequest.prototype.open = function (method: string, url: string | URL) {
+    xhrState.get(this)?.cleanup?.()
+    xhrState.delete(this)
     clearMockedXHRShadow(this)
     const rawUrl = typeof url === 'string' ? url : url.toString()
     // Absolutize relative URLs against the page — same reasoning as fetch.ts's absolutizeUrl.
@@ -213,12 +226,14 @@ export function enableXHRInterceptor(
 
   XMLHttpRequest.prototype.send = function (data?: unknown) {
     const state = xhrState.get(this)
+    let rawRequestBody: string | undefined
     if (state) {
       if (data != null) {
         // maxBodySize lets an oversized object body bail its JSON.stringify early instead of
         // paying full serialization cost for a preview discarded by the size check just below.
         const capture = captureBody(data, maxBodySize)
         state.requestBodySize = capture.size
+        rawRequestBody = capture.preview ?? undefined
         const redactionFields = getBodyRedactionFields()
         const rawPreview = capture.preview != null && capture.size <= maxBodySize ? capture.preview : null
         state.requestBody = rawPreview != null ? (redactJsonBody(rawPreview, redactionFields) ?? rawPreview) : null
@@ -388,11 +403,12 @@ export function enableXHRInterceptor(
       const reqCtx: MockRequestContext = {
         url: state.url,
         method: state.method,
-        headers: state.requestHeaders,
-        body: state.requestBody ?? undefined,
+        headers: state.rawRequestHeaders,
+        body: rawRequestBody,
       }
       const applyMock = async () => {
         const bodyStr = await mockEngine.resolveMockBody(mockRule, reqCtx)
+        if (xhrState.get(xhr) !== state) return
         const endTime = Date.now()
         const duration = endTime - state.startTime
 
@@ -405,11 +421,12 @@ export function enableXHRInterceptor(
           endTime,
           duration,
           requestHeaders: state.requestHeaders,
-          responseHeaders: mockRule.response.headers ?? {},
+          responseHeaders: redactCapturedHeaders(mockRule.response.headers, redactHeaders),
           requestBodySize: state.requestBodySize,
           responseBodySize: bodyStr.length,
           requestBody: state.requestBody,
-          responseBody: bodyStr,
+          responseBody:
+            bodyStr.length <= maxBodySize ? (redactJsonBody(bodyStr, getBodyRedactionFields()) ?? bodyStr) : null,
           correlationId: state.correlationId,
           error: null,
           source: 'xhr',
@@ -435,16 +452,17 @@ export function enableXHRInterceptor(
     }
 
     // Track HEADERS_RECEIVED for TTFB timing
-    xhr.addEventListener('readystatechange', () => {
+    const captureReadyState = () => {
       const s = xhrState.get(xhr)
-      if (!s) return
+      if (!active || !s || s !== state) return
       if (xhr.readyState === 2 /* HEADERS_RECEIVED */ && s.headersReceivedTime === 0) {
         s.headersReceivedTime = Date.now()
       }
       if (xhr.readyState === 3 /* LOADING */ && s.firstDataTime === 0) {
         s.firstDataTime = Date.now()
       }
-    })
+    }
+    xhr.addEventListener('readystatechange', captureReadyState)
 
     // XHR can't stream a body incrementally like fetch, so throttling is approximated as a
     // COMPLETION DELAY: loadend is held for the time it would take to download the response
@@ -469,7 +487,7 @@ export function enableXHRInterceptor(
           if ((event as unknown as Record<string, unknown>)[HAKKA_REPLAYED]) return
 
           const s = xhrState.get(xhr)
-          if (!s) return
+          if (!active || !s || s !== state) return
 
           event.stopImmediatePropagation()
 
@@ -516,9 +534,11 @@ export function enableXHRInterceptor(
       xhr.addEventListener('loadend', captureLoadend as EventListener, true)
     }
 
-    xhr.addEventListener('loadend', () => {
+    const captureResponse = () => {
       const s = xhrState.get(xhr)
-      if (!s) return
+      if (!s || s !== state) return
+      s.cleanup?.()
+      if (!active) return
       const endTime = Date.now()
       const duration = endTime - s.startTime
 
@@ -602,7 +622,15 @@ export function enableXHRInterceptor(
       } catch {
         /* never break callers */
       }
-    })
+    }
+    xhr.addEventListener('loadend', captureResponse)
+    if (state) {
+      state.cleanup = () => {
+        xhr.removeEventListener?.('readystatechange', captureReadyState)
+        xhr.removeEventListener?.('loadend', captureResponse)
+        if (captureLoadend) xhr.removeEventListener?.('loadend', captureLoadend as EventListener, true)
+      }
+    }
 
     // XHR can't pause mid-flight, so this holds before savedSend; resume re-opens with any
     // URL/method edits then sends, abort emits an error record and never sends.
@@ -712,7 +740,11 @@ export function enableXHRInterceptor(
     savedSend.apply(this, arguments as unknown as Parameters<typeof savedSend>)
   }
 
-  return () => disableXHRInterceptor()
+  return () => {
+    if (!active) return
+    active = false
+    disableXHRInterceptor()
+  }
 }
 
 function disableXHRInterceptor(): void {

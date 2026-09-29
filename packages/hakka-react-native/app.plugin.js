@@ -68,7 +68,12 @@ function normalizeAndroidOptions(options) {
   if (!['play', 'bundled', 'disabled'].includes(uiDelivery)) {
     throw new Error(`Invalid Hakka Android uiDelivery: ${uiDelivery}`)
   }
+  const capture = String(android.capture ?? 'debug')
+  if (!['debug', 'all'].includes(capture)) {
+    throw new Error(`Invalid Hakka Android capture: ${capture}`)
+  }
   return {
+    capture,
     version: String(options.androidMavenVersion ?? android.mavenVersion ?? DEFAULT_ANDROID_MAVEN_VERSION),
     performance: Boolean(options.androidPerformance ?? android.performance),
     uiDelivery,
@@ -77,10 +82,16 @@ function normalizeAndroidOptions(options) {
 
 function addHakkaAndroidDependencies(contents, options) {
   const uiDelivery = options.uiDelivery ?? (options.ui === false ? 'disabled' : 'play')
-  const dependencies = [['implementation', `com.noodleapps.hakka:hakka-network:${options.version}`]]
+  const productionCapture = options.capture === 'all'
+  const configuration = productionCapture ? 'implementation' : 'debugImplementation'
+  const dependencies = [[configuration, `com.noodleapps.hakka:hakka-network:${options.version}`]]
+  if (!productionCapture)
+    dependencies.push(['releaseImplementation', `com.noodleapps.hakka:hakka-network-noop:${options.version}`])
   const constraints = []
   if (options.performance) {
-    dependencies.push(['implementation', `com.noodleapps.hakka:hakka-performance:${options.version}`])
+    dependencies.push([configuration, `com.noodleapps.hakka:hakka-performance:${options.version}`])
+    if (!productionCapture)
+      dependencies.push(['releaseImplementation', `com.noodleapps.hakka:hakka-performance-noop:${options.version}`])
   }
   if (uiDelivery === 'play') {
     dependencies.push(['implementation', 'com.google.android.play:feature-delivery:2.1.0'])
@@ -93,7 +104,7 @@ function addHakkaAndroidDependencies(contents, options) {
     constraints.push('androidx.lifecycle:lifecycle-runtime:2.9.4')
     constraints.push('androidx.savedstate:savedstate:1.3.2')
   } else if (uiDelivery === 'bundled') {
-    dependencies.push(['implementation', `com.noodleapps.hakka:hakka-ui:${options.version}`])
+    dependencies.push([configuration, `com.noodleapps.hakka:hakka-ui:${options.version}`])
   }
 
   let next = removeManagedDependencyLines(contents)
@@ -242,12 +253,12 @@ function configureSplitCompat(contents, enabled) {
   return next.replace(classPattern, `$1${method}`)
 }
 
-function dynamicFeatureGradle(version) {
-  return `// ${GENERATED}\nplugins {\n    id "com.android.dynamic-feature"\n    id "org.jetbrains.kotlin.android"\n}\n\nandroid {\n    namespace "com.noodleapps.hakka.inspector"\n    compileSdk rootProject.ext.compileSdkVersion\n\n    defaultConfig {\n        minSdk rootProject.ext.minSdkVersion\n    }\n\n    buildTypes {\n        release {\n            proguardFiles "proguard-rules.pro"\n        }\n    }\n\n    packaging {\n        resources.excludes += "META-INF/androidx.*.version"\n    }\n}\n\ndependencies {\n    implementation project(":app")\n    implementation("com.noodleapps.hakka:hakka-ui:${version}")\n}\n`
+function dynamicFeatureGradle(version, capture = 'debug') {
+  return `// ${GENERATED}\nplugins {\n    id "com.android.dynamic-feature"\n    id "org.jetbrains.kotlin.android"\n}\n\nandroid {\n    namespace "com.noodleapps.hakka.inspector"\n    compileSdk rootProject.ext.compileSdkVersion\n\n    defaultConfig {\n        minSdk rootProject.ext.minSdkVersion\n    }\n\n    buildTypes {\n        release {\n            proguardFiles "proguard-rules.pro"\n        }\n    }\n\n    packaging {\n        resources.excludes += "META-INF/androidx.*.version"\n    }\n}\n\ndependencies {\n    implementation project(":app")\n    ${capture === 'all' ? 'implementation' : 'debugImplementation'}("com.noodleapps.hakka:hakka-ui:${version}")\n}\n`
 }
 
-function dynamicFeatureManifest() {
-  return `<!-- ${GENERATED} -->\n<manifest xmlns:android="http://schemas.android.com/apk/res/android"\n    xmlns:dist="http://schemas.android.com/apk/distribution"\n    xmlns:tools="http://schemas.android.com/tools">\n    <dist:module dist:instant="false" dist:title="@string/app_name">\n        <dist:delivery><dist:on-demand /></dist:delivery>\n        <dist:fusing dist:include="false" />\n    </dist:module>\n    <application android:hasCode="true">\n        <activity\n            android:name="com.noodleapps.hakka.ui.HakkaActivity"\n            android:theme="@android:style/Theme.DeviceDefault.Light.NoActionBar"\n            tools:replace="android:theme" />\n        <activity\n            android:name="com.noodleapps.hakka.ui.DetailActivity"\n            android:theme="@android:style/Theme.DeviceDefault.Light.NoActionBar"\n            tools:replace="android:theme" />\n        <activity\n            android:name="com.noodleapps.hakka.ui.SettingsActivity"\n            android:theme="@android:style/Theme.DeviceDefault.Light.NoActionBar"\n            tools:replace="android:theme" />\n        <provider android:name="androidx.core.content.FileProvider">\n            <meta-data\n                android:name="android.support.FILE_PROVIDER_PATHS"\n                android:resource="@xml/hakka_inspector_file_paths"\n                tools:replace="android:resource" />\n        </provider>\n    </application>\n</manifest>\n`
+function dynamicFeatureManifest(includeUI = true, includeDelivery = true) {
+  return `<!-- ${GENERATED} -->\n<manifest xmlns:android="http://schemas.android.com/apk/res/android"\n    xmlns:dist="http://schemas.android.com/apk/distribution"\n    xmlns:tools="http://schemas.android.com/tools">\n${includeDelivery ? `    <dist:module dist:instant="false" dist:title="@string/app_name">\n        <dist:delivery><dist:on-demand /></dist:delivery>\n        <dist:fusing dist:include="false" />\n    </dist:module>\n` : ''}    <application android:hasCode="true">\n${includeUI ? `        <activity\n            android:name="com.noodleapps.hakka.ui.HakkaActivity"\n            android:theme="@android:style/Theme.DeviceDefault.Light.NoActionBar"\n            tools:replace="android:theme" />\n        <activity\n            android:name="com.noodleapps.hakka.ui.DetailActivity"\n            android:theme="@android:style/Theme.DeviceDefault.Light.NoActionBar"\n            tools:replace="android:theme" />\n        <activity\n            android:name="com.noodleapps.hakka.ui.SettingsActivity"\n            android:theme="@android:style/Theme.DeviceDefault.Light.NoActionBar"\n            tools:replace="android:theme" />\n        <provider android:name="androidx.core.content.FileProvider">\n            <meta-data\n                android:name="android.support.FILE_PROVIDER_PATHS"\n                android:resource="@xml/hakka_inspector_file_paths"\n                tools:replace="android:resource" />\n        </provider>\n` : ''}    </application>\n</manifest>\n`
 }
 
 function dynamicFeaturePaths() {
@@ -262,9 +273,10 @@ function syncDynamicFeature(projectRoot, options) {
   const path = require('node:path')
   const feature = path.join(projectRoot, INSPECTOR_MODULE)
   const files = [
-    [path.join(feature, 'build.gradle'), dynamicFeatureGradle(options.version)],
+    [path.join(feature, 'build.gradle'), dynamicFeatureGradle(options.version, options.capture)],
     [path.join(feature, 'proguard-rules.pro'), dynamicFeatureProguard()],
-    [path.join(feature, 'src/main/AndroidManifest.xml'), dynamicFeatureManifest()],
+    [path.join(feature, 'src/main/AndroidManifest.xml'), dynamicFeatureManifest(options.capture === 'all')],
+    [path.join(feature, 'src/debug/AndroidManifest.xml'), dynamicFeatureManifest(true, false)],
     [path.join(projectRoot, 'app/src/main/res/xml/hakka_inspector_file_paths.xml'), dynamicFeaturePaths()],
   ]
   if (options.uiDelivery === 'play') {

@@ -68,9 +68,15 @@ export function register(): void {
       adoptSharedStyles(element.renderRoot)
 
       let ownVm: StatsViewModel | null = null
+      let ownStore: StoreClient | null = null
       const vm = createMemo<StatsViewModel>(() => {
         if (isFullViewModel(props.viewModel)) return props.viewModel
-        ownVm ??= createStatsViewModel({ store: props.store ?? sharedStore() })
+        const client = props.store ?? sharedStore()
+        if (!ownVm || ownStore !== client) {
+          ownVm?.destroy()
+          ownStore = client
+          ownVm = createStatsViewModel({ store: client })
+        }
         return ownVm
       })
       onSettled(() => {

@@ -1,5 +1,5 @@
 import type { GroupBy } from 'hakka-core'
-import { createSignal, For, onSettled, Show } from 'solid-js'
+import { createEffect, createSignal, For, Show } from 'solid-js'
 import type { Component } from 'solid-js'
 
 import {
@@ -73,13 +73,14 @@ const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']
 
 export const FilterBar: Component<FilterBarProps> = (props) => {
   const [snap, setSnap] = createSignal(props.filters.getSnapshot())
-  onSettled(() => {
-    const unsub = props.filters.subscribe(() => setSnap(props.filters.getSnapshot()))
-    // onSettled runs later than 1.x onMount — re-pull immediately so any
-    // mutation between first render and settle isn't missed forever.
-    setSnap(props.filters.getSnapshot())
-    return unsub
-  })
+  createEffect(
+    () => props.filters,
+    (filters) => {
+      const unsub = filters.subscribe(() => setSnap(filters.getSnapshot()))
+      setSnap(filters.getSnapshot())
+      return unsub
+    },
+  )
 
   // Recents are a recall affordance for an EMPTY search box — while a query is
   // live they just echo it back as noise (and cost a row on mobile).

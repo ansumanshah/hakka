@@ -7,6 +7,22 @@
  */
 import type { NetworkRequest } from 'hakka-core'
 
+/** Independent host-provided store for element property replacement checks. */
+export function makeInjectedStore(requests: NetworkRequest[]) {
+  const listeners = new Set<(request: NetworkRequest) => void>()
+  return {
+    getSnapshot: async () => requests.slice(),
+    subscribe(listener: (request: NetworkRequest) => void) {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
+    ingest(request: NetworkRequest) {
+      requests.push(request)
+      for (const listener of listeners) listener(request)
+    },
+  }
+}
+
 /** Minimal in-memory localStorage stub — `presets.ts`/`persist.ts` read/write
  * through `localStorage`, which happy-dom doesn't provide by default. */
 export function makeLocalStorageMock(): Storage {

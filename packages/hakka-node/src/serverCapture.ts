@@ -232,6 +232,7 @@ export function startCapture(options: HakkaNodeOptions = {}): HakkaNodeCapture {
   const ignoreRegexps = options.ignorePatterns?.length ? options.ignorePatterns.map(globToUrlRegExp) : null
 
   const onRequest = (req: NetworkRequest): void => {
+    if (embeddedBridgeStopped.stopped) return
     if (ignoreRegexps && ignoreRegexps.some((re) => re.test(req.url))) return
     undiciTiming?.enrich(req)
     const tagged: NetworkRequest = req.runtime ? req : { ...req, runtime }
@@ -278,6 +279,7 @@ export function startCapture(options: HakkaNodeOptions = {}): HakkaNodeCapture {
   active = {
     runtime,
     stop() {
+      if (embeddedBridgeStopped.stopped) return
       embeddedBridgeStopped.stopped = true
       if (killSwitchTimer) clearInterval(killSwitchTimer)
       for (let i = teardowns.length - 1; i >= 0; i--) teardowns[i]()

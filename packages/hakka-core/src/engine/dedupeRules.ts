@@ -16,11 +16,9 @@ const DEDUP_WINDOW_MS = 100
  * `DEDUP_WINDOW_MS` of it (the classic native+JS double-capture case).
  */
 export function findDuplicateRequest(logs: RingBuffer, request: NetworkRequest): NetworkRequest | undefined {
+  const sameId = logs.get(request.id)
+  if (sameId) return sameId
   for (const existing of logs.getRecent(20)) {
-    if (existing.id === request.id) {
-      return existing
-    }
-
     if (
       existing.url === request.url &&
       existing.method === request.method &&
@@ -38,11 +36,33 @@ export function mergeDuplicateRequest(existing: NetworkRequest, request: Network
   const preferRequest = shouldPreferIncomingRequest(existing, request)
   const primary = preferRequest ? request : existing
   const secondary = preferRequest ? existing : request
-  return {
+  const merged: NetworkRequest = {
     ...secondary,
     ...primary,
     id: existing.id,
   }
+  // Browser resource timings enrich the header event before fetch/XHR body capture can finish.
+  if (
+    existing.id === request.id &&
+    existing.source === request.source &&
+    (existing.source === 'fetch' || existing.source === 'xhr') &&
+    hasMeasuredTiming(existing) &&
+    !hasMeasuredTiming(request)
+  ) {
+    merged.timing = { ...existing.timing, ...merged.timing }
+    for (const key of ['dnsMs', 'connectMs', 'tlsMs', 'ttfbMs', 'downloadMs'] as const) {
+      const value = existing.timing?.[key]
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        merged.timing[key] = value
+        merged[key] = value
+      }
+    }
+  }
+  return merged
+}
+
+function hasMeasuredTiming(request: NetworkRequest): boolean {
+  return (['dnsMs', 'connectMs', 'tlsMs'] as const).some((key) => Number.isFinite(request.timing?.[key]))
 }
 
 function shouldPreferIncomingRequest(existing: NetworkRequest, request: NetworkRequest): boolean {

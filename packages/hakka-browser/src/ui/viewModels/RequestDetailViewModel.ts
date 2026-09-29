@@ -83,13 +83,11 @@ export function createRequestDetailViewModel(opts: RequestDetailViewModelOptions
   const intents: RequestDetailIntents = {
     selectRequest: select,
     async selectRequestId(id) {
-      if (!store) {
-        latestReq = null
-        hydratedBody = null
-        emitter.notify()
-        return
-      }
+      intents.clear()
+      const seq = fetchSeq
+      if (!store) return
       const snap = await store.getSnapshot()
+      if (seq !== fetchSeq) return
       const found = snap.find((r) => r.id === id) ?? null
       if (found) select(found)
       else {

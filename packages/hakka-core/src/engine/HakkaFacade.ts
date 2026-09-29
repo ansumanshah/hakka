@@ -269,6 +269,7 @@ class HakkaImpl {
   }
 
   stop(): void {
+    this.persistScheduler.invalidateLoads()
     this.nativeCaptureGeneration += 1
     this.nativeCaptureReady = null
     this.native?.stopCapture?.()
@@ -570,6 +571,7 @@ class HakkaImpl {
       if (this.logs.get(merged.id)) {
         this.dispatchToListeners(merged)
       }
+      this.persistScheduler.schedulePersist(() => this.logs)
       return true
     }
     return false
@@ -685,7 +687,7 @@ class HakkaImpl {
         if (this.logs.get(merged.id)) {
           this.dispatchToListeners(merged)
         }
-        this.persistScheduler.schedulePersist(this.logs)
+        this.persistScheduler.schedulePersist(() => this.logs)
         return
       }
     }
@@ -695,7 +697,7 @@ class HakkaImpl {
     if (this.logs.get(request.id)) {
       this.dispatchToListeners(request)
     }
-    this.persistScheduler.schedulePersist(this.logs)
+    this.persistScheduler.schedulePersist(() => this.logs)
   }
 
   /** Apply age-based retention every ingest — cheap now that RingBuffer prunes via a tail-walk. */
@@ -705,8 +707,8 @@ class HakkaImpl {
 
   private async hydrateFromAdapter(): Promise<void> {
     await this.persistScheduler.hydrateFromAdapter(
-      this.logs,
-      this.config.maxRequests,
+      () => this.logs,
+      () => this.config.maxRequests,
       () => this.running,
       () => this.retention.apply(this.logs),
     )

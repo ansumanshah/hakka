@@ -1,9 +1,12 @@
 import { describe, expect, test } from 'bun:test'
+import http from 'node:http'
 
 import {
   adoptOtelTraceId,
   buildTraceparent,
   cohortGate,
+  enableTracePropagation,
+  disableTracePropagation,
   currentServerTraceId,
   currentTraceContext,
   parseIncomingTraceId,
@@ -210,6 +213,29 @@ describe('parseRequestKindHint', () => {
     expect(parseRequestKindHint({})).toBeUndefined()
     expect(parseRequestKindHint(undefined)).toBeUndefined()
     expect(parseRequestKindHint({ rsc: '0' })).toBeUndefined()
+  })
+})
+
+describe('incoming request isolation', () => {
+  test('headerless requests adopt separate OTel traces without leaking into the caller context', () => {
+    enableTracePropagation()
+    const server = http.createServer()
+    const seen: Array<string | undefined> = []
+    server.on('request', () => {
+      seen.push(currentServerTraceId())
+      adoptOtelTraceId(`otel-${seen.length}`)
+      seen.push(currentServerTraceId())
+    })
+    try {
+      runInTraceContext({ traceId: 'outer', debug: true }, () => {
+        server.emit('request', { headers: {} })
+        server.emit('request', { headers: {} })
+        expect(currentTraceContext()).toEqual({ traceId: 'outer', debug: true })
+      })
+      expect(seen).toEqual([undefined, 'otel-1', undefined, 'otel-3'])
+    } finally {
+      disableTracePropagation()
+    }
   })
 })
 

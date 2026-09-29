@@ -8,7 +8,14 @@ import { destroyStore, initStore } from '../../../worker'
 import { createStoreClient } from '../../../worker/storeClient'
 import { setPreset } from '../../presets'
 import { register, TAG } from '../stats'
-import { flush, makeLocalStorageMock, makeRequest, waitForShadowContent } from '../testHarness'
+import {
+  flush,
+  makeInjectedStore,
+  makeLocalStorageMock,
+  makeRequest,
+  waitFor,
+  waitForShadowContent,
+} from '../testHarness'
 
 const lsMock = makeLocalStorageMock()
 
@@ -70,5 +77,28 @@ describe('<hakka-stats>', () => {
 
     setPreset('amber')
     expect(el.style.getPropertyValue('--hakka-bg')).toBe(bgAfterMatrix)
+  })
+
+  it('switches to a replacement store after mounting', async () => {
+    const first = makeInjectedStore([makeRequest({})])
+    const second = makeInjectedStore([makeRequest({}), makeRequest({})])
+    const el = document.createElement(TAG) as HTMLElement & { store: unknown }
+    try {
+      el.store = first
+      document.body.appendChild(el)
+      await waitFor(() => el.shadowRoot!.textContent?.includes('Total requests1') ?? false)
+      el.store = second
+      await waitFor(() => el.shadowRoot!.textContent?.includes('Total requests2') ?? false)
+
+      first.ingest(makeRequest({}))
+      first.ingest(makeRequest({}))
+      await flush()
+      expect(el.shadowRoot!.textContent).toContain('Total requests2')
+      second.ingest(makeRequest({}))
+      await waitFor(() => el.shadowRoot!.textContent?.includes('Total requests3') ?? false)
+    } finally {
+      el.remove()
+      await flush()
+    }
   })
 })

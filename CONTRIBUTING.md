@@ -67,7 +67,13 @@ just verify-all            # verify + verify-smoke + build-all (full release gat
 bun run phase:verify:ci    # CI-safe release confidence path (delegates to `just verify`)
 bun run phase:verify       # local phase handoff confidence path (verify + verify-smoke)
 bun run phase:verify:full  # release-gate path (delegates to `just verify-all`)
+
+node scripts/smoke-tarball-install.mjs --native # fresh Expo install, prebuild and Metro bundle
 ```
+
+Set `HAKKA_NATIVE_CONSUMER_COMPILE=1` to also compile the fresh Android consumer's
+debug and release variants. This needs the Android SDK and all six Hakka Android
+modules published to the local Maven repository; hosted CI supplies them.
 
 ## Running hosted CI
 

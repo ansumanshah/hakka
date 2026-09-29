@@ -47,7 +47,9 @@ export function captureInWorker(options: WorkerCaptureOptions = {}): () => void 
   const redactHeaders = options.redactHeaders ?? DEFAULT_CONFIG.redactHeaders
   const scope = self as unknown as { postMessage: (m: unknown) => void }
 
+  let active = true
   const post = (req: NetworkRequest): void => {
+    if (!active) return
     try {
       scope.postMessage({ [HAKKA_WORKER_MESSAGE]: req })
     } catch {
@@ -60,6 +62,7 @@ export function captureInWorker(options: WorkerCaptureOptions = {}): () => void 
   if (typeof WebSocket !== 'undefined') teardowns.push(enableWebSocketInterceptor(post))
 
   return () => {
+    active = false
     for (const t of teardowns) t()
   }
 }

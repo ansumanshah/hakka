@@ -15,9 +15,17 @@ const PERSIST_COALESCE_MS = 50
 export class PersistScheduler {
   private storageAdapter: StorageAdapter | null = null
   private persistTimer: ReturnType<typeof setTimeout> | null = null
+  private pendingWrite: Promise<void> | null = null
+  private loadGeneration = 0
 
   setAdapter(adapter: StorageAdapter | null): void {
+    this.invalidateLoads()
+    this.cancelPendingPersist()
     this.storageAdapter = adapter
+  }
+
+  invalidateLoads(): void {
+    this.loadGeneration += 1
   }
 
   hasAdapter(): boolean {
@@ -25,11 +33,11 @@ export class PersistScheduler {
   }
 
   /** Coalesce adapter writes: a burst of ingests becomes one `save()` instead of O(n) each. */
-  schedulePersist(logs: RingBuffer): void {
+  schedulePersist(getLogs: () => RingBuffer): void {
     if (!this.storageAdapter || this.persistTimer !== null) return
     this.persistTimer = setTimeout(() => {
       this.persistTimer = null
-      this.flushPersist(logs)
+      this.flushPersist(getLogs())
     }, PERSIST_COALESCE_MS)
   }
 
@@ -39,15 +47,10 @@ export class PersistScheduler {
       clearTimeout(this.persistTimer)
       this.persistTimer = null
     }
-    if (!this.storageAdapter) return
-    const result = this.storageAdapter.save(logs.getAll())
-    if (result && typeof (result as Promise<void>).catch === 'function') {
-      ;(result as Promise<void>).catch((error) => {
-        if (typeof __DEV__ !== 'undefined' && __DEV__) {
-          console.warn('[Hakka] StorageAdapter.save failed.', error)
-        }
-      })
-    }
+    const adapter = this.storageAdapter
+    if (!adapter) return
+    const records = logs.getAll()
+    this.writeAdapter('save', () => adapter.save(records))
   }
 
   /** Cancel any pending coalesced write without flushing it (used before clearing storage). */
@@ -60,15 +63,32 @@ export class PersistScheduler {
 
   /** Clear persisted data when logs are cleared, mirroring flushPersist's error handling. */
   clearAdapter(): void {
-    if (!this.storageAdapter) return
-    const result = this.storageAdapter.clear()
-    if (result && typeof (result as Promise<void>).catch === 'function') {
-      ;(result as Promise<void>).catch((error) => {
-        if (typeof __DEV__ !== 'undefined' && __DEV__) {
-          console.warn('[Hakka] StorageAdapter.clear failed.', error)
-        }
-      })
+    this.invalidateLoads()
+    const adapter = this.storageAdapter
+    if (adapter) this.writeAdapter('clear', () => adapter.clear())
+  }
+
+  /** Preserve call order even when an adapter completes writes asynchronously. */
+  private writeAdapter(name: 'save' | 'clear', operation: () => void | Promise<void>): void {
+    const report = (error: unknown) => {
+      if (typeof __DEV__ !== 'undefined' && __DEV__) {
+        console.warn(`[Hakka] StorageAdapter.${name} failed.`, error)
+      }
     }
+    const run = () => {
+      try {
+        const result = operation()
+        if (result) return Promise.resolve(result).catch(report)
+      } catch (error) {
+        report(error)
+      }
+    }
+    const pending = this.pendingWrite ? this.pendingWrite.then(run) : run()
+    if (!pending) return
+    this.pendingWrite = pending
+    void pending.then(() => {
+      if (this.pendingWrite === pending) this.pendingWrite = null
+    })
   }
 
   /**
@@ -77,19 +97,24 @@ export class PersistScheduler {
    * are never evicted by hydration.
    */
   async hydrateFromAdapter(
-    logs: RingBuffer,
-    maxRequests: number,
+    getLogs: () => RingBuffer,
+    getMaxRequests: () => number,
     isRunning: () => boolean,
     applyRetention: () => void,
   ): Promise<void> {
-    if (!this.storageAdapter) return
+    const adapter = this.storageAdapter
+    if (!adapter) return
+    const generation = ++this.loadGeneration
     try {
-      const records = await Promise.resolve(this.storageAdapter.load())
-      if (!isRunning()) return
+      if (this.pendingWrite) await this.pendingWrite
+      if (generation !== this.loadGeneration || !isRunning()) return
+      const records = await adapter.load()
+      if (generation !== this.loadGeneration || !isRunning()) return
+      const logs = getLogs()
       // Only fill the REMAINING ring capacity so hydration never evicts live
       // data captured during the async load(). `records` is newest-first
       // (saved via getAll()); take the newest that fit, then add oldest-first.
-      const available = maxRequests - logs.size
+      const available = getMaxRequests() - logs.size
       if (available > 0) {
         for (const request of records.slice(0, available).reverse()) {
           if (!logs.get(request.id)) {

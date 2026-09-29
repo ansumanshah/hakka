@@ -11,7 +11,14 @@ import { createStoreClient } from '../../../worker/storeClient'
 import { setPreset } from '../../presets'
 import { register, TAG } from '../request-list'
 import { sharedFilterViewModel, sharedSelectionViewModel } from '../shared'
-import { flush, makeLocalStorageMock, makeRequest, waitFor, waitForShadowContent } from '../testHarness'
+import {
+  flush,
+  makeInjectedStore,
+  makeLocalStorageMock,
+  makeRequest,
+  waitFor,
+  waitForShadowContent,
+} from '../testHarness'
 
 const lsMock = makeLocalStorageMock()
 
@@ -35,13 +42,35 @@ afterEach(() => {
 })
 
 describe('<hakka-request-list>', () => {
+  it('replaces its store and stops rendering the previous store', async () => {
+    const first = makeInjectedStore([makeRequest({ url: 'https://api.example.com/first-store' })])
+    const second = makeInjectedStore([makeRequest({ url: 'https://api.example.com/second-store' })])
+    const el = document.createElement(TAG) as HTMLElement & { store: unknown }
+    try {
+      el.store = first
+      document.body.appendChild(el)
+      await waitFor(() => el.shadowRoot!.textContent?.includes('first-store') ?? false)
+      el.store = second
+      await waitFor(() => el.shadowRoot!.textContent?.includes('second-store') ?? false)
+      expect(el.shadowRoot!.textContent).not.toContain('first-store')
+
+      first.ingest(makeRequest({ url: 'https://api.example.com/stale-store' }))
+      second.ingest(makeRequest({ url: 'https://api.example.com/live-store' }))
+      await waitFor(() => el.shadowRoot!.textContent?.includes('live-store') ?? false)
+      expect(el.shadowRoot!.textContent).not.toContain('stale-store')
+    } finally {
+      el.remove()
+      await flush()
+    }
+  })
+
   it('mounts standalone in the DOM and renders the shared store singleton by default', async () => {
     const client = initStore({ forceInProcess: true })
     client.ingest(makeRequest({ url: 'https://api.example.com/shared-req' }))
 
     const el = document.createElement(TAG)
     document.body.appendChild(el)
-    await waitForShadowContent(el)
+    await waitFor(() => !!el.shadowRoot?.querySelector('.hakka-row-path'))
 
     expect(el.shadowRoot).toBeTruthy()
     expect(el.shadowRoot!.querySelector('.hakka-row-path')?.textContent).toContain('/shared-req')

@@ -1,0 +1,1 @@
+import{xt as s}from"./shared-runtime-C7F3lrC4.js";import{t as v}from"./svg-DfHEpkOB.js";var r=s('<svg><path d="M12 3c.6 4 1 5.4 5 6-4 .6-4.4 2-5 6-.6-4-1-5.4-5-6 4-.6 4.4-2 5-6Z"></svg>',2),t=s('<svg><path d="M19 3v3M17.5 4.5h3"></svg>',2),a=s('<svg><path d="M5 16v3M3.5 17.5h3"></svg>',2),g=s=>v(s,[r(),t(),a()]);export{g as t};

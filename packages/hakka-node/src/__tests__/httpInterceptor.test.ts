@@ -282,7 +282,9 @@ describe('http interceptor', () => {
 
   test('does not clobber a traceparent the caller already set explicitly', async () => {
     let sawTraceparent: string | undefined
+    let sawTrace: string | undefined
     const server = http.createServer((req, res) => {
+      sawTrace = req.headers['x-hakka-trace'] as string | undefined
       sawTraceparent = req.headers['traceparent'] as string | undefined
       res.end('ok')
     })
@@ -294,7 +296,12 @@ describe('http interceptor', () => {
     const explicit = '00-11111111111111111111111111111111-2222222222222222-01'
     await new Promise<void>((resolve) => {
       const req = http.request(
-        { host: '127.0.0.1', port, path: '/explicit', headers: { traceparent: explicit } },
+        {
+          host: '127.0.0.1',
+          port,
+          path: '/explicit',
+          headers: { Traceparent: explicit, 'X-Hakka-Trace': 'caller-trace' },
+        },
         (resp) => {
           resp.on('data', () => {})
           resp.on('end', () => resolve())
@@ -306,6 +313,7 @@ describe('http interceptor', () => {
     server.close()
 
     expect(sawTraceparent).toBe(explicit)
+    expect(sawTrace).toBe('caller-trace')
   })
 
   test('phase timing on a fresh connection: ttfbMs, downloadMs, timing.total', async () => {

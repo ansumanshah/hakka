@@ -343,6 +343,7 @@ export function createFilterViewModel(): FilterViewModel {
     },
     setStatusChip(value) {
       statusChip = value
+      nlStatusDsl = null
       commit(filterText)
     },
     setContentType(value) {
@@ -419,6 +420,7 @@ export function createFilterViewModel(): FilterViewModel {
     },
     applyFilter(query) {
       const previousText = filterText
+      nlStatusDsl = null
       filterText = query.filterText
       filterDisplay = query.filterText
       methodFilter = query.filterMethod

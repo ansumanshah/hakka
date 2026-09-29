@@ -1,4 +1,5 @@
 import Foundation
+import os
 import Testing
 @testable import HakkaNetwork
 import HakkaCommon
@@ -63,6 +64,46 @@ struct PauseResumeTests {
         let interceptor = HakkaInterceptor()
         interceptor.commitProcessedCapture(makeRequest(id: "live"))
         #expect(interceptor.store.count == 1)
+    }
+
+    @Test func pauseBufferRetainsOnlyNewestConfiguredRequests() {
+        let interceptor = HakkaInterceptor(config: HakkaConfig(maxRequests: 2))
+        let delivered = OSAllocatedUnfairLock(initialState: [String]())
+        interceptor.onRequest = { request in delivered.withLock { $0.append(request.id) } }
+        interceptor.pause()
+        for id in ["a", "b", "c", "d"] {
+            interceptor.commitProcessedCapture(makeRequest(id: id))
+        }
+        #expect(delivered.withLock { $0.isEmpty })
+        interceptor.resume()
+        #expect(delivered.withLock { $0 } == ["c", "d"])
+        #expect(interceptor.store.requests.map(\.id) == ["c", "d"])
+    }
+
+    @Test func clearDiscardsPausedRequestsBeforeResume() {
+        let interceptor = HakkaInterceptor()
+        interceptor.commitProcessedCapture(makeRequest(id: "stored"))
+        interceptor.pause()
+        interceptor.commitProcessedCapture(makeRequest(id: "buffered"))
+        interceptor.clear()
+        #expect(interceptor.isPaused)
+        interceptor.resume()
+        #expect(interceptor.store.count == 0)
+        interceptor.commitProcessedCapture(makeRequest(id: "new"))
+        #expect(interceptor.store.requests.map(\.id) == ["new"])
+    }
+
+    @Test func runtimeConfigUpdatePreservesPausedBufferCapacity() {
+        let interceptor = HakkaInterceptor(config: HakkaConfig(maxRequests: 3))
+        interceptor.pause()
+        for id in ["a", "b", "c"] {
+            interceptor.commitProcessedCapture(makeRequest(id: id))
+        }
+        interceptor.updateConfig { $0.replacing(maxRequests: 1) }
+        #expect(interceptor.config.maxRequests == 3)
+        interceptor.commitProcessedCapture(makeRequest(id: "d"))
+        interceptor.resume()
+        #expect(interceptor.store.requests.map(\.id) == ["b", "c", "d"])
     }
 
     @Test func pauseIdempotent() {

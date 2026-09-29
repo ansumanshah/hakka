@@ -104,6 +104,26 @@ describe('worker/storeClient (in-process backend)', () => {
     expect((await client.getSnapshot())[0]?.timing?.dnsMs).toBe(5)
   })
 
+  it('enriches approximate timings on repeated URLs and retains them after body completion', async () => {
+    client = createStoreClient({ forceInProcess: true, config: { slimEcho: false } })
+    const t = Date.now() - 1000
+    const first = req({ id: 'first', url: 'https://x.com/p', startTime: t, timing: { ttfbMs: 3, total: 20 } })
+    const second = req({ id: 'second', url: first.url, startTime: t + 100, timing: { ttfbMs: 4, total: 30 } })
+    client.ingest(first)
+    client.ingest(second)
+    client.applyResourceTiming(first.url, t + 1, { dnsMs: 5, timing: { dnsMs: 5, ttfbMs: 10 } })
+    client.applyResourceTiming(first.url, t + 101, { dnsMs: 8, timing: { dnsMs: 8, ttfbMs: 15 } })
+    client.ingest({ ...first, responseBody: 'complete', timing: { ttfbMs: 3, downloadMs: 20, total: 40 } })
+    const logs = await client.getSnapshot()
+    expect(logs.find((r) => r.id === 'first')?.timing).toEqual({ dnsMs: 5, ttfbMs: 10, downloadMs: 20, total: 40 })
+    expect(logs.find((r) => r.id === 'first')?.responseBody).toBe('complete')
+    expect(logs.find((r) => r.id === 'second')?.timing).toEqual({ dnsMs: 8, ttfbMs: 15, total: 30 })
+    client.clear()
+    client.ingest(first)
+    client.applyResourceTiming(first.url, t + 1, { dnsMs: 9, timing: { dnsMs: 9 } })
+    expect((await client.getSnapshot())[0]?.timing?.dnsMs).toBe(9)
+  })
+
   it('clear empties the store', async () => {
     client = createStoreClient({ forceInProcess: true })
     client.ingest(req())

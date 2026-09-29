@@ -82,6 +82,21 @@ class ManualCaptureTest {
     }
 
     @Test
+    fun `malformed query names are redacted without exposing other sensitive values`() {
+        var emitted: ContractRecord? = null
+        val request = HakkaManualCapture.capture(
+            request = HakkaManualRequest(
+                url = "https://example.com?token=secret&%ZZ=value&token%=hidden&%74oken=encoded&page=1#top",
+            ),
+            startTimeMs = 0,
+            config = HakkaConfig(sensitiveQueryItems = setOf("TOKEN")),
+            emit = { emitted = it },
+        )
+        assertEquals("https://example.com?token=██&%ZZ=██&token%=██&%74oken=██&page=1#top", request.url)
+        assertEquals(request, (emitted as NetworkRecord).request)
+    }
+
+    @Test
     fun `sensitive body field redacted inside nested json`() {
         val body = """{"user":{"password":"hunter2","name":"a"}}"""
         val request = HakkaManualCapture.build(

@@ -18,7 +18,7 @@ import {
   type GraphQLInfo,
 } from '../model/types'
 import { getBodyRedactionFields, redactJsonBody, redactParsedBody, tryParseJsonBody } from '../utils/bodyRedaction'
-import { isSensitiveHeader } from '../utils/headerRedaction'
+import { isSensitiveHeader, redactHeaders as redactCapturedHeaders } from '../utils/headerRedaction'
 import { captureBody } from './bodyCapture'
 import { isOwnBridgeUrl } from './bridgeHosts'
 import { readCappedBody } from './readCappedBody'
@@ -119,12 +119,22 @@ export interface FetchInterceptorOptions {
 }
 
 export function enableFetchInterceptor(
-  onRequest: RequestListener,
+  listener: RequestListener,
   maxBodySize: number,
   redactHeaders: string[],
   interceptorOptions?: FetchInterceptorOptions,
 ): () => void {
   if (originalFetch) return () => disableFetchInterceptor()
+  let active = true
+  const onRequest: RequestListener = (request) => {
+    if (!active) return
+    try {
+      listener(request)
+    } catch {
+      // Capture listeners must not break application transport callbacks.
+    }
+  }
+
   const shouldCapture = interceptorOptions?.shouldCapture
 
   originalFetch = globalThis.fetch
@@ -366,8 +376,8 @@ export function enableFetchInterceptor(
           requestHeaders,
           requestBody,
           requestBodySize,
-          responseHeaders: Object.fromEntries(mockHeaders.entries()),
-          responseBody: bodyStr,
+          responseHeaders: redactCapturedHeaders(Object.fromEntries(mockHeaders.entries()), redactHeaders),
+          responseBody: bodyStr.length <= maxBodySize ? (redactJsonBody(bodyStr, redactionFields) ?? bodyStr) : null,
           responseBodySize: bodyStr.length,
           error: null,
           source: 'fetch',
@@ -790,7 +800,11 @@ export function enableFetchInterceptor(
     }
   }
 
-  return () => disableFetchInterceptor()
+  return () => {
+    if (!active) return
+    active = false
+    disableFetchInterceptor()
+  }
 }
 
 function disableFetchInterceptor(): void {

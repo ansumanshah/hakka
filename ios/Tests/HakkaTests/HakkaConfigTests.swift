@@ -25,6 +25,30 @@ import HakkaCommon
         #expect(config.ignoreHosts.contains("analytics.com"))
     }
 
+    @Test func storageEntriesRedactKeysAndNestedJSONFields() throws {
+        let config = HakkaConfig(sensitiveBodyFields: ["TOKEN", "password"])
+        let entries = config.redactStorageEntries([
+            "Token": "top-level-secret",
+            "session": #"{"user":{"Password":"nested-secret","name":"Ada"},"items":[{"token":"array-secret"}]}"#,
+            "plain": "visible",
+        ])
+        #expect(entries["Token"] == "██")
+        #expect(entries["plain"] == "visible")
+        let data = try #require(entries["session"]?.data(using: .utf8))
+        let json = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let user = try #require(json["user"] as? [String: String])
+        #expect(user == ["Password": "██", "name": "Ada"])
+        let items = try #require(json["items"] as? [[String: String]])
+        #expect(items == [["token": "██"]])
+    }
+
+    @Test func storageEntriesPreserveUnconfiguredValuesAndHideOverdeepJSON() {
+        let entries = ["session": #"{"token":"secret"}"#, "plain": "visible"]
+        #expect(HakkaConfig().redactStorageEntries(entries) == entries)
+        let deep = String(repeating: "[", count: 101) + #"{"token":"secret"}"# + String(repeating: "]", count: 101)
+        #expect(HakkaConfig(sensitiveBodyFields: ["token"]).redactStorageEntries(["session": deep])["session"] == "██")
+    }
+
     @Test func ignoredHostSuffixRequiresDnsLabelBoundary() throws {
         let interceptor = HakkaInterceptor(config: HakkaConfig(ignoreHosts: ["example.com"]))
 

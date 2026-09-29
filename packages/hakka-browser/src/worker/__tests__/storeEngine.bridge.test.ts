@@ -127,6 +127,19 @@ describe('storeEngine desktop bridge', () => {
     expect(socket.sent.some((f) => (f.payload as NetworkRequest | undefined)?.id === 'server-1')).toBe(false)
   })
 
+  it('ignores delayed messages and close events from a replaced bridge socket', async () => {
+    const old = await connectBridge()
+    storeEngine.bridgeConnect('ws://replacement')
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    const current = lastSocket!
+    const timer = vi.spyOn(globalThis, 'setTimeout')
+    old.emitFromHub({ type: 'request', payload: req({ id: 'stale' }) })
+    old.onclose?.({ code: 1000 })
+    expect(storeEngine.snapshot().some((r) => r.id === 'stale')).toBe(false)
+    expect(timer).not.toHaveBeenCalled()
+    expect(current.readyState).toBe(FakeBridgeSocket.OPEN)
+  })
+
   it('still forwards a genuinely local ingest over the bridge', async () => {
     const socket = await connectBridge()
     socket.sent = []

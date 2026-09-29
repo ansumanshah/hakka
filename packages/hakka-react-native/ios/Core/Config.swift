@@ -167,6 +167,30 @@ public struct HakkaConfig: Sendable {
         return result
     }
 
+    /// Redacts configured sensitive keys and fields in JSON storage values before display or streaming.
+    public func redactStorageEntries(_ entries: [String: String]) -> [String: String] {
+        guard !sensitiveBodyFields.isEmpty else { return entries }
+        func redactValue(_ value: Any) -> Any {
+            if var dict = value as? [String: Any] {
+                for key in dict.keys {
+                    dict[key] = sensitiveBodyFields.contains(key.lowercased())
+                        ? "\u{2588}\u{2588}" : redactValue(dict[key]!)
+                }
+                return dict
+            }
+            if let array = value as? [Any] { return array.map { redactValue($0) } }
+            return value
+        }
+        return redactMetadata(entries).mapValues { value in
+            guard !JSONDepthGuard.exceedsDepthLimit(value, limit: 100) else { return "\u{2588}\u{2588}" }
+            guard let data = value.data(using: .utf8),
+                  let json = try? JSONSerialization.jsonObject(with: data) else { return value }
+            guard let redacted = try? JSONSerialization.data(withJSONObject: redactValue(json)),
+                  let result = String(data: redacted, encoding: .utf8) else { return "\u{2588}\u{2588}" }
+            return result
+        }
+    }
+
     public func shouldRedactHeader(_ headerName: String) -> Bool {
         let normalized = headerName.lowercased()
         if redactHeaders.contains(normalized) {

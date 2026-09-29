@@ -89,6 +89,31 @@ npx expo start
 If you build development clients with EAS, use a development profile and then
 start Metro with `npx expo start`.
 
+## Android build policy
+
+The plugin defaults to `android.capture: "debug"`: debug uses `hakka-network`
+(and opt-in `hakka-performance`), release uses their API-compatible noop artifacts.
+The native bridge stays linked in release, but its network interceptor captures
+nothing. Bundled inspector dependencies and Play feature UI are debug-only under
+this policy; release has no inspector activities.
+
+For an explicitly approved internal/production build that needs capture and UI,
+opt in to all Android variants:
+
+```json
+{
+  "expo": {
+    "plugins": [["hakka-react-native", { "android": { "capture": "all" }, "uiDelivery": "play" }]]
+  }
+}
+```
+
+This includes real capture in release. Start it intentionally, configure redaction
+and retention, and test the release distribution path. This option controls
+Android artifacts only; iOS uses its separate native integration and runtime
+startup policy. Other Android build types/flavors need matching dependencies
+and feature variants configured by the app.
+
 ## Native Inspector
 
 The React Native package no longer exports `hakka-react-native/ui` or bundles a
@@ -120,9 +145,9 @@ boundary.
 ### Android inspector packaging
 
 The plugin generates an app-owned `:hakkaInspector` Play Feature Delivery module
-by default. Native capture stays in the base app, and `Hakka.show()` requests the
+by default. Capture stays in the base app for enabled variants, and `Hakka.show()` requests the
 inspector when it is absent. Set `uiDelivery: "bundled"` to include `hakka-ui` in
 the base app, or `uiDelivery: "disabled"`/`androidUI: false` for capture without
-the inspector. `androidPerformance: true` adds the production performance
-collector. The iOS inspector is included in the RN pod. Use
+the inspector. `androidPerformance: true` adds performance collectors using the selected
+capture policy. The iOS inspector is included in the RN pod. Use
 `await Hakka.show(...)` and check its boolean result.

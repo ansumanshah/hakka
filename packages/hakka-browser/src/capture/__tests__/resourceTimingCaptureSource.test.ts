@@ -1,5 +1,5 @@
 import type { CaptureSourceContext, CaptureSourceProbe, NetworkRequest } from 'hakka-core'
-import { checkCaptureSourceConformance } from 'hakka-core'
+import { Hakka, checkCaptureSourceConformance } from 'hakka-core'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { createResourceTimingCaptureSource } from '../resourceTiming'
@@ -191,14 +191,79 @@ describe('createResourceTimingCaptureSource', () => {
       source.stop()
     })
 
-    it('skips a record that already has timing set', () => {
-      const alreadyTimed = makeRecord({ timing: { ttfbMs: 1 } })
+    it('replaces approximate timing once and preserves its total duration', () => {
+      const alreadyTimed = makeRecord({ timing: { ttfbMs: 1, total: 80 } })
       const { ctx, updateCalls } = createFakeEnrichmentContext([alreadyTimed])
       const source = createResourceTimingCaptureSource()
 
       source.start(ctx)
       FakePerformanceObserver.dispatch(fakeEntry())
 
+      FakePerformanceObserver.dispatch(fakeEntry())
+      expect(updateCalls).toHaveLength(1)
+      expect(updateCalls[0]!.timing).toMatchObject({ ttfbMs: 15, total: 80 })
+      source.stop()
+    })
+
+    it('retains measured timing after a context ingest completes the same request body', () => {
+      Hakka.start({ mode: 'store' })
+      const target = makeRecord({ startTime: Date.now(), timing: { ttfbMs: 1, total: 20 } })
+      const source = createResourceTimingCaptureSource()
+      try {
+        Hakka.ingest(target)
+        source.start({
+          ingest: (r) => Hakka.ingest(r),
+          update: (patch) => Hakka.update(patch),
+          getLogs: () => Hakka.getLogs(),
+        })
+        FakePerformanceObserver.dispatch(fakeEntry({ startTime: target.startTime }))
+        Hakka.ingest({ ...target, responseBody: 'done', timing: { ttfbMs: 1, total: 80 } })
+        expect(Hakka.getLog(target.id)?.timing).toMatchObject({ dnsMs: 5, ttfbMs: 15, total: 80 })
+        expect(Hakka.getLog(target.id)?.responseBody).toBe('done')
+      } finally {
+        source.stop()
+        Hakka.clearLogs()
+        Hakka.stop()
+      }
+    })
+
+    it('preserves measured zero phases for a cached response', () => {
+      const { ctx, updateCalls } = createFakeEnrichmentContext([makeRecord()])
+      const source = createResourceTimingCaptureSource()
+      source.start(ctx)
+      FakePerformanceObserver.dispatch(
+        fakeEntry({
+          domainLookupStart: 10,
+          domainLookupEnd: 10,
+          connectStart: 10,
+          connectEnd: 10,
+          secureConnectionStart: 0,
+          requestStart: 10,
+          responseStart: 10,
+          responseEnd: 10,
+        }),
+      )
+      expect(updateCalls[0]!.timing).toEqual({ dnsMs: 0, connectMs: 0, ttfbMs: 0, downloadMs: 0 })
+      source.stop()
+    })
+
+    it('leaves cross-origin restricted timings untouched', () => {
+      const { ctx, updateCalls } = createFakeEnrichmentContext([makeRecord()])
+      const source = createResourceTimingCaptureSource()
+      source.start(ctx)
+      FakePerformanceObserver.dispatch(
+        fakeEntry({
+          domainLookupStart: 0,
+          domainLookupEnd: 0,
+          connectStart: 0,
+          connectEnd: 0,
+          secureConnectionStart: 0,
+          requestStart: 0,
+          responseStart: 0,
+          responseEnd: 60,
+          nextHopProtocol: '',
+        }),
+      )
       expect(updateCalls).toHaveLength(0)
       source.stop()
     })

@@ -36,6 +36,12 @@ export interface EdgeCaptureOptions {
   redactHeaders?: string[]
   /** Full-URL `*`-glob patterns whose captures are dropped before reaching `sink`. */
   ignorePatterns?: string[]
+  /** Capture fetch. Default true. */
+  captureFetch?: boolean
+  /** Fraction (0..1) of requests to capture, after the custom gate. */
+  sampleRate?: number
+  /** Optional pre-capture gate. */
+  shouldCapture?: () => boolean
   /** Every captured record is tagged `runtime: 'edge'` and passed here — the only way a record leaves this module (see the module doc: no bridge on Edge). */
   sink?: (req: NetworkRequest) => void
 }
@@ -55,16 +61,28 @@ export function startEdgeCapture(options: EdgeCaptureOptions = {}): EdgeCapture 
   const redactHeaders = options.redactHeaders ?? DEFAULT_CONFIG.redactHeaders
   const ignoreRegexps = options.ignorePatterns?.length ? options.ignorePatterns.map(globToUrlRegExp) : null
 
+  let stopped = false
   const onRequest = (req: NetworkRequest): void => {
+    if (stopped) return
     if (ignoreRegexps?.some((re) => re.test(req.url))) return
     options.sink?.(req.runtime ? req : { ...req, runtime: 'edge' })
   }
 
-  const teardown = enableFetchInterceptor(onRequest, maxBodySize, redactHeaders)
+  const { shouldCapture, sampleRate } = options
+  const gate =
+    shouldCapture || sampleRate !== undefined
+      ? () => (!shouldCapture || shouldCapture()) && (sampleRate === undefined || Math.random() < sampleRate)
+      : undefined
+  const teardown =
+    options.captureFetch === false
+      ? () => {}
+      : enableFetchInterceptor(onRequest, maxBodySize, redactHeaders, gate ? { shouldCapture: gate } : undefined)
 
   active = {
     runtime: 'edge',
     stop() {
+      if (stopped) return
+      stopped = true
       teardown()
       active = null
     },
