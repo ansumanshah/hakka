@@ -19,6 +19,57 @@ function listen(server: Server): Promise<number> {
 const settle = () => new Promise((r) => setTimeout(r, 25))
 
 describe('startCapture', () => {
+  test('a stopped handle cannot stop a later capture', async () => {
+    const first = startCapture({ bridge: false })
+    first.stop()
+    const records: NetworkRequest[] = []
+    const second = startCapture({ bridge: false, sink: (r) => records.push(r) })
+    first.stop()
+    expect(startCapture({ bridge: false })).toBe(second)
+
+    const server = http.createServer((_req, res) => res.end('ok'))
+    const port = await listen(server)
+    try {
+      await fetch(`http://127.0.0.1:${port}/restarted`)
+      await settle()
+      expect(records.some((r) => r.url.endsWith('/restarted'))).toBe(true)
+    } finally {
+      server.close()
+    }
+  })
+
+  test('a stopped capture does not deliver an in-flight http response', async () => {
+    const records: NetworkRequest[] = []
+    let finish!: () => void
+    let arrived!: () => void
+    const incoming = new Promise<void>((resolve) => {
+      arrived = resolve
+    })
+    const server = http.createServer((_req, res) => {
+      finish = () => res.end('ok')
+      arrived()
+    })
+    const port = await listen(server)
+    const handle = startCapture({ bridge: false, captureFetch: false, sink: (r) => records.push(r) })
+    const completed = new Promise<void>((resolve, reject) => {
+      http
+        .get(`http://127.0.0.1:${port}/in-flight`, (res) => {
+          res.resume()
+          res.on('end', resolve)
+        })
+        .on('error', reject)
+    })
+    try {
+      await incoming
+      handle.stop()
+      finish()
+      await completed
+      expect(records).toHaveLength(0)
+    } finally {
+      server.close()
+    }
+  })
+
   test('tags fetch captures with runtime: server', async () => {
     const records: NetworkRequest[] = []
     startCapture({ bridge: false, sink: (r) => records.push(r) })

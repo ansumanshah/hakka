@@ -47,7 +47,7 @@ export interface TraceContext {
   requestKindHint?: 'rsc' | 'server-action'
 }
 
-const store = new AsyncLocalStorage<TraceContext>()
+const store = new AsyncLocalStorage<TraceContext | undefined>()
 
 interface ServerProto {
   emit: (event: string, ...args: unknown[]) => boolean
@@ -133,15 +133,17 @@ export function enableTracePropagation(): () => void {
         // from — one bad header would break the app's request handling, not
         // just its capture. Every other capture path guards its prologue this
         // way ("a listener must never break the request"); this one did not.
-        let context: { traceId: string; requestKindHint?: ReturnType<typeof parseRequestKindHint> } | null = null
+        let context: TraceContext | undefined
         try {
           const req = args[0] as { headers?: Record<string, string | string[] | undefined> } | undefined
           const id = parseIncomingTraceId(req?.headers)
           if (id) context = { traceId: id, requestKindHint: parseRequestKindHint(req?.headers) }
         } catch {
-          context = null
+          context = undefined
         }
-        if (context) return store.run(context, () => orig.apply(this, [event, ...args]))
+        // Scope headerless requests too: OTel's enterWith must not leak an
+        // adopted trace or a debug cohort into another request on this context.
+        return store.run(context, () => orig.apply(this, [event, ...args]))
       }
       return orig.apply(this, [event, ...args])
     }

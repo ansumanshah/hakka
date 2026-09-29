@@ -50,7 +50,7 @@ React Native UI peer is required.
    Use `uiDelivery: "bundled"` for local development and installs outside Google
    Play. This includes the inspector in the app, so `expo run:android` can open it.
    For Play-distributed builds, set `uiDelivery: "play"` (the plugin default) to
-   generate an app-owned `:hakkaInspector` on-demand module. Capture stays in the
+   generate an app-owned `:hakkaInspector` on-demand module. Debug capture stays in the
    base app and `Hakka.show()` downloads the inspector when needed. Verify that
    path through [Internal App Sharing](/android/on-demand-ui/#verification). Set `uiDelivery: "disabled"` or
    `androidUI: false` to omit it. iOS includes the canonical native UI in the
@@ -102,6 +102,31 @@ npx expo start
 ```
 
 You only need to rebuild (`npx expo run:ios` / `npx expo run:android`) when you change native dependencies or plugin configuration.
+
+## Android build policy
+
+The plugin defaults to `android.capture: "debug"`: debug uses `hakka-network`
+(and opt-in `hakka-performance`), release uses their API-compatible noop artifacts.
+The native bridge stays linked in release, but its network interceptor captures
+nothing. Bundled inspector dependencies and Play feature UI are debug-only under
+this policy; release has no inspector activities.
+
+For an explicitly approved internal/production build that needs capture and UI,
+opt in to all Android variants:
+
+```json
+{
+  "expo": {
+    "plugins": [["hakka-react-native", { "android": { "capture": "all" }, "uiDelivery": "play" }]]
+  }
+}
+```
+
+This includes real capture in release. Start it intentionally, configure redaction
+and retention, and test the release distribution path. This option controls
+Android artifacts only; iOS uses its separate native integration and runtime
+startup policy. Other Android build types/flavors need matching dependencies
+and feature variants configured by the app.
 
 ## Native inspector
 

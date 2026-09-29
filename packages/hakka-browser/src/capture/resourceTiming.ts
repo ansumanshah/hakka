@@ -44,18 +44,20 @@ function extractTiming(e: PerformanceResourceTiming): Partial<NetworkRequest> {
   const timing: NetworkTiming = {}
 
   const set = (key: (typeof TIMING_KEYS)[number], value: number) => {
-    if (Number.isFinite(value) && value > 0) {
+    if (Number.isFinite(value) && value >= 0) {
       const rounded = Math.round(value)
       flat[key] = rounded
       timing[key] = rounded
     }
   }
 
-  set('dnsMs', e.domainLookupEnd - e.domainLookupStart)
-  set('connectMs', e.connectEnd - e.connectStart)
-  if (e.secureConnectionStart > 0) set('tlsMs', e.connectEnd - e.secureConnectionStart)
-  if (e.responseStart > 0) set('ttfbMs', e.responseStart - e.requestStart)
-  set('downloadMs', e.responseEnd - e.responseStart)
+  if (e.responseStart > 0) {
+    set('dnsMs', e.domainLookupEnd - e.domainLookupStart)
+    set('connectMs', e.connectEnd - e.connectStart)
+    if (e.secureConnectionStart > 0) set('tlsMs', e.connectEnd - e.secureConnectionStart)
+    set('ttfbMs', e.responseStart - e.requestStart)
+    set('downloadMs', e.responseEnd - e.responseStart)
+  }
 
   const out: Partial<NetworkRequest> = { ...flat }
   if (e.nextHopProtocol) out.networkProtocol = e.nextHopProtocol
@@ -66,7 +68,7 @@ function extractTiming(e: PerformanceResourceTiming): Partial<NetworkRequest> {
 /**
  * `CaptureSourceContext`-backed equivalent of `storeEngine.applyResourceTiming`
  * (`packages/hakka-browser/src/worker/storeEngine.ts`) — same matching rule
- * (fetch/xhr record, no `timing` yet, closest `startTime` for this url), but
+ * (fetch/xhr record, not yet enriched, closest `startTime` for this url), but
  * against `ctx.getLogs()`'s flat, unindexed snapshot instead of the engine's
  * `Hakka.getLogsByUrl` index. ADR 0006 row 5 names this exact gap: an O(n)
  * filter per timing entry where the engine is O(k) via an indexed url
@@ -77,6 +79,7 @@ function applyResourceTimingViaContext(
   url: string,
   entryEpochStart: number,
   patch: Partial<NetworkRequest>,
+  enriched: Set<string>,
 ): void {
   // A host context wired without enrichment support (both are optional on
   // the contract) — fail open, never throw, matching every other capture
@@ -86,14 +89,19 @@ function applyResourceTimingViaContext(
   let bestDelta = Number.POSITIVE_INFINITY
   for (const r of ctx.getLogs()) {
     if (r.url !== url) continue
-    if ((r.source !== 'fetch' && r.source !== 'xhr') || r.timing) continue
+    if ((r.source !== 'fetch' && r.source !== 'xhr') || enriched.has(r.id)) continue
     const delta = Math.abs(r.startTime - entryEpochStart)
     if (delta < bestDelta) {
       bestDelta = delta
       best = r
     }
   }
-  if (best) ctx.update({ id: best.id, ...patch })
+  if (best) {
+    ctx.update({ id: best.id, ...patch, timing: { ...best.timing, ...patch.timing } })
+    enriched.add(best.id)
+    const liveIds = new Set(ctx.getLogs().map((r) => r.id))
+    for (const id of enriched) if (!liveIds.has(id)) enriched.delete(id)
+  }
 }
 
 /**
@@ -108,9 +116,10 @@ function applyResourceTimingViaContext(
  * member, this fails loudly (`x is not a function`), not silently.
  */
 function storeClientAdapter(ctx: CaptureSourceContext): StoreClient {
+  const enriched = new Set<string>()
   return {
     applyResourceTiming(url: string, entryEpochStart: number, patch: Partial<NetworkRequest>) {
-      applyResourceTimingViaContext(ctx, url, entryEpochStart, patch)
+      applyResourceTimingViaContext(ctx, url, entryEpochStart, patch, enriched)
     },
   } as unknown as StoreClient
 }

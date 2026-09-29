@@ -111,17 +111,20 @@ function isBrowser(): boolean {
 function installWorkerRelay(ingest: (req: NetworkRequest) => void): () => void {
   if (typeof Worker === 'undefined') return () => {}
   const OriginalWorker = Worker
+  const controller = new AbortController()
   globalThis.Worker = class extends OriginalWorker {
     constructor(scriptURL: string | URL, options?: WorkerOptions) {
       super(scriptURL, options)
-      this.addEventListener('message', (ev: MessageEvent) => {
+      const listener = (ev: MessageEvent) => {
         const rec = (ev.data as Record<string, unknown> | null | undefined)?.[HAKKA_WORKER_MESSAGE]
         if (rec) ingest(rec as NetworkRequest)
-      })
+      }
+      this.addEventListener('message', listener, { signal: controller.signal })
     }
   } as unknown as typeof Worker
   return () => {
     globalThis.Worker = OriginalWorker
+    controller.abort()
   }
 }
 
@@ -131,7 +134,7 @@ function installWorkerRelay(ingest: (req: NetworkRequest) => void): () => void {
  * until the launcher is tapped or `show()` is called. Safe on the server (no-op).
  */
 export function start(options: HakkaWebOptions = {}): void {
-  if (!isBrowser() || started) return
+  if (!isBrowser() || started || options.enabled === false) return
   started = true
   const {
     overlay = 'launcher',
@@ -150,14 +153,11 @@ export function start(options: HakkaWebOptions = {}): void {
   setNumberGates(gates)
 
   // Opt-in client trace propagation (off by default so the header never leaks).
-  if (trace) {
-    configureTrace({ enabled: true, propagateOrigins: typeof trace === 'object' ? trace.propagateOrigins : undefined })
-  }
+  configureTrace({ enabled: !!trace, propagateOrigins: typeof trace === 'object' ? trace.propagateOrigins : undefined })
   // Opt-in JSON body-field redaction (applied before bodies reach the store).
   // An explicit option wins; otherwise re-apply fields configured via the Settings tab.
   const persistedRedactFields = loadUiState().redactBodyFields
-  if (redactBodyFields?.length) configureBodyRedaction(redactBodyFields)
-  else if (persistedRedactFields?.length) configureBodyRedaction(persistedRedactFields)
+  configureBodyRedaction(redactBodyFields ?? persistedRedactFields ?? [])
 
   // Capture store + heavy processing run in a Web Worker (transparent in-process
   // fallback); only the interceptors and Mock/Throttle decisions stay on the
@@ -165,6 +165,7 @@ export function start(options: HakkaWebOptions = {}): void {
   const client = initStore({
     config: {
       maxRequests: config.maxRequests,
+      maxBufferBytes: config.maxBufferBytes,
       // Explicit option wins; otherwise honor the retention age set in the Settings tab.
       maxAge: config.maxAge ?? (loadUiState().maxAge || undefined),
       ignoreHosts: config.ignoreHosts,
@@ -175,7 +176,13 @@ export function start(options: HakkaWebOptions = {}): void {
 
   const maxBodySize = config.maxBodySize ?? DEFAULT_CONFIG.maxBodySize
   const redactHeaders = config.redactHeaders ?? DEFAULT_CONFIG.redactHeaders
-  const onReq = (req: NetworkRequest) => client.ingest(req)
+  let active = true
+  teardowns.push(() => {
+    active = false
+  })
+  const onReq = (req: NetworkRequest) => {
+    if (active) client.ingest(req)
+  }
   teardowns.push(
     enableFetchInterceptor(onReq, maxBodySize, redactHeaders),
     enableXHRInterceptor(onReq, maxBodySize, redactHeaders),
@@ -188,7 +195,7 @@ export function start(options: HakkaWebOptions = {}): void {
   // before the Mock panel is ever opened.
   loadMocks()
   // Apply the persisted initiator-capture setting before any request is made.
-  if (loadUiState().captureStack) setStackCapture(true)
+  setStackCapture(!!loadUiState().captureStack)
   // Auto-open the overlay when a request hits a breakpoint, so the user can act
   // (a paused request holds its Promise until resumed/aborted).
   teardowns.push(
@@ -257,7 +264,9 @@ export async function show(): Promise<void> {
     // Dynamic import => code-split: the UI is not in the main/host bundle.
     uiLoading = import('./register').then(() => undefined)
   }
-  await uiLoading
+  const loading = uiLoading
+  await loading
+  if (uiLoading !== loading) return
   if (!overlayEl) {
     overlayEl = document.createElement(OVERLAY_TAG) as HTMLElement & { hakkaApi?: InspectorApi }
     document.body.appendChild(overlayEl)

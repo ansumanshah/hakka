@@ -4,27 +4,46 @@ import com.facebook.react.modules.network.OkHttpClientFactory
 import com.facebook.react.modules.network.OkHttpClientProvider
 import okhttp3.OkHttpClient
 
-/**
- * Installs the one RN networking client path. The managed interceptor owns capture, mocks,
- * breakpoints, and throttling, so the native inspector and the JS bridge control the same engine.
- */
+/** Adds capture while preserving the host client's networking configuration. */
 object HakkaOkHttpClientFactory {
     private var isInitialized = false
+    private var automaticInstallation = true
+
+    /** Call before autolinked packages are constructed when the host owns RN networking. */
+    @JvmStatic
+    @Synchronized
+    fun disableAutomaticInstallation() {
+        automaticInstallation = false
+    }
+
+    /** Install before RN networking modules are created; fresh clients retain the host factory. */
+    @JvmStatic
+    @Synchronized
+    fun configure(factory: OkHttpClientFactory) {
+        OkHttpClientProvider.setOkHttpClientFactory(object : OkHttpClientFactory {
+            override fun createNewNetworkModuleClient(): OkHttpClient =
+                withCapture(factory.createNewNetworkModuleClient())
+        })
+        isInitialized = true
+    }
+
+    /** Use in a host-owned factory, including factories installed after package construction. */
+    @JvmStatic
+    fun withCapture(client: OkHttpClient): OkHttpClient =
+        if (client.interceptors.any { it === NativeCoreDelegate.interceptor }) client
+        else client.newBuilder().addInterceptor(NativeCoreDelegate.interceptor).build()
 
     @Synchronized
     fun initialize() {
-        if (isInitialized) return
+        if (isInitialized || !automaticInstallation) return
+        // RN exposes no factory getter. Snapshot its current factory's client before replacement.
         try {
-            OkHttpClientProvider.setOkHttpClientFactory(object : OkHttpClientFactory {
-                override fun createNewNetworkModuleClient(): OkHttpClient {
-                    val builder = OkHttpClientProvider.createClientBuilder()
-                    builder.addInterceptor(NativeCoreDelegate.interceptor)
-                    return builder.build()
-                }
+            val client = OkHttpClientProvider.createClient()
+            configure(object : OkHttpClientFactory {
+                override fun createNewNetworkModuleClient(): OkHttpClient = client
             })
-            isInitialized = true
-        } catch (e: Exception) {
-            android.util.Log.e("HakkaOkHttpClientFactory", "Failed to inject interceptor", e)
+        } catch (_: Exception) {
+            // A failed host snapshot leaves its factory intact and permits a later retry.
         }
     }
 }

@@ -861,6 +861,14 @@ class RedactQueryItemsTest {
         assertTrue(result.contains("api_key=\u2588\u2588"))
     }
 
+    @Test fun `malformed names cannot undo redaction or expose their values`() {
+        val result = HakkaInterceptor.redactQueryItems(
+            "https://example.com?token=secret&%ZZ=value&token%=hidden&%74oken=encoded&page=1#top",
+            setOf("TOKEN"),
+        )
+        assertEquals("https://example.com?token=██&%ZZ=██&token%=██&%74oken=██&page=1#top", result)
+    }
+
     @Test fun `no query string passthrough`() {
         val url = "https://example.com/path"
         assertEquals(url, HakkaInterceptor.redactQueryItems(url, setOf("token")))

@@ -176,7 +176,7 @@ function injectHeaders(args: unknown[], extra: Record<string, string>): unknown[
   } else {
     const headers: Record<string, unknown> = { ...(existingHeaders as Record<string, unknown> | undefined) }
     for (const [k, v] of Object.entries(extra)) {
-      if (headers[k] == null) headers[k] = v
+      if (!Object.keys(headers).some((name) => name.toLowerCase() === k.toLowerCase())) headers[k] = v
     }
     opts.headers = headers
   }

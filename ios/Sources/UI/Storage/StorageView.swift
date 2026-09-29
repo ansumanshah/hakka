@@ -1,5 +1,6 @@
 #if canImport(UIKit)
 import SwiftUI
+import HakkaCommon
 import HakkaNetwork
 
 // MARK: - StorageView
@@ -161,8 +162,9 @@ struct StorageView: View {
 
     private func refreshPairs() {
         let dict = UserDefaults.standard.dictionaryRepresentation()
-        let all = dict.map { key, value in
-            DefaultsPair(key: key, displayValue: describe(value))
+        let entries = HakkaInterceptor.shared.config.redactStorageEntries(dict.mapValues { describe($0) })
+        let all = entries.map { key, value in
+            DefaultsPair(key: key, displayValue: value)
         }
         .sorted { $0.key.localizedCaseInsensitiveCompare($1.key) == .orderedAscending }
 
@@ -173,7 +175,6 @@ struct StorageView: View {
         // semantics mean a stale desktop panel self-heals on the next 1s poll
         // regardless, and diffing here would just duplicate `pairs`' own diff
         // above for no benefit (`sendStorage` is cheap, fire-and-queued).
-        let entries = Dictionary(uniqueKeysWithValues: all.map { ($0.key, $0.displayValue) })
         HakkaInterceptor.shared.publishStorageSnapshot(store: "defaults", entries: entries)
     }
 

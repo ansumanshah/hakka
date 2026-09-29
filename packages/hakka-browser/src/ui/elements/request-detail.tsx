@@ -82,6 +82,7 @@ export function register(): void {
             setResolved(null)
             return
           }
+          setResolved(null)
           let cancelled = false
           const client = sharedStore()
           void client.getSnapshot().then((snap) => {

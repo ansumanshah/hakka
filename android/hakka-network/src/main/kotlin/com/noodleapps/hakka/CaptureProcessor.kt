@@ -76,7 +76,12 @@ internal class CaptureProcessor(
      */
     fun enqueuePatch(id: String, transform: (NetworkRequest) -> NetworkRequest) {
         try {
-            executor.execute { logStore.update(id, transform) }
+            executor.execute {
+                var updated: NetworkRequest? = null
+                if (logStore.update(id) { request -> transform(request).also { updated = it } }) {
+                    updated?.let(::notifyRecord)
+                }
+            }
         } catch (_: RejectedExecutionException) {
             // Best-effort, same as enqueue()'s rejection path — no onProcessed hook needed
             // since a patch doesn't gate inFlight cleanup.
@@ -153,15 +158,19 @@ internal class CaptureProcessor(
                 correlationId = capture.correlationId,
             )
             logStore.add(request)
-            onRecord(NetworkRecord.from(request, id = request.id, timestampMs = request.startTimeMs))
-            listeners.forEach { listener ->
-                runCatching { listener.onRequest(request) }
-            }
-            pluginListeners.forEach { listener ->
-                runCatching { listener(request) }
-            }
+            notifyRecord(request)
         } finally {
             onProcessed(capture.id)
+        }
+    }
+
+    private fun notifyRecord(request: NetworkRequest) {
+        onRecord(NetworkRecord.from(request, id = request.id, timestampMs = request.startTimeMs))
+        listeners.forEach { listener ->
+            runCatching { listener.onRequest(request) }
+        }
+        pluginListeners.forEach { listener ->
+            runCatching { listener(request) }
         }
     }
 

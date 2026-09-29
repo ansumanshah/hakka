@@ -128,10 +128,16 @@ export function register(): void {
       // injected one (owned — and destroyed — by whoever constructed it,
       // same discipline `Detail.tsx`/`StatsTab.tsx` apply to their own).
       let ownVm: RequestListViewModel | null = null
+      let ownStore: StoreClient | null = null
       const vm = createMemo<RequestListViewModel>(() => {
         const injected = injectedVm()
         if (injected) return injected
-        ownVm ??= createRequestListViewModel({ store: props.store ?? sharedStore(), filters })
+        const client = props.store ?? sharedStore()
+        if (!ownVm || ownStore !== client) {
+          ownVm?.destroy()
+          ownStore = client
+          ownVm = createRequestListViewModel({ store: client, filters })
+        }
         return ownVm
       })
 

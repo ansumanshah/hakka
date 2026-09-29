@@ -178,7 +178,9 @@ export function startProdCapture(options: ProdCaptureOptions): ProdCaptureHandle
   // Cohort membership is enforced via `cohort` as both interceptors'
   // `shouldCapture` gate below; this adds the independent URL-allowlist half
   // of the AND — a cohort request whose URL isn't on `captureUrls` still isn't captured.
+  let stopped = false
   const onRequest = (req: NetworkRequest): void => {
+    if (stopped) return
     const tagged: NetworkRequest = req.runtime ? req : { ...req, runtime }
     if (!patterns.some((re) => re.test(tagged.url))) return
     // `fetch` emits each request TWICE under the same `id` — headers first,
@@ -236,6 +238,8 @@ export function startProdCapture(options: ProdCaptureOptions): ProdCaptureHandle
     runtime,
     getRecords: () => Array.from(ring),
     stop() {
+      if (stopped) return
+      stopped = true
       if (killSwitchTimer) clearInterval(killSwitchTimer)
       for (let i = teardowns.length - 1; i >= 0; i--) teardowns[i]()
       active = null

@@ -116,6 +116,29 @@ describe('RequestDetailViewModel', () => {
     expect(vm.getSnapshot().request).toBeNull()
   })
 
+  it.each(['direct selection', 'clear', 'new id'] as const)('drops a delayed id lookup after %s', async (action) => {
+    let resolveSnapshot!: (requests: NetworkRequest[]) => void
+    const store: RequestDetailStore = {
+      getBody: () => Promise.resolve(null),
+      getSnapshot: vi
+        .fn()
+        .mockImplementationOnce(() => new Promise((resolve) => (resolveSnapshot = resolve)))
+        .mockResolvedValue([req('new')]),
+    }
+    const vm = createRequestDetailViewModel({ store })
+    vm.intents.selectRequest(req('previous'))
+    const pending = vm.intents.selectRequestId('old')
+    expect(vm.getSnapshot().request).toBeNull()
+
+    if (action === 'direct selection') vm.intents.selectRequest(req('new'))
+    else if (action === 'clear') vm.intents.clear()
+    else await vm.intents.selectRequestId('new')
+
+    resolveSnapshot([req('old')])
+    await pending
+    expect(vm.getSnapshot().request?.id ?? null).toBe(action === 'clear' ? null : 'new')
+  })
+
   it('subscribe fires on change; unsubscribe stops notifications', async () => {
     const vm = createRequestDetailViewModel({
       store: fakeStore(new Map([['r1', { requestBody: null, responseBody: 'x' }]])),

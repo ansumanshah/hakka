@@ -83,8 +83,18 @@ function encodeFrame(data: unknown): { data: string | number; size: number; bina
   return { data: size, size, binary: true }
 }
 
-export function enableWebSocketInterceptor(onRequest: RequestListener): () => void {
+export function enableWebSocketInterceptor(listener: RequestListener): () => void {
   if (OriginalWebSocket) return () => disableWebSocketInterceptor()
+
+  let active = true
+  const onRequest: RequestListener = (request) => {
+    if (!active) return
+    try {
+      listener(request)
+    } catch {
+      // Capture listeners must not break application transport callbacks.
+    }
+  }
 
   OriginalWebSocket = globalThis.WebSocket
   const SavedWS = OriginalWebSocket
@@ -146,6 +156,7 @@ export function enableWebSocketInterceptor(onRequest: RequestListener): () => vo
       }
 
       const scheduleEmit = () => {
+        if (!active) return
         if (debounceTimer) {
           // Already scheduled — just mark pending so the timer picks it up
           pendingEmit = true
@@ -178,6 +189,7 @@ export function enableWebSocketInterceptor(onRequest: RequestListener): () => vo
       })
 
       const handleMessage = (event: HakkaWebSocketMessageEvent) => {
+        if (!active) return
         if (messages.length >= MAX_WS_MESSAGES) return
         const frame: WsMessage = { timestamp: Date.now(), direction: 'received', ...encodeFrame(event.data) }
         messages.push(frame)
@@ -187,6 +199,7 @@ export function enableWebSocketInterceptor(onRequest: RequestListener): () => vo
           void event.data
             .arrayBuffer()
             .then((buf) => {
+              if (!active) return
               frame.data = bytesToBase64(new Uint8Array(buf))
               scheduleEmit()
             })
@@ -239,21 +252,27 @@ export function enableWebSocketInterceptor(onRequest: RequestListener): () => vo
 
       const originalSend = this.send.bind(this)
       this.send = (data: HakkaWebSocketSendData) => {
-        if (!this._hakkaSkip && messages.length < MAX_WS_MESSAGES) {
-          const frame: WsMessage = { timestamp: Date.now(), direction: 'sent', ...encodeFrame(data) }
-          messages.push(frame)
-          scheduleEmit()
-          if (frame.binary && isBlob(data) && frame.size <= MAX_WS_BINARY_BYTES) {
-            void data
-              .arrayBuffer()
-              .then((buf) => {
-                frame.data = bytesToBase64(new Uint8Array(buf))
-                scheduleEmit()
-              })
-              .catch(() => {})
-          }
-        }
         originalSend(data)
+        if (!active) return
+        try {
+          if (!this._hakkaSkip && messages.length < MAX_WS_MESSAGES) {
+            const frame: WsMessage = { timestamp: Date.now(), direction: 'sent', ...encodeFrame(data) }
+            messages.push(frame)
+            scheduleEmit()
+            if (frame.binary && isBlob(data) && frame.size <= MAX_WS_BINARY_BYTES) {
+              void data
+                .arrayBuffer()
+                .then((buf) => {
+                  if (!active) return
+                  frame.data = bytesToBase64(new Uint8Array(buf))
+                  scheduleEmit()
+                })
+                .catch(() => {})
+            }
+          }
+        } catch {
+          // Inspection failures must not prevent a successful send.
+        }
       }
     }
   }
@@ -265,7 +284,11 @@ export function enableWebSocketInterceptor(onRequest: RequestListener): () => vo
 
   globalThis.WebSocket = PatchedWebSocket as unknown as typeof WebSocket
 
-  return () => disableWebSocketInterceptor()
+  return () => {
+    if (!active) return
+    active = false
+    disableWebSocketInterceptor()
+  }
 }
 
 function disableWebSocketInterceptor(): void {

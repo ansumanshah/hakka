@@ -137,14 +137,8 @@ object HakkaManualCapture {
         return normalized
     }
 
-    // Deliberately reimplemented rather than shared with HakkaInterceptor's companion
-    // object in hakka-network: hakka-common cannot depend on hakka-network (the
-    // dependency runs the other way), so there is no lower-level module for this logic
-    // to live in without also moving it there. The algorithms below are kept
-    // byte-for-byte equivalent to hakka-network's — see the parity tests in
-    // ManualCaptureTest.kt. Hoisting a single shared implementation into hakka-common
-    // and having both call it is tracked as a follow-up; it requires editing
-    // HakkaInterceptor.kt, out of scope here.
+    // Kept equivalent to HakkaInterceptor's redaction: hakka-common cannot depend
+    // on hakka-network. Body parity is checked in ManualCaptureTest.kt.
 
     private const val MAX_REDACTION_DEPTH = 100
 
@@ -168,28 +162,29 @@ object HakkaManualCapture {
      */
     private fun redactQueryItems(url: String, sensitiveItems: Set<String>): String {
         if (sensitiveItems.isEmpty()) return url
-        return try {
-            val qStart = url.indexOf('?')
-            if (qStart < 0) return url
-            val base = url.substring(0, qStart)
-            val rest = url.substring(qStart + 1)
-            val fStart = rest.indexOf('#')
-            val fragment = if (fStart >= 0) rest.substring(fStart) else ""
-            val queryOnly = if (fStart >= 0) rest.substring(0, fStart) else rest
-            val newQuery = queryOnly.split("&").joinToString("&") { param ->
-                val eq = param.indexOf('=')
-                if (eq < 0) {
-                    param
-                } else {
-                    val rawName = param.substring(0, eq)
-                    val decoded = URLDecoder.decode(rawName, "UTF-8")
-                    if (decoded.lowercase() in sensitiveItems) "$rawName=██" else param
+        val sensitive = sensitiveItems.map { it.lowercase() }.toSet()
+        val qStart = url.indexOf('?')
+        if (qStart < 0) return url
+        val base = url.substring(0, qStart)
+        val rest = url.substring(qStart + 1)
+        val fStart = rest.indexOf('#')
+        val fragment = if (fStart >= 0) rest.substring(fStart) else ""
+        val queryOnly = if (fStart >= 0) rest.substring(0, fStart) else rest
+        val newQuery = queryOnly.split("&").joinToString("&") { param ->
+            val eq = param.indexOf('=')
+            if (eq < 0) param
+            else {
+                val rawName = param.substring(0, eq)
+                val decoded = try {
+                    URLDecoder.decode(rawName, "UTF-8")
+                } catch (_: IllegalArgumentException) {
+                    null
                 }
+                // An undecodable name cannot be safely classified, so redact its value.
+                if (decoded == null || decoded.lowercase() in sensitive) "$rawName=██" else param
             }
-            "$base?$newQuery$fragment"
-        } catch (_: Exception) {
-            url
         }
+        return "$base?$newQuery$fragment"
     }
 
     /**

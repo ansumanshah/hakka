@@ -12,6 +12,7 @@
  */
 import {
   Hakka,
+  DEFAULT_CONFIG,
   RuntimeControlReceiver,
   RUNTIME_CONTROL_CAPABILITIES,
   compileQuery,
@@ -69,10 +70,12 @@ function ingestSpan(span: FrameworkSpan): void {
 // below. bridgeConnect()'s own `Hakka.onRequest` subscription further down
 // deliberately ignores this flag: the desktop bridge always gets full bodies.
 let slimEchoEnabled = true
+const resourceTimings = new Set<string>()
 
 function mapConfig(config?: StoreConfig): StoreConfig {
   const out: StoreConfig = {}
   if (config?.maxRequests != null) out.maxRequests = config.maxRequests
+  if (config?.maxBufferBytes != null) out.maxBufferBytes = config.maxBufferBytes
   if (config?.maxAge != null) out.maxAge = config.maxAge
   if (config?.ignoreHosts != null) out.ignoreHosts = config.ignoreHosts
   if (config?.ignorePatterns != null) out.ignorePatterns = config.ignorePatterns
@@ -181,6 +184,7 @@ function openBridgeSocket(): void {
   // pulls in captures from OTHER sources (e.g. the Next.js server via hakka-node,
   // tagged runtime:'server'). Ingest them so the overlay shows full-stack traffic.
   socket.onmessage = (ev: MessageEvent) => {
+    if (ws !== socket || intentionalClose) return
     try {
       const raw = typeof ev.data === 'string' ? ev.data : ''
       const msg = JSON.parse(raw) as { type?: unknown; payload?: unknown }
@@ -216,7 +220,8 @@ function openBridgeSocket(): void {
 
   socket.onclose = (ev) => {
     control.close()
-    if (ws === socket) ws = null
+    if (ws !== socket) return
+    ws = null
     if (intentionalClose) {
       emitBridge({ state: 'disconnected' })
       return
@@ -261,25 +266,31 @@ export const storeEngine = {
   /**
    * Apply a Resource-Timing patch from the main-thread PerformanceObserver to the
    * stored request that best matches `url` + start time. Skips requests that
-   * already carry real timing so two entries to the same url enrich two requests.
+   * already received Resource Timing so two entries to the same url enrich two requests.
    */
   applyResourceTiming(url: string, entryEpochStart: number, patch: Partial<NetworkRequest>): void {
     let best: NetworkRequest | undefined
     let bestDelta = Number.POSITIVE_INFINITY
     // Use URL index: O(k) where k = entries for this URL, not O(n) over all logs.
     for (const r of Hakka.getLogsByUrl(url)) {
-      if ((r.source !== 'fetch' && r.source !== 'xhr') || r.timing) continue
+      if ((r.source !== 'fetch' && r.source !== 'xhr') || resourceTimings.has(r.id)) continue
       const delta = Math.abs(r.startTime - entryEpochStart)
       if (delta < bestDelta) {
         bestDelta = delta
         best = r
       }
     }
-    if (best) Hakka.update({ id: best.id, ...patch })
+    if (best) {
+      resourceTimings.add(best.id)
+      const maxRequests = Math.max(0, Hakka.getConfig().maxRequests ?? DEFAULT_CONFIG.maxRequests)
+      while (resourceTimings.size > maxRequests) resourceTimings.delete(resourceTimings.keys().next().value!)
+      Hakka.update({ id: best.id, ...patch, timing: { ...best.timing, ...patch.timing } })
+    }
   },
 
   clear(): void {
     Hakka.clearLogs()
+    resourceTimings.clear()
   },
 
   configure(config: StoreConfig): void {
@@ -393,6 +404,7 @@ export const storeEngine = {
     // explicitly set.
     slimEchoEnabled = true
     bridgeOriginIds.clear()
+    resourceTimings.clear()
     spansByTrace.clear()
   },
 }

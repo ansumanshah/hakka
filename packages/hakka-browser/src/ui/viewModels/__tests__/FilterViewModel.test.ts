@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { createFilterViewModel } from '../FilterViewModel'
+import { createFilterViewModel, toAdvancedQuery } from '../FilterViewModel'
 
 // localStorage mock — happy-dom doesn't provide one unless --localstorage-file is set.
 function makeLocalStorageMock(): Storage {
@@ -76,6 +76,26 @@ describe('FilterViewModel', () => {
     vm.intents.toggleNlMode()
     expect(vm.getSnapshot().filterDisplay).toBe(vm.getSnapshot().filterText)
     expect(vm.getSnapshot().nlMode).toBe(false)
+  })
+
+  it('an explicit status chip overrides the previous NL status', () => {
+    const vm = createFilterViewModel()
+    vm.intents.toggleNlMode()
+    vm.intents.setFilterText('failed requests')
+    expect(toAdvancedQuery(vm.getSnapshot(), '').statusDsl).toBe('>=400')
+    vm.intents.setStatusChip('2xx')
+    expect(toAdvancedQuery(vm.getSnapshot(), '').statusDsl).toBe('200..299')
+  })
+
+  it('applying a saved filter removes the previous NL status constraint', () => {
+    const vm = createFilterViewModel()
+    vm.intents.setStatusChip('2xx')
+    vm.intents.saveFilter('successful')
+    const saved = vm.getSnapshot().savedFilters[0]!.query
+    vm.intents.toggleNlMode()
+    vm.intents.setFilterText('failed requests')
+    vm.intents.applyFilter(saved)
+    expect(toAdvancedQuery(vm.getSnapshot(), '').statusDsl).toBe('200..299')
   })
 
   it('advancedCount reflects active advanced filters', () => {

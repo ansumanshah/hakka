@@ -58,6 +58,9 @@ export async function register(options?: ServerCaptureOptions): Promise<void> {
     if (process.env.NODE_ENV === 'production' && options?.runtime == null && !options?.force) return
     const { startEdgeCapture } = await import('./edgeCapture')
     startEdgeCapture({
+      captureFetch: options?.captureFetch,
+      sampleRate: options?.sampleRate,
+      shouldCapture: options?.shouldCapture,
       maxBodySize: options?.maxBodySize,
       redactHeaders: options?.redactHeaders,
       ignorePatterns: options?.ignorePatterns,
@@ -67,7 +70,7 @@ export async function register(options?: ServerCaptureOptions): Promise<void> {
     // caller who didn't pass `sink` gets real capture with nowhere for
     // records to go. Surfaced in dev only, matching `next/client.ts`'s
     // pattern for other silent-gap warnings.
-    if (!options?.sink && process.env.NODE_ENV !== 'production') {
+    if (options?.captureFetch !== false && !options?.sink && process.env.NODE_ENV !== 'production') {
       console.warn(
         '[hakka] register() is capturing fetch on the Edge runtime, but no `options.sink` was configured — ' +
           'every record is captured then discarded (there is no embedded bridge on Edge). Pass `sink` to receive them.',

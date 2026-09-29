@@ -150,6 +150,33 @@ describe('Keyboard shortcuts', () => {
     fireEvent.keyDown(search, { key: '/' })
     expect(document.activeElement).toBe(search)
   })
+
+  it('does not navigate or focus search while typing inside a shadow root', async () => {
+    client.ingest(makeRequest({ id: 'shadow-keyboard' }))
+    const { container } = render(() => <Inspector />)
+    fireEvent.contextMenu(q(container, '.hakka-toggle') as HTMLElement)
+    await flush()
+
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    const shadow = host.attachShadow({ mode: 'open' })
+    const input = document.createElement('input')
+    shadow.appendChild(input)
+    input.focus()
+    try {
+      for (const key of ['j', 'k', '/', 'Enter']) {
+        const event = new KeyboardEvent('keydown', { key, bubbles: true, composed: true, cancelable: true })
+        input.dispatchEvent(event)
+        expect(event.defaultPrevented).toBe(false)
+      }
+      await flush()
+      expect(q(container, '.hakka-row.selected')).toBeNull()
+      expect(q(container, '.hakka-back-btn')).toBeNull()
+      expect(shadow.activeElement).toBe(input)
+    } finally {
+      host.remove()
+    }
+  })
 })
 
 describe('Detail — Copy as menu', () => {

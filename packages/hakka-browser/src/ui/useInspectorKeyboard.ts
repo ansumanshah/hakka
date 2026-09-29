@@ -60,7 +60,7 @@ export function useInspectorKeyboard(deps: InspectorKeyboardDeps): void {
       }
       return
     }
-    if (isTypingTarget(e.target)) return
+    if (e.composedPath().some(isTypingTarget)) return
     if (e.key === '/') {
       e.preventDefault()
       deps.searchInputEl()?.focus()

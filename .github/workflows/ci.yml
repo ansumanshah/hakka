@@ -284,6 +284,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24.20.0'
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
@@ -305,12 +308,17 @@ jobs:
           restore-keys: rn-android-cxx-${{ runner.os }}-${{ runner.arch }}-${{ matrix.variant }}-${{ hashFiles('bun.lock') }}-
       - name: Publish Android SDK to the local Maven repository
         working-directory: android
-        run: ./gradlew :hakka-common:publishToMavenLocal :hakka-network:publishToMavenLocal :hakka-performance:publishToMavenLocal :hakka-ui:publishToMavenLocal
+        run: ./gradlew :hakka-common:publishToMavenLocal :hakka-network:publishToMavenLocal :hakka-network-noop:publishToMavenLocal :hakka-performance:publishToMavenLocal :hakka-performance-noop:publishToMavenLocal :hakka-ui:publishToMavenLocal
       - name: Build Rozenite workspace dependencies
         run: |
           bun run --cwd packages/hakka-core build
           bun run --cwd packages/hakka-browser build
           bun run --cwd packages/hakka-rozenite build
+      - name: Fresh Expo package consumer (debug and release noop)
+        if: matrix.variant == 'Debug'
+        env:
+          HAKKA_NATIVE_CONSUMER_COMPILE: '1'
+        run: node scripts/smoke-tarball-install.mjs --native
       # iOS development bundling complements Android's production release bundle.
       - name: Metro bundle (optional peers absent on purpose)
         if: matrix.variant == 'Debug'

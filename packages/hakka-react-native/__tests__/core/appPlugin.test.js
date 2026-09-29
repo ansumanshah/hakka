@@ -44,13 +44,15 @@ dependencies {
   })
 
   it('defaults to Play delivery and supports bundled and disabled UI modes', () => {
-    expect(normalizeAndroidOptions({})).toMatchObject({ uiDelivery: 'play', performance: false })
+    expect(normalizeAndroidOptions({})).toMatchObject({ uiDelivery: 'play', performance: false, capture: 'debug' })
     expect(normalizeAndroidOptions({ android: { uiDelivery: 'bundled' } }).uiDelivery).toBe('bundled')
     expect(normalizeAndroidOptions({ androidUI: false, uiDelivery: 'play' }).uiDelivery).toBe('disabled')
+    expect(normalizeAndroidOptions({ android: { capture: 'all' } }).capture).toBe('all')
+    expect(() => normalizeAndroidOptions({ android: { capture: 'release' } })).toThrow('Invalid Hakka Android capture')
     expect(() => normalizeAndroidOptions({ uiDelivery: 'unknown' })).toThrow('Invalid Hakka Android uiDelivery')
   })
 
-  it('migrates old debug/noop lines to one production capture dependency set', () => {
+  it('migrates old dependency lines to explicit production capture only when opted in', () => {
     const old = appBuildGradle.replace(
       'dependencies {',
       `dependencies {
@@ -62,11 +64,13 @@ dependencies {
     )
     const once = addHakkaAndroidDependencies(old, {
       version: '0.0.2',
+      capture: 'all',
       performance: true,
       uiDelivery: 'play',
     })
     const twice = addHakkaAndroidDependencies(once, {
       version: '0.0.2',
+      capture: 'all',
       performance: true,
       uiDelivery: 'play',
     })
@@ -101,12 +105,28 @@ dependencies {
       uiDelivery: 'disabled',
     })
 
-    expect(bundled).toContain('implementation("com.noodleapps.hakka:hakka-ui:0.0.1")')
+    expect(bundled).toContain('debugImplementation("com.noodleapps.hakka:hakka-ui:0.0.1")')
     expect(bundled).not.toContain('feature-delivery')
     expect(disabled).not.toContain('hakka-ui')
     expect(disabled).not.toContain('feature-delivery')
     expect(disabled).not.toContain('Hakka AndroidX feature alignment')
-    expect(disabled).toContain('implementation("com.noodleapps.hakka:hakka-network:0.0.1")')
+    expect(disabled).toContain('debugImplementation("com.noodleapps.hakka:hakka-network:0.0.1")')
+  })
+
+  it('uses real debug and noop release collectors and migrates an all-build opt-in back safely', () => {
+    const all = addHakkaAndroidDependencies(appBuildGradle, {
+      version: '0.1.1',
+      capture: 'all',
+      performance: true,
+      uiDelivery: 'bundled',
+    })
+    const debug = addHakkaAndroidDependencies(all, { version: '0.1.1', performance: true, uiDelivery: 'bundled' })
+    expect(debug).toContain('debugImplementation("com.noodleapps.hakka:hakka-network:0.1.1")')
+    expect(debug).toContain('releaseImplementation("com.noodleapps.hakka:hakka-network-noop:0.1.1")')
+    expect(debug).toContain('debugImplementation("com.noodleapps.hakka:hakka-performance:0.1.1")')
+    expect(debug).toContain('releaseImplementation("com.noodleapps.hakka:hakka-performance-noop:0.1.1")')
+    expect(debug).toContain('debugImplementation("com.noodleapps.hakka:hakka-ui:0.1.1")')
+    expect(debug).not.toContain('    implementation("com.noodleapps.hakka:')
   })
 
   it('preserves existing dynamic features and removes only its managed declaration', () => {
@@ -192,6 +212,23 @@ class MainApplication : Application() {
     expect(featureGradle).toContain('compileSdk rootProject.ext.compileSdkVersion')
     expect(featureGradle).toContain('minSdk rootProject.ext.minSdkVersion')
     expect(featureGradle).toContain('META-INF/androidx.*.version')
+    expect(featureGradle).toContain('debugImplementation("com.noodleapps.hakka:hakka-ui:0.0.1")')
+    expect(fs.readFileSync(path.join(root, 'hakkaInspector/src/main/AndroidManifest.xml'), 'utf8')).not.toContain(
+      'HakkaActivity',
+    )
+    expect(fs.readFileSync(path.join(root, 'hakkaInspector/src/debug/AndroidManifest.xml'), 'utf8')).toContain(
+      'HakkaActivity',
+    )
+    expect(fs.readFileSync(path.join(root, 'hakkaInspector/src/debug/AndroidManifest.xml'), 'utf8')).not.toContain(
+      '<dist:module',
+    )
+    syncDynamicFeature(root, { version: '0.0.1', uiDelivery: 'play', capture: 'all' })
+    expect(fs.readFileSync(path.join(root, 'hakkaInspector/build.gradle'), 'utf8')).toContain(
+      '    implementation("com.noodleapps.hakka:hakka-ui:0.0.1")',
+    )
+    expect(fs.readFileSync(path.join(root, 'hakkaInspector/src/main/AndroidManifest.xml'), 'utf8')).toContain(
+      'HakkaActivity',
+    )
     expect(dynamicFeatureManifest()).toContain('@android:style/Theme.DeviceDefault.Light.NoActionBar')
     expect(dynamicFeatureManifest()).toContain('@xml/hakka_inspector_file_paths')
     expect(fs.existsSync(path.join(root, 'app/src/main/res/xml/hakka_inspector_file_paths.xml'))).toBe(true)
@@ -210,9 +247,12 @@ class MainApplication : Application() {
     )
   })
 
-  it('applies the default production capture change through the plugin entrypoint', () => {
+  it('defaults to debug capture and a release noop through the plugin entrypoint', () => {
     const result = withHakka({ modResults: { contents: appBuildGradle } })
-    expect(result.modResults.contents).toContain('implementation("com.noodleapps.hakka:hakka-network:0.1.1")')
+    expect(result.modResults.contents).toContain('debugImplementation("com.noodleapps.hakka:hakka-network:0.1.1")')
+    expect(result.modResults.contents).toContain(
+      'releaseImplementation("com.noodleapps.hakka:hakka-network-noop:0.1.1")',
+    )
     expect(result.modResults.contents).toContain('android.dynamicFeatures += [":hakkaInspector"]')
   })
 })

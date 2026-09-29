@@ -186,9 +186,10 @@ export function createWorkerClient(worker: Worker, opts: StoreClientOptions): St
   // talking to a worker we already gave up on, so any RPC made *after* the
   // failure resolves immediately with its fallback instead of hanging again.
   let failed = false
+  let destroyed = false
 
   const send = (msg: MainToWorker) => {
-    if (failed) return
+    if (failed || destroyed) return
     worker.postMessage(msg)
   }
 
@@ -207,7 +208,7 @@ export function createWorkerClient(worker: Worker, opts: StoreClientOptions): St
   // this, every RPC (in flight now or made later) would hang forever with
   // nothing surfaced anywhere — capture just goes silently dark.
   worker.onerror = (ev) => {
-    if (failed) return
+    if (failed || destroyed) return
     failed = true
     ev.preventDefault?.()
     // Same reporting path as `ui/CrashBoundary.tsx` — a store that silently
@@ -257,7 +258,7 @@ export function createWorkerClient(worker: Worker, opts: StoreClientOptions): St
   send({ type: 'init', config: opts.config })
 
   const rpc = <T>(make: (id: number) => MainToWorker, fallback: T): Promise<T> => {
-    if (failed) return Promise.resolve(fallback)
+    if (failed || destroyed) return Promise.resolve(fallback)
     const id = ++rid
     return new Promise<T>((resolve) => {
       pending.set(id, { resolve: resolve as (value: unknown) => void, fallback })
@@ -274,17 +275,22 @@ export function createWorkerClient(worker: Worker, opts: StoreClientOptions): St
     configure: (config) => send({ type: 'configure', config }),
     getSnapshot: (query) => rpc<NetworkRequest[]>((id) => ({ type: 'snapshot', rid: id, query }), []),
     subscribe: (cb) => {
-      const first = fan.requestSubs.size === 0
+      const first = fan.requestSubs.size === 0 && fan.spanSubs.size === 0
       fan.requestSubs.add(cb)
       if (first) send({ type: 'subscribe' })
       return () => {
         fan.requestSubs.delete(cb)
-        if (fan.requestSubs.size === 0) send({ type: 'unsubscribe' })
+        if (fan.requestSubs.size === 0 && fan.spanSubs.size === 0) send({ type: 'unsubscribe' })
       }
     },
     subscribeSpans: (cb) => {
+      const first = fan.requestSubs.size === 0 && fan.spanSubs.size === 0
       fan.spanSubs.add(cb)
-      return () => fan.spanSubs.delete(cb)
+      if (first) send({ type: 'subscribe' })
+      return () => {
+        fan.spanSubs.delete(cb)
+        if (fan.requestSubs.size === 0 && fan.spanSubs.size === 0) send({ type: 'unsubscribe' })
+      }
     },
     getSpansForTrace: (traceId) => rpc<FrameworkSpan[]>((rid) => ({ type: 'spansForTrace', rid, traceId }), []),
     exportHar: () => rpc<string>((id) => ({ type: 'exportHar', rid: id }), ''),
@@ -304,7 +310,11 @@ export function createWorkerClient(worker: Worker, opts: StoreClientOptions): St
     },
     getBridgeStatus: () => fan.status,
     destroy: () => {
+      if (destroyed) return
       send({ type: 'bridgeDisconnect' })
+      destroyed = true
+      worker.onmessage = null
+      worker.onerror = null
       // Any in-flight getBody/getSnapshot/etc. caller unwinds with its
       // fallback instead of hanging forever — a terminated worker can never
       // post the 'result' message that would otherwise resolve it.

@@ -28,6 +28,7 @@ export interface StoreQuery {
 /** Subset of HakkaConfig the store (running in the Worker) cares about. */
 export interface StoreConfig {
   maxRequests?: number
+  maxBufferBytes?: number
   maxAge?: number
   /** Host blocklist — `shouldIgnore` runs in the store thread. */
   ignoreHosts?: string[]

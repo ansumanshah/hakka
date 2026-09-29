@@ -78,8 +78,11 @@ const NAMED = {
     // cost. This is a budget adjustment, not a compression improvement.
     // Solid 2.0 rc.9 measured 154.38 KB (+3.79 KB from the prior Node 24
     // baseline); retain about 1% headroom for the accepted runtime update.
+    // The 2026-09-30 capture privacy/lifecycle fixes measure 156.10 KB on
+    // Node 24.20.0 (+1.72 KB). Keep about 1% headroom for that safety cost;
+    // the eager entry stays 3.42 KB under its unchanged 5 KB budget.
     label: 'IIFE (<script>)',
-    budget: Number(process.env.HAKKA_WEB_GLOBAL_BUDGET) || 156 * 1024,
+    budget: Number(process.env.HAKKA_WEB_GLOBAL_BUDGET) || 158 * 1024,
   },
   'worker.js': {
     // workerCapture.ts's own build (vite.config.ts's `worker` mode, `hakka-browser/worker`)
@@ -293,7 +296,9 @@ if (existsSync(COMPONENTS_DIST)) {
     // 87.73 KB to 90.03 KB; 93 KB keeps roughly 3% headroom without charging
     // the individual element entries.
     // Solid 2.0 rc.9 measures 95.66 KB here; ~1.4% headroom.
-    const budget = Number(process.env.HAKKA_COMPONENTS_SHARED_BUDGET) || 97 * 1024
+    // Capture privacy/lifecycle fixes measure 97.14 KB on Linux Node 24.20.0;
+    // retain about 1% headroom for the shared engine and store-client cost.
+    const budget = Number(process.env.HAKKA_COMPONENTS_SHARED_BUDGET) || 98 * 1024
     const over = g > budget
     if (over) failed = true
     componentRows.push({ label: 'Shared runtime chunk', raw, gz: g, budget, over })

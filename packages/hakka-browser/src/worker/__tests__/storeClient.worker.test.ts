@@ -126,3 +126,34 @@ describe('createWorkerClient — destroy()', () => {
     expect(worker.terminated).toBe(true)
   })
 })
+
+describe('createWorkerClient — closed client', () => {
+  it('settles later RPCs and drops later captures after destroy', async () => {
+    const worker = new FakeWorker()
+    const client = createWorkerClient(worker as unknown as Worker, {})
+    client.destroy()
+    const posted = worker.posted.length
+    client.ingest(req())
+    await expect(client.getSnapshot()).resolves.toEqual([])
+    await expect(client.getBody('late')).resolves.toBeNull()
+    expect(worker.posted).toHaveLength(posted)
+    expect(worker.onmessage).toBeNull()
+  })
+})
+
+it('keeps the worker subscribed while either requests or spans have listeners', () => {
+  const worker = new FakeWorker()
+  const client = createWorkerClient(worker as unknown as Worker, {})
+  const onSpan = vi.fn()
+  const offSpans = client.subscribeSpans!(onSpan)
+  const offRequests = client.subscribe(() => {})
+  offRequests()
+  expect(worker.posted.filter((msg) => msg.type === 'subscribe')).toHaveLength(1)
+  expect(worker.posted.some((msg) => msg.type === 'unsubscribe')).toBe(false)
+  const span = { id: 's', traceId: 't', name: 'server', startTime: 1, endTime: 2 }
+  worker.onmessage!(new MessageEvent('message', { data: { type: 'span', span } }))
+  expect(onSpan).toHaveBeenCalledWith(span)
+  offSpans()
+  expect(worker.posted.at(-1)?.type).toBe('unsubscribe')
+  client.destroy()
+})

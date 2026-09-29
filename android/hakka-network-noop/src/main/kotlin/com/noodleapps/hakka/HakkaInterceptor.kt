@@ -8,7 +8,7 @@ import okhttp3.Response
  * Same public API as [com.noodleapps.hakka.HakkaInterceptor] — swap by dependency name.
  */
 class HakkaInterceptor private constructor(
-    private val config: HakkaConfig,
+    val config: HakkaConfig,
     listeners: List<HakkaListener>,
     sinks: List<RecordSink>,
 ) : Interceptor, AutoCloseable {
@@ -26,6 +26,15 @@ class HakkaInterceptor private constructor(
      * Mirrors `updateConfig(_:)` on iOS.
      */
     fun updateConfig(transform: (HakkaConfig) -> HakkaConfig) = Unit
+
+    /** Accepts the capture pause API without buffering requests. */
+    fun pause() = Unit
+
+    /** Accepts the capture resume API without enabling capture. */
+    fun resume() = Unit
+
+    /** No capture exists to pause in the noop variant. */
+    val isPaused: Boolean get() = false
 
     /**
      * Returns the retention policy derived from the initial config.

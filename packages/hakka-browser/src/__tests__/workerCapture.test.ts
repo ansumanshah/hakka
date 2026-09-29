@@ -36,3 +36,31 @@ describe('captureInWorker', () => {
     expect(rec?.source).toBe('fetch')
   })
 })
+
+it('does not post a worker fetch that completes after capture teardown', async () => {
+  const realWindow = window
+  const realSelf = self
+  const realFetch = fetch
+  const posts: unknown[] = []
+  let finish!: (response: Response) => void
+  const response = new Promise<Response>((resolve) => {
+    finish = resolve
+  })
+  ;(globalThis as Record<string, unknown>).window = undefined
+  ;(globalThis as Record<string, unknown>).self = { postMessage: (m: unknown) => posts.push(m) }
+  globalThis.fetch = (() => response) as typeof fetch
+  const off = captureInWorker()
+  try {
+    const pending = fetch('https://api.test/late')
+    off()
+    finish(new Response('ok'))
+    await pending
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    expect(posts).toEqual([])
+  } finally {
+    off()
+    ;(globalThis as Record<string, unknown>).window = realWindow
+    ;(globalThis as Record<string, unknown>).self = realSelf
+    globalThis.fetch = realFetch
+  }
+})

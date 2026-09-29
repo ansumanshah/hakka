@@ -1,5 +1,5 @@
 import { formatBytes, formatDuration } from 'hakka-core'
-import { createMemo, createSignal, For, onSettled, Show } from 'solid-js'
+import { createEffect, createMemo, createSignal, For, onSettled, Show, untrack } from 'solid-js'
 import type { Component } from 'solid-js'
 
 import { store } from '../worker'
@@ -49,21 +49,19 @@ export interface StatsTabProps extends PanelProps {
 export const StatsTab: Component<StatsTabProps> = (props) => {
   // Aggregation lives in StatsViewModel (viewModels/StatsViewModel.ts) — this
   // component only renders its snapshot.
-  const vm = props.viewModel ?? createStatsViewModel({ store: store() })
-  const [snap, setSnap] = createSignal(vm.getSnapshot())
+  let ownVm: StatsViewModel | null = null
+  const vm = createMemo(() => props.viewModel ?? (ownVm ??= createStatsViewModel({ store: store() })))
+  const [snap, setSnap] = createSignal(untrack(() => vm().getSnapshot()))
 
-  onSettled(() => {
-    const off = vm.subscribe(() => setSnap(vm.getSnapshot()))
-    // onSettled runs later than onMount — resync in case the view-model
-    // emitted between first render and settle.
-    setSnap(vm.getSnapshot())
-    return () => {
-      off()
-      // Only tear down a view-model this component created — an injected one
-      // is owned by whoever constructed it.
-      if (!props.viewModel) vm.destroy()
-    }
-  })
+  createEffect(
+    () => vm(),
+    (current) => {
+      const off = current.subscribe(() => setSnap(current.getSnapshot()))
+      setSnap(current.getSnapshot())
+      return off
+    },
+  )
+  onSettled(() => () => ownVm?.destroy())
 
   const total = createMemo(() => snap().total)
 

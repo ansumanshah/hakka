@@ -17,6 +17,17 @@ function listen(server: Server): Promise<number> {
 
 const settle = () => new Promise((r) => setTimeout(r, 25))
 
+describe('startProdCapture — lifecycle', () => {
+  test('a stopped handle cannot stop a later capture or restore its redaction config', () => {
+    const first = startProdCapture({ captureUrls: ['http://example.test/*'], redactBodyFields: ['first'] })
+    first.stop()
+    const second = startProdCapture({ captureUrls: ['http://example.test/*'], redactBodyFields: ['second'] })
+    first.stop()
+    expect(startProdCapture({ captureUrls: ['http://example.test/*'] })).toBe(second)
+    expect(getBodyRedactionFields()).toEqual(['second'])
+  })
+})
+
 describe('startProdCapture — required allowlist', () => {
   test('throws when captureUrls is missing', () => {
     // @ts-expect-error — exercising the runtime guard for a missing required field

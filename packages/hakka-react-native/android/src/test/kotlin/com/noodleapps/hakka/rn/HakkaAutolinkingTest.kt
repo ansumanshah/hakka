@@ -1,6 +1,11 @@
 package com.noodleapps.hakka.rn
 
 import com.facebook.react.modules.network.OkHttpClientProvider
+import com.facebook.react.modules.network.OkHttpClientFactory
+import okhttp3.CertificatePinner
+import okhttp3.OkHttpClient
+import org.junit.Assert.assertSame
+import org.junit.Assert.assertThrows
 import java.net.InetAddress
 import java.net.ServerSocket
 import java.util.concurrent.CountDownLatch
@@ -16,9 +21,41 @@ class HakkaAutolinkingTest {
     @Test
     fun `autolinking captures only between start and stop while retaining an in-flight response`() {
         NativeCoreDelegate.setCaptureActive(false)
+        val hostFailure = IllegalStateException("Host factory not ready")
+        OkHttpClientProvider.setOkHttpClientFactory(object : OkHttpClientFactory {
+            override fun createNewNetworkModuleClient(): OkHttpClient = throw hostFailure
+        })
+        // Autolinking must neither throw nor replace a host factory that cannot create a client yet.
+        HakkaMonitorPackage()
+        assertSame(hostFailure, assertThrows(IllegalStateException::class.java) {
+            OkHttpClientProvider.createClient()
+        })
+        val hostInterceptor = okhttp3.Interceptor { chain -> chain.proceed(chain.request()) }
+        val hostClient = OkHttpClientProvider.createClientBuilder()
+            .addInterceptor(hostInterceptor)
+            .connectTimeout(17, TimeUnit.SECONDS)
+            .readTimeout(23, TimeUnit.SECONDS)
+            .certificatePinner(CertificatePinner.Builder().add("example.com", "sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=").build())
+            .build()
+        val hostFactory = object : OkHttpClientFactory {
+            override fun createNewNetworkModuleClient(): OkHttpClient = hostClient
+        }
+        OkHttpClientProvider.setOkHttpClientFactory(hostFactory)
         HakkaMonitorPackage()
         HakkaMonitorPackage()
         val client = OkHttpClientProvider.createClient()
+        assertSame(hostInterceptor, client.interceptors.first())
+        assertEquals(hostClient.connectTimeoutMillis, client.connectTimeoutMillis)
+        assertEquals(hostClient.readTimeoutMillis, client.readTimeoutMillis)
+        assertSame(hostClient.certificatePinner, client.certificatePinner)
+        assertSame(hostClient.sslSocketFactory, client.sslSocketFactory)
+        assertSame(hostClient.cookieJar, client.cookieJar)
+        assertSame(client, HakkaOkHttpClientFactory.withCapture(client))
+        // An explicit host factory remains configurable after package construction.
+        HakkaOkHttpClientFactory.configure(hostFactory)
+        val configured = OkHttpClientProvider.createClient()
+        assertSame(hostInterceptor, configured.interceptors.first())
+        assertEquals(1, configured.interceptors.count { it === NativeCoreDelegate.interceptor })
         val interceptor = requireNotNull(NativeCoreDelegate.currentInterceptorPublic())
         interceptor.logStore.clear()
         val server = ServerSocket(0, 3, InetAddress.getByName("127.0.0.1"))

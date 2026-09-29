@@ -1016,25 +1016,28 @@ class HakkaInterceptor private constructor(
         internal fun redactQueryItems(url: String, sensitiveItems: Set<String>): String {
             if (sensitiveItems.isEmpty()) return url
             val sensitive = sensitiveItems.map { it.lowercase() }.toSet()
-            return try {
-                val qStart = url.indexOf('?')
-                if (qStart < 0) return url
-                val base = url.substring(0, qStart)
-                val rest = url.substring(qStart + 1)
-                val fStart = rest.indexOf('#')
-                val fragment = if (fStart >= 0) rest.substring(fStart) else ""
-                val queryOnly = if (fStart >= 0) rest.substring(0, fStart) else rest
-                val newQuery = queryOnly.split("&").joinToString("&") { param ->
-                    val eq = param.indexOf('=')
-                    if (eq < 0) param
-                    else {
-                        val rawName = param.substring(0, eq)
-                        val decoded = java.net.URLDecoder.decode(rawName, "UTF-8")
-                        if (decoded.lowercase() in sensitive) "$rawName=\u2588\u2588" else param
+            val qStart = url.indexOf('?')
+            if (qStart < 0) return url
+            val base = url.substring(0, qStart)
+            val rest = url.substring(qStart + 1)
+            val fStart = rest.indexOf('#')
+            val fragment = if (fStart >= 0) rest.substring(fStart) else ""
+            val queryOnly = if (fStart >= 0) rest.substring(0, fStart) else rest
+            val newQuery = queryOnly.split("&").joinToString("&") { param ->
+                val eq = param.indexOf('=')
+                if (eq < 0) param
+                else {
+                    val rawName = param.substring(0, eq)
+                    val decoded = try {
+                        java.net.URLDecoder.decode(rawName, "UTF-8")
+                    } catch (_: IllegalArgumentException) {
+                        null
                     }
+                    // An undecodable name cannot be safely classified, so redact its value.
+                    if (decoded == null || decoded.lowercase() in sensitive) "$rawName=██" else param
                 }
-                "$base?$newQuery$fragment"
-            } catch (_: Exception) { url }
+            }
+            return "$base?$newQuery$fragment"
         }
 
         /** Returns body unchanged if not JSON; otherwise redacts [fields] recursively. */

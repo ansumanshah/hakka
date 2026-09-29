@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
  * below doubles as an integration check.
  */
 import { setPreset } from '../../presets'
+import { createFilterViewModel } from '../../viewModels'
 import { register as registerFilterBar, TAG as FILTER_BAR_TAG } from '../filter-bar'
 import { register as registerRequestList, TAG as REQUEST_LIST_TAG } from '../request-list'
 import { sharedFilterViewModel, sharedSelectionViewModel } from '../shared'
@@ -48,6 +49,31 @@ describe('<hakka-filter-bar>', () => {
 
     const input = el.shadowRoot!.querySelector('.hakka-search') as HTMLInputElement
     expect(input.placeholder).not.toContain('Describe what you want')
+  })
+
+  it('renders and subscribes to a replacement view-model', async () => {
+    const first = createFilterViewModel()
+    const second = createFilterViewModel()
+    first.intents.setFilterText('first-query')
+    second.intents.setFilterText('second-query')
+    const el = document.createElement(FILTER_BAR_TAG) as HTMLElement & { viewModel: unknown }
+    el.viewModel = first
+    document.body.appendChild(el)
+    await waitForShadowContent(el)
+    const input = el.shadowRoot!.querySelector('.hakka-search') as HTMLInputElement
+    expect(input.value).toBe('first-query')
+
+    el.viewModel = second
+    await flush()
+    expect(input.value).toBe('second-query')
+    first.intents.setFilterText('old-query')
+    await flush()
+    expect(input.value).toBe('second-query')
+    input.value = 'updated-query'
+    input.dispatchEvent(new Event('input', { bubbles: true, composed: true }))
+    await flush()
+    expect(second.getSnapshot().filterText).toBe('updated-query')
+    expect(input.value).toBe('updated-query')
   })
 
   it('nl-mode attribute seeds NL mode at connect', async () => {

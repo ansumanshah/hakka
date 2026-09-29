@@ -312,8 +312,11 @@ public final class HakkaInterceptor: @unchecked Sendable {
         }
     }
 
-    /// Clear all stored requests.
+    /// Clear all stored and paused requests.
     public func clear() {
+        pauseLock.lock()
+        defer { pauseLock.unlock() }
+        pauseBuffer.removeAll()
         store.clear()
     }
 
@@ -463,8 +466,10 @@ public final class HakkaInterceptor: @unchecked Sendable {
     }
 
     func commitProcessedCapture(_ request: NetworkRequest) {
+        let maxRequests = config.maxRequests
         pauseLock.lock()
         if isPaused {
+            if pauseBuffer.count == maxRequests { pauseBuffer.removeFirst() }
             pauseBuffer.append(request)
             pauseLock.unlock()
             return
@@ -521,16 +526,15 @@ public final class HakkaInterceptor: @unchecked Sendable {
     /// `"keychain-redacted"`, `"cookies"`) over the bridge for the desktop
     /// app's Storage panel. Snapshot-replace semantics — see
     /// `StorageSnapshot`'s doc comment: a later snapshot for the same
-    /// `store` fully replaces this one, it is not merged. `entries` should
-    /// already be redacted by the caller (mirrors `log(...)`'s
-    /// `redactMetadata` contract, but storage sources vary too much — e.g.
-    /// keychain vs. UserDefaults — for one shared redaction pass here).
+    /// `store` fully replaces this one, it is not merged. Configured sensitive
+    /// keys and JSON fields are redacted before streaming. Callers remain
+    /// responsible for source-specific redaction, such as keychain secrets.
     /// No-op when no bridge is configured.
     public func publishStorageSnapshot(store: String, entries: [String: String]) {
         bridgeLock.lock()
         let client = bridgeClient
         bridgeLock.unlock()
-        client?.sendStorage(StorageSnapshot(store: store, entries: entries))
+        client?.sendStorage(StorageSnapshot(store: store, entries: config.redactStorageEntries(entries)))
     }
 
     /// Convenience: append a debug-level entry.

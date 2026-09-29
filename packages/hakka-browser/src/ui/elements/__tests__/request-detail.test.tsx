@@ -87,6 +87,25 @@ describe('<hakka-request-detail>', () => {
     expect(el.shadowRoot!.textContent).toContain('direct-wins')
   })
 
+  it('clears the previous detail while a changed request-id is not in the store', async () => {
+    const client = initStore({ forceInProcess: true })
+    const req = makeRequest({ id: 'previous-detail', url: 'https://api.example.com/previous-detail' })
+    client.ingest(req)
+    const el = document.createElement(TAG)
+    el.setAttribute('request-id', req.id)
+    document.body.appendChild(el)
+    await waitFor(() => !!el.shadowRoot?.querySelector('.hakka-detail-rowback .hakka-row-path'))
+
+    el.setAttribute('request-id', 'not-yet-captured')
+    await flush()
+    expect(el.shadowRoot!.textContent).toContain('No request selected')
+    expect(el.shadowRoot!.querySelector('.hakka-detail-rowback')).toBeNull()
+
+    client.ingest(makeRequest({ id: 'not-yet-captured', url: 'https://api.example.com/new-detail' }))
+    await waitFor(() => el.shadowRoot!.textContent?.includes('new-detail') ?? false)
+    expect(el.shadowRoot!.textContent).toContain('new-detail')
+  })
+
   it('hakka:back fires composed + bubbling on the back button', async () => {
     const req = makeRequest({})
     const el = document.createElement(TAG) as HTMLElement & { request: unknown }
