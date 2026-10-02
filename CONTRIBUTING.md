@@ -178,6 +178,10 @@ Release harness: `examples/react-native-example`
   `release-web.yml` verifies or publishes core, bridge, browser, node, and CLI
   without native prerequisites; the coordinated workflows publish the native
   packages later from the same commit. See `docs/src/content/docs/release/publishing.md`.
+- Keep the Solid prerelease compiler, Babel plugin, and signals overrides aligned
+  with the pinned runtime. Their caret ranges can otherwise pull incompatible RCs.
+- The `uuid` override uses patched 11.x, which retains the CommonJS entry used by
+  Expo's `xcode` tooling; 12.x and newer require a separate ESM migration.
 - **TypeScript tracks npm `latest`** per the studio's latest-stable policy.
   `strict` is on in every package tsconfig.
 

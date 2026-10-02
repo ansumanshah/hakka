@@ -124,7 +124,8 @@ const NAMED = {
 // The fresh integrated build measures 161.26 KB across 36 chunks under
 // Node 24.20.0, leaving approximately 1% headroom. Eager/worker caps stay fixed.
 // Solid 2.0 rc.9 measures 165.24 KB across the same 36 chunks; ~1% headroom.
-const LAZY_BUDGET = Number(process.env.HAKKA_WEB_LAZY_BUDGET) || 167 * 1024
+// Solid 2.0 rc.13 measures 167.58 KB on Node 24.20.0; ~1.4% headroom.
+const LAZY_BUDGET = Number(process.env.HAKKA_WEB_LAZY_BUDGET) || 170 * 1024
 
 const kb = (n) => `${(n / 1024).toFixed(2)} KB`
 const pad = (s, n) => String(s).padEnd(n)
@@ -298,7 +299,8 @@ if (existsSync(COMPONENTS_DIST)) {
     // Solid 2.0 rc.9 measures 95.66 KB here; ~1.4% headroom.
     // Capture privacy/lifecycle fixes measure 97.14 KB on Linux Node 24.20.0;
     // retain about 1% headroom for the shared engine and store-client cost.
-    const budget = Number(process.env.HAKKA_COMPONENTS_SHARED_BUDGET) || 98 * 1024
+    // Solid 2.0 rc.13 measures 97.82 KB on Node 24.20.0; ~1.2% headroom.
+    const budget = Number(process.env.HAKKA_COMPONENTS_SHARED_BUDGET) || 99 * 1024
     const over = g > budget
     if (over) failed = true
     componentRows.push({ label: 'Shared runtime chunk', raw, gz: g, budget, over })

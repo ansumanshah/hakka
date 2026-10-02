@@ -38,19 +38,23 @@
   "devDependencies": {
     "@changesets/cli": "^3.0.3",
     "@tsconfig/react-native": "^3.0.9",
-    "knip": "^6.37.0",
-    "lefthook": "2.1.14",
-    "oxfmt": "^0.70.0",
-    "oxlint": "1.85.0",
+    "knip": "^6.39.0",
+    "lefthook": "2.1.16",
+    "oxfmt": "^0.71.0",
+    "oxlint": "1.86.0",
     "typescript": "^7.0.2",
     "unrun": "^0.3.1"
   },
   "overrides": {
     "@babel/plugin-transform-modules-systemjs": "^7.29.7",
     "@babel/preset-env": "^7.29.7",
+    "@solidjs/babel-plugin": "2.0.0-rc.13",
+    "@solidjs/compiler": "2.0.0-rc.13",
+    "@solidjs/signals": "2.0.0-rc.13",
     "picomatch": "^2.3.2 || ^4.0.4",
     "react": "19.2.3",
     "react-test-renderer": "19.2.3",
+    "uuid": "^11.1.1",
     "vite-plugin-dts": "^5.0.3"
   },
   "engines": {
@@ -58,6 +62,6 @@
   },
   "packageManager": "bun@1.4.2",
   "patchedDependencies": {
-    "@solidjs/web@2.0.0-rc.9": "patches/@solidjs%2Fweb@2.0.0-rc.9.patch"
+    "@solidjs/web@2.0.0-rc.13": "patches/@solidjs%2Fweb@2.0.0-rc.13.patch"
   }
 }

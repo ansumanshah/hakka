@@ -37,6 +37,28 @@ describe('StatsTab — dedup by id', () => {
   })
   afterEach(() => destroyStore())
 
+  it('shows live counts and returns to empty when cleared while mounted', async () => {
+    const { container } = render(() => <StatsTab active={true} />)
+    await flush()
+    expect(container.querySelector('.hakka-empty-title')?.textContent).toBe('No requests captured yet')
+
+    client.ingest(req())
+    await flush()
+    expect(container.querySelector('.hakka-kv-value')?.textContent).toBe('1')
+
+    client.ingest(req({ id: 'live-error', status: 500 }))
+    await flush()
+    expect(container.querySelector('.hakka-kv-value')?.textContent).toBe('2')
+
+    client.clear()
+    await flush()
+    expect(container.querySelector('.hakka-empty-title')?.textContent).toBe('No requests captured yet')
+
+    client.ingest(req({ id: 'after-clear' }))
+    await flush()
+    expect(container.querySelector('.hakka-kv-value')?.textContent).toBe('1')
+  })
+
   it('counts a headers-emit + body-emit pair for the same request once, not twice', async () => {
     // Headers-only emit lands before mount, so it arrives via the initial
     // snapshot RPC (not the live `subscribe` stream), avoiding a race with

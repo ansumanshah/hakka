@@ -1,8 +1,8 @@
 diff --git a/dist/web.dev.js b/dist/web.dev.js
-index 5ee5e6d541ff568dc5f7061d4804a1a9acdb7781..c57735fc4c1790b1673c3dc4a867d053e0b239e2 100644
+index 7c63695b2876b365543618628fb01ef5bcf1e98c..1d4875e81a2ba61e859a706d49fce7c117308332 100644
 --- a/dist/web.dev.js
 +++ b/dist/web.dev.js
-@@ -1811,9 +1811,15 @@ function insertExpression(parent, value, current, marker) {
+@@ -1907,9 +1907,15 @@ function insertExpression(parent, value, current, marker) {
    const t = typeof value,
      multi = marker !== undefined;
    if (t === "string" || t === "number") {
@@ -20,10 +20,10 @@ index 5ee5e6d541ff568dc5f7061d4804a1a9acdb7781..c57735fc4c1790b1673c3dc4a867d053
        if (ownsAllChildren(parent, current)) parent.textContent = value;else {
          removeOwnedChildren(parent, current);
 diff --git a/dist/web.js b/dist/web.js
-index 5b1c72d030d88df78f1eb0508b2c88f7178d22b8..e0f10ca7519af3ddc1f9617807112dc308bf1c85 100644
+index 19523c794ba1d7706c9c4b6bab04b756e214fc8e..7336c1728292305be3aaa3d05999e67fa4ff12b4 100644
 --- a/dist/web.js
 +++ b/dist/web.js
-@@ -1655,9 +1655,15 @@ function insertExpression(parent, value, current, marker) {
+@@ -1681,9 +1681,15 @@ function insertExpression(parent, value, current, marker) {
    const t = typeof value,
      multi = marker !== undefined;
    if (t === "string" || t === "number") {
@@ -41,10 +41,10 @@ index 5b1c72d030d88df78f1eb0508b2c88f7178d22b8..e0f10ca7519af3ddc1f9617807112dc3
        if (ownsAllChildren(parent, current)) parent.textContent = value;else {
          removeOwnedChildren(parent, current);
 diff --git a/dist/web.observe.js b/dist/web.observe.js
-index 6c8ec47421b06b4867537c79c9622b8acb000ff8..804dbbf0c2a9e3a2a4244760777a607829d40ea2 100644
+index 4b06e7f5e8e35e08b88f9c94a9c5f21fecf920c7..26eea5b905e10cf8c391b5bf157a3c8bcc7766c7 100644
 --- a/dist/web.observe.js
 +++ b/dist/web.observe.js
-@@ -1677,9 +1677,15 @@ function insertExpression(parent, value, current, marker) {
+@@ -1729,9 +1729,15 @@ function insertExpression(parent, value, current, marker) {
    const t = typeof value,
      multi = marker !== undefined;
    if (t === "string" || t === "number") {

@@ -91,12 +91,12 @@
   "dependencies": {
     "hakka-bridge": "0.1.1",
     "hakka-core": "0.1.1",
-    "ws": "^8.21.3"
+    "ws": "^8.22.0"
   },
   "devDependencies": {
     "@opentelemetry/api": "^1.9.1",
-    "@types/node": "^26.6.2",
-    "@types/ws": "^8.18.1",
+    "@types/node": "^26.6.4",
+    "@types/ws": "^8.18.2",
     "hakka-browser": "0.1.1",
     "tsdown": "^0.23.0",
     "typescript": "^7.0.2"
