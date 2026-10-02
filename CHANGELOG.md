@@ -23,7 +23,8 @@ so there is a single entry per release rather than one per package.
 - Build the experimental Rozenite panel directly with Vite and TypeScript,
   removing the unused Electron development toolchain.
 - Look up browser response bodies by request ID without copying the full log list.
-- Refresh compatible browser, CLI, documentation, and development dependencies.
+- Refresh compatible browser, CLI, documentation, and development dependencies,
+  including Expo 57 patches and patched transitive dependencies.
 - Upgrade the browser runtime to Solid 2.0.0-rc.9 and its matching compiler;
   retain the verified text-node patch and require Node.js 22.12 or newer.
 - Rebuild the launch film with real inspector interactions and animated typography.

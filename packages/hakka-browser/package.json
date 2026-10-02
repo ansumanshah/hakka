@@ -131,11 +131,11 @@
     "unplugin": "^3.4.0"
   },
   "devDependencies": {
-    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@modelcontextprotocol/sdk": "^1.31.0",
     "@playwright/test": "^1.63.0",
     "@solidjs/testing-library": "1.0.0-beta.3",
     "@solidjs/vite-plugin": "3.0.0-next.44",
-    "@types/node": "^26.6.2",
+    "@types/node": "^26.6.4",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.7",
     "hakka-bridge": "0.1.1",
@@ -148,8 +148,8 @@
     "terser": "^5.51.2",
     "tsdown": "^0.23.0",
     "typescript": "^7.0.2",
-    "vite": "^8.3.0",
-    "vitest": "^5.0.1",
+    "vite": "^8.3.2",
+    "vitest": "^5.0.3",
     "webpack": "^5.111.1"
   },
   "peerDependencies": {
