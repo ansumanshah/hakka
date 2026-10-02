@@ -70,12 +70,14 @@ export type StatsViewModel = ViewModel<StatsState, StatsIntents> & {
 export interface StatsStore {
   getSnapshot(): Promise<NetworkRequest[]>
   subscribe(cb: (req: NetworkRequest) => void): () => void
+  onClear?(cb: () => void): () => void
 }
 
 export function createStatsViewModel(opts: { store: StatsStore }): StatsViewModel {
   const emitter = createEmitter()
   let reqs: NetworkRequest[] = []
   let destroyed = false
+  let cleared = false
 
   function upsert(incoming: NetworkRequest): void {
     const idx = reqs.findIndex((r) => r.id === incoming.id)
@@ -91,13 +93,18 @@ export function createStatsViewModel(opts: { store: StatsStore }): StatsViewMode
 
   // Live records may arrive before the initial snapshot resolves; keep their newer values.
   void opts.store.getSnapshot().then((snap) => {
-    if (destroyed) return
+    if (destroyed || cleared) return
     const byId = new Map(snap.map((req) => [req.id, req]))
     for (const req of reqs) byId.set(req.id, req)
     reqs = [...byId.values()]
     emitter.notify()
   })
   const unsubscribe = opts.store.subscribe(upsert)
+  const unsubscribeClear = opts.store.onClear?.(() => {
+    cleared = true
+    reqs = []
+    emitter.notify()
+  })
 
   function aggregate(): StatsState {
     const statusClass: Record<StatusClassBucket, number> = { '2xx': 0, '3xx': 0, '4xx': 0, '5xx': 0 }
@@ -157,6 +164,7 @@ export function createStatsViewModel(opts: { store: StatsStore }): StatsViewMode
     destroy() {
       destroyed = true
       unsubscribe()
+      unsubscribeClear?.()
     },
   }
 }

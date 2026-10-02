@@ -1,0 +1,1 @@
+import{xt as s}from"./shared-runtime-B-kbWP5-.js";import{t as r}from"./svg-C-Bi0spl.js";var t=s('<svg><path d="m6 9 6 6 6-6"></svg>',2),a=s=>r(s,t());export{a as t};

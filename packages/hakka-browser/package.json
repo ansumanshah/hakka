@@ -124,9 +124,9 @@
     "bench:render": "bun run build && playwright test render-bench.spec.ts"
   },
   "dependencies": {
-    "@solidjs/element": "2.0.0-rc.9",
-    "@solidjs/signals": "2.0.0-rc.9",
-    "@solidjs/web": "2.0.0-rc.9",
+    "@solidjs/element": "2.0.0-rc.13",
+    "@solidjs/signals": "2.0.0-rc.13",
+    "@solidjs/web": "2.0.0-rc.13",
     "hakka-core": "0.1.1",
     "unplugin": "^3.4.0"
   },
@@ -134,7 +134,7 @@
     "@modelcontextprotocol/sdk": "^1.31.0",
     "@playwright/test": "^1.63.0",
     "@solidjs/testing-library": "1.0.0-beta.3",
-    "@solidjs/vite-plugin": "3.0.0-next.44",
+    "@solidjs/vite-plugin": "3.0.0-next.47",
     "@types/node": "^26.6.4",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.7",
@@ -144,7 +144,7 @@
     "lightningcss": "^1.33.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "solid-js": "2.0.0-rc.9",
+    "solid-js": "2.0.0-rc.13",
     "terser": "^5.51.2",
     "tsdown": "^0.23.0",
     "typescript": "^7.0.2",

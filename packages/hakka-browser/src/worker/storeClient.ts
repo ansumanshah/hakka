@@ -35,6 +35,8 @@ export interface StoreClient {
   update(partial: Partial<NetworkRequest> & { id: string }): void
   applyResourceTiming(url: string, entryEpochStart: number, patch: Partial<NetworkRequest>): void
   clear(): void
+  /** Clear notifications are optional for hosts embedding the inspector. */
+  onClear?(cb: () => void): () => void
   configure(config: StoreConfig): void
   getSnapshot(query?: StoreQuery): Promise<NetworkRequest[]>
   subscribe(cb: (req: NetworkRequest) => void): () => void
@@ -94,11 +96,13 @@ function applyRemoteControl(payload: unknown): boolean | { ok: boolean; data?: R
 
 function createFanout() {
   const requestSubs = new Set<(req: NetworkRequest) => void>()
+  const clearSubs = new Set<() => void>()
   const spanSubs = new Set<(span: FrameworkSpan) => void>()
   const statusSubs = new Set<(s: ConnectionStatus) => void>()
   let status: ConnectionStatus = { state: 'disconnected' }
   return {
     requestSubs,
+    clearSubs,
     spanSubs,
     statusSubs,
     get status() {
@@ -106,6 +110,9 @@ function createFanout() {
     },
     emitRequest(req: NetworkRequest) {
       for (const cb of requestSubs) cb(req)
+    },
+    emitClear() {
+      for (const cb of clearSubs) cb()
     },
     emitSpan(span: FrameworkSpan) {
       for (const cb of spanSubs) cb(span)
@@ -134,7 +141,14 @@ function createInProcessClient(opts: StoreClientOptions): StoreClient {
     ingest: (req) => storeEngine.ingest(req),
     update: (partial) => storeEngine.update(partial),
     applyResourceTiming: (url, t, patch) => storeEngine.applyResourceTiming(url, t, patch),
-    clear: () => storeEngine.clear(),
+    clear: () => {
+      storeEngine.clear()
+      fan.emitClear()
+    },
+    onClear: (cb) => {
+      fan.clearSubs.add(cb)
+      return () => fan.clearSubs.delete(cb)
+    },
     configure: (config) => storeEngine.configure(config),
     getSnapshot: (query) => Promise.resolve(storeEngine.snapshot(query)),
     subscribe: (cb) => {
@@ -251,6 +265,7 @@ export function createWorkerClient(worker: Worker, opts: StoreClientOptions): St
         break
       }
       case 'cleared':
+        fan.emitClear()
         break
     }
   }
@@ -272,6 +287,10 @@ export function createWorkerClient(worker: Worker, opts: StoreClientOptions): St
     update: (partial) => send({ type: 'update', partial }),
     applyResourceTiming: (url, entryEpochStart, patch) => send({ type: 'resourceTiming', url, entryEpochStart, patch }),
     clear: () => send({ type: 'clear' }),
+    onClear: (cb) => {
+      fan.clearSubs.add(cb)
+      return () => fan.clearSubs.delete(cb)
+    },
     configure: (config) => send({ type: 'configure', config }),
     getSnapshot: (query) => rpc<NetworkRequest[]>((id) => ({ type: 'snapshot', rid: id, query }), []),
     subscribe: (cb) => {

@@ -47,7 +47,7 @@ whose brand is small size and low overhead.
 ## Decision
 
 Option **B**. `hakka-browser` (overlay, worker store client, and all six
-elements) currently runs on `solid-js@2.0.0-rc.9` + `@solidjs/web` +
+elements) currently runs on `solid-js@2.0.0-rc.13` + `@solidjs/web` +
 `@solidjs/signals` + `@solidjs/element`, compiled by `@solidjs/vite-plugin`.
 `solid-element` and `vite-plugin-solid` are removed entirely.
 
@@ -66,7 +66,7 @@ as house patterns (each enforced by tests):
 ### The carried patch
 
 Two text-insertion cases are carried as a package patch
-(`patches/@solidjs%2Fweb@2.0.0-rc.9.patch`). Numeric values are stringified
+(`patches/@solidjs%2Fweb@2.0.0-rc.13.patch`). Numeric values are stringified
 before insertion so `0` creates a text node in happy-dom. An empty-to-nonempty
 text update recreates a missing text node rather than assigning to a null
 `firstChild`.
@@ -74,6 +74,9 @@ text update recreates a missing text node rather than assigning to a null
 The RC.9 upgrade on 2026-09-22 confirmed these cases are still unfixed upstream:
 the unpatched browser suite failed 27 tests with null text-node errors. The
 patch covers all three client artifacts: production, development, and observe.
+The RC.13 upgrade on 2026-10-02 reproduced the same 27 failures without the
+patch. The existing correction remains necessary in all three artifacts.
+
 Keep the runtime packages pinned together, and only remove the patch after the
 upstream fix passes the browser and element suites without it.
 

@@ -131,6 +131,18 @@ describe('worker/storeClient (in-process backend)', () => {
     expect(await client.getSnapshot()).toEqual([])
   })
 
+  it('notifies clear listeners after clearing and stops after unsubscribe', async () => {
+    client = createStoreClient({ forceInProcess: true })
+    client.ingest(req())
+    const snapshots: Promise<NetworkRequest[]>[] = []
+    const off = client.onClear!(() => snapshots.push(client!.getSnapshot()))
+    client.clear()
+    off()
+    client.clear()
+    expect(snapshots).toHaveLength(1)
+    await expect(snapshots[0]).resolves.toEqual([])
+  })
+
   it('exportHar and exportOtel serialize the buffer (off-thread in production)', async () => {
     client = createStoreClient({ forceInProcess: true })
     client.ingest(req({ id: 'a' }))

@@ -61,6 +61,59 @@ describe('StatsViewModel', () => {
     vm.destroy()
   })
 
+  it('resets all aggregates on clear and captures new records afterward', async () => {
+    client.ingest(req({ responseBodySize: 512, duration: 42 }))
+    const vm = createStatsViewModel({ store: client })
+    await flush()
+    const listener = vi.fn()
+    vm.subscribe(listener)
+
+    client.clear()
+    expect(listener).toHaveBeenCalledTimes(1)
+    expect(vm.getSnapshot()).toEqual({
+      total: 0,
+      success: 0,
+      error: 0,
+      pending: 0,
+      statusClass: { '2xx': 0, '3xx': 0, '4xx': 0, '5xx': 0 },
+      method: { GET: 0, POST: 0, PUT: 0, PATCH: 0, DELETE: 0, OTHER: 0 },
+      bytes: 0,
+      duration: null,
+      uniqueHosts: 0,
+    })
+    client.ingest(req({ id: 'after-clear', duration: 10, responseBodySize: 100 }))
+    expect(vm.getSnapshot().total).toBe(1)
+    expect(vm.getSnapshot().bytes).toBe(100)
+    expect(vm.getSnapshot().duration?.avg).toBe(10)
+    vm.destroy()
+    listener.mockClear()
+    client.clear()
+    expect(listener).not.toHaveBeenCalled()
+    expect(vm.getSnapshot().total).toBe(1)
+  })
+
+  it('ignores an initial snapshot that resolves after clear without losing new records', async () => {
+    client.ingest(req({ id: 'before-clear', duration: 100 }))
+    const initialSnapshot = await client.getSnapshot()
+    let resolveSnapshot!: (rows: NetworkRequest[]) => void
+    const vm = createStatsViewModel({
+      store: {
+        ...client,
+        getSnapshot: () =>
+          new Promise((resolve) => {
+            resolveSnapshot = resolve
+          }),
+      },
+    })
+    client.clear()
+    client.ingest(req({ id: 'after-clear', duration: 10 }))
+    resolveSnapshot(initialSnapshot)
+    await flush()
+    expect(vm.getSnapshot().total).toBe(1)
+    expect(vm.getSnapshot().duration?.avg).toBe(10)
+    vm.destroy()
+  })
+
   it('dedups a headers-emit + body-emit pair for the same id, not double-counted', async () => {
     client.ingest(req({ duration: undefined, responseBodySize: undefined }))
     const vm = createStatsViewModel({ store: client })
