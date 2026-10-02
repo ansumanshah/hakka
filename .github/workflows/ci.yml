@@ -153,7 +153,7 @@ jobs:
 
   ios-sdk:
     name: iOS SDK
-    runs-on: macos-latest
+    runs-on: macos-26-intel
     timeout-minutes: 30
     defaults:
       run:
@@ -163,8 +163,8 @@ jobs:
       - uses: actions/cache@v6
         with:
           path: ios/.build
-          key: spm-${{ runner.os }}-${{ hashFiles('ios/Package.swift') }}
-          restore-keys: spm-${{ runner.os }}-
+          key: spm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('ios/Package.swift') }}
+          restore-keys: spm-${{ runner.os }}-${{ runner.arch }}-
       - run: swift build
       # Blocking pause/resume tests must not compete for runner threads.
       - run: swift test --no-parallel
