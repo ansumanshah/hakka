@@ -30,6 +30,9 @@ interface RequestListProps {
   compact: boolean
   /** Seeds ~8 demo requests into the store — shown only on the empty state. */
   onLoadSample?: () => void
+  /** Distinguishes a filtered list from a session that has never captured traffic. */
+  hasCapturedRequests?: boolean
+  onResetFilters?: () => void
   /** Framework spans (Next.js/OTel request tree), keyed by traceId (== a trace group's `key`). */
   spansByTrace?: ReadonlyMap<string, FrameworkSpan[]>
   /** Show verbose (non-primary) spans in the waterfall + badge row. */
@@ -128,6 +131,7 @@ type RowFlatItem = Extract<FlatItem, { kind: 'row' }>
 
 export const RequestList: Component<RequestListProps> = (props) => {
   let listEl: HTMLDivElement | undefined
+  const hasNoMatches = () => Boolean(props.hasCapturedRequests || props.requests.length > 0)
   const [scrollTop, setScrollTop] = createSignal(0)
   const [viewportH, setViewportH] = createSignal(0)
   // Measured from real rendered elements so the virtual window stays aligned
@@ -186,7 +190,8 @@ export const RequestList: Component<RequestListProps> = (props) => {
     }
     const h = rowH()
     const vh = viewportH() || 400
-    const start = Math.max(0, Math.floor(scrollTop() / h) - OVERSCAN)
+    const offset = Math.min(scrollTop(), Math.max(0, all.length * h - vh))
+    const start = Math.max(0, Math.floor(offset / h) - OVERSCAN)
     const count = Math.ceil(vh / h) + OVERSCAN * 2
     const end = Math.min(all.length, start + count)
     return {
@@ -195,6 +200,18 @@ export const RequestList: Component<RequestListProps> = (props) => {
       padBottom: (all.length - end) * h,
     }
   })
+
+  // Filtering can shrink a scrolled list before the browser emits its next
+  // scroll event. Keep the DOM offset and the window's reactive offset aligned.
+  createEffect(
+    () => [props.requests.length, props.groups, rowH(), viewportH()] as const,
+    ([count, groups, height, viewport]) => {
+      if (groups !== null) return
+      const maxOffset = Math.max(0, count * height - (viewport || 400))
+      if (scrollTop() > maxOffset) setScrollTop(maxOffset)
+      if (listEl && listEl.scrollTop > maxOffset) listEl.scrollTop = maxOffset
+    },
+  )
 
   // Narrows which trace groups render, by each group's root span's
   // requestKind. A no-op outside trace grouping or when unset/'all'.
@@ -278,14 +295,23 @@ export const RequestList: Component<RequestListProps> = (props) => {
         when={!isEmpty()}
         fallback={
           <div class="hakka-list-empty">
-            <span class="hakka-empty-icon">
+            <span class="hakka-empty-icon" aria-hidden="true">
               <IconInbox size={28} />
             </span>
-            <span class="hakka-empty-title">No requests captured yet</span>
-            <span class="hakka-empty-hint">
-              Traffic from fetch, XHR, and WebSocket shows up here as your app makes requests.
+            <span class="hakka-empty-title">
+              {hasNoMatches() ? 'No matching requests' : 'No requests captured yet'}
             </span>
-            <Show when={props.onLoadSample}>
+            <span class="hakka-empty-hint">
+              {hasNoMatches()
+                ? 'Try a broader search or adjust the filters to see your captured traffic.'
+                : 'Use your app to capture fetch, XHR, and WebSocket traffic here.'}
+            </span>
+            <Show when={hasNoMatches() && props.onResetFilters}>
+              <button class="hakka-btn" onClick={() => props.onResetFilters?.()}>
+                Reset filters
+              </button>
+            </Show>
+            <Show when={props.onLoadSample && !hasNoMatches()}>
               <div class="hakka-empty-actions">
                 <button class="hakka-empty-sample-btn" onClick={() => props.onLoadSample?.()}>
                   Load sample traffic

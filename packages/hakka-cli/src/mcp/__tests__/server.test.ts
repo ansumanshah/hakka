@@ -39,7 +39,7 @@ import { disableHttpInterceptor, enableHttpInterceptor } from 'hakka-node'
 
 import { parseBridgeFrame, parseBridgeSpanFrame } from '../bridgeListener.js'
 import { RequestStore } from '../RequestStore.js'
-import { planServe } from '../server.js'
+import { planServe, resolveCapacity } from '../server.js'
 import { SpanStore } from '../SpanStore.js'
 import type { ControlSender } from '../tools/index.js'
 
@@ -469,7 +469,23 @@ describe('parseBridgeSpanFrame', () => {
   })
 })
 
+describe('MCP retention configuration', () => {
+  it('keeps a valid positive whole-number retention limit', () => {
+    expect(resolveCapacity('250')).toBe(250)
+  })
+
+  it('falls back for invalid or excessive retention limits', () => {
+    for (const value of [undefined, '', '0', '-1', '1.5', '500junk', 'Infinity', '100001', '1e300']) {
+      expect(resolveCapacity(value)).toBe(500)
+    }
+  })
+})
+
 describe('planServe', () => {
+  it('recognizes IPv6 loopback and returns a bindable host', () => {
+    expect(planServe('ws://[::1]:8989', true)).toEqual({ host: '::1', port: 8989, shouldServe: true })
+  })
+
   it('hosts on the default local port', () => {
     expect(planServe('ws://localhost:8989', true)).toEqual({ host: 'localhost', port: 8989, shouldServe: true })
   })

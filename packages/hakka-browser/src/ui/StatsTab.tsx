@@ -10,6 +10,7 @@ interface BarProps {
   count: number
   total: number
   color: string
+  textColor: string
   label: string
 }
 
@@ -19,7 +20,7 @@ const ProportionBar: Component<BarProps> = (props) => {
   return (
     <div style="display:flex;align-items:center;gap:var(--hakka-space-md);margin-bottom:var(--hakka-space-md)">
       <div
-        style={`font-size:var(--hakka-font-xs);font-weight:600;color:${props.color};width:52px;flex-shrink:0;font-family:var(--hakka-font-mono)`}
+        style={`font-size:var(--hakka-font-xs);font-weight:600;color:${props.textColor};width:52px;flex-shrink:0;font-family:var(--hakka-font-mono)`}
       >
         {props.label}
       </div>
@@ -90,6 +91,15 @@ export const StatsTab: Component<StatsTabProps> = (props) => {
     OTHER: 'var(--hakka-method-other)',
   }
 
+  const METHOD_TEXT_COLOR: Record<MethodBucket, string> = {
+    GET: 'var(--hakka-method-text-get)',
+    POST: 'var(--hakka-method-text-post)',
+    PUT: 'var(--hakka-method-text-put)',
+    PATCH: 'var(--hakka-method-text-patch)',
+    DELETE: 'var(--hakka-method-text-delete)',
+    OTHER: 'var(--hakka-method-text-other)',
+  }
+
   return (
     <div style="display:flex;flex-direction:column;height:100%;overflow:hidden">
       {/* No tab-level title/header — tab strip is the title (DESIGN.md), same as Network. */}
@@ -126,18 +136,21 @@ export const StatsTab: Component<StatsTabProps> = (props) => {
               count={statusCounts().success}
               total={total()}
               color="var(--hakka-status-success)"
+              textColor="var(--hakka-status-text-success)"
               label="Success"
             />
             <ProportionBar
               count={statusCounts().error}
               total={total()}
               color="var(--hakka-status-error)"
+              textColor="var(--hakka-status-text-error)"
               label="Error"
             />
             <ProportionBar
               count={statusCounts().pending}
               total={total()}
               color="var(--hakka-status-pending)"
+              textColor="var(--hakka-status-text-pending)"
               label="Pending"
             />
           </div>
@@ -148,24 +161,28 @@ export const StatsTab: Component<StatsTabProps> = (props) => {
               count={statusClassCounts()['2xx']}
               total={total()}
               color="var(--hakka-status-success)"
+              textColor="var(--hakka-status-text-success)"
               label="2xx"
             />
             <ProportionBar
               count={statusClassCounts()['3xx']}
               total={total()}
               color="var(--hakka-status-info)"
+              textColor="var(--hakka-status-text-info)"
               label="3xx"
             />
             <ProportionBar
               count={statusClassCounts()['4xx']}
               total={total()}
               color="var(--hakka-status-warning)"
+              textColor="var(--hakka-status-text-warning)"
               label="4xx"
             />
             <ProportionBar
               count={statusClassCounts()['5xx']}
               total={total()}
               color="var(--hakka-status-error)"
+              textColor="var(--hakka-status-text-error)"
               label="5xx"
             />
           </div>
@@ -175,7 +192,13 @@ export const StatsTab: Component<StatsTabProps> = (props) => {
             <For each={['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OTHER'] as const}>
               {(m) => (
                 <Show when={methodCounts()[m] > 0}>
-                  <ProportionBar count={methodCounts()[m]} total={total()} color={METHOD_COLOR[m]} label={m} />
+                  <ProportionBar
+                    count={methodCounts()[m]}
+                    total={total()}
+                    color={METHOD_COLOR[m]}
+                    textColor={METHOD_TEXT_COLOR[m]}
+                    label={m}
+                  />
                 </Show>
               )}
             </For>

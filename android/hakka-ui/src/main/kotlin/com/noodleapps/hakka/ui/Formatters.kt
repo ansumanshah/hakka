@@ -59,8 +59,8 @@ internal fun statusTextColor(code: Int?, hasError: Boolean = false): Int = when 
 /** Duration color: >3s red, >1s amber, else default. */
 internal fun durationColor(ctx: Context, ms: Long?): Int = when {
     ms == null -> Theme.textSecondary(ctx)
-    ms > 3000 -> Theme.error
-    ms > 1000 -> Theme.warning
+    ms > 3000 -> Theme.errorText(ctx)
+    ms > 1000 -> Theme.warningText(ctx)
     else -> Theme.textSecondary(ctx)
 }
 

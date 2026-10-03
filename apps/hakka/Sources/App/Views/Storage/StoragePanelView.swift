@@ -22,11 +22,17 @@ struct StoragePanelView: View {
                 )
             } else {
                 StorageFilterBar(storage: model.storage)
+                    .padding(.top, Spacing.lg)
                 if model.storage.visibleStores.isEmpty {
                     EmptyStateView(
                         systemImage: "line.3.horizontal.decrease.circle",
                         title: "No matching entries",
-                        message: emptyMessage
+                        message: emptyMessage,
+                        actionTitle: "Reset Filters",
+                        action: {
+                            model.storage.searchText = ""
+                            model.storage.selectedStore = nil
+                        }
                     )
                 } else {
                     storeList
@@ -37,11 +43,7 @@ struct StoragePanelView: View {
 
     private var header: some View {
         HStack(spacing: Spacing.md) {
-            Text("Storage")
-                .font(.headline)
-            Text(countText)
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.secondary)
+            WorkspaceHeaderView(title: "Storage", subtitle: countText)
             Spacer()
             Button("Clear", role: .destructive) {
                 model.storage.clear()

@@ -57,9 +57,15 @@ export const CommandPalette: Component<CommandPaletteProps> = (props) => {
     return scored.map((x) => x.a)
   })
 
+  // Key rows by command ID so live capture updates can refresh action hints
+  // without replacing a button during a pointer press.
+  const filteredIds = createMemo(() => filtered().map((action) => action.id))
+
+  const filteredSignature = createMemo(() => JSON.stringify(filteredIds()))
+
   // Reset selection whenever the filtered list changes shape.
   createEffect(
-    () => filtered(),
+    () => filteredSignature(),
     () => {
       setActiveIdx(0)
     },
@@ -136,26 +142,31 @@ export const CommandPalette: Component<CommandPaletteProps> = (props) => {
         />
         <div class="hakka-palette-list" ref={(el) => (listEl = el)} role="listbox">
           <Show when={filtered().length > 0} fallback={<div class="hakka-palette-empty">No matching commands</div>}>
-            <For each={filtered()}>
-              {(action, i) => (
-                <button
-                  id={`hakka-palette-item-${i()}`}
-                  class={`hakka-palette-item${i() === clampedIdx() ? ' active' : ''}`}
-                  role="option"
-                  aria-selected={i() === clampedIdx() ? 'true' : 'false'}
-                  onMouseEnter={() => setActiveIdx(i())}
-                  onClick={() => {
-                    props.onClose()
-                    action.run()
-                  }}
-                >
-                  <span class="hakka-palette-group">{action.group}</span>
-                  <span class="hakka-palette-label">{action.label}</span>
-                  <Show when={action.hint}>
-                    <span class="hakka-palette-hint">{action.hint}</span>
-                  </Show>
-                </button>
-              )}
+            <For each={filteredIds()}>
+              {(id, i) => {
+                const action = createMemo(() => props.actions.find((item) => item.id === id))
+                return (
+                  <button
+                    id={`hakka-palette-item-${i()}`}
+                    class={`hakka-palette-item${i() === clampedIdx() ? ' active' : ''}`}
+                    role="option"
+                    aria-selected={i() === clampedIdx() ? 'true' : 'false'}
+                    onMouseEnter={() => setActiveIdx(i())}
+                    onClick={() => {
+                      const current = action()
+                      if (!current) return
+                      props.onClose()
+                      current.run()
+                    }}
+                  >
+                    <span class="hakka-palette-group">{action()?.group}</span>
+                    <span class="hakka-palette-label">{action()?.label}</span>
+                    <Show when={action()?.hint}>
+                      <span class="hakka-palette-hint">{action()?.hint}</span>
+                    </Show>
+                  </button>
+                )
+              }}
             </For>
           </Show>
         </div>

@@ -1,1 +1,1 @@
-import{n as s,t as r}from"./stats-DLDADeYb.js";export{r as TAG,s as register};
+import{n as s,t as a}from"./stats-BTaDSJxc.js";export{a as TAG,s as register};

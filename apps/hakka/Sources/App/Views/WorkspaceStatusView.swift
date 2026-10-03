@@ -10,7 +10,26 @@ struct WorkspaceStatusView: View {
         Button {
             showingContext.toggle()
         } label: {
-            Label(compact ? captureLabel : model.environment.selected?.name ?? "Local", systemImage: "network")
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: "network")
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: Spacing.xxs) {
+                    Text(compact ? captureLabel : model.environment.selected?.name ?? "Local")
+                        .font(.callout.weight(.medium))
+                    if !compact {
+                        HStack(spacing: Spacing.xs) {
+                            Image(systemName: model.traffic.startupError != nil && model.proxy.state != .running
+                                  ? "exclamationmark.triangle.fill" : "circle.fill")
+                                .font(.caption2)
+                                .foregroundStyle(captureTone)
+                                .accessibilityHidden(true)
+                            Text(captureLabel)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
         }
         .help("\(captureLabel) · Environment and connections")
         .accessibilityLabel("Environment and connections: \(model.environment.selected?.name ?? "none"), \(captureLabel)")
@@ -34,8 +53,15 @@ struct WorkspaceStatusView: View {
         }
     }
 
+    private var captureTone: Color {
+        if model.proxy.state == .running { return ThemeTokens.Status.success }
+        if model.traffic.startupError != nil { return ThemeTokens.Status.error }
+        return model.traffic.isRunning ? ThemeTokens.Status.success : ThemeTokens.Status.pending
+    }
+
     private var captureLabel: String {
         if model.proxy.state == .running { return "Proxy \(model.proxy.port)" }
+        if model.traffic.startupError != nil { return "Bridge unavailable" }
         if model.traffic.isRunning { return "Bridge ready" }
         return "Bridge offline"
     }

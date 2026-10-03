@@ -21,8 +21,10 @@ struct LogsPanelView: View {
         VStack(spacing: 0) {
             header
             Divider()
-            LogsFilterBar(logs: model.logs)
-                .padding(.top, Spacing.lg)
+            if !model.logs.entries.isEmpty {
+                LogsFilterBar(logs: model.logs)
+                    .padding(.top, Spacing.lg)
+            }
             if model.logs.entries.isEmpty {
                 EmptyStateView(
                     systemImage: "text.alignleft",
@@ -33,7 +35,12 @@ struct LogsPanelView: View {
                 EmptyStateView(
                     systemImage: "line.3.horizontal.decrease.circle",
                     title: "No matching entries",
-                    message: "\(model.logs.entries.count) captured, none match this search or level."
+                    message: "\(model.logs.entries.count) captured, none match this search or level.",
+                    actionTitle: "Reset Filters",
+                    action: {
+                        model.logs.searchText = ""
+                        model.logs.levelFilter = nil
+                    }
                 )
             } else {
                 logList
@@ -43,11 +50,7 @@ struct LogsPanelView: View {
 
     private var header: some View {
         HStack(spacing: Spacing.md) {
-            Text("Logs")
-                .font(.headline)
-            Text(countText)
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.secondary)
+            WorkspaceHeaderView(title: "Logs", subtitle: countText)
             Spacer()
             Button("Clear", role: .destructive) {
                 model.logs.clear()

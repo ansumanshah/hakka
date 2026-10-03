@@ -3,37 +3,30 @@ import SwiftUI
 
 /// Setup guidance shown until the desktop receives its first capture.
 struct FirstRunEmptyView: View {
-    @Environment(AppModel.self) private var model
     @Environment(\.openURL) private var openURL
     @State private var didCopySnippet = false
     @State private var selectedTarget = SetupSnippet.Target.web
 
     var body: some View {
         ScrollView {
-            VStack(spacing: Spacing.lg) {
-                Image(systemName: "network")
-                    .font(.system(size: 32)) // ui-token-check-ignore: onboarding illustration
-                    .foregroundStyle(.secondary)
-                    .accessibilityHidden(true)
-                Text("Connect your app")
-                    .font(.headline)
-                    .multilineTextAlignment(.center)
-                Text(
-                    """
-                    Choose your runtime to send local development traffic to this window. \
-                    Keep Hakka open while your app runs.
-                    """
-                )
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 400)
+            VStack(alignment: .leading, spacing: Spacing.xxl) {
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    Label("Connect your app", systemImage: "network")
+                        .font(.title2.weight(.semibold))
+                        .accessibilityAddTraits(.isHeader)
+                    Text("Capture development traffic locally, then select a request to inspect its headers, body, and timing.")
+                        .font(.callout)
+                        .foregroundStyle(ThemeTokens.Palette.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 setupPicker
                 actions
-                Text(listeningCaption)
-                    .font(.caption.monospaced())
-                    .foregroundStyle(.secondary)
+                Label("Keep Hakka open while you run your app. Captured requests appear here automatically.", systemImage: "antenna.radiowaves.left.and.right")
+                    .font(.callout)
+                    .foregroundStyle(ThemeTokens.Palette.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
+            .frame(maxWidth: 540, alignment: .leading) // ui-token-check-ignore: setup reading measure
             .frame(maxWidth: .infinity)
             .padding(Spacing.xxxl)
         }
@@ -43,22 +36,33 @@ struct FirstRunEmptyView: View {
     }
 
     private var actions: some View {
-        HStack(spacing: Spacing.md) {
-            Button(action: copySnippet) {
-                Label(
-                    didCopySnippet ? "Copied" : "Copy \(selectedTarget.title) setup",
-                    systemImage: didCopySnippet ? "checkmark" : "doc.on.doc"
-                )
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: Spacing.md) {
+                copySetupButton
+                docsButton
             }
-            .buttonStyle(.borderedProminent)
-            .accessibilityLabel("Copy \(selectedTarget.title) setup")
-            .accessibilityHint("Copies the development-only setup for the local desktop bridge.")
-
-            Button("Open docs") {
-                openURL(selectedTarget.docsURL)
+            VStack(alignment: .leading, spacing: Spacing.md) {
+                copySetupButton
+                docsButton
             }
-            .accessibilityHint("Opens the \(selectedTarget.title) setup guide.")
         }
+        .controlSize(.regular)
+    }
+
+    private var copySetupButton: some View {
+        Button(action: copySnippet) {
+            Label(
+                didCopySnippet ? "Copied" : "Copy \(selectedTarget.title) setup",
+                systemImage: didCopySnippet ? "checkmark" : "doc.on.doc"
+            )
+        }
+        .buttonStyle(.borderedProminent)
+        .accessibilityHint("Copies the development-only setup for the local desktop bridge.")
+    }
+
+    private var docsButton: some View {
+        Button("Open setup guide") { openURL(selectedTarget.docsURL) }
+            .accessibilityHint("Opens the \(selectedTarget.title) setup guide.")
     }
 
     private var setupPicker: some View {
@@ -68,19 +72,21 @@ struct FirstRunEmptyView: View {
                     Text(target.title).tag(target)
                 }
             }
-            .pickerStyle(.segmented)
+            .pickerStyle(.menu)
+            .controlSize(.regular)
             .accessibilityHint("Selects the setup snippet to copy.")
 
-            ScrollView(.horizontal) {
+            ScrollView(.horizontal, showsIndicators: true) {
                 Text(SetupSnippet.text(for: selectedTarget))
-                    .font(.system(.caption, design: .monospaced))
+                    .font(.callout.monospaced())
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(Spacing.md)
             }
-            .background(.quaternary, in: RoundedRectangle(cornerRadius: Radius.md))
+            .background(ThemeTokens.Palette.surfaceRaised, in: RoundedRectangle(cornerRadius: Radius.md))
+            .overlay(RoundedRectangle(cornerRadius: Radius.md).strokeBorder(ThemeTokens.Palette.border))
         }
-        .frame(maxWidth: 540)
+        .frame(maxWidth: 540) // ui-token-check-ignore: setup reading measure
     }
 
     private func copySnippet() {
@@ -93,16 +99,4 @@ struct FirstRunEmptyView: View {
         }
     }
 
-    /// Real server state when available (Artboard 6's caption), rather than
-    /// a hardcoded "8989" — a dev who rebinds the port via
-    /// `BridgeServerOptions` should see their own port, not the default.
-    private var listeningCaption: String {
-        if let error = model.traffic.startupError {
-            return error
-        }
-        guard model.traffic.isRunning, let port = model.traffic.boundPort, port != 0 else {
-            return "Starting the bridge…"
-        }
-        return "Listening on port \(port) · Local connections"
-    }
 }

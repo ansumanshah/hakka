@@ -127,7 +127,7 @@ private struct PausedRequestCard: View {
             } label: {
                 Text("Abort")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onSolid)
                     .padding(.horizontal, Theme.s12)
                     .padding(.vertical, Theme.s6)
                     .background(Theme.error)
@@ -148,7 +148,7 @@ private struct PausedRequestCard: View {
             } label: {
                 Text("Resume")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onSolid)
                     .padding(.horizontal, Theme.s12)
                     .padding(.vertical, Theme.s6)
                     .background(Theme.success)
@@ -251,7 +251,7 @@ private struct PausedResponseCard: View {
             } label: {
                 Text("Abort")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onSolid)
                     .padding(.horizontal, Theme.s12)
                     .padding(.vertical, Theme.s6)
                     .background(Theme.error)
@@ -271,7 +271,7 @@ private struct PausedResponseCard: View {
             } label: {
                 Text("Resume")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onSolid)
                     .padding(.horizontal, Theme.s12)
                     .padding(.vertical, Theme.s6)
                     .background(Theme.success)

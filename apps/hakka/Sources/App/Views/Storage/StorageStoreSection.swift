@@ -25,7 +25,7 @@ struct StorageStoreSection: View {
             if sortedEntries.isEmpty {
                 Text("No entries")
                     .font(.caption)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(ThemeTokens.Palette.textSecondary)
                     .padding(.top, Spacing.xs)
             } else {
                 VStack(alignment: .leading, spacing: Spacing.xs) {
@@ -47,7 +47,7 @@ struct StorageStoreSection: View {
             }
         }
         .padding(Spacing.lg)
-        .background(Color.secondary.opacity(0.08))
+        .background(ThemeTokens.Palette.surface)
         .clipShape(RoundedRectangle(cornerRadius: Radius.md))
     }
 
@@ -69,8 +69,8 @@ struct StorageStoreSection: View {
                 }
                 Text(date, style: .relative)
             }
-            .font(.caption2.monospacedDigit())
-            .foregroundStyle(isStale ? ThemeTokens.Status.warning : .secondary)
+            .font(.caption.monospacedDigit())
+            .foregroundStyle(isStale ? ThemeTokens.Status.warning : ThemeTokens.Palette.textSecondary)
             .accessibilityLabel(isStale ? "Snapshot stale, last updated \(date.formatted(date: .omitted, time: .standard))" : "Last updated \(date.formatted(date: .omitted, time: .standard))")
         }
     }

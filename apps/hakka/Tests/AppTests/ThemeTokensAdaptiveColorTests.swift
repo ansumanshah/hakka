@@ -29,13 +29,13 @@ struct ThemeTokensAdaptiveColorTests {
             (NSColor(ThemeTokens.Status.success), RGB(red: 0.0902, green: 0.4510, blue: 0.3098), RGB(red: 0.2275, green: 0.6627, blue: 0.5059)),
             (NSColor(ThemeTokens.Status.info), RGB(red: 0.1961, green: 0.3804, blue: 0.5608), RGB(red: 0.4275, green: 0.6078, blue: 0.7882)),
             (NSColor(ThemeTokens.Status.warning), RGB(red: 0.5020, green: 0.3765, blue: 0), RGB(red: 0.8510, green: 0.6471, blue: 0.0784)),
-            (NSColor(ThemeTokens.Status.error), RGB(red: 0.6863, green: 0.1882, blue: 0.1647), RGB(red: 0.8863, green: 0.3333, blue: 0.2902)),
+            (NSColor(ThemeTokens.Status.error), RGB(red: 0.6863, green: 0.1882, blue: 0.1647), RGB(red: 0.9020, green: 0.3569, blue: 0.3137)),
             (NSColor(ThemeTokens.Status.pending), RGB(red: 0.3843, green: 0.3686, blue: 0.3294), RGB(red: 0.5529, green: 0.5294, blue: 0.4706)),
             (NSColor(ThemeTokens.Method.get), RGB(red: 0.0902, green: 0.4510, blue: 0.3098), RGB(red: 0.2275, green: 0.6627, blue: 0.5059)),
             (NSColor(ThemeTokens.Method.post), RGB(red: 0.6314, green: 0.3098, blue: 0), RGB(red: 0.9333, green: 0.5137, blue: 0.1255)),
             (NSColor(ThemeTokens.Method.put), RGB(red: 0.1961, green: 0.3804, blue: 0.5608), RGB(red: 0.4275, green: 0.6078, blue: 0.7882)),
             (NSColor(ThemeTokens.Method.patch), RGB(red: 0.4588, green: 0.2510, blue: 0.5569), RGB(red: 0.6588, green: 0.4980, blue: 0.7686)),
-            (NSColor(ThemeTokens.Method.delete), RGB(red: 0.6863, green: 0.1882, blue: 0.1647), RGB(red: 0.8863, green: 0.3333, blue: 0.2902)),
+            (NSColor(ThemeTokens.Method.delete), RGB(red: 0.6863, green: 0.1882, blue: 0.1647), RGB(red: 0.9020, green: 0.3569, blue: 0.3137)),
             (NSColor(ThemeTokens.Method.other), RGB(red: 0.3843, green: 0.3686, blue: 0.3294), RGB(red: 0.5529, green: 0.5294, blue: 0.4706)),
         ]
 
@@ -45,7 +45,7 @@ struct ThemeTokensAdaptiveColorTests {
         }
     }
 
-    @Test func semanticTextColorsMeetContrastOnLightContentSurfaces() {
+    @Test func semanticTextColorsMeetContrastOnContentSurfaces() {
         // `on` and `onWarm` are foreground colors on filled status controls,
         // so this checks only semantic colors used as text on content surfaces.
         let colors = [
@@ -57,13 +57,35 @@ struct ThemeTokensAdaptiveColorTests {
             NSColor(ThemeTokens.Method.other),
         ]
         let backgrounds = [
-            RGB(hex: 0xFFFFFF), RGB(hex: 0xFAF8F4), RGB(hex: 0xF2EFE8),
+            NSColor(ThemeTokens.Palette.background), NSColor(ThemeTokens.Palette.surface),
+            NSColor(ThemeTokens.Palette.surfaceRaised),
         ]
 
-        for color in colors {
-            let foreground = resolved(color, in: .aqua)
-            for background in backgrounds {
-                #expect(foreground.contrastRatio(against: background) >= 4.5)
+        for appearance in [NSAppearance.Name.aqua, .darkAqua] {
+            for color in colors {
+                let foreground = resolved(color, in: appearance)
+                for background in backgrounds {
+                    #expect(foreground.contrastRatio(against: resolved(background, in: appearance)) >= 4.5)
+                }
+            }
+        }
+    }
+
+    @Test func interfaceTextMeetsContrastInBothAppearances() {
+        let colors = [
+            NSColor(ThemeTokens.Palette.text), NSColor(ThemeTokens.Palette.textSecondary),
+            NSColor(ThemeTokens.Palette.textTertiary), NSColor(ThemeTokens.Palette.accentText),
+        ]
+        let surfaces = [
+            NSColor(ThemeTokens.Palette.background), NSColor(ThemeTokens.Palette.surface),
+            NSColor(ThemeTokens.Palette.surfaceRaised),
+        ]
+        for appearance in [NSAppearance.Name.aqua, .darkAqua] {
+            for color in colors {
+                let foreground = resolved(color, in: appearance)
+                for surface in surfaces {
+                    #expect(foreground.contrastRatio(against: resolved(surface, in: appearance)) >= 4.5)
+                }
             }
         }
     }

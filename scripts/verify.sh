@@ -28,8 +28,8 @@ run_leg() {
 }
 
 # Build before readers start: concurrent rebuilds erase dist during typechecks/tests.
-if ! just build-core build-bridge build-node build-browser >"$LOG_DIR/prebuild.log" 2>&1; then
-    echo "FAIL: pre-build of hakka-core/hakka-bridge/hakka-node/hakka-browser dist" >&2
+if ! just build-core build-bridge build-node build-browser build-cli >"$LOG_DIR/prebuild.log" 2>&1; then
+    echo "FAIL: pre-build of hakka-core/hakka-bridge/hakka-node/hakka-browser/hakka-cli dist" >&2
     cat "$LOG_DIR/prebuild.log" >&2
     exit 1
 fi

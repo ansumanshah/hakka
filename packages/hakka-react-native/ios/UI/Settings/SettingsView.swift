@@ -347,7 +347,7 @@ struct SettingsView: View {
         } label: {
             Text("Apply")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onSolid)
                 .padding(.horizontal, Theme.s8)
                 .padding(.vertical, Theme.s6)
                 .background(Theme.accent)

@@ -57,12 +57,8 @@ struct RulesView: View {
     /// actually has these rules), and the primary "+ Add rule" action.
     private var header: some View {
         HStack(spacing: Spacing.md) {
-            Text("Rules")
-                .font(.headline)
+            WorkspaceHeaderView(title: "Rules", subtitle: pushedText)
             Spacer()
-            Text(pushedText)
-                .font(.caption)
-                .foregroundStyle(.secondary)
             Button {
                 showingAddRule = true
             } label: {
@@ -72,7 +68,7 @@ struct RulesView: View {
             .controlSize(.regular)
         }
         .padding(.horizontal, Layout.gutter)
-        .padding(.vertical, Spacing.md)
+        .padding(.vertical, Spacing.lg)
     }
 
     private var pushedText: String {

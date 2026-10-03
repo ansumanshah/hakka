@@ -300,7 +300,7 @@ export const BreakpointsTab: Component<PanelProps> = () => {
         {/* 20px doesn't sit on a space rung (nearest is xl=16) — kept exact, this
             section needs more separation from Breakpoints below than xl gives. */}
         <div style="margin-bottom: var(--hakka-space-xxl)">
-          <div style="font-size:var(--hakka-font-md);font-weight:600;color:var(--hakka-status-warning);margin-bottom:var(--hakka-space-xs);display:flex;align-items:center;gap:var(--hakka-space-sm)">
+          <div style="font-size:var(--hakka-font-md);font-weight:600;color:var(--hakka-status-text-warning);margin-bottom:var(--hakka-space-xs);display:flex;align-items:center;gap:var(--hakka-space-sm)">
             <IconPause size={12} />
             <span>Paused ({paused().length})</span>
           </div>

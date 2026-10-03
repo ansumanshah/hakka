@@ -51,6 +51,7 @@ function secretRequest(overrides: Partial<NetworkRequest> = {}): NetworkRequest 
   }
 }
 
+let spans: SpanStore
 let store: RequestStore
 let client: Client
 let closeAll: () => Promise<void>
@@ -67,7 +68,8 @@ beforeEach(async () => {
   idSeq = 0
   store = new RequestStore(100)
   const mcpServer = new McpServer({ name: 'test', version: '0.0.0' })
-  registerTools(mcpServer, store, new SilentSender(), new SpanStore(50))
+  spans = new SpanStore(50)
+  registerTools(mcpServer, store, new SilentSender(), spans)
 
   const [serverTransport, clientTransport] = InMemoryTransport.createLinkedPair()
   await mcpServer.connect(serverTransport)
@@ -186,6 +188,74 @@ describe('generate_repro — scrubs by default, including the generated test fil
     const payload = await call('generate_repro', { unredacted: true })
 
     expect(JSON.stringify(payload)).toContain(SECRET)
+    await closeAll()
+  })
+})
+
+describe('trace and stats — share-scrubbed agent results', () => {
+  it('scrubs trace request copies, labels, span attributes and badge summary before returning', async () => {
+    const request = secretRequest({ correlationId: 'trace-private' })
+    store.add(request)
+    spans.add({
+      id: 'span-private',
+      traceId: 'trace-private',
+      parentId: null,
+      name: 'load customer private@example.com',
+      startTime: 0,
+      endTime: 1000,
+      attrs: { password: SECRET, safe: 'kept' },
+      verbosity: 'primary',
+      runtime: 'server',
+    })
+
+    const payload = await call('get_trace', { requestId: request.id })
+    expect(JSON.stringify(payload)).not.toContain(SECRET)
+    expect(JSON.stringify(payload)).not.toContain('private@example.com')
+    expect(JSON.stringify(payload)).toContain('kept')
+    expect(payload.redaction).toMatchObject({ applied: true })
+    expect((payload.traceSummary as { slowest: { label: string } }).slowest.label).not.toContain('private@example.com')
+    expect(store.get(request.id)?.requestBody).toContain(SECRET)
+    expect(spans.getEntries()[0].attrs?.password).toBe(SECRET)
+
+    const raw = await call('get_trace', { requestId: request.id, unredacted: true })
+    expect(JSON.stringify(raw)).toContain(SECRET)
+    expect(JSON.stringify(raw)).toContain('private@example.com')
+    expect(raw.redaction).toEqual({ applied: false, removed: [] })
+    await closeAll()
+  })
+
+  it('scrubs the slowest request without changing aggregate stats, with an explicit opt-out', async () => {
+    const request = secretRequest({ duration: 500 })
+    store.add(request)
+    const payload = await call('stats')
+    expect(payload).toMatchObject({ total: 1, avgDurationMs: 500, redaction: { applied: true } })
+    expect(JSON.stringify(payload)).not.toContain(SECRET)
+    expect((payload.slowest as NetworkRequest).id).toBe(request.id)
+    const raw = await call('stats', { unredacted: true })
+    expect(JSON.stringify(raw)).toContain(SECRET)
+    expect(raw.redaction).toEqual({ applied: false, removed: [] })
+    await closeAll()
+  })
+
+  it('scrubs span attributes in exported evidence and leaves raw evidence available explicitly', async () => {
+    store.add(secretRequest({ correlationId: 'trace-private' }))
+    spans.add({
+      id: 'span-private',
+      traceId: 'trace-private',
+      parentId: null,
+      name: 'load customer private@example.com',
+      startTime: 0,
+      endTime: 1000,
+      attrs: { token: SECRET },
+      verbosity: 'primary',
+      runtime: 'server',
+    })
+    const payload = await call('export_evidence')
+    expect(JSON.stringify(payload)).not.toContain(SECRET)
+    expect(JSON.stringify(payload)).not.toContain('private@example.com')
+    const raw = await call('export_evidence', { unredacted: true })
+    expect(JSON.stringify(raw)).toContain(SECRET)
+    expect(JSON.stringify(raw)).toContain('private@example.com')
     await closeAll()
   })
 })

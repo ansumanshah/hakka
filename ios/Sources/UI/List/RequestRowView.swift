@@ -151,11 +151,11 @@ struct RequestRowView: View {
         if let code = request.status {
             Text("\(code)")
                 .font(.footnote.monospacedDigit().weight(.semibold))
-                .foregroundStyle(Theme.statusColor(for: code))
+                .foregroundStyle(Theme.statusTextColor(for: code))
         } else if request.error != nil {
             Text("ERR")
                 .font(.footnote.weight(.bold))
-                .foregroundStyle(Theme.error)
+                .foregroundStyle(Theme.errorText)
         } else {
             ProgressView()
                 .controlSize(.mini)
@@ -219,8 +219,8 @@ struct RequestRowView: View {
 
     private var durationColor: Color {
         guard let ms = request.duration else { return Theme.textSecondary }
-        if ms >= 3000 { return Theme.error }
-        if ms >= 1000 { return Theme.warning }
+        if ms >= 3000 { return Theme.errorText }
+        if ms >= 1000 { return Theme.warningText }
         return Theme.textSecondary
     }
 

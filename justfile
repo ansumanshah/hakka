@@ -140,12 +140,15 @@ build-node: build-core build-bridge
 build-browser: build-core build-bridge
     bun run --cwd packages/hakka-browser build
 
+# Build the CLI artifact exercised by the real MCP stdio tests.
+build-cli: build-core build-bridge build-node
+    bun run --cwd packages/hakka-cli build
+
 # Run all web/JS-side package tests (core + web + bridge + integrations). Builds the
-# dist deps first so cross-package imports (hakka-core, hakka-bridge, hakka-node)
-# resolve. The standalone custom elements and the React wrappers now build as part
-# of packages/hakka-browser (`./elements/*` and `./react` subpaths), so they need
-# no step here.
-test-web: build-core build-bridge build-node build-browser
+# dist deps first so cross-package imports and the CLI stdio artifact resolve.
+# The standalone custom elements and the React wrappers build as part of
+# packages/hakka-browser, so they need no separate step here.
+test-web: build-core build-bridge build-node build-browser build-cli
     bun run --cwd packages/hakka-core test
     bun run --cwd packages/hakka-bridge test
     bun run --cwd packages/hakka-browser test
@@ -153,7 +156,7 @@ test-web: build-core build-bridge build-node build-browser
     bun run --cwd packages/hakka-node test
     bun run --cwd packages/hakka-rozenite test
 
-# test-web minus the build-core/build-bridge dep recipes — used by verify.sh,
+# test-web minus the build recipes — used by verify.sh,
 # which pre-builds those once, sequentially, before its parallel legs
 # (rebuilding inside the parallel phase wipes dist mid-typecheck).
 test-web-prebuilt:

@@ -36,6 +36,25 @@ Use the toolbar or Inspector menu to place detail on the right, below traffic, o
 hide it. The placement persists between launches. Native splitters resize each pane;
 Command-Shift-I selects the right inspector and Command-Option-I selects the bottom.
 
+Command-F focuses search in the visible Live Traffic, Logs, or Storage workspace.
+Logs and Storage enable this command once they contain captured entries; other
+workspaces disable it.
+
+## Desktop MCP access
+
+Open **Settings → MCP Server**, enable **Enable MCP Server**, and wait for
+**Ready · local access**. Use **Copy MCP configuration** to configure your agent,
+and keep Hakka open. The default endpoint is `http://127.0.0.1:8990`; startup
+errors appear in Settings. The server is disabled initially.
+
+While enabled, local processes can read captures and open collections. Remote
+connections are blocked. Browser clients are unsupported: requests must have a
+loopback `Host` and must not carry an `Origin` header. Proxy mutations additionally
+require **Allow agents** in **Proxy → Automation**.
+
+This HTTP endpoint is separate from the WebSocket capture bridge on port 8989
+and the [CLI stdio MCP server](/mcp/overview/).
+
 ## What it is made of
 
 The app ships as Swift packages, not just a binary, so other Swift apps can host the

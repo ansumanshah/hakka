@@ -14,21 +14,24 @@ struct LiveTrafficHeader: View {
     @State private var isShowingFilterTokens = false
     @State private var isPresentingSaveView = false
     @State private var savedViewName = ""
-    @FocusState private var searchFieldFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack(alignment: .top, spacing: Spacing.md) {
+                WorkspaceHeaderView(title: "Live Traffic", subtitle: statusText)
+                    .help(statusText)
+                Spacer(minLength: Spacing.sm)
+                actionsMenu
+            }
             searchField
             HStack(spacing: Spacing.md) {
-                statusIndicator
-                Spacer(minLength: Spacing.sm)
                 Toggle("Errors only", isOn: errorsOnlyBinding)
                     .toggleStyle(.button)
                     .font(.caption)
                     .fixedSize()
                     .accessibilityHint("Shows only requests with a 4xx, 5xx, or transport error")
                 TrafficFocusMenu()
-                actionsMenu
+                Spacer(minLength: Spacing.sm)
             }
             if showsTokenRow {
                 tokenRow
@@ -37,9 +40,6 @@ struct LiveTrafficHeader: View {
         .padding(.horizontal, Layout.gutter)
         .padding(.vertical, Spacing.lg)
         .controlSize(.regular)
-        .onChange(of: model.traffic.focusSearchToken) { _, _ in
-            searchFieldFocused = true
-        }
         .alert("Save Traffic View", isPresented: $isPresentingSaveView) {
             TextField("Name", text: $savedViewName)
             Button("Save") { saveView() }
@@ -72,21 +72,6 @@ struct LiveTrafficHeader: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.bottom, Spacing.xs)
-    }
-
-    private var statusIndicator: some View {
-        HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
-            Image(systemName: model.traffic.startupError != nil ? "exclamationmark.triangle.fill" : "circle.fill")
-                .font(.caption2)
-                .foregroundStyle(model.traffic.isRunning ? ThemeTokens.Status.success : ThemeTokens.Status.warning)
-                .accessibilityHidden(true)
-            Text(statusText)
-                .font(.caption)
-                .foregroundStyle(model.traffic.startupError != nil ? Color.primary : .secondary)
-                .lineLimit(1)
-                .help(statusText)
-                .textSelection(.enabled)
-        }
     }
 
     private var actionsMenu: some View {
@@ -130,34 +115,18 @@ struct LiveTrafficHeader: View {
 
     private var searchField: some View {
         HStack(spacing: Spacing.sm) {
-            Image(systemName: "magnifyingglass")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            TextField("Filter requests…", text: searchBinding)
-                .textFieldStyle(.plain)
-                .font(.callout)
-                .focused($searchFieldFocused)
-                .accessibilityLabel("Search traffic")
-                .help("Search URLs or use filters such as method:POST, 4xx, or dur>100. Press Command-F to focus.")
-            if !model.traffic.searchText.isEmpty {
-                Button {
-                    model.traffic.searchText = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill").font(.caption)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-                .accessibilityLabel("Clear search")
-            }
-            FilterPresetMenu(store: presetStore, currentQuery: model.traffic.searchText) { query in
+            WorkspaceSearchField(
+                prompt: "Filter requests…",
+                accessibilityName: "Search traffic",
+                text: searchBinding,
+                focusToken: model.traffic.focusSearchToken,
+                helpText: "Search URLs or use method:POST, 4xx, or dur>100. Press Command-F to focus."
+            )
+            FilterPresetMenu(store: presetStore, currentQuery: query) { query in
                 model.traffic.searchText = query
             }
+            .frame(width: ControlHeight.field, height: ControlHeight.field)
         }
-        .padding(.horizontal, Spacing.md)
-        .frame(height: ControlHeight.field)
-        .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: Radius.md))
-        .overlay(RoundedRectangle(cornerRadius: Radius.md).strokeBorder(Color(nsColor: .separatorColor)))
-        .frame(minWidth: 120, maxWidth: .infinity)
     }
 
     private var searchBinding: Binding<String> {

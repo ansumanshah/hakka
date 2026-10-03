@@ -19,6 +19,7 @@ enum DemoPalette {
     static let border = Color(red: 0.2078, green: 0.1882, blue: 0.1647)
     static let text = Color(red: 0.9294, green: 0.9176, blue: 0.8941)
     static let textSecondary = Color(red: 0.6588, green: 0.6353, blue: 0.5882)
-    static let textTertiary = Color(red: 0.4314, green: 0.4118, blue: 0.3725)
+    static let textTertiary = Color(red: 0.5529, green: 0.5294, blue: 0.4706)
     static let accent = Color(red: 0.9333, green: 0.5137, blue: 0.1255)
+    static let accentText = Color(red: 0.9333, green: 0.5137, blue: 0.1255)
 }

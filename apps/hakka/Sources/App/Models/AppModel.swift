@@ -55,6 +55,26 @@ final class AppModel {
     }
 
     private(set) var selection: SidebarSelection?
+    var workspaceSearchFocusToken = 0
+
+    var canFocusWorkspaceSearch: Bool {
+        switch selection {
+        case .traffic: true
+        case .logs: !logs.entries.isEmpty
+        case .storage: !storage.stores.isEmpty
+        default: false
+        }
+    }
+
+    /// Find targets the visible capture workspace without changing navigation.
+    func focusWorkspaceSearch() {
+        guard canFocusWorkspaceSearch else { return }
+        switch selection {
+        case .traffic: traffic.focusSearchToken += 1
+        case .logs, .storage: workspaceSearchFocusToken += 1
+        default: break
+        }
+    }
 
     func select(_ selection: SidebarSelection?) {
         if case let .request(id) = selection, let spec = collection.request(id: id) {

@@ -390,3 +390,37 @@ describe('buildEvidenceBundle — share-time scrubbing (default on)', () => {
     expect(b.redaction).toEqual({ applied: true, removed: [] })
   })
 })
+
+describe('buildEvidenceBundle — companion-data redaction metadata', () => {
+  test('merges caller-supplied counts with request scrubbing without mutating the caller input', () => {
+    const additional = [{ category: 'jsonField' as const, count: 2 }]
+    const b = buildEvidenceBundle([req({ responseBody: '{"password":"secret"}' })], {
+      exportedAt: EXPORTED_AT,
+      additionalRedactionRemovals: additional,
+    })
+    expect(b.redaction).toEqual({ applied: true, removed: [{ category: 'jsonField', count: 3 }] })
+    expect(additional).toEqual([{ category: 'jsonField', count: 2 }])
+  })
+
+  test('does not claim companion scrubbing when the bundle opts out', () => {
+    const b = buildEvidenceBundle([req()], {
+      scrub: false,
+      additionalRedactionRemovals: [{ category: 'email', count: 1 }],
+    })
+    expect(b.redaction).toEqual({ applied: false, removed: [] })
+  })
+
+  test('accounts for companion metadata before deciding whether to drop verbose spans', () => {
+    const requests = [req()]
+    const spans = [span({ name: 'x'.repeat(300) })]
+    const baseline = buildEvidenceBundle(requests, { spans, exportedAt: EXPORTED_AT })
+    const b = buildEvidenceBundle(requests, {
+      spans,
+      exportedAt: EXPORTED_AT,
+      maxBytes: byteSize(baseline) + 1,
+      additionalRedactionRemovals: [{ category: 'email', count: 1 }],
+    })
+    expect(b.truncations.some((entry) => entry.kind === 'spans.verbose.dropped')).toBe(true)
+    expect(b.redaction.removed).toEqual([{ category: 'email', count: 1 }])
+  })
+})

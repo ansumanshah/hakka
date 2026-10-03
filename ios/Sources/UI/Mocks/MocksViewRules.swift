@@ -45,7 +45,7 @@ extension MocksView {
 
                 Text(rule.action.rawValue.lowercased())
                     .font(.caption2.weight(.bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onSolid)
                     .padding(.horizontal, Theme.s6)
                     .padding(.vertical, HakkaMetrics.Spacing.xxs)
                     .background(actionColor(rule.action))
@@ -113,7 +113,7 @@ extension MocksView {
             HStack(spacing: Theme.s6) {
                 Text("\(rule.response.status)")
                     .font(.caption2.weight(.semibold).monospaced())
-                    .foregroundStyle(Theme.statusColor(for: rule.response.status))
+                    .foregroundStyle(Theme.statusTextColor(for: rule.response.status))
                 if rule.response.delay > 0 {
                     Text("\(Int(rule.response.delay * 1000))ms")
                         .font(.caption2.monospaced())

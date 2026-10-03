@@ -132,7 +132,7 @@ struct ThrottleView: View {
                 if profile == .offline {
                     Text("DROP")
                         .font(.system(size: HakkaMetrics.FontSize.xxs, weight: .bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onSolid)
                         .padding(.horizontal, Theme.s6)
                         .padding(.vertical, HakkaMetrics.Spacing.xxs)
                         .background(Theme.error)

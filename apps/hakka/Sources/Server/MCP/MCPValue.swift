@@ -96,7 +96,7 @@ extension MCPValue {
 
     public var intValue: Int? {
         guard let value = doubleValue else { return nil }
-        return Int(value)
+        return Int(exactly: value)
     }
 
     public var objectValue: [String: MCPValue]? {

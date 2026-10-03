@@ -9,6 +9,7 @@ import { destroyStore, initStore } from '../../../worker'
  */
 import { createStoreClient } from '../../../worker/storeClient'
 import { setPreset } from '../../presets'
+import { resetRequestFilters } from '../../resetRequestFilters'
 import { register, TAG } from '../request-list'
 import { sharedFilterViewModel, sharedSelectionViewModel } from '../shared'
 import {
@@ -36,12 +37,38 @@ afterEach(() => {
   // file's group-by/select-mode tests seed so they don't leak into the next
   // test (see filter-bar.test.tsx's afterEach for the same discipline).
   if (sharedFilterViewModel().getSnapshot().groupBy !== 'none') sharedFilterViewModel().intents.setGroupBy('none')
+  resetRequestFilters(sharedFilterViewModel())
   sharedSelectionViewModel().intents.clear()
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
 })
 
 describe('<hakka-request-list>', () => {
+  it('explains filtered captured traffic and resets constraints without adding samples', async () => {
+    const injected = makeInjectedStore([makeRequest({ url: 'https://api.example.com/captured', method: 'GET' })])
+    const filters = sharedFilterViewModel()
+    filters.intents.setFilterText('url:/missing')
+    filters.intents.setMethodFilter('POST')
+    filters.intents.setStatusChip('5xx')
+    filters.intents.setDurMin(1000)
+    filters.intents.setGroupBy('host')
+    filters.intents.setSortField('duration')
+    const el = document.createElement(TAG) as HTMLElement & { store: unknown }
+    el.store = injected
+    document.body.appendChild(el)
+    await waitFor(() => el.shadowRoot!.textContent?.includes('No matching requests') ?? false)
+    expect(el.shadowRoot!.querySelector('.hakka-empty-sample-btn')).toBeNull()
+    const reset = Array.from(el.shadowRoot!.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === 'Reset filters',
+    )
+    expect(reset).toBeTruthy()
+    reset!.click()
+    await waitFor(() => el.shadowRoot!.textContent?.includes('/captured') ?? false)
+    expect(el.shadowRoot!.querySelectorAll('.hakka-row')).toHaveLength(1)
+    expect(filters.getSnapshot().groupBy).toBe('host')
+    expect(filters.getSnapshot().sortField).toBe('duration')
+  })
+
   it('replaces its store and stops rendering the previous store', async () => {
     const first = makeInjectedStore([makeRequest({ url: 'https://api.example.com/first-store' })])
     const second = makeInjectedStore([makeRequest({ url: 'https://api.example.com/second-store' })])

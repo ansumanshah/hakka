@@ -7,7 +7,7 @@
 // of which file the factory function is defined in, so `onSettled`'s window
 // listener + cleanup register correctly here.
 import type { NetworkRequest } from 'hakka-core'
-import { onSettled } from 'solid-js'
+import { createEffect, createSignal, onSettled } from 'solid-js'
 
 const isTypingTarget = (el: EventTarget | null): boolean => {
   if (!(el instanceof HTMLElement)) return false
@@ -25,11 +25,26 @@ export interface InspectorKeyboardDeps {
   selected: () => NetworkRequest | null
   setSelected: (req: NetworkRequest | null) => void
   tab: () => string
+  setTab: (id: string) => void
   getFilteredList: () => NetworkRequest[]
   searchInputEl: () => HTMLInputElement | null
 }
 
 export function useInspectorKeyboard(deps: InspectorKeyboardDeps): void {
+  const [searchFocusPending, setSearchFocusPending] = createSignal(false)
+  const focusMountedSearch = () => {
+    const input = deps.searchInputEl()
+    if (deps.tab() !== 'network' || deps.selected() !== null || !input?.isConnected) return false
+    input.focus()
+    return true
+  }
+  createEffect(
+    () => [searchFocusPending(), deps.searchInputEl(), deps.tab(), deps.selected()] as const,
+    ([pending]) => {
+      if (pending && focusMountedSearch()) setSearchFocusPending(false)
+    },
+  )
+
   const moveSelection = (delta: number) => {
     const list = deps.getFilteredList()
     if (list.length === 0) return
@@ -63,7 +78,9 @@ export function useInspectorKeyboard(deps: InspectorKeyboardDeps): void {
     if (e.composedPath().some(isTypingTarget)) return
     if (e.key === '/') {
       e.preventDefault()
-      deps.searchInputEl()?.focus()
+      deps.setTab('network')
+      deps.setSelected(null)
+      if (!focusMountedSearch()) setSearchFocusPending(true)
     } else if (deps.tab() === 'network' && (e.key === 'j' || e.key === 'k') && !e.altKey) {
       e.preventDefault()
       moveSelection(e.key === 'j' ? 1 : -1)

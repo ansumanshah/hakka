@@ -78,7 +78,7 @@ export const InspectorToolbar: Component<InspectorToolbarProps> = (props) => {
       <span title="Capturing">
         <HakkaMark size={20} live />
       </span>
-      <div class="hakka-tabs" role="tablist" ref={(el) => (tabsEl = el)}>
+      <div class="hakka-tabs" role="tablist" aria-label="Inspector panels" ref={(el) => (tabsEl = el)}>
         <For each={props.panels}>
           {(p) => {
             const TabIcon = TAB_ICONS[p.id]
@@ -87,12 +87,27 @@ export const InspectorToolbar: Component<InspectorToolbarProps> = (props) => {
                 class={`hakka-tab${props.tab() === p.id ? ' active' : ''}`}
                 role="tab"
                 aria-selected={props.tab() === p.id ? 'true' : 'false'}
+                tabindex={props.tab() === p.id ? 0 : -1}
+                onKeyDown={(event) => {
+                  const index = props.panels.findIndex((panel) => panel.id === p.id)
+                  let nextIndex: number
+                  const rtl = getComputedStyle(event.currentTarget).direction === 'rtl'
+                  if (event.key === 'ArrowRight') nextIndex = index + (rtl ? -1 : 1)
+                  else if (event.key === 'ArrowLeft') nextIndex = index + (rtl ? 1 : -1)
+                  else if (event.key === 'Home') nextIndex = 0
+                  else if (event.key === 'End') nextIndex = props.panels.length - 1
+                  else return
+                  event.preventDefault()
+                  nextIndex = (nextIndex + props.panels.length) % props.panels.length
+                  props.setTab(props.panels[nextIndex]!.id)
+                  tabsEl?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[nextIndex]?.focus()
+                }}
                 onClick={() => props.setTab(p.id)}
               >
                 {TabIcon ? <TabIcon size={12} /> : null}
                 {p.title}
                 <Show when={p.id === 'console' && props.errorCount() > 0}>
-                  <span class="hakka-count-badge sm" style="color: var(--hakka-status-error)">
+                  <span class="hakka-count-badge sm" style="color:var(--hakka-status-text-error)">
                     {props.errorCount() > 99 ? '99+' : props.errorCount()}
                   </span>
                 </Show>
@@ -101,7 +116,13 @@ export const InspectorToolbar: Component<InspectorToolbarProps> = (props) => {
           }}
         </For>
       </div>
-      <span class="hakka-header-count">{props.requestCount()}</span>
+      <span
+        class="hakka-header-count"
+        title="Captured requests"
+        aria-label={`${props.requestCount()} captured requests`}
+      >
+        {props.requestCount()}
+      </span>
       {/* Wide header: actions inline. */}
       <div class="hakka-header-actions">
         <Show when={showNetworkActions()}>

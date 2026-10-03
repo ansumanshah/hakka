@@ -19,6 +19,7 @@ import {
   MIN_PANEL_HEIGHT_PX,
   MAX_PANEL_HEIGHT_PX,
 } from '../presets'
+import { DARK_THEME_TOKENS, LIGHT_THEME_TOKENS } from '../theme-palettes.generated'
 
 // happy-dom does not provide localStorage unless --localstorage-file is set
 // (matches settings.test.tsx).
@@ -149,7 +150,7 @@ describe('presets — applying tokens to a registered theme root', () => {
     expect(el.style.getPropertyValue('--hakka-code-string')).toBe('#B4552A')
   })
 
-  it('high-contrast/amber/matrix leave status/method/timing tokens untouched (DESIGN.md: they survive every ground)', () => {
+  it('high-contrast/amber/matrix retain shared status/method/timing fills', () => {
     const el = document.createElement('div')
     registerThemeRoot(el)
     for (const preset of ['high-contrast', 'amber', 'matrix'] as const) {
@@ -157,6 +158,60 @@ describe('presets — applying tokens to a registered theme root', () => {
       expect(el.style.getPropertyValue('--hakka-status-error')).toBe('')
       expect(el.style.getPropertyValue('--hakka-method-post')).toBe('')
       expect(el.style.getPropertyValue('--hakka-timing-ttfb')).toBe('')
+    }
+  })
+
+  it('applies light semantic text and code colors without needing a theme attribute', () => {
+    const el = document.createElement('div')
+    const unregister = registerThemeRoot(el)
+    try {
+      setPreset('light')
+      expect(el.getAttribute('theme')).toBeNull()
+      expect(el.style.getPropertyValue('--hakka-text-tertiary')).toBe('#736C60')
+      expect(el.style.getPropertyValue('--hakka-method-text-post')).toBe('#A14F00')
+      expect(el.style.getPropertyValue('--hakka-status-text-error')).toBe('#AF302A')
+      expect(el.style.getPropertyValue('--hakka-accent-text')).toBe('#A14F00')
+      expect(el.style.getPropertyValue('--hakka-code-key')).toBe('#57534A')
+      expect(el.style.getPropertyValue('--hakka-status-error')).toBe('')
+    } finally {
+      unregister()
+    }
+  })
+
+  it('gives Paper light semantic defaults and replaces them when moving to a dark preset', () => {
+    const el = document.createElement('div')
+    const unregister = registerThemeRoot(el)
+    try {
+      setPreset('paper')
+      expect(el.style.getPropertyValue('--hakka-bg')).toBe('#F5F0E1')
+      expect(el.style.getPropertyValue('--hakka-method-text-get')).toBe('#17734F')
+      expect(el.style.getPropertyValue('--hakka-status-text-error')).toBe('#AF302A')
+      expect(el.style.getPropertyValue('--hakka-code-key')).toBe('#5C5340')
+      expect(el.style.getPropertyValue('--hakka-accent-text')).toBe('#A14F00')
+      setPreset('amber')
+      expect(el.style.getPropertyValue('--hakka-method-text-get')).toBe('#3AA981')
+      expect(el.style.getPropertyValue('--hakka-status-text-error')).toBe(DARK_THEME_TOKENS['status-text-error'])
+      expect(el.style.getPropertyValue('--hakka-accent-text')).toBe('#FFB000')
+    } finally {
+      unregister()
+    }
+  })
+
+  it('clears every generated preset role on Navy and retains unrelated custom CSS properties', () => {
+    const el = document.createElement('div')
+    el.style.setProperty('--hakka-custom-chart', '#123456')
+    el.style.setProperty('--hakka-panel-height-mobile', '70dvh')
+    const unregister = registerThemeRoot(el)
+    try {
+      setPreset('light')
+      setPreset('navy')
+      for (const key of Object.keys(LIGHT_THEME_TOKENS)) {
+        expect(el.style.getPropertyValue(`--hakka-${key}`)).toBe('')
+      }
+      expect(el.style.getPropertyValue('--hakka-custom-chart')).toBe('#123456')
+      expect(el.style.getPropertyValue('--hakka-panel-height-mobile')).toBe('70dvh')
+    } finally {
+      unregister()
     }
   })
 

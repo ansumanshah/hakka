@@ -157,25 +157,16 @@ struct LiveTrafficListView: View {
     }
 
     private var noMatchesView: some View {
-        VStack(spacing: Spacing.lg) {
-            Image(systemName: "line.3.horizontal.decrease.circle")
-                .font(.largeTitle)
-                .foregroundStyle(.secondary)
-            Text("No matching requests")
-                .font(.headline)
-            Text("\(model.traffic.requests.count) captured requests are hidden by the current filters.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-            Button("Reset Filters") {
+        EmptyStateView(
+            systemImage: "line.3.horizontal.decrease.circle",
+            title: "No matching requests",
+            message: "\(model.traffic.requests.count) captured requests are hidden by the current filters.",
+            actionTitle: "Reset Filters",
+            action: {
                 model.traffic.searchText = ""
                 model.traffic.errorsOnly = false
                 model.traffic.noiseScope.clear()
             }
-            .buttonStyle(.bordered)
-        }
-        .padding(Layout.gutter)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .chromeMaterial(.panel)
+        )
     }
 }

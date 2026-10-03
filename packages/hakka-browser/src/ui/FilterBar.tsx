@@ -114,6 +114,9 @@ export const FilterBar: Component<FilterBarProps> = (props) => {
             ref={props.inputRef}
             class="hakka-search"
             type="text"
+            aria-label="Search requests"
+            autocomplete="off"
+            spellcheck={false}
             placeholder={snap().nlMode ? 'Describe: "slow POSTs to /checkout"' : 'Search'}
             value={snap().filterDisplay}
             onInput={(e) => props.filters.intents.setFilterText(e.currentTarget.value)}
@@ -198,6 +201,7 @@ export const FilterBar: Component<FilterBarProps> = (props) => {
             {(m) => (
               <button
                 class={`hakka-chip method-${m}${snap().methodFilter === m ? ' active' : ''}`}
+                aria-pressed={snap().methodFilter === m ? 'true' : 'false'}
                 onClick={() => props.filters.intents.setMethodFilter(snap().methodFilter === m ? '' : m)}
               >
                 {m}

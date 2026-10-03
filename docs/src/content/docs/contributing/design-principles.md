@@ -61,6 +61,11 @@ Add colors there, then use generated tokens. Semantic colors must remain
 legible in both themes; surfaces and accents may use theme-specific values.
 Respect reduced motion when animating the capture indicator.
 
+Text roles, including tertiary metadata, must reach 4.5:1 contrast on the
+background, surface, and raised-surface tokens in both themes. Measure the actual
+foreground/background pair; filled badges need their own foreground pairing.
+Keep muted text readable by changing its text token rather than adding opacity.
+
 ## Controls and rows
 
 - Use outlined, method-colored mono chips where users choose a method. In list

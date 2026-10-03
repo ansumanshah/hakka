@@ -26,9 +26,12 @@ struct CollectionNodeRow: View {
                         Task { await model.runFolder(folder) }
                     } label: {
                         Image(systemName: "play.circle")
+                            .frame(width: ControlHeight.chip, height: ControlHeight.chip)
+                            .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.borderless)
                     .foregroundStyle(.secondary)
+                    .accessibilityLabel("Run \(folder.name)")
                     .help("Run Folder")
                 }
             }
