@@ -4,6 +4,6 @@
  * requests in one UI. Dev-only and browser-only.
  *
  * On older Next, drop `<HakkaOverlay/>` into your root layout instead (a tiny
- * client component that calls `startHakkaClient()` from `hakka-node/next/client`).
+ * client component that calls `startClientCapture()` from `hakka-node/next/client`).
  */
 import 'hakka-node/next/client'

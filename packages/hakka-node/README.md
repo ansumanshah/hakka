@@ -55,7 +55,7 @@ Keep Node-only imports behind `NEXT_RUNTIME === 'nodejs'`.
 
 ### Overlay pattern: prefer a client component over `instrumentation-client.ts`
 
-A client component can call `startHakkaClient()` from an effect and return its cleanup.
+A client component can call `startClientCapture()` from an effect and return its cleanup.
 [Client component example](https://hakka.noodleapps.com/nextjs/overview/#older-next-no-instrumentation-clientts).
 
 ### Peer-dependency mismatch
