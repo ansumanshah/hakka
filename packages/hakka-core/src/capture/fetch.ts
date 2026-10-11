@@ -21,7 +21,8 @@ import { getBodyRedactionFields, redactJsonBody, redactParsedBody, tryParseJsonB
 import { isSensitiveHeader, redactHeaders as redactCapturedHeaders } from '../utils/headerRedaction'
 import { captureBody } from './bodyCapture'
 import { isOwnBridgeUrl } from './bridgeHosts'
-import { readCappedBody } from './readCappedBody'
+import { capturePassthroughBody } from './passthroughBody'
+import { readCappedBody, type CappedBody } from './readCappedBody'
 import { captureSseBody } from './sseCapture'
 import { captureInitiator } from './stackTrace'
 
@@ -732,32 +733,36 @@ export function enableFetchInterceptor(
         return response
       }
 
-      // Clone synchronously (before the caller can consume the original), then read + emit the
-      // body in a detached task — awaiting it here would delay the caller until the whole body
-      // downloaded and break incremental reads (LLM token streams, progressive JSON). The clone
-      // reads independently, so the app's own response.body/.json() is untouched.
+      // Capture the body without cloning: clone() tees the stream and costs ~1ms of main-thread
+      // time per response. Piping through a pass-through transform hands the caller an equivalent
+      // Response and captures the capped prefix as bytes flow (see passthroughBody.ts). Runtimes
+      // that can't do that fall back to reading a clone in a detached task, which keeps the
+      // caller's own response untouched and never delays it.
+      const downloadStartMs = Date.now()
+      const emitBody = ({ preview, size, truncated }: CappedBody) => {
+        const downloadMs = Date.now() - downloadStartMs
+        const endTime = Date.now()
+        const duration = endTime - startTime
+        onRequest({
+          ...request,
+          endTime,
+          duration,
+          responseBodySize: size,
+          responseBody: preview != null ? (redactJsonBody(preview, redactionFields) ?? preview) : null,
+          // Only set when the cap was actually crossed (size then best-known, not exact).
+          responseBodyTruncated: truncated,
+          timing: { dnsMs: undefined, connectMs: undefined, tlsMs: undefined, ttfbMs, downloadMs, total: duration },
+          downloadMs,
+        })
+      }
+      const passthrough = capturePassthroughBody(response, maxBodySize, emitBody)
+      if (passthrough) return passthrough
+
       const bodyClone = response.clone()
       void (async () => {
         try {
-          const downloadStartMs = Date.now()
           // Streams the body, capping retained memory at maxBodySize while still reporting the exact size (see readCappedBody).
-          const { preview, size, truncated } = await readCappedBody(bodyClone, maxBodySize)
-          const downloadMs = Date.now() - downloadStartMs
-          const responseBodySize = size
-          const endTime = Date.now()
-          const duration = endTime - startTime
-
-          onRequest({
-            ...request,
-            endTime,
-            duration,
-            responseBodySize,
-            responseBody: preview != null ? (redactJsonBody(preview, redactionFields) ?? preview) : null,
-            // Only set when the cap was actually crossed (size then best-known, not exact).
-            responseBodyTruncated: truncated,
-            timing: { dnsMs: undefined, connectMs: undefined, tlsMs: undefined, ttfbMs, downloadMs, total: duration },
-            downloadMs,
-          })
+          emitBody(await readCappedBody(bodyClone, maxBodySize))
         } catch {
           // Body may not be readable — header-only event already emitted
         }
