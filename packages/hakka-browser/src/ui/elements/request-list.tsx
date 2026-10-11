@@ -48,6 +48,7 @@ import { customElement } from '@solidjs/element'
 import type { FrameworkSpan, GroupBy } from 'hakka-core'
 import { createEffect, createMemo, createSignal, lazy, Loading, onSettled } from 'solid-js'
 
+import { resetRequestFilters } from '../resetRequestFilters'
 import { createRequestListViewModel } from '../viewModels'
 import type { RequestListViewModel } from '../viewModels'
 import {
@@ -183,6 +184,8 @@ export function register(): void {
         <Loading fallback={null}>
           <LazyRequestList
             requests={snap().filtered}
+            hasCapturedRequests={snap().count > 0}
+            onResetFilters={injectedVm() ? undefined : () => resetRequestFilters(filters)}
             groups={snap().groups}
             traceView={props.traceView}
             selected={activeReq()}

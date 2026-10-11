@@ -248,7 +248,7 @@ export const MockTab: Component<PanelProps> = () => {
                     class={`hakka-chip${form().action === opt.value ? ' active' : ''}`}
                     style={
                       form().action === opt.value && opt.value === 'block'
-                        ? 'background:var(--hakka-status-error);color:var(--hakka-status-on);border-color:var(--hakka-status-error)'
+                        ? 'background:var(--hakka-status-error);color:var(--hakka-status-on-warm);border-color:var(--hakka-status-error)'
                         : form().action === opt.value && opt.value === 'redirect'
                           ? 'background:var(--hakka-status-warning);color:var(--hakka-status-on-warm);border-color:var(--hakka-status-warning)'
                           : ''
@@ -421,7 +421,7 @@ export const MockTab: Component<PanelProps> = () => {
                   <Show when={rule.block}>
                     <span
                       class="hakka-mocked-tag"
-                      style="background:var(--hakka-status-error);color:var(--hakka-status-on);border-color:var(--hakka-status-error)"
+                      style="background:var(--hakka-status-error);color:var(--hakka-status-on-warm);border-color:var(--hakka-status-error)"
                     >
                       block
                     </span>
@@ -450,7 +450,7 @@ export const MockTab: Component<PanelProps> = () => {
 
                 <div style="display:flex;align-items:center;gap: var(--hakka-space-ml)">
                   <Show when={rule.block}>
-                    <span style="font-size:var(--hakka-font-xs);color:var(--hakka-status-error);font-weight:600">
+                    <span style="font-size:var(--hakka-font-xs);color:var(--hakka-status-text-error);font-weight:600">
                       aborted
                     </span>
                   </Show>

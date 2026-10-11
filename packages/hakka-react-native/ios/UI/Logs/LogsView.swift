@@ -24,6 +24,8 @@ struct LogsView: View {
     /// title there. The count + clear action stay either way.
     var showToolbar: Bool = true
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     @State private var entries: [LogEntry] = []
     @State private var levelFilter: LogLevel? = nil
     @State private var searchText: String = ""
@@ -72,6 +74,7 @@ struct LogsView: View {
             Text("\(filteredEntries.count)")
                 .font(.caption2.monospacedDigit().weight(.medium))
                 .foregroundStyle(Theme.textSecondary)
+                .accessibilityLabel("\(filteredEntries.count) logs")
 
             Button {
                 HakkaInterceptor.shared.logStore.clear()
@@ -83,6 +86,7 @@ struct LogsView: View {
                     .foregroundStyle(entries.isEmpty ? Theme.textTertiary : Theme.textSecondary)
             }
             .buttonStyle(.plain)
+            .hakkaIconTarget()
             .disabled(entries.isEmpty)
             .accessibilityLabel("Clear logs")
         }
@@ -121,7 +125,7 @@ struct LogsView: View {
 
     private func chipColor(_ level: LogLevel?) -> Color {
         switch level {
-        case .debug: return Theme.textTertiary
+        case .debug: return Theme.pending
         case .info:  return Theme.info
         case .warn:  return Theme.warning
         case .error: return Theme.error
@@ -151,14 +155,18 @@ struct LogsView: View {
             .scrollIndicators(.hidden)
             .onChange(of: filteredEntries.count) { _ in
                 if let last = filteredEntries.last {
-                    withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
+                    if reduceMotion {
+                        proxy.scrollTo(last.id, anchor: .bottom)
+                    } else {
+                        withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
+                    }
                 }
             }
         }
     }
 
     private func toggleExpanded(_ id: String) {
-        withAnimation(.spring(response: 0.25, dampingFraction: 0.9)) {
+        withAnimation(reduceMotion ? nil : .spring(response: 0.25, dampingFraction: 0.9)) {
             if expandedIDs.contains(id) {
                 expandedIDs.remove(id)
             } else {
@@ -171,20 +179,17 @@ struct LogsView: View {
     // MARK: - Empty State
 
     private var emptyState: some View {
-        VStack(spacing: Theme.s12) {
-            Image(systemName: "list.bullet.rectangle")
-                .font(.largeTitle)
-                .foregroundStyle(Theme.textTertiary)
-            Text("No logs")
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(Theme.textSecondary)
-            Text("Call HakkaInterceptor.shared.log(.info, \"message\") to capture entries here.")
-                .font(.caption)
-                .foregroundStyle(Theme.textTertiary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, Theme.s20)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        InspectorEmptyState(
+            title: entries.isEmpty ? "No structured logs yet" : "No matching structured logs",
+            description: entries.isEmpty
+                ? "Call HakkaInterceptor.shared.log(.info, \"message\") to capture entries here."
+                : "Try another search or clear the level filter.",
+            systemImage: "list.bullet.rectangle",
+            onResetFilters: entries.isEmpty ? nil : {
+                searchText = ""
+                levelFilter = nil
+            }
+        )
     }
 
     // MARK: - Data
@@ -215,6 +220,7 @@ private struct LogEntryRow: View {
     var searchText: String = ""
     var isExpanded: Bool = false
     var onToggleExpanded: () -> Void = {}
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -253,6 +259,9 @@ private struct LogEntryRow: View {
                             .rotationEffect(.degrees(isExpanded ? 90 : 0))
                     }
                     .buttonStyle(.plain)
+                    .hakkaIconTarget()
+                    .accessibilityLabel(isExpanded ? "Hide metadata" : "Show metadata")
+                    .accessibilityValue(isExpanded ? "Expanded" : "Collapsed")
                 }
             }
             .padding(.vertical, Theme.s6)
@@ -264,7 +273,7 @@ private struct LogEntryRow: View {
             if isExpanded, let metadata = entry.metadata, !metadata.isEmpty {
                 metadataView(metadata)
                     .padding(.bottom, Theme.s8)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
             }
         }
         .contextMenu {
@@ -309,7 +318,7 @@ private struct LogEntryRow: View {
     private var levelBadge: some View {
         Text(entry.level.label)
             .font(.system(size: HakkaMetrics.FontSize.xxs, weight: .heavy, design: .rounded))
-            .foregroundStyle(.white)
+            .foregroundStyle(Color(hex: HakkaTokens.statusOnWarm))
             .padding(.horizontal, Theme.s4)
             .padding(.vertical, HakkaMetrics.Spacing.xxs)
             .background(levelColor)
@@ -319,7 +328,7 @@ private struct LogEntryRow: View {
 
     private var levelColor: Color {
         switch entry.level {
-        case .debug: return Theme.textTertiary
+        case .debug: return Theme.pending
         case .info:  return Theme.info
         case .warn:  return Theme.warning
         case .error: return Theme.error

@@ -1,4 +1,66 @@
-import type { FrameworkSpan, LogEntry, NetworkRequest, StorageSnapshot } from 'hakka-core'
+import {
+  RECORD_SCHEMA_VERSION,
+  type ContractRecord,
+  type FrameworkSpan,
+  type LogEntry,
+  type NetworkRequest,
+  type StorageSnapshot,
+} from 'hakka-core'
+
+export type PerformanceRecord = Extract<ContractRecord, { kind: `metric.${string}` }>
+
+/** Diagnostics are bounded independently of the larger network/body frame budget. */
+export const MAX_DIAGNOSTIC_FRAME_BYTES = 256 * 1024
+export const MAX_DIAGNOSTIC_RECORD_BYTES = 8192
+export const MAX_DIAGNOSTIC_BATCH = 100
+
+export interface BridgePerformanceMessage {
+  type: 'performance'
+  payload: PerformanceRecord[]
+}
+
+/** Validate existing v1 metrics without rewriting records relayed on the wire. */
+export function isPerformanceRecord(value: unknown): value is PerformanceRecord {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false
+  const record = value as Record<string, unknown>
+  if (
+    typeof record.id !== 'string' ||
+    !record.id ||
+    record.id.length > 512 ||
+    record.schemaVersion !== RECORD_SCHEMA_VERSION
+  )
+    return false
+  const validNumber = (key: string, required = false, integral = false): boolean => {
+    const number = record[key]
+    if (number === undefined) return !required
+    return (
+      typeof number === 'number' &&
+      Number.isFinite(number) &&
+      number >= 0 &&
+      (!integral || Number.isSafeInteger(number))
+    )
+  }
+  if (!validNumber('timestamp', true)) return false
+  switch (record.kind) {
+    case 'metric.frame':
+      return (
+        validNumber('durationMs', true) &&
+        validNumber('refreshRateHz') &&
+        typeof record.slow === 'boolean' &&
+        typeof record.frozen === 'boolean'
+      )
+    case 'metric.memory':
+      return ['pssBytes', 'heapUsedBytes', 'heapMaxBytes'].every((key) => validNumber(key, false, true))
+    case 'metric.cpu':
+      return validNumber('processCpuPercent')
+    case 'metric.network_usage':
+      return ['rxBytes', 'txBytes'].every((key) => validNumber(key, false, true))
+    case 'metric.js_thread':
+      return validNumber('eventLoopDelayMs', true)
+    default:
+      return false
+  }
+}
 
 /**
  * Wire protocol for the Hakka desktop bridge.
@@ -59,6 +121,7 @@ export type BridgeMessage =
   | BridgeRequestMessage
   | BridgeSpanMessage
   | BridgeConsoleMessage
+  | BridgePerformanceMessage
   | BridgeStorageMessage
   | BridgeControlMessage
 
@@ -129,6 +192,19 @@ export function parseBridgeMessage(raw: string): BridgeMessage | null {
   // either.
   if (type === 'console' && Array.isArray(payload)) {
     return obj as BridgeConsoleMessage
+  }
+  if (type === 'performance' && Array.isArray(payload)) {
+    if (new TextEncoder().encode(raw).byteLength > MAX_DIAGNOSTIC_FRAME_BYTES || payload.length > MAX_DIAGNOSTIC_BATCH)
+      return null
+    if (
+      !payload.every(
+        (record) =>
+          isPerformanceRecord(record) &&
+          new TextEncoder().encode(JSON.stringify(record)).byteLength <= MAX_DIAGNOSTIC_RECORD_BYTES,
+      )
+    )
+      return null
+    return obj as BridgePerformanceMessage
   }
   if (type === 'storage' && typeof payload === 'object' && payload !== null && !Array.isArray(payload)) {
     return obj as BridgeStorageMessage

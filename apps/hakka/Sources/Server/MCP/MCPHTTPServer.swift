@@ -30,6 +30,7 @@ public actor MCPHTTPServer {
         parameters.allowLocalEndpointReuse = true
         parameters.acceptLocalOnly = true
         let port: NWEndpoint.Port = requestedPort == 0 ? .any : (NWEndpoint.Port(rawValue: requestedPort) ?? .any)
+        parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: port)
         let listener = try NWListener(using: parameters, on: port)
         let id = UUID()
         let (readiness, continuation) = AsyncThrowingStream<Void, any Error>.makeStream()

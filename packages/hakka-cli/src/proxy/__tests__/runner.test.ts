@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import { spawnSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
-import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createServer as createHttpServer } from 'node:http'
 import { connect, createServer } from 'node:net'
 import { tmpdir } from 'node:os'
@@ -195,6 +195,19 @@ describe('startProxyCapture lifecycle', () => {
     await expect(startProxyCapture({ mitmdumpPath: '/tmp/hakka-no-such-mitmdump' })).rejects.toThrow('was not found')
   })
 
+  test('does not launch a child for an already cancelled capture', async () => {
+    const executable = fakeMitmdump('listen')
+    const marker = join(executable, '..', 'started')
+    writeFileSync(executable, `#!/usr/bin/env bun\nBun.write(${JSON.stringify(marker)}, 'started')\n`)
+    const controller = new AbortController()
+    controller.abort()
+    await expect(startProxyCapture({ mitmdumpPath: executable, signal: controller.signal })).rejects.toThrow(
+      'cancelled',
+    )
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(existsSync(marker)).toBe(false)
+  })
+
   test('rejects a nonzero startup exit', async () => {
     await expect(
       startProxyCapture({ mitmdumpPath: fakeMitmdump('exit'), port: await availablePort(), onDiagnostic: () => {} }),
@@ -234,11 +247,12 @@ describe('startProxyCapture lifecycle', () => {
 
   test('abort after readiness exports and terminates a TERM-resistant child exactly once', async () => {
     const executable = fakeMitmdump('ready-ignore-term')
+    const proxyPort = await availablePort()
     const harOutput = join(executable, '..', 'capture.har')
     const controller = new AbortController()
     const capture = await startProxyCapture({
       mitmdumpPath: executable,
-      port: await availablePort(),
+      port: proxyPort,
       harOutput,
       signal: controller.signal,
       onDiagnostic: () => {},
@@ -252,6 +266,12 @@ describe('startProxyCapture lifecycle', () => {
       const firstStop = capture.stop()
       expect(capture.stop()).toBe(firstStop)
       await firstStop
+      const listener = createServer()
+      await new Promise<void>((resolve, reject) => {
+        listener.once('error', reject)
+        listener.listen(proxyPort, '127.0.0.1', resolve)
+      })
+      await new Promise<void>((resolve) => listener.close(() => resolve()))
       expect(JSON.parse(readFileSync(harOutput, 'utf8')).log.entries).toHaveLength(1)
       await capture.wait()
     } finally {

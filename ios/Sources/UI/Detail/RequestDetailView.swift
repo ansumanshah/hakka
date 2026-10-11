@@ -100,7 +100,7 @@ struct RequestDetailView: View {
             HStack(spacing: Theme.s8) {
                 if let code = request.status {
                     Pill(text: "HTTP \(code)")
-                        .foregroundStyle(Theme.statusColor(for: code))
+                        .foregroundStyle(Theme.statusTextColor(for: code))
                 } else if request.error != nil {
                     Pill(text: "Transport error")
                         .foregroundStyle(Theme.error)
@@ -163,7 +163,7 @@ struct RequestDetailView: View {
             if let code = request.status {
                 Text("\(code)")
                     .font(.footnote.monospacedDigit().weight(.bold))
-                    .foregroundStyle(Theme.statusColor(for: code))
+                    .foregroundStyle(Theme.statusTextColor(for: code))
             } else if request.error != nil {
                 Text("ERR")
                     .font(.footnote.weight(.bold))

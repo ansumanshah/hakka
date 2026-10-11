@@ -14,8 +14,9 @@ workflow that runs it in CI.
 ## What's already built
 
 - `Scripts/package_app.sh` assembles `Hakka.app` from the SwiftPM build output: Info.plist,
-  icon, bundle id, `MARKETING_VERSION`/`BUILD_NUMBER` from `version.env`, universal binary
-  (arm64 + x86_64) via `lipo`.
+  icon, bundle id, and `MARKETING_VERSION`/`BUILD_NUMBER` from `version.env`. It packages
+  the host architecture by default; `ARCHES="arm64 x86_64"` selects a universal
+  executable via `lipo`. The release signing flow selects both architectures.
 - `Scripts/sign-and-notarize.sh` runs the full release sequence below, already scripted: sign,
   notarize, staple, zip. It only needs a Developer ID certificate and notarytool credentials
   to exist somewhere it can find them.

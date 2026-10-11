@@ -4,6 +4,7 @@ import type { NetworkRequest } from 'hakka-core'
 import { z } from 'zod'
 
 import type { RequestStore } from '../RequestStore.js'
+import { scrubSpansForShare } from '../scrubSpansForShare.js'
 import type { SpanStore } from '../SpanStore.js'
 import { textResult } from './toolResult.js'
 
@@ -85,9 +86,11 @@ export function registerExportEvidenceTool(server: McpServer, store: RequestStor
       const groupId = focal?.correlationId
       const spans = groupId ? spanStore.getEntries().filter((s) => s.traceId === groupId) : []
 
+      const spanResult = unredacted ? { spans, removed: [] } : scrubSpansForShare(spans)
       const bundle = buildEvidenceBundle(pool, {
         ...(focusRequestId !== undefined ? { focusRequestId } : {}),
-        spans,
+        spans: spanResult.spans,
+        additionalRedactionRemovals: spanResult.removed,
         logs: [],
         scrub: !unredacted,
         ...(maxBytes !== undefined ? { maxBytes } : {}),

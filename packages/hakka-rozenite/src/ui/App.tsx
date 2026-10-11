@@ -67,6 +67,7 @@ export default function App() {
   if (prevStore !== store) {
     setPrevStore(store)
     setRequests([])
+    setSelectedId(null)
   }
 
   useEffect(() => {
@@ -95,7 +96,7 @@ export default function App() {
 
   if (!store) {
     return (
-      <div style={styles.centered}>
+      <div style={styles.centered} role="status">
         <p>Connecting to the app…</p>
       </div>
     )

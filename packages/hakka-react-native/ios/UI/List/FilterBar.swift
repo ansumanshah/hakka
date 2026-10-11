@@ -121,13 +121,13 @@ struct FilterBar: View {
                         .padding(.horizontal, HakkaMetrics.Spacing.xs)
                         .frame(minWidth: 14, minHeight: 14)  // ui-token-check-ignore: multi-line editor bounds — content box, not a control
                         .background(Theme.accent)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onSolid)
                         .clipShape(Capsule())
                 }
                 Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                     .font(.system(size: 8, weight: .semibold))  // ui-token-check-ignore: one-off glyph/micro-label size, outside the type scale
             }
-            .foregroundStyle(disclosureFilterCount > 0 ? Theme.accent : Theme.textSecondary)
+            .foregroundStyle(disclosureFilterCount > 0 ? Theme.accentText : Theme.textSecondary)
             .padding(.horizontal, Theme.s10)
             .frame(minHeight: Theme.tapMin)
             .background(Theme.surface.opacity(0.72))
@@ -337,7 +337,7 @@ struct FilterPresetsSheet: View {
                                 .onSubmit { commitSave() }
                             Button("Save") { commitSave() }
                                 .font(.footnote.weight(.semibold))
-                                .foregroundStyle(saveNameText.isEmpty ? Theme.textTertiary : Theme.info)
+                                .foregroundStyle(saveNameText.isEmpty ? Theme.textTertiary : Theme.infoText)
                                 .disabled(saveNameText.isEmpty)
                                 .buttonStyle(.plain)
                         }
@@ -347,7 +347,7 @@ struct FilterPresetsSheet: View {
                         } label: {
                             Label("Save current filter", systemImage: "bookmark.fill")
                                 .font(.footnote)
-                                .foregroundStyle(currentPreset.isEmpty ? Theme.textTertiary : Theme.info)
+                                .foregroundStyle(currentPreset.isEmpty ? Theme.textTertiary : Theme.infoText)
                         }
                         .disabled(currentPreset.isEmpty)
                     }
@@ -369,7 +369,7 @@ struct FilterPresetsSheet: View {
                                 HStack(spacing: Theme.s8) {
                                     Image(systemName: "bookmark.fill")
                                         .font(.caption2)
-                                        .foregroundStyle(Theme.info)
+                                        .foregroundStyle(Theme.infoText)
                                     VStack(alignment: .leading, spacing: HakkaMetrics.Spacing.xxs) {
                                         Text(named.name)
                                             .font(.footnote.weight(.medium))

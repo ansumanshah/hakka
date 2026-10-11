@@ -46,6 +46,8 @@ function emitSwift() {
 enum HakkaTokens {
 ${lets('status', t.status)}
 ${lets('method', t.method)}
+${lets('statusLight', t.statusLight)}
+${lets('methodLight', t.methodLight)}
 ${lets('timing', t.timing)}
 ${lets('dark', t.dark)}
 ${lets('light', t.light)}
@@ -98,6 +100,8 @@ function emitKotlin() {
 internal object GeneratedTokens {
 ${consts('status', t.status)}
 ${consts('method', t.method)}
+${consts('statusLight', t.statusLight)}
+${consts('methodLight', t.methodLight)}
 ${consts('timing', t.timing)}
 ${consts('dark', t.dark)}
 ${consts('light', t.light)}
@@ -231,6 +235,35 @@ ${body}
   )
 }
 
+function emitWebThemePalettes() {
+  const cssKey = (k) => (k === 'background' ? 'bg' : k.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase())
+  const palette = (appearance) => {
+    const colors = {}
+    for (const [prefix, group] of [
+      ['', t[appearance]],
+      ['code-', appearance === 'light' ? t.codeLight : t.codeDark],
+      ['method-text-', appearance === 'light' ? t.methodLight : t.method],
+      ['status-text-', appearance === 'light' ? t.statusLight : t.status],
+    ]) {
+      for (const [key, value] of Object.entries(group)) {
+        if (prefix === 'status-text-' && ['on', 'onWarm'].includes(key)) continue
+        colors[`${prefix}${cssKey(key)}`] = value
+      }
+    }
+    return colors
+  }
+  const object = (name, colors) =>
+    `export const ${name} = {\n${Object.entries(colors)
+      .map(([key, value]) => `  ${key.includes('-') ? `'${key}'` : key}: '#${value}',`)
+      .join('\n')}\n} as const\n`
+  return (
+    banner('// Canonical browser preset colors; regenerate with `just sync-tokens`.') +
+    object('DARK_THEME_TOKENS', palette('dark')) +
+    '\n' +
+    object('LIGHT_THEME_TOKENS', palette('light'))
+  )
+}
+
 function emitCSS() {
   const cssKey = (k) => (k === 'background' ? 'bg' : k.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase())
   const vars = (group, o) =>
@@ -305,6 +338,8 @@ function emitCSS() {
 :host {
 ${vars('status', t.status)}
 ${vars('method', t.method)}
+${vars('method-text', t.method)}
+${vars('status-text', Object.fromEntries(Object.entries(t.status).filter(([key]) => !['on', 'onWarm'].includes(key))))}
 ${vars('timing', t.timing)}
 ${vars('', t.dark)}
 ${vars('code', t.codeDark)}
@@ -314,6 +349,8 @@ ${layout}
 
 :host([theme='light']) {
 ${vars('', t.light)}
+${vars('method-text', t.methodLight)}
+${vars('status-text', t.statusLight)}
 ${vars('code', t.codeLight)}
   color-scheme: light;
 }
@@ -324,6 +361,7 @@ const targets = [
   ['ios/Sources/UI/ThemeTokens.generated.swift', emitSwift()],
   ['android/hakka-ui/src/main/kotlin/com/noodleapps/hakka/ui/GeneratedTokens.kt', emitKotlin()],
   ['packages/hakka-browser/src/ui/tokens.css', emitCSS()],
+  ['packages/hakka-browser/src/ui/theme-palettes.generated.ts', emitWebThemePalettes()],
   ['apps/hakka/Sources/App/Shared/ThemeTokens.generated.swift', emitSwiftDesktop()],
   ['ios/Example/Sources/DemoPalette.generated.swift', emitSwiftDemoPalette()],
 ]

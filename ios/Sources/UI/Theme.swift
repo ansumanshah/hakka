@@ -58,6 +58,9 @@ enum Theme {
     /// buttons, and focus states. Never used for informational 3xx/info — that's `info` (steel).
     static let accent = Color(darkHex: HakkaTokens.darkAccent, lightHex: HakkaTokens.lightAccent)
 
+    static let accentText = Color(darkHex: HakkaTokens.darkAccentText, lightHex: HakkaTokens.lightAccentText)
+    static let onSolid = Color(hex: HakkaTokens.statusOnWarm)
+
     // MARK: - Text
 
     static let text = Color(darkHex: HakkaTokens.darkText, lightHex: HakkaTokens.lightText)
@@ -71,6 +74,13 @@ enum Theme {
     static let warning = Color(hex: HakkaTokens.statusWarning)
     static let error = Color(hex: HakkaTokens.statusError)
     static let pending = Color(hex: HakkaTokens.statusPending)
+
+    // Semantic foregrounds adapt independently of colored fills.
+    static let successText = Color(darkHex: HakkaTokens.statusSuccess, lightHex: HakkaTokens.statusLightSuccess)
+    static let infoText = Color(darkHex: HakkaTokens.statusInfo, lightHex: HakkaTokens.statusLightInfo)
+    static let warningText = Color(darkHex: HakkaTokens.statusWarning, lightHex: HakkaTokens.statusLightWarning)
+    static let errorText = Color(darkHex: HakkaTokens.statusError, lightHex: HakkaTokens.statusLightError)
+    static let pendingText = Color(darkHex: HakkaTokens.statusPending, lightHex: HakkaTokens.statusLightPending)
 
     // MARK: - Method Badges
 
@@ -186,6 +196,40 @@ enum Theme {
         case 300..<400: return warning
         case 400..<600: return error
         default: return pending
+        }
+    }
+
+    /// Keeps existing semantic fills while selecting the matching text role.
+    static func foreground(for color: Color) -> Color {
+        if color == accent { return accentText }
+        if color == success || color == methodGet { return successText }
+        if color == info || color == methodPut { return infoText }
+        if color == warning { return warningText }
+        if color == error || color == methodDelete { return errorText }
+        if color == pending { return pendingText }
+        if color == methodPost { return methodTextColor(for: .post) }
+        if color == methodPatch { return methodTextColor(for: .patch) }
+        return color
+    }
+
+    static func statusTextColor(for code: Int?) -> Color {
+        guard let code else { return pendingText }
+        switch code {
+        case 200..<300: return successText
+        case 300..<400: return warningText
+        case 400..<600: return errorText
+        default: return pendingText
+        }
+    }
+
+    static func methodTextColor(for method: HttpMethod) -> Color {
+        switch method {
+        case .get: return Color(darkHex: HakkaTokens.methodGet, lightHex: HakkaTokens.methodLightGet)
+        case .post: return Color(darkHex: HakkaTokens.methodPost, lightHex: HakkaTokens.methodLightPost)
+        case .put: return Color(darkHex: HakkaTokens.methodPut, lightHex: HakkaTokens.methodLightPut)
+        case .patch: return Color(darkHex: HakkaTokens.methodPatch, lightHex: HakkaTokens.methodLightPatch)
+        case .delete: return Color(darkHex: HakkaTokens.methodDelete, lightHex: HakkaTokens.methodLightDelete)
+        case .head, .options: return Color(darkHex: HakkaTokens.methodOther, lightHex: HakkaTokens.methodLightOther)
         }
     }
 

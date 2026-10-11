@@ -100,6 +100,25 @@ struct MCPRequestHandlerTests {
         #expect(response["error"]?["code"]?.intValue == MCPErrorCode.invalidParams)
     }
 
+    @Test("tools/call rejects arguments that do not match the object schema", arguments: ["null", "[]", "1", "true", #""text""#])
+    func toolsCallRejectsNonObjectArguments(arguments: String) async throws {
+        let result = await makeHandler().handle(request(
+            "{\"jsonrpc\":\"2.0\",\"id\":7,\"method\":\"tools/call\",\"params\":{\"name\":\"echo\",\"arguments\":\(arguments)}}"
+        ))
+        let response = try decodedResponse(result)
+        #expect(response["error"]?["code"]?.intValue == MCPErrorCode.invalidParams)
+        #expect(response["result"] == nil)
+    }
+
+    @Test("tools/call still accepts omitted arguments as an empty object")
+    func toolsCallAcceptsOmittedArguments() async throws {
+        let result = await makeHandler().handle(request(
+            #"{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"echo"}}"#
+        ))
+        let response = try decodedResponse(result)
+        #expect(response["result"]?["content"]?.arrayValue?.first?["text"]?.stringValue == "{}")
+    }
+
     // MARK: - protocol-level error paths
 
     @Test("malformed JSON is a parse error with a null id")

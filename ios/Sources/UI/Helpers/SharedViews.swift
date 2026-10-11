@@ -11,7 +11,7 @@ struct SearchHighlightedText: View {
     var searchText: String = ""
     var font: Font = .caption
     var color: Color = Theme.text
-    var highlightColor: Color = Theme.info
+    var highlightColor: Color = Theme.infoText
     var lineLimit: Int? = nil
     var truncationMode: Text.TruncationMode = .tail
 
@@ -72,7 +72,7 @@ struct MethodBadge: View {
     var body: some View {
         Text(method.rawValue)
             .font(.system(size: HakkaMetrics.FontSize.xs, weight: .bold, design: .monospaced))
-            .foregroundStyle(Theme.methodColor(for: method))
+            .foregroundStyle(Theme.methodTextColor(for: method))
             .frame(width: Self.fixedWidth)
             .padding(.vertical, HakkaMetrics.Spacing.xxs)
             .background(Theme.methodColor(for: method).opacity(0.10))
@@ -98,7 +98,7 @@ struct MethodLabel: View {
     var body: some View {
         Text(method.rawValue)
             .font(.caption.monospaced().weight(.bold))
-            .foregroundStyle(Theme.methodColor(for: method))
+            .foregroundStyle(Theme.methodTextColor(for: method))
             .frame(minWidth: Self.minimumWidth, alignment: .leading)
     }
 }
@@ -125,7 +125,7 @@ struct HakkaChip: View {
                 .font(mono
                     ? .system(.caption, design: .monospaced).weight(.bold)
                     : .caption.weight(isActive ? .semibold : .regular))
-                .foregroundStyle(isActive ? tone : Theme.textTertiary)
+                .foregroundStyle(isActive ? Theme.foreground(for: tone) : Theme.textTertiary)
                 .padding(.horizontal, Theme.s8)
                 .padding(.vertical, Theme.s6)
                 .background(isActive ? tone.opacity(0.10) : Color.clear)
@@ -144,6 +144,7 @@ struct HakkaChip: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(isActive ? .isSelected : [])
     }
 }
 
@@ -160,6 +161,39 @@ struct SectionHeader: View {
             .textCase(.uppercase)
             .tracking(0.7)
             .padding(.top, Theme.s6)
+            .accessibilityAddTraits(.isHeader)
+    }
+}
+
+// MARK: - InspectorEmptyState
+
+struct InspectorEmptyState: View {
+    let title: String
+    let description: String
+    let systemImage: String
+    var onResetFilters: (() -> Void)? = nil
+
+    var body: some View {
+        VStack(spacing: Theme.s12) {
+            Image(systemName: systemImage)
+                .font(.largeTitle)
+                .foregroundStyle(Theme.textTertiary)
+                .accessibilityHidden(true)
+            Text(title)
+                .font(.headline)
+                .foregroundStyle(Theme.text)
+                .accessibilityAddTraits(.isHeader)
+            Text(description)
+                .font(.subheadline)
+                .foregroundStyle(Theme.textSecondary)
+            if let onResetFilters {
+                Button("Clear filters", action: onResetFilters)
+                    .frame(minHeight: Theme.tapMin)
+            }
+        }
+        .multilineTextAlignment(.center)
+        .padding(HakkaMetrics.Layout.gutter)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 

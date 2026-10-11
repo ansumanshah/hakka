@@ -19,6 +19,11 @@ struct AppCommands: Commands {
                 .keyboardShortcut("s", modifiers: .command)
                 .disabled(model.editor.draft == nil || (!model.editor.isDirty && model.collection.directoryURL != nil))
         }
+        CommandGroup(after: .textEditing) {
+            Button("Find in Workspace") { model.focusWorkspaceSearch() }
+                .keyboardShortcut("f", modifiers: .command)
+                .disabled(!model.canFocusWorkspaceSearch)
+        }
         CommandMenu("Request") {
             Button("Next Request Tab") { model.cycleRequestTab(forward: true) }
                 .keyboardShortcut(.tab, modifiers: .control)
@@ -42,9 +47,6 @@ struct AppCommands: Commands {
         CommandMenu("Traffic") {
             Button("Proxy Capture…") { model.select(.proxy) }
                 .keyboardShortcut("p", modifiers: [.command, .shift])
-            Divider()
-            Button("Focus Search") { model.traffic.focusSearchToken += 1 }
-                .keyboardShortcut("f", modifiers: .command)
             Divider()
             Button("Clear Traffic") { Task { await model.traffic.clear() } }
                 .keyboardShortcut("k", modifiers: .command)

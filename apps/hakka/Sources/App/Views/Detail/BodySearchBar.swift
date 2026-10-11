@@ -24,12 +24,22 @@ struct BodySearchBar: View {
                     Text("\(activeMatchIndex % matchCount + 1)/\(matchCount)")
                         .font(.caption.monospaced())
                         .foregroundStyle(.secondary)
-                    Button(action: onPrevious) { Image(systemName: "chevron.up") }
-                        .buttonStyle(.borderless)
-                        .help("Previous match")
-                    Button(action: onNext) { Image(systemName: "chevron.down") }
-                        .buttonStyle(.borderless)
-                        .help("Next match")
+                    Button(action: onPrevious) {
+                        Label("Previous match", systemImage: "chevron.up")
+                            .labelStyle(.iconOnly)
+                            .frame(width: ControlHeight.icon, height: ControlHeight.icon)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Previous match")
+                    Button(action: onNext) {
+                        Label("Next match", systemImage: "chevron.down")
+                            .labelStyle(.iconOnly)
+                            .frame(width: ControlHeight.icon, height: ControlHeight.icon)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Next match")
                 } else {
                     Text("No matches")
                         .font(.caption)

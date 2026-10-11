@@ -26,6 +26,7 @@ public struct MCPServer: Sendable {
         let collectionSource = MCPCollectionSource(provider: collectionDirectoryProvider)
         let registry = MCPToolRegistry(tools: [
             MCPListRequestsTool(source: trafficSource),
+            MCPListRequestSummariesTool(source: trafficSource),
             MCPGetRequestTool(source: trafficSource),
             MCPListCollectionsTool(source: collectionSource),
             MCPGetCollectionRequestTool(source: collectionSource),

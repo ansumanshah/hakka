@@ -327,6 +327,17 @@ class HakkaInterceptor private constructor(
     }
 
     /**
+     * Forwards a batch of at most 100 v1 performance records to every attached bridge hub.
+     * Attach this explicitly to a performance [RecordSink] to reuse the existing bridge
+     * connection. Nonmetric records are omitted; any invalid metric or oversized batch
+     * rejects the entire frame. Absent metrics stay absent.
+     * No-op when no bridge is attached.
+     */
+    fun sendPerformanceFrame(records: List<ContractRecord>) {
+        bridgeSinks.forEach { it.sendPerformance(records) }
+    }
+
+    /**
      * Streams a named storage snapshot to every attached bridge hub as a
      * `{"type":"storage","payload":{...}}` frame. Mirrors iOS's
      * `HakkaInterceptor.publishStorageSnapshot(store:entries:)` →

@@ -100,6 +100,13 @@ internal class BridgeSink(
         sendOrEnqueue(frame)
     }
 
+    /** Queues a bounded batch of valid canonical performance records on this connection. */
+    fun sendPerformance(records: List<ContractRecord>) {
+        if (closed.get()) return
+        val frame = buildPerformanceBridgeFrame(records) ?: return
+        sendOrEnqueue(frame)
+    }
+
     /**
      * Streams a named storage snapshot as a `{"type":"storage","payload":{...}}` frame —
      * matches `BridgeStorageMessage`. Snapshot-replace semantics on the receiving end — see

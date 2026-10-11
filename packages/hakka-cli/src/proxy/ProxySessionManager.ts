@@ -30,6 +30,8 @@ interface Session {
   stopping?: Promise<ProxySessionStatus>
   status: ProxySessionStatus
   stopRequested: boolean
+  stopCompleted: boolean
+  controller: AbortController
 }
 
 /** Owns local sidecars for an MCP/desktop process. Mapping changes restart explicitly. */
@@ -39,7 +41,11 @@ export class ProxySessionManager {
   async start(options: ProxySessionStartOptions = {}): Promise<ProxySessionStatus> {
     const sessionId = options.sessionId ?? 'default'
     const current = this.sessions.get(sessionId)
-    if (current?.status.state === 'running' || current?.status.state === 'starting')
+    if (
+      current?.status.state === 'running' ||
+      current?.status.state === 'starting' ||
+      (current?.stopping && !current.stopCompleted)
+    )
       throw new Error(`Proxy session ${sessionId} is already running.`)
     const configDir = options.configDir ? resolve(options.configDir) : undefined
     const publicCaPath = configDir ? resolve(configDir, 'mitmproxy-ca-cert.pem') : undefined
@@ -67,9 +73,11 @@ export class ProxySessionManager {
       },
     }
     let session: Session
+    const controller = new AbortController()
     const startup = startProxyCapture({
       ...options,
       configDir,
+      signal: options.signal ? AbortSignal.any([controller.signal, options.signal]) : controller.signal,
       onRecord: (record) => this.record(session, record),
       onDiagnostic: (message) => this.diagnostic(session, message),
     })
@@ -78,6 +86,8 @@ export class ProxySessionManager {
       startup,
       status,
       stopRequested: false,
+      stopCompleted: false,
+      controller,
     }
     this.sessions.set(sessionId, session)
     try {
@@ -103,7 +113,7 @@ export class ProxySessionManager {
       return this.snapshot(status)
     } catch (error) {
       if (session.stopRequested) {
-        status.state = 'stopped'
+        await session.stopping
         return this.snapshot(status)
       }
       status.state = 'failed'
@@ -132,16 +142,29 @@ export class ProxySessionManager {
     const session = this.sessions.get(sessionId)
     if (!session) return this.status(sessionId)
     session.stopRequested = true
+    session.controller.abort()
     session.stopping ??= (async () => {
       try {
-        const capture = session.capture ?? (await session.startup)
+        const capture =
+          session.capture ??
+          (await session.startup.catch((error: unknown) => {
+            if (error instanceof Error && error.name === 'AbortError') return undefined
+            throw error
+          }))
+        if (!capture) {
+          session.stopCompleted = true
+          session.status.state = 'stopped'
+          return this.snapshot(session.status)
+        }
         session.capture = capture
         await capture.stop()
         session.status.records = capture.records.length
       } catch (error) {
-        // A startup that was cancelled before readiness has no live child left to stop.
-        if (!session.stopRequested) throw error
+        session.status.state = 'failed'
+        session.status.error = error instanceof Error ? error.message : String(error)
+        throw error
       }
+      session.stopCompleted = true
       session.status.state = 'stopped'
       return this.snapshot(session.status)
     })()

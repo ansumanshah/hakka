@@ -108,6 +108,52 @@ describe('Keyboard shortcuts', () => {
     expect(document.activeElement).toBe(search)
   })
 
+  it('"/" returns from another panel and focuses its freshly mounted search', async () => {
+    const { container } = render(() => <Inspector />)
+    fireEvent.contextMenu(q(container, '.hakka-toggle') as HTMLElement)
+    await flush()
+    const previousSearch = q(container, '.hakka-search') as HTMLInputElement
+    const logsTab = Array.from(qa(container, '.hakka-header [role="tab"]')).find(
+      (tab) => tab.textContent?.trim() === 'Logs',
+    ) as HTMLButtonElement
+    fireEvent.click(logsTab)
+    await flush()
+    expect(previousSearch.isConnected).toBe(false)
+    fireEvent.keyDown(window, { key: '/' })
+    await waitFor(() => !!q(container, '.hakka-search'))
+    await flush()
+    const search = q(container, '.hakka-search') as HTMLInputElement
+    expect(search).not.toBe(previousSearch)
+    expect(document.activeElement).toBe(search)
+  })
+
+  it('"/" closes narrow detail and focuses the remounted search', async () => {
+    vi.spyOn(window, 'matchMedia').mockReturnValue({
+      matches: false,
+      media: '(min-width: 900px)',
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(() => false),
+    })
+    client.ingest(makeRequest({ id: 'search-from-detail' }))
+    const { container } = render(() => <Inspector />)
+    fireEvent.contextMenu(q(container, '.hakka-toggle') as HTMLElement)
+    await flush()
+    const previousSearch = q(container, '.hakka-search') as HTMLInputElement
+    fireEvent.click(q(container, '.hakka-row') as HTMLElement)
+    await flush()
+    expect(previousSearch.isConnected).toBe(false)
+    expect(q(container, '.hakka-search')).toBeNull()
+    fireEvent.keyDown(window, { key: '/' })
+    await waitFor(() => !!q(container, '.hakka-search'))
+    await flush()
+    expect(q(container, '.hakka-back-btn')).toBeNull()
+    expect(document.activeElement).toBe(q(container, '.hakka-search'))
+  })
+
   it('j/k moves the row selection and Enter opens the selected request', async () => {
     client.ingest(makeRequest({ id: 'kb-1', url: 'https://api.example.com/a' }))
     client.ingest(makeRequest({ id: 'kb-2', url: 'https://api.example.com/b' }))

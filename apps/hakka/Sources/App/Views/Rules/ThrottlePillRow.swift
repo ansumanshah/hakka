@@ -14,15 +14,23 @@ struct ThrottlePillRow: View {
     ]
 
     var body: some View {
+        ViewThatFits(in: .horizontal) {
+            profilePicker
+                .pickerStyle(.segmented)
+                .fixedSize()
+            profilePicker
+                .pickerStyle(.menu)
+        }
+        .controlSize(.regular)
+        .accessibilityLabel("Network profile")
+    }
+
+    private var profilePicker: some View {
         Picker("Network profile", selection: $selection) {
             ForEach(Self.profiles, id: \.0) { profile, label in
                 Text(label).tag(profile)
             }
         }
-        .pickerStyle(.segmented)
         .labelsHidden()
-        .controlSize(.regular)
-        .fixedSize()
-        .accessibilityLabel("Network profile")
     }
 }

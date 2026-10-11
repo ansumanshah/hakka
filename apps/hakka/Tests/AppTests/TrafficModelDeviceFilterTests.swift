@@ -1,5 +1,7 @@
+import Foundation
 import HakkaCommon
 import HakkaCore
+import HakkaServer
 import Testing
 @testable import HakkaApp
 
@@ -13,6 +15,15 @@ import Testing
 @Suite("TrafficModel device filter")
 @MainActor
 struct TrafficModelDeviceFilterTests {
+    @Test func selectingAPeerWithSpacesInItsLabelFiltersAndToggles() {
+        let model = seeded()
+        let device = ConnectedDevice(peerID: UUID(), label: "Device 1", isConnected: true)
+        model.selectDevice(device)
+        #expect(model.visibleRequests.map(\.id) == ["a"])
+        model.selectDevice(device)
+        #expect(model.visibleRequests.map(\.id) == ["b", "a"])
+    }
+
     private func request(id: String) -> NetworkRequest {
         NetworkRequest(id: id, url: "https://api.example.com/\(id)", method: .get, status: 200, startTime: 0)
     }

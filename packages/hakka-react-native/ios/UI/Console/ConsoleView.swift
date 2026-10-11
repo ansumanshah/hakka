@@ -18,6 +18,8 @@ struct ConsoleView: View {
     /// title there. The count + clear action stay either way.
     var showToolbar: Bool = true
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     @State private var entries: [ConsoleEntry] = []
     @State private var levelFilter: ConsoleLevel? = nil
     @State private var searchText: String = ""
@@ -62,6 +64,7 @@ struct ConsoleView: View {
             Text("\(filteredEntries.count)")
                 .font(.caption2.monospacedDigit().weight(.medium))
                 .foregroundStyle(Theme.textSecondary)
+                .accessibilityLabel("\(filteredEntries.count) logs")
 
             Button {
                 HakkaConsole.shared.clear()
@@ -73,6 +76,7 @@ struct ConsoleView: View {
                     .foregroundStyle(entries.isEmpty ? Theme.textTertiary : Theme.textSecondary)
             }
             .buttonStyle(.plain)
+            .hakkaIconTarget()
             .disabled(entries.isEmpty)
             .accessibilityLabel("Clear console")
         }
@@ -111,7 +115,7 @@ struct ConsoleView: View {
 
     private func chipColor(_ level: ConsoleLevel?) -> Color {
         switch level {
-        case .debug:  return Theme.textTertiary
+        case .debug:  return Theme.pending
         case .info:   return Theme.info
         case .warn:   return Theme.warning
         case .error:  return Theme.error
@@ -136,7 +140,11 @@ struct ConsoleView: View {
             .scrollIndicators(.hidden)
             .onChange(of: filteredEntries.count) { _ in
                 if let last = filteredEntries.last {
-                    withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
+                    if reduceMotion {
+                        proxy.scrollTo(last.id, anchor: .bottom)
+                    } else {
+                        withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
+                    }
                 }
             }
         }
@@ -145,20 +153,17 @@ struct ConsoleView: View {
     // MARK: - Empty State
 
     private var emptyState: some View {
-        VStack(spacing: Theme.s12) {
-            Image(systemName: "terminal")
-                .font(.largeTitle)
-                .foregroundStyle(Theme.textTertiary)
-            Text("No console logs")
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(Theme.textSecondary)
-            Text("Call HakkaConsole.shared.log(.info, \"message\") to capture logs here.")
-                .font(.caption)
-                .foregroundStyle(Theme.textTertiary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, Theme.s20)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        InspectorEmptyState(
+            title: entries.isEmpty ? "No console logs yet" : "No matching console logs",
+            description: entries.isEmpty
+                ? "Call HakkaConsole.shared.log(.info, \"message\") to capture logs here."
+                : "Try another search or clear the level filter.",
+            systemImage: "terminal",
+            onResetFilters: entries.isEmpty ? nil : {
+                searchText = ""
+                levelFilter = nil
+            }
+        )
     }
 
     // MARK: - Data
@@ -226,7 +231,7 @@ private struct ConsoleEntryRow: View {
     private var levelBadge: some View {
         Text(entry.level.label)
             .font(.system(size: HakkaMetrics.FontSize.xxs, weight: .heavy, design: .rounded))
-            .foregroundStyle(.white)
+            .foregroundStyle(Color(hex: HakkaTokens.statusOnWarm))
             .padding(.horizontal, Theme.s4)
             .padding(.vertical, HakkaMetrics.Spacing.xxs)
             .background(levelColor)
@@ -236,7 +241,7 @@ private struct ConsoleEntryRow: View {
 
     private var levelColor: Color {
         switch entry.level {
-        case .debug: return Theme.textTertiary
+        case .debug: return Theme.pending
         case .info:  return Theme.info
         case .warn:  return Theme.warning
         case .error: return Theme.error

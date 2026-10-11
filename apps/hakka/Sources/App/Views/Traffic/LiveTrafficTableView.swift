@@ -87,7 +87,7 @@ struct LiveTrafficTableView: View {
             }
         }
         .scrollContentBackground(.hidden)
-        .background(Color(nsColor: .textBackgroundColor))
+        .background(ThemeTokens.Palette.background)
     }
 
     /// Appends the bucket size to its label — "2xx Success · 12" — so a
@@ -209,11 +209,11 @@ struct LiveTrafficTableView: View {
     private func idealWidth(for column: TrafficTableColumn) -> CGFloat {
         guard case let .builtIn(column) = column else { return 180 }
         return switch column {
-        case .method: 64
-        case .path: 260
-        case .host: 160
-        case .status: 56
-        case .duration: 72
+        case .method: 50
+        case .path: 160
+        case .host: 100
+        case .status: 44
+        case .duration: 56
         case .size: 72
         case .device: 64
         }

@@ -17,10 +17,15 @@ struct DetailFramesTabView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
             lifecycleBar
-            if let connectError = model.connectError {
+            if let connectError = connectionError {
                 Text(connectError)
                     .font(.caption)
                     .foregroundStyle(ThemeTokens.Status.error)
+            }
+            if model.snapshot.droppedFrameCount > 0 {
+                Text("\(model.snapshot.droppedFrameCount) frame(s) dropped past the capture limit")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
             frameList
             composer
@@ -34,11 +39,6 @@ struct DetailFramesTabView: View {
                 .frame(width: 8, height: 8)  // ui-token-check-ignore: lifecycle state dot
             Text(stateLabel)
                 .font(.caption.weight(.semibold))
-            if model.snapshot.droppedFrameCount > 0 {
-                Text("\(model.snapshot.droppedFrameCount) frame(s) dropped past the capture limit")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
             Spacer()
             if model.state.isOpen {
                 Button("Disconnect", role: .destructive) { model.disconnect() }
@@ -97,8 +97,15 @@ struct DetailFramesTabView: View {
         case .connecting: "Connecting…"
         case let .open(wsProtocol): wsProtocol.map { "Open (\($0))" } ?? "Open"
         case let .closed(code): "Closed (\(code))"
-        case let .failed(message): "Failed: \(message)"
+        case .failed: "Failed"
         }
+    }
+
+    private var connectionError: String? {
+        if case let .failed(message) = model.state {
+            return message
+        }
+        return model.connectError
     }
 
     private var stateColor: Color {

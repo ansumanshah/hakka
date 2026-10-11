@@ -2,41 +2,40 @@ import HakkaCommon
 import HakkaCore
 import SwiftUI
 
-/// Method + status + path + response metrics, hoisted above the tab strip so it
-/// stays visible on every detail tab — Request, Response, and Timing all
-/// used to lose the record's identity the moment you left Overview, which
-/// meant scrolling back up just to re-check which request you were looking at.
+/// Persistent request identity separates the URL from response metrics so both
+/// remain readable in a narrow inspector.
 struct DetailIdentityHeader: View {
     let record: NetworkRequest
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
-            Text(record.method.rawValue)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(Fmt.methodColor(record.method))
-                .accessibilityLabel("Method \(record.method.rawValue)")
-            Text(record.status.map(String.init) ?? "–")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(Fmt.statusColor(record.status))
-                .accessibilityLabel(record.status.map { "Status \($0)" } ?? "Status pending")
-            Text(record.url)
-                .font(.caption.monospaced())
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .textSelection(.enabled)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .help(record.url)
-            HStack(spacing: Spacing.md) {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
+                Text(record.method.rawValue)
+                    .font(.caption.monospaced().weight(.semibold))
+                    .foregroundStyle(Fmt.methodColor(record.method))
+                    .accessibilityLabel("Method \(record.method.rawValue)")
+                Text(record.status.map(String.init) ?? "Pending")
+                    .font(.caption.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(Fmt.statusColor(record.status))
+                    .accessibilityLabel(record.status.map { "Status \($0)" } ?? "Status pending")
+                Spacer(minLength: Spacing.sm)
                 Text(Fmt.duration(record.duration))
                     .accessibilityLabel("Duration \(Fmt.duration(record.duration))")
                 Text(Fmt.bytes(record.responseBodySize))
                     .accessibilityLabel("Response size \(Fmt.bytes(record.responseBodySize))")
             }
-            .font(.caption.monospaced())
-            .foregroundStyle(.secondary)
-            .fixedSize(horizontal: true, vertical: false)
+            .font(.caption.monospacedDigit())
+            .foregroundStyle(ThemeTokens.Palette.textSecondary)
+            Text(record.url)
+                .font(.callout.monospaced())
+                .foregroundStyle(ThemeTokens.Palette.text)
+                .lineLimit(2)
+                .truncationMode(.middle)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .help(record.url)
         }
-        .frame(height: ControlHeight.bar)
+        .padding(.vertical, Spacing.sm)
+        .frame(minHeight: ControlHeight.bar, alignment: .leading)
     }
 }

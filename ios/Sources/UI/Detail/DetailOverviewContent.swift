@@ -20,9 +20,9 @@ extension RequestDetailView {
                 if let host = URL(string: request.url)?.host {
                     overviewRow("Host", host, mono: true, selectable: true, valueColor: Theme.info)
                 }
-                overviewRow("Method", request.method.rawValue, mono: true, valueColor: Theme.methodColor(for: request.method))
+                overviewRow("Method", request.method.rawValue, mono: true, valueColor: Theme.methodTextColor(for: request.method))
                 if let code = request.status {
-                    overviewRow("Status", "\(code)", mono: true, valueColor: Theme.statusColor(for: code))
+                    overviewRow("Status", "\(code)", mono: true, valueColor: Theme.statusTextColor(for: code))
                 } else if request.error != nil {
                     overviewRow("Status", "ERR", mono: true, valueColor: Theme.error)
                 }

@@ -6,6 +6,7 @@ import SwiftUI
 struct EnvironmentPickerView: View {
     @Environment(AppModel.self) private var model
     @State private var showingEditor = false
+    var onEdit: (() -> Void)? = nil
 
     var body: some View {
         HStack {
@@ -17,7 +18,11 @@ struct EnvironmentPickerView: View {
             }
             .labelsHidden()
             Button {
-                showingEditor = true
+                if let onEdit {
+                    onEdit()
+                } else {
+                    showingEditor = true
+                }
             } label: {
                 Image(systemName: "slider.horizontal.3")
             }

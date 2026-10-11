@@ -11,6 +11,8 @@ import Observation
 @MainActor
 @Observable
 final class TrafficModel {
+    var selectedDomain: String?
+    var selectedSource: RequestSource?
     private(set) var requests: [NetworkRequest] = []
     private(set) var stats = TrafficStats(count: 0, errorCount: 0, p50DurationMs: nil, p95DurationMs: nil, totalBytes: 0)
     private(set) var isRunning = false

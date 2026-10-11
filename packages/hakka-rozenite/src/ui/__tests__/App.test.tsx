@@ -181,6 +181,30 @@ describe('<App>', () => {
     await unmount(container, root)
   })
 
+  it('resets selection when reconnecting to a client with overlapping request IDs', async () => {
+    const firstClient = createFakeClient()
+    mockedUseClient.mockReturnValue(firstClient as never)
+    const { container, root } = await mount()
+    act(() => firstClient.fire('request', makeRequest({ id: 'shared-id' })))
+    await flush()
+    const list = container.querySelector(REQUEST_LIST_TAG) as HTMLElement
+    act(() => list.dispatchEvent(new CustomEvent('hakka:select', { detail: { id: 'shared-id' }, bubbles: true })))
+    await flush()
+    const detail = container.querySelector(REQUEST_DETAIL_TAG) as HTMLElement & { request: NetworkRequest | null }
+    expect(detail.request?.id).toBe('shared-id')
+
+    const secondClient = createFakeClient()
+    mockedUseClient.mockReturnValue(secondClient as never)
+    await act(async () => root.render(createElement(App)))
+    act(() => secondClient.fire('request', makeRequest({ id: 'shared-id', url: 'https://other.app/new' })))
+    await flush()
+
+    expect(detail.request).toBeNull()
+    expect(container.querySelector('.hakka-rozenite-list')?.classList.contains('has-selection')).toBe(false)
+    expect(firstClient.listenerCount('request')).toBe(0)
+    await unmount(container, root)
+  })
+
   it("unmount tears down the panel store's message listeners", async () => {
     const client = createFakeClient()
     mockedUseClient.mockReturnValue(client as never)

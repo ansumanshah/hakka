@@ -1,12 +1,20 @@
 import Foundation
-import Testing
-
 @testable import HakkaServer
+import Testing
 
 @Suite("MCP HTTP request framing")
 struct MCPHTTPRequestParserTests {
     private func request(headers: String, body: String = "") -> Data {
         Data("POST /mcp HTTP/1.1\r\nHost: localhost\r\n\(headers)\r\n\r\n\(body)".utf8)
+    }
+
+    @Test("malformed request lines are rejected", arguments: [
+        "POST /mcp", "POST /mcp HTTP/2", "POST /mcp HTTP/1.1 extra", "POST https://localhost/mcp HTTP/1.1",
+    ])
+    func invalidRequestLine(line: String) {
+        #expect(throws: MCPHTTPRequestParser.ParseError.self) {
+            try MCPHTTPRequestParser.parse(Data("\(line)\r\nHost: localhost\r\n\r\n".utf8))
+        }
     }
 
     @Test("invalid lengths are rejected without slicing the body", arguments: [

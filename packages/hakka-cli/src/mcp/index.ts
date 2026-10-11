@@ -10,6 +10,7 @@
 export { main, planServe, type ServePlan } from './server.js'
 
 export { RequestStore } from './RequestStore.js'
+export { DiagnosticStore } from './DiagnosticStore.js'
 export { createBridgeListener, parseBridgeFrame, DEFAULT_BRIDGE_URL, type BridgeListener } from './bridgeListener.js'
 export { registerResources } from './resources.js'
 export { registerTools, type ControlSender } from './tools/index.js'
