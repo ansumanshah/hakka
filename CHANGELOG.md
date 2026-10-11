@@ -15,6 +15,8 @@ so there is a single entry per release rather than one per package.
   then apply for the next N, then stop forever. Shipped atomically across every engine —
   `hakka-core`, iOS (`HakkaCommon`/`HakkaNetwork`), Android (`hakka-network`), the RN native
   bridges, and the desktop app's Rules surface.
+- A repository-root `Package.swift`, so Swift Package Manager can add Hakka by
+  URL and resolve its six products from the `v0.1.1` tag.
 
 ### Changed
 
