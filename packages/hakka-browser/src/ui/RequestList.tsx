@@ -399,7 +399,9 @@ export const RequestList: Component<RequestListProps> = (props) => {
           <Show when={windowed().padTop > 0}>
             <div style={{ height: `${windowed().padTop}px` }} />
           </Show>
-          <For each={windowed().slice} keyed={false}>
+          {/* Keyed by id: a new arrival shifts every position, so position keys would rebind every
+              visible row; id keys create one row and move the rest. */}
+          <For each={windowed().slice} keyed={(r) => r.id}>
             {(item) => (
               <RequestRow
                 req={item()}
