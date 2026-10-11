@@ -111,4 +111,75 @@ struct TraceStoreTests {
         await store.clear()
         #expect(await store.count == 0)
     }
+
+    @Test func requestSubscriptionReceivesServerEvidenceArrivingAfterSelection() async throws {
+        let store = TraceStore()
+        let request = try TraceFixtures.request("root-request.json")
+        await store.addRequest(request)
+        var updates = await store.subscribeTrace(forRequestID: request.id).makeAsyncIterator()
+
+        let initial = try #require(await updates.next())
+        #expect(initial?.isMultiTarget == false)
+
+        await store.addSpan(try TraceFixtures.span("server-root-span.json"))
+        let updated = try #require(await updates.next())
+        #expect(updated?.isMultiTarget == true)
+        #expect(updated?.requests.first?.id == request.id)
+        #expect(updated?.spans.count == 1)
+    }
+
+    @Test func subscriptionBeforeCaptureReceivesTheRequestWhenItArrives() async throws {
+        let store = TraceStore()
+        let request = try TraceFixtures.request("root-request.json")
+        var updates = await store.subscribeTrace(forRequestID: request.id).makeAsyncIterator()
+
+        let initial = try #require(await updates.next())
+        #expect(initial == nil)
+
+        await store.addRequest(request)
+        let updated = try #require(await updates.next())
+        #expect(updated?.id == "trace-1")
+        #expect(updated?.requests.first?.id == request.id)
+    }
+
+    @Test func subscriptionClearsOnRemovalAndReceivesRecapturedTrace() async throws {
+        let store = TraceStore(capacity: 1)
+        let request = try TraceFixtures.request("root-request.json")
+        await store.addRequest(request)
+        var updates = await store.subscribeTrace(forRequestID: request.id).makeAsyncIterator()
+        _ = await updates.next()
+
+        await store.clear()
+        let cleared = try #require(await updates.next())
+        #expect(cleared == nil)
+
+        await store.addRequest(request)
+        let recaptured = try #require(await updates.next())
+        #expect(recaptured?.id == "trace-1")
+
+        await store.addRequest(NetworkRequest(
+            id: "other", url: "https://other.test", method: .get, startTime: 2, correlationId: "other-trace"
+        ))
+        let evicted = try #require(await updates.next())
+        #expect(evicted == nil)
+    }
+
+    @Test func slowSubscriptionRetainsTheLatestRequestSnapshot() async throws {
+        let store = TraceStore()
+        var updates = await store.subscribeTrace(forRequestID: "fetch-1").makeAsyncIterator()
+        _ = await updates.next()
+
+        await store.addRequest(NetworkRequest(
+            id: "fetch-1", url: "https://x.test", method: .get, startTime: 1, correlationId: "trace-1"
+        ))
+        await store.addRequest(NetworkRequest(
+            id: "fetch-1", url: "https://x.test", method: .get, status: 200, startTime: 1,
+            duration: 12, correlationId: "trace-1"
+        ))
+
+        let latest = try #require(await updates.next())
+        #expect(latest?.requests.count == 1)
+        #expect(latest?.requests.first?.status == 200)
+        #expect(latest?.requests.first?.duration == 12)
+    }
 }
