@@ -23,15 +23,15 @@ The directory must be owned by the current user with mode `700`. The engine crea
 
 ## Modules and integration
 
-| Responsibility | Owner |
-| --- | --- |
-| Admission, listener and shutdown | `NativeProxyServer` |
-| HTTP parsing, forwarding and bounded previews | Request/response handlers |
-| CONNECT upgrade and backpressure | Connect upgrade and tunnel relay |
-| CA ownership, leaf cache and verified TLS | `LocalCertificateAuthority` |
-| Redaction before observers/export | `CaptureRecorder` and `FlowRedactor` |
-| Bounded JSONL and signal lifecycle | `HakkaNativeProxy` executable |
-| Private end-to-end evidence and comparison | `scripts/` and [harness guide](HARNESS.md) |
+| Responsibility                                | Owner                                      |
+| --------------------------------------------- | ------------------------------------------ |
+| Admission, listener and shutdown              | `NativeProxyServer`                        |
+| HTTP parsing, forwarding and bounded previews | Request/response handlers                  |
+| CONNECT upgrade and backpressure              | Connect upgrade and tunnel relay           |
+| CA ownership, leaf cache and verified TLS     | `LocalCertificateAuthority`                |
+| Redaction before observers/export             | `CaptureRecorder` and `FlowRedactor`       |
+| Bounded JSONL and signal lifecycle            | `HakkaNativeProxy` executable              |
+| Private end-to-end evidence and comparison    | `scripts/` and [harness guide](HARNESS.md) |
 
 The executable emits JSONL `ready`, `flow`, then `stopped` events. The flow schema is compatible with the existing Hakka proxy mapper. An adapter must identify the engine as `swift-nio`; the current mapper defaults its library identity to `mitmproxy`. Compatibility alone does not establish desktop/bridge ingestion. Noodle consumes the Hakka-facing contract rather than owning another interceptor or store.
 
