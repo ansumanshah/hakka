@@ -41,7 +41,9 @@ struct ProxyCaptureTests {
             changed.withLock { $0 = true }
         }
         try Data().write(to: release)
-        for _ in 0 ..< 100 where proxy.isActive {
+        // `isActive` can turn false via `Process.isRunning` before the main
+        // actor consumes `.exited`; wait for the observable mutation too.
+        for _ in 0 ..< 250 where proxy.isActive || !changed.withLock({ $0 }) {
             try await Task.sleep(for: .milliseconds(20))
         }
         #expect(!proxy.isActive)
@@ -60,7 +62,7 @@ struct ProxyCaptureTests {
         let proxy = ProxyCaptureModel(defaults: try #require(UserDefaults(suiteName: UUID().uuidString)), directory: directory)
         proxy.cliPath = script.path
         proxy.start()
-        for _ in 0..<100 where proxy.state != .failed { try await Task.sleep(for: .milliseconds(50)) }
+        for _ in 0..<200 where proxy.state != .failed || proxy.isActive { try await Task.sleep(for: .milliseconds(50)) }
         #expect(proxy.state == .failed)
         #expect(!proxy.isActive)
         #expect(proxy.lastError == "The proxy returned an invalid status message.")

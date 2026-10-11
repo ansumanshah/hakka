@@ -278,6 +278,9 @@ final class ProxyCaptureModel {
             default: break
             }
         case let .failure(reason):
+            // The stream terminates the child itself, so record the cause before
+            // its `.exited` event can be consumed and misreport the SIGTERM code.
+            fail(reason)
             Task { [weak self] in
                 guard let self else { return }
                 _ = await shutdown()

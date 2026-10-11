@@ -78,7 +78,9 @@ struct ProxyDeviceProfileTests {
     @Test func serverRequiresNonceAndExpires() async throws {
         let server = ProxyDeviceSetupServer()
         let token = String(repeating: "a", count: 32)
-        let link = try await server.start(address: "127.0.0.1", profile: Data("public-profile".utf8), token: token, testURL: "https://example.com/?hakka_device_setup=\(token)", lifetime: 5.0)
+        // Serve with a long lifetime so a busy main actor on CI cannot expire
+        // the listener mid-request; expiry is covered separately below.
+        let link = try await server.start(address: "127.0.0.1", profile: Data("public-profile".utf8), token: token, testURL: "https://example.com/?hakka_device_setup=\(token)", lifetime: 60)
         let base = try #require(URL(string: link))
         let invalid = try await Self.get(URL(string: "/wrong/profile.mobileconfig", relativeTo: base)!)
         #expect(invalid.status == 404)
@@ -87,12 +89,17 @@ struct ProxyDeviceProfileTests {
         #expect(downloaded.status == 200)
         #expect(downloaded.contentType?.contains("application/x-apple-aspen-config") == true)
         #expect(downloaded.body == Data("public-profile".utf8))
-        #expect(String(decoding: server.response(to: Data("GET /\(token)/profile.mobileconfig HTTP/1.1\r\nHost: local\r\n\r\n".utf8), now: Date().addingTimeInterval(6)), as: UTF8.self).contains("404"))
-        try await Task.sleep(for: .milliseconds(5_100))
+        #expect(String(decoding: server.response(to: Data("GET /\(token)/profile.mobileconfig HTTP/1.1\r\nHost: local\r\n\r\n".utf8), now: Date().addingTimeInterval(61)), as: UTF8.self).contains("404"))
+
+        let expiring = ProxyDeviceSetupServer()
+        let expiringLink = try await expiring.start(address: "127.0.0.1", profile: Data("public-profile".utf8), token: token, testURL: "https://example.com/?hakka_device_setup=\(token)", lifetime: 0.2)
+        for _ in 0 ..< 200 where expiring.link != nil { try await Task.sleep(for: .milliseconds(50)) }
+        #expect(expiring.link == nil)
         do {
-            _ = try await Self.get(downloadURL)
+            _ = try await Self.get(URL(string: "/\(token)/profile.mobileconfig", relativeTo: URL(string: expiringLink))!)
             Issue.record("An expired profile listener still served the download")
         } catch {}
+        server.stop()
         #expect(server.link == nil)
     }
 
