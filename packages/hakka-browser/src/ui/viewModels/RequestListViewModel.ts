@@ -70,6 +70,11 @@ export function createRequestListViewModel(opts: RequestListViewModelOptions): R
   let debouncedFilterText = lastSeenFilterText
   let debounceTimer: ReturnType<typeof setTimeout> | undefined
   let storeMatchIds: ReadonlySet<string> | null = null
+  // Hosts seen so far (newest-first, deduped) and whether any non-client record arrived.
+  // Maintained as records are added so a snapshot never rescans or re-parses every URL.
+  const hostSet = new Set<string>()
+  let hostOrder: string[] = []
+  let sawServerCapture = false
   let matchSeq = 0
   let destroyed = false
 
@@ -84,6 +89,26 @@ export function createRequestListViewModel(opts: RequestListViewModelOptions): R
 
   const regroup = createGroupCache()
 
+  function noteRecord(req: NetworkRequest, front: boolean): void {
+    if (req.runtime && req.runtime !== 'client') sawServerCapture = true
+    try {
+      const host = new URL(req.url).host
+      if (host && !hostSet.has(host)) {
+        hostSet.add(host)
+        if (front) hostOrder.unshift(host)
+        else hostOrder.push(host)
+      }
+    } catch {
+      // malformed URL
+    }
+  }
+
+  function resetDerived(): void {
+    hostSet.clear()
+    hostOrder = []
+    sawServerCapture = false
+  }
+
   // Inserts unshift (newest-first), matching the physical position new live
   // arrivals used to get in `logs` — the front-rank assignment below relies
   // on that (see filteredCache.ts). Returns the prior record for an in-place
@@ -93,10 +118,12 @@ export function createRequestListViewModel(opts: RequestListViewModelOptions): R
     if (idx >= 0) {
       const prev = logs[idx]
       logs[idx] = req
+      if (req.runtime && req.runtime !== 'client') sawServerCapture = true
       return prev
     }
     logs.unshift(req)
     filteredCache.assignFrontRank(req.id)
+    noteRecord(req, true)
     return undefined
   }
 
@@ -196,6 +223,7 @@ export function createRequestListViewModel(opts: RequestListViewModelOptions): R
       if (filteredCache.hasRank(req.id)) continue
       logs.push(req)
       filteredCache.assignBackRank(req.id)
+      noteRecord(req, false)
     }
     // One-shot bulk load: a full pass beats N individual splice-inserts.
     recomputeAndNotifyFull()
@@ -293,19 +321,10 @@ export function createRequestListViewModel(opts: RequestListViewModelOptions): R
       if (text && !results.includes(text)) results.push(text)
     }
 
-    const seenHosts = new Set<string>()
-    for (const req of logs) {
-      try {
-        const host = new URL(req.url).host
-        if (host && !seenHosts.has(host)) {
-          seenHosts.add(host)
-          if (!current || host.toLowerCase().includes(current)) {
-            const entry = `host:${host}`
-            if (!results.includes(entry)) results.push(entry)
-          }
-        }
-      } catch {
-        // malformed URL
+    for (const host of hostOrder) {
+      if (!current || host.toLowerCase().includes(current)) {
+        const entry = `host:${host}`
+        if (!results.includes(entry)) results.push(entry)
       }
     }
 
@@ -322,6 +341,7 @@ export function createRequestListViewModel(opts: RequestListViewModelOptions): R
     clearLogs() {
       store.clear()
       logs = []
+      resetDerived()
       filteredCache.reset()
       logsVersion++
       storeMatchIds = null
@@ -338,6 +358,7 @@ export function createRequestListViewModel(opts: RequestListViewModelOptions): R
       const idx = logs.findIndex((r) => r.id === id)
       if (idx < 0) return
       logs.splice(idx, 1)
+      sawServerCapture = logs.some((r) => r.runtime && r.runtime !== 'client')
       filteredCache.deleteRank(id)
       filteredCache.remove(id)
       logsVersion++
@@ -357,7 +378,7 @@ export function createRequestListViewModel(opts: RequestListViewModelOptions): R
         groups,
         count: logs.length,
         isFiltered: filtered.length !== logs.length,
-        hasServerCaptures: logs.some((r) => r.runtime && r.runtime !== 'client'),
+        hasServerCaptures: sawServerCapture,
         searchSuggestions: computeSearchSuggestions(filterSnap.filterDisplay, filterSnap.recentFilters),
         spansByTrace,
       }
