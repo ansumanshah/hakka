@@ -154,10 +154,10 @@ If your Next.js version doesn't support `instrumentation-client.ts`, drop a smal
 ```tsx title="components/HakkaOverlay.tsx"
 'use client'
 import { useEffect } from 'react'
-import { startHakkaClient } from 'hakka-node/next/client'
+import { startClientCapture } from 'hakka-node/next/client'
 
 export function HakkaOverlay() {
-  useEffect(() => startHakkaClient(), [])
+  useEffect(() => startClientCapture(), [])
   return null
 }
 ```
@@ -207,7 +207,7 @@ NEXT_PUBLIC_HAKKA_BRIDGE_URL=ws://localhost:8990 \
 next dev
 ```
 
-An explicit `bridgeUrl` passed to `register()` or `startHakkaClient()` takes precedence. This lets a local full-stack inspector coexist with the desktop app without either process claiming the other's hub.
+An explicit `bridgeUrl` passed to `register()` or `startClientCapture()` takes precedence. This lets a local full-stack inspector coexist with the desktop app without either process claiming the other's hub.
 
 See [Bridge overview](/bridge/overview/) for how the hub works.
 

@@ -1,5 +1,5 @@
 'use client'
-import { startHakkaClient } from 'hakka-node/next/client'
+import { startClientCapture } from 'hakka-node/next/client'
 /**
  * Starts the Hakka overlay from the normal client bundle. Dynamic imports work
  * here (webpack emits hakka-browser as an async chunk), unlike inside Next's
@@ -9,7 +9,7 @@ import { useEffect } from 'react'
 
 export function HakkaOverlay() {
   useEffect(() => {
-    startHakkaClient()
+    startClientCapture()
   }, [])
   return null
 }

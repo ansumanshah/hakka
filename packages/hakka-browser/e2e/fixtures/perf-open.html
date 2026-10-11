@@ -10,7 +10,7 @@
       Fixture for e2e/overlay-open-latency.spec.ts.
 
       `Hakka.start()` is called with NO `overlay` option, so it defaults to
-      `'launcher'` (see src/index.ts HakkaWebOptions) — a tiny vanilla
+      `'launcher'` (see src/index.ts HakkaBrowserOptions) — a tiny vanilla
       `aria-label="Open Hakka inspector"` button is mounted eagerly (zero
       framework cost) and the heavy Solid UI + panel only load lazily the
       moment it's clicked. That click is the real "closed FAB" cold-open path
