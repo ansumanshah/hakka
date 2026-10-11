@@ -31,6 +31,15 @@ older launch notes.
 - Do not skip pre-commit hooks. Broad UI redesign remains deferred until release;
   verify that milestone or follow an explicit user request before expanding scope.
 
+## UI design workflow
+
+For UI design changes, use the imagegen skill to generate and inspect a visual
+reference before implementation. Ground the reference in Hakka's existing
+workflows, canonical palette, and native platform conventions; implement useful
+layout and hierarchy decisions from it. Keep concept images in ignored
+`artifacts/` and distinguish them from screenshots of the working app. Verify
+keyboard access, readable light/dark colors, and real application behavior.
+
 ## Verification
 
 Use root `package.json` for CI scripts and `just` to discover local workflows:
