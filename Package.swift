@@ -1,7 +1,7 @@
 // swift-tools-version: 6.0
 
 // Repository-root manifest so Swift Package Manager can consume Hakka by URL
-// (`.package(url: "https://github.com/ansumanshah/hakka", from: "0.1.1")`).
+// (`.package(url: "https://github.com/ansumanshah/hakka", from: "0.2.0")`).
 // It exposes the same products as `ios/Package.swift`, which remains the
 // development manifest with the test targets.
 

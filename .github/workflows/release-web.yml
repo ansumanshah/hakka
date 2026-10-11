@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to verify or publish (e.g., 0.1.1). Must match package.json.'
+        description: 'Version to verify or publish (e.g., 0.2.0). Must match package.json.'
         required: true
       publish:
         description: 'Publish the verified web packages and shared source tag'

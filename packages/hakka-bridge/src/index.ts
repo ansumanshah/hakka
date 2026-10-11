@@ -30,4 +30,4 @@ export {
 } from './protocol'
 export { startBridgeServer, DEFAULT_BRIDGE_PORT, type BridgeServer, type BridgeServerOptions } from './server'
 
-export const HAKKA_BRIDGE_VERSION = '0.1.1'
+export const HAKKA_BRIDGE_VERSION = '0.2.0'
