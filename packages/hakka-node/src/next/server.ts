@@ -22,4 +22,5 @@ export { enableHttpInterceptor, disableHttpInterceptor } from '../httpIntercepto
 export { enableTracePropagation, disableTracePropagation, currentServerTraceId } from '../trace'
 export { createBridgeClient, DEFAULT_BRIDGE_URL, type BridgeClient, type BridgeClientOptions } from '../bridgeClient'
 export { hakkaSpanProcessor, type HakkaSpanProcessor } from '../spanProcessor'
+export { createEdgeRelayHandler, type EdgeRelayHandlerOptions } from './edgeRelayHandler'
 export type { FrameworkSpan, RequestKind } from 'hakka-core'
