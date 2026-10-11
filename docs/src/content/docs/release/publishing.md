@@ -22,8 +22,10 @@ source version constants reported by `just version-audit`. Changesets does not
 update Android, iOS, or `apps/hakka/version.env`.
 
 The first coordinated publication is prepared as **0.1.1**. Keep the existing
-`v0.1.0` source tag unchanged. The pending package-content changeset is included
-in the root changelog for 0.1.1.
+`v0.1.0` source tag unchanged. The package versions are already 0.1.1 and their
+changes are recorded in the root changelog, so `bun run changeset status` must
+report no pending changesets; running `version-packages` with a leftover
+changeset would move the fixed group to 0.1.2.
 
 Check existing tags before choosing a version. The SDK audit checks npm, Android,
 iOS podspecs, source constants, and documented Maven coordinates. It does not
