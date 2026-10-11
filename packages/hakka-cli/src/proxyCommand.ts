@@ -76,6 +76,11 @@ export function parseProxyArgs(args: string[]): ParsedProxyOptions {
 
 export async function runProxyCommand(args: string[]): Promise<void> {
   let options: ParsedProxyOptions | undefined = args.includes('--json') ? { json: true } : undefined
+  let statusTimer: ReturnType<typeof setTimeout> | undefined
+  const clearStatusTimer = (): void => {
+    clearTimeout(statusTimer)
+    statusTimer = undefined
+  }
   try {
     const parsed = parseProxyArgs(args)
     options = parsed
@@ -116,12 +121,22 @@ export async function runProxyCommand(args: string[]): Promise<void> {
     const emitStatus = (force = false): void => {
       if (!parsed.json || !started) return
       const now = Date.now()
-      if (!force && now - lastStatus < 250) return
+      const remaining = 250 - (now - lastStatus)
+      if (!force && remaining > 0) {
+        statusTimer ??= setTimeout(() => {
+          statusTimer = undefined
+          emitStatus(true)
+        }, remaining)
+        return
+      }
+      clearStatusTimer()
       lastStatus = now
       emit('status', { records: flowIds.size })
     }
     const interrupt = (): void => {
       cancelled = true
+      started = false
+      clearStatusTimer()
       controller.abort()
       if (capture) void capture.stop()
     }
@@ -160,15 +175,23 @@ export async function runProxyCommand(args: string[]): Promise<void> {
     const host = parsed.host ?? '127.0.0.1'
     emit('started', { host, port, bridgeUrl: parsed.bridgeUrl ?? 'ws://localhost:8989', certificates: certificates() })
     started = true
+    if (flowIds.size) emitStatus()
     if (!parsed.json)
       process.stdout.write(
         `Hakka proxy listening on ${host}:${port}. Configure only the target app or command to use this proxy. Press Ctrl-C to stop.\n`,
       )
     let timer: ReturnType<typeof setTimeout> | undefined
-    if (parsed.durationMs !== undefined) timer = setTimeout(() => void capture?.stop(), parsed.durationMs)
+    if (parsed.durationMs !== undefined)
+      timer = setTimeout(() => {
+        started = false
+        clearStatusTimer()
+        void capture?.stop()
+      }, parsed.durationMs)
     try {
       await capture.wait()
     } finally {
+      started = false
+      clearStatusTimer()
       if (timer) clearTimeout(timer)
       process.removeListener('SIGINT', interrupt)
       process.removeListener('SIGTERM', interrupt)
@@ -179,5 +202,7 @@ export async function runProxyCommand(args: string[]): Promise<void> {
     if (options?.json) process.stdout.write(`${JSON.stringify({ command: 'proxy', status: 'error', message })}\n`)
     else process.stderr.write(`hakka proxy: ${message}\n`)
     process.exitCode = 1
+  } finally {
+    clearStatusTimer()
   }
 }
