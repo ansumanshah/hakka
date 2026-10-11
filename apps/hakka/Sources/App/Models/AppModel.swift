@@ -23,6 +23,8 @@ final class AppModel {
     let logs = LogsModel()
     let storage = StorageModel()
     let proxy: ProxyCaptureModel
+    let simulatorSetup = SimulatorCaptureSetup()
+    let deviceSetup = ProxyDeviceSetupModel()
     /// The native MCP server's lifecycle, surfaced by the Settings toggle
     /// (`MCPSettingsSection`). Constructed here (not started here) so it
     /// exists for the whole window's lifetime the same as every other
@@ -51,10 +53,32 @@ final class AppModel {
             }
         }
         mcp = MCPServerModel(trafficStore: traffic.store, collectionModel: collection,
-                             additionalTools: NativeProxyTool.tools(proxy: proxy, traffic: traffic))
+                             additionalTools: NativeProxyTool.tools(proxy: proxy, traffic: traffic)
+                                 + NativeSimulatorSetupTool.tools(setup: simulatorSetup, proxy: proxy, traffic: traffic)
+                                 + NativeDeviceSetupTool.tools(model: deviceSetup, proxy: proxy, traffic: traffic))
     }
 
     private(set) var selection: SidebarSelection?
+    var workspaceSearchFocusToken = 0
+
+    var canFocusWorkspaceSearch: Bool {
+        switch selection {
+        case .traffic: true
+        case .logs: !logs.entries.isEmpty
+        case .storage: !storage.stores.isEmpty
+        default: false
+        }
+    }
+
+    /// Find targets the visible capture workspace without changing navigation.
+    func focusWorkspaceSearch() {
+        guard canFocusWorkspaceSearch else { return }
+        switch selection {
+        case .traffic: traffic.focusSearchToken += 1
+        case .logs, .storage: workspaceSearchFocusToken += 1
+        default: break
+        }
+    }
 
     func select(_ selection: SidebarSelection?) {
         if case let .request(id) = selection, let spec = collection.request(id: id) {
@@ -125,6 +149,14 @@ final class AppModel {
 
     func sendActiveRequest() async {
         guard let draft = editor.draft else { return }
+        if WebSocketURL.isWebSocketURL(draft.url), draft.session == nil {
+            if webSocket.state.isOpen {
+                webSocket.disconnect()
+            } else if webSocket.state != .connecting {
+                webSocket.connect(urlString: draft.url)
+            }
+            return
+        }
         let folderChain = collection.folderChain(for: draft.id)
         guard let updatedScope = await editor.send(
             collection: collection.collection,

@@ -81,22 +81,45 @@ async function availableLoopbackPort(): Promise<number> {
 
 function terminateProcess(child: ChildProcess): Promise<void> {
   if (child.exitCode !== null || child.signalCode !== null) return Promise.resolve()
-  return new Promise((resolveStop) => {
-    let settled = false
+  return new Promise((resolveStop, rejectStop) => {
     let timer: ReturnType<typeof setTimeout> | undefined
-    const finish = (): void => {
-      if (settled) return
-      settled = true
+    const finish = (error?: Error): void => {
       clearTimeout(timer)
-      resolveStop()
+      child.removeListener('close', onClose)
+      if (error) rejectStop(error)
+      else resolveStop()
     }
-    child.once('close', finish)
-    child.kill('SIGTERM')
+    const onClose = (): void => finish()
+    child.once('close', onClose)
+    const kill = (signal: NodeJS.Signals): void => {
+      try {
+        child.kill(signal)
+      } catch (error: unknown) {
+        finish(error instanceof Error ? error : new Error(String(error)))
+      }
+    }
     timer = setTimeout(() => {
-      child.kill('SIGKILL')
-      finish()
+      timer = setTimeout(() => finish(new Error('Proxy child did not close after SIGKILL.')), 2_000)
+      kill('SIGKILL')
     }, 2_000)
+    kill('SIGTERM')
   })
+}
+
+function cancellationError(): Error {
+  const error = new Error('Proxy capture cancelled.')
+  error.name = 'AbortError'
+  return error
+}
+
+function checkCancellation(signal?: AbortSignal): void {
+  if (signal?.aborted) throw cancellationError()
+}
+
+async function cleanupResources(resources: (Promise<unknown> | undefined)[]): Promise<void> {
+  const results = await Promise.allSettled(resources)
+  const errors = results.flatMap((result) => (result.status === 'rejected' ? [result.reason] : []))
+  if (errors.length) throw new AggregateError(errors, 'Proxy cleanup failed.')
 }
 
 interface BandwidthRelay {
@@ -111,6 +134,7 @@ async function startBandwidthRelay(options: {
   timeoutMs: number
   report: (message: string) => void
   onUnexpectedExit: (error: Error) => void
+  signal?: AbortSignal
 }): Promise<BandwidthRelay> {
   const args = [
     proxySupportPath('bandwidth_relay.py'),
@@ -124,6 +148,7 @@ async function startBandwidthRelay(options: {
   if (options.bandwidth.uploadBytesPerSecond) args.push('--upload-bps', String(options.bandwidth.uploadBytesPerSecond))
   if (options.bandwidth.downloadBytesPerSecond)
     args.push('--download-bps', String(options.bandwidth.downloadBytesPerSecond))
+  checkCancellation(options.signal)
   const child = spawn('python3', args, { stdio: ['ignore', 'pipe', 'pipe'] })
   let closing = false
   let ready = false
@@ -161,8 +186,14 @@ async function startBandwidthRelay(options: {
     () => rejectReady?.(new Error(`Bandwidth relay did not report ready within ${options.timeoutMs}ms.`)),
     options.timeoutMs,
   )
+  const abort = (): void => rejectReady?.(cancellationError())
+  options.signal?.addEventListener('abort', abort, { once: true })
+  if (options.signal?.aborted) abort()
   try {
-    await readiness.finally(() => clearTimeout(timer))
+    await readiness.finally(() => {
+      clearTimeout(timer)
+      options.signal?.removeEventListener('abort', abort)
+    })
   } catch (error: unknown) {
     closing = true
     await terminateProcess(child)
@@ -203,6 +234,7 @@ function commandExists(path: string): boolean {
 
 /** Starts a local mitmdump sidecar. It changes neither the system proxy nor trust store. */
 export async function startProxyCapture(options: ProxyOptions = {}): Promise<ProxyCapture> {
+  checkCancellation(options.signal)
   const host = options.host ?? '127.0.0.1'
   const port = options.port ?? DEFAULT_PORT
   if (!Number.isInteger(port) || port < 1 || port > 65535)
@@ -257,6 +289,7 @@ export async function startProxyCapture(options: ProxyOptions = {}): Promise<Pro
           { host: sidecarHost, port: sidecarPort },
         ],
       })
+    checkCancellation(options.signal)
     if (options.scriptPath) {
       scriptBridge = await createProxyScriptBridge({ scriptPath: options.scriptPath, onDiagnostic: report })
     }
@@ -267,6 +300,7 @@ export async function startProxyCapture(options: ProxyOptions = {}): Promise<Pro
         onReady: options.onBreakpointReady,
         redactHeaders: options.redactHeaders,
       })
+    checkCancellation(options.signal)
     const args = [
       '--listen-host',
       sidecarHost,
@@ -309,7 +343,7 @@ export async function startProxyCapture(options: ProxyOptions = {}): Promise<Pro
     })
     bridge = createCdpBridgeClient({ url: bridgeUrl })
   } catch (error: unknown) {
-    await Promise.allSettled([
+    await cleanupResources([
       typeof child === 'undefined' ? undefined : terminateProcess(child),
       Promise.resolve().then(() => bridge?.close()),
       routing?.close(),
@@ -329,7 +363,7 @@ export async function startProxyCapture(options: ProxyOptions = {}): Promise<Pro
   const cleanupAuxiliary = (): Promise<void> => {
     cleanupPromise ??= (async () => {
       options.signal?.removeEventListener('abort', abort)
-      await Promise.allSettled([
+      await cleanupResources([
         Promise.resolve().then(() => recordBridge.close()),
         bandwidthRelay?.close(),
         breakpointBridge?.close(),
@@ -363,7 +397,7 @@ export async function startProxyCapture(options: ProxyOptions = {}): Promise<Pro
   sidecar.once('error', (error) => {
     startupError = new Error(`mitmdump could not start: ${error.message}`)
     rejectTerminal(startupError)
-    void cleanupAuxiliary()
+    void cleanupAuxiliary().catch(() => {})
   })
   sidecar.once('close', (code, signal) => {
     if (stopping) resolveTerminal()
@@ -374,9 +408,15 @@ export async function startProxyCapture(options: ProxyOptions = {}): Promise<Pro
             `mitmdump exited before capture completed (code ${code ?? 'unknown'}, signal ${signal ?? 'none'}).`,
           ),
       )
-    void cleanupAuxiliary()
+    void cleanupAuxiliary().catch(() => {})
   })
-  const completed = exited.finally(cleanupAuxiliary)
+  const completed = exited.finally(async () => {
+    try {
+      await terminateProcess(sidecar)
+    } finally {
+      await cleanupAuxiliary()
+    }
+  })
   void completed.catch(() => {})
   sidecarDiagnostics.setEncoding('utf8')
   sidecarDiagnostics.on('data', (chunk: string) => {
@@ -399,33 +439,21 @@ export async function startProxyCapture(options: ProxyOptions = {}): Promise<Pro
     if (stopPromise) return stopPromise
     stopping = true
     stopPromise = (async () => {
-      sidecar.kill('SIGTERM')
-      let killTimer: ReturnType<typeof setTimeout> | undefined
       try {
-        await Promise.race([
-          exited.catch(() => {}),
-          new Promise<void>((resolve) => {
-            killTimer = setTimeout(resolve, 2_000)
-          }),
-        ])
-        if (!terminalSettled) {
-          sidecar.kill('SIGKILL')
-          await exited.catch(() => {})
-        }
+        await terminateProcess(sidecar)
         if (becameReady) {
           if (options.harOutput) writeFileSync(options.harOutput, JSON.stringify(buildHar(records), null, 2))
           if (options.sessionOutput)
             writeFileSync(options.sessionOutput, serializeSession(records, { source: 'hakka proxy' }))
         }
       } finally {
-        clearTimeout(killTimer)
         await cleanupAuxiliary()
       }
     })()
     return stopPromise
   }
   abort = (): void => {
-    rejectReady?.(new Error('Proxy capture cancelled.'))
+    rejectReady?.(cancellationError())
     void stop().catch(() => {})
   }
   options.signal?.addEventListener('abort', abort, { once: true })
@@ -476,7 +504,7 @@ export async function startProxyCapture(options: ProxyOptions = {}): Promise<Pro
   await ready
     .finally(() => clearTimeout(readyTimer))
     .catch(async (error: unknown) => {
-      await stop().catch(() => {})
+      await stop()
       throw error
     })
   if (usesBandwidthRelay) {
@@ -488,22 +516,26 @@ export async function startProxyCapture(options: ProxyOptions = {}): Promise<Pro
         bandwidth,
         timeoutMs,
         report,
+        signal: options.signal,
         onUnexpectedExit: (error) => {
           rejectTerminal(error)
-          sidecar.kill('SIGTERM')
-          void cleanupAuxiliary()
         },
       })
       bandwidthRelay = relay
       if (stopping || terminalSettled) {
         await relay.close()
         await exited
+        checkCancellation(options.signal)
         throw new Error('Proxy capture stopped during bandwidth relay startup.')
       }
     } catch (error: unknown) {
-      await stop().catch(() => {})
+      await stop()
       throw error
     }
+  }
+  if (options.signal?.aborted) {
+    await stop()
+    throw cancellationError()
   }
   return {
     get records() {

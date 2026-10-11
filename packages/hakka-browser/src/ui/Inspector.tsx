@@ -311,7 +311,7 @@ export const Inspector: Component<InspectorProps> = (props) => {
     triggerLoadSession,
   })
 
-  let searchInputEl: HTMLInputElement | null = null
+  const [searchInputEl, setSearchInputEl] = createSignal<HTMLInputElement | null>(null)
   useInspectorKeyboard({
     open,
     setOpen,
@@ -322,8 +322,9 @@ export const Inspector: Component<InspectorProps> = (props) => {
     selected,
     setSelected,
     tab,
+    setTab,
     getFilteredList: () => listSnap().filtered,
-    searchInputEl: () => searchInputEl,
+    searchInputEl,
   })
 
   return (
@@ -392,7 +393,7 @@ export const Inspector: Component<InspectorProps> = (props) => {
             hasServerCaptures={hasServerCapturesSnap}
             compact={compact}
             onToggleCompact={() => setCompact(!compact())}
-            searchInputRef={(el) => (searchInputEl = el)}
+            searchInputRef={(el) => setSearchInputEl(el)}
             requestKindFilter={requestKindFilter}
             onRequestKindFilterChange={setRequestKindFilter}
             isFiltered={isFilteredSnap}

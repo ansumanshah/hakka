@@ -102,7 +102,7 @@ extension BreakpointsView {
                 } label: {
                     Label("Add breakpoint", systemImage: "plus")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(pattern.trimmingCharacters(in: .whitespaces).isEmpty ? Theme.textTertiary : .white)
+                        .foregroundStyle(pattern.trimmingCharacters(in: .whitespaces).isEmpty ? Theme.textTertiary : Theme.onSolid)
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: Theme.tapMin)
                         .background(pattern.trimmingCharacters(in: .whitespaces).isEmpty ? Theme.border : Theme.accent)

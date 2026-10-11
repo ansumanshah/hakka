@@ -1,6 +1,7 @@
-import { render } from '@solidjs/testing-library'
+import { fireEvent, render, waitFor } from '@solidjs/testing-library'
 import type { FrameworkSpan, RequestGroup } from 'hakka-core'
 import { deriveTraceId } from 'hakka-core'
+import { createSignal } from 'solid-js'
 import { describe, it, expect } from 'vitest'
 
 import { RequestList } from '../RequestList'
@@ -40,6 +41,33 @@ describe('RequestList virtualization', () => {
     // Windowed: far fewer than 300, but at least one screen's worth.
     expect(rendered).toBeGreaterThan(0)
     expect(rendered).toBeLessThan(60)
+  })
+
+  it('keeps filtered rows visible when a deep scroll outlives a still-virtualized result set', async () => {
+    const all = reqs(300)
+    const [requests, setRequests] = createSignal(all)
+    const { container } = render(() => (
+      <RequestList
+        requests={requests()}
+        groups={null}
+        selected={null}
+        onSelect={() => {}}
+        selectMode={false}
+        selectedIds={new Set<string>()}
+        onToggleSelect={() => {}}
+        compact={false}
+      />
+    ))
+    const list = container.querySelector('.hakka-list') as HTMLDivElement
+    list.scrollTop = 10000
+    fireEvent.scroll(list)
+    setRequests(all.slice(0, 70))
+    await waitFor(() => {
+      expect(container.querySelectorAll('.hakka-row').length).toBeGreaterThan(0)
+      expect(container.querySelectorAll('.hakka-row').length).toBeLessThan(70)
+      expect(container.textContent).toContain('/item/69')
+      expect(list.scrollTop).toBeLessThan(10000)
+    })
   })
 
   it('shows the empty state with no requests', () => {

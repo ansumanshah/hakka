@@ -6,18 +6,30 @@ struct GitFileRowView: View {
     let isStaged: Bool
     let isSelected: Bool
     let git: GitModel
+    var onSelect: () -> Void
+
+    @State private var isHovered = false
 
     var body: some View {
         HStack(spacing: Spacing.sm) {
-            Text(GitEntryLabel.code(for: entry))
-                .font(.caption2.monospaced().weight(.bold))
-                .foregroundStyle(GitEntryLabel.color(for: entry))
-                .frame(width: 20, alignment: .leading)
-            Text(entry.path)
-                .font(.caption.monospaced())
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            Button(action: onSelect) {
+                HStack(spacing: Spacing.sm) {
+                    Text(GitEntryLabel.code(for: entry))
+                        .font(.caption2.monospaced().weight(.bold))
+                        .foregroundStyle(GitEntryLabel.color(for: entry))
+                        .frame(width: 20, alignment: .leading)
+                    Text(entry.path)
+                        .font(.caption.monospaced())
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(entry.path)
+            .accessibilityLabel("Show diff for \(entry.path)")
+            .accessibilityAddTraits(isSelected ? .isSelected : [])
             Button {
                 Task {
                     if isStaged {
@@ -36,8 +48,8 @@ struct GitFileRowView: View {
         }
         .padding(.horizontal, Spacing.sm)
         .padding(.vertical, Spacing.xs)
-        .background(isSelected ? Color.accentColor.opacity(0.14) : Color.clear, in: RoundedRectangle(cornerRadius: Radius.sm))
+        .background(isSelected ? Color.accentColor.opacity(0.14) : (isHovered ? Color.primary.opacity(0.04) : Color.clear), in: RoundedRectangle(cornerRadius: Radius.sm))
         .contentShape(Rectangle())
-        .accessibilityElement(children: .combine)
+        .onHover { isHovered = $0 }
     }
 }

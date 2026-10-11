@@ -10,7 +10,7 @@ export function registerListRequestsTool(server: McpServer, store: RequestStore)
     'list_requests',
     {
       description:
-        'List captured HTTP requests, newest first. Use limit to page through results (default 50, max 500). ' +
+        'List captured HTTP requests, newest first. Use limit/offset to page through results (default 50, max 500). ' +
         'Set summary: true to return selection fields only; use get_request for bodies and headers. ' +
         'Share-time scrubbing (secrets/PII pattern-matched and removed) is applied by default, since this hands ' +
         'requests straight into agent context — pass `unredacted: true` to see them as captured.',

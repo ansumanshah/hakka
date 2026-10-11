@@ -13,23 +13,25 @@ struct LogRowView: View {
     var body: some View {
         HStack(alignment: .top, spacing: Spacing.md) {
             Text(entry.level.rawValue.uppercased())
-                .font(.caption2.weight(.bold))
+                .font(.caption.weight(.semibold))
                 .foregroundStyle(Fmt.logLevelColor(entry.level))
-                .frame(width: 44, alignment: .leading)
+                .frame(width: 56, alignment: .leading) // ui-token-check-ignore: log level column
             VStack(alignment: .leading, spacing: Spacing.xxs) {
                 Text(entry.message)
                     .font(.callout)
                     .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
                 if let category = entry.category {
                     Text(category)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                        .foregroundStyle(ThemeTokens.Palette.textSecondary)
                 }
             }
-            Spacer(minLength: Spacing.md)
+            Spacer(minLength: Spacing.sm)
             Text(Fmt.time(entry.timestamp))
-                .font(.caption2.monospacedDigit())
-                .foregroundStyle(.secondary)
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(ThemeTokens.Palette.textSecondary)
+                .fixedSize()
         }
         .padding(.vertical, Spacing.xxs)
         .contentShape(Rectangle())

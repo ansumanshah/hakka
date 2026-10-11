@@ -105,7 +105,7 @@ export const DetailGraphQLTab: Component<DetailGraphQLTabProps> = (props) => {
       </Show>
 
       <Show when={gqlErrors().length > 0}>
-        <p class="hakka-section-title" style="color:var(--hakka-status-error)">
+        <p class="hakka-section-title" style="color:var(--hakka-status-text-error)">
           GraphQL Errors ({gqlErrors().length})
         </p>
         <div
@@ -130,7 +130,7 @@ export const DetailGraphQLTab: Component<DetailGraphQLTabProps> = (props) => {
                 <div
                   style={{
                     'font-size': 'var(--hakka-font-sm)',
-                    color: 'var(--hakka-status-error)',
+                    color: 'var(--hakka-status-text-error)',
                     'font-weight': '600',
                     'margin-bottom': err.path ? 'var(--hakka-space-xs)' : undefined,
                   }}

@@ -34,7 +34,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -50,7 +56,7 @@ internal fun NetworkTopBar(
     onSessionMenuChange: (Boolean) -> Unit, onTogglePause: () -> Unit, onSelect: () -> Unit,
     onShare: (List<NetworkRequest>) -> Unit, onClear: () -> Unit, onDone: () -> Unit, onClose: () -> Unit,
 ) = Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-    Text(if (selectionMode) "$selectedCount selected" else "Network", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+    Text(if (selectionMode) "$selectedCount selected" else "Network", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f).semantics { heading() })
     if (selectionMode) {
         IconButton(onClick = { onShare(selectedRequests) }) { Icon(painterResource(R.drawable.hakka_ic_share), "Share selected") }
         TextButton(onClick = onDone, modifier = Modifier.heightIn(min = 48.dp)) { Text("Done") }
@@ -121,28 +127,44 @@ private fun SelectableNetworkChipRow(label: String, options: List<String>, selec
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun RequestRow(request: NetworkRequest, selected: Boolean, selectionMode: Boolean, onClick: () -> Unit, onLongClick: () -> Unit) {
+    val largeText = LocalDensity.current.fontScale >= 1.3f
     val isError = request.error != null || (request.status ?: 0) >= 500
     val stripe = when { selected -> MaterialTheme.colorScheme.primary; isError -> MaterialTheme.colorScheme.error; (request.status ?: 0) >= 400 -> Color(Theme.warning); else -> Color.Transparent }
     Row(
         Modifier.fillMaxWidth().heightIn(min = 64.dp).background(if (selected) MaterialTheme.colorScheme.primary.copy(alpha = .1f) else Color.Transparent)
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+            .semantics { if (selectionMode) this.selected = selected }
+            .combinedClickable(
+                role = Role.Button,
+                onClickLabel = if (selectionMode) if (selected) "Deselect request" else "Select request" else "Open request details",
+                onLongClickLabel = "Select request",
+                onClick = onClick, onLongClick = onLongClick,
+            ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.width(3.dp).height(64.dp).background(stripe))
         Column(Modifier.weight(1f).padding(horizontal = 14.dp, vertical = 10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(request.method.name, color = Color(methodColor(request.method.name)), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                Text(request.method.name, color = Color(Theme.methodForeground(LocalContext.current, request.method.name)), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.width(8.dp))
-                Text(pathText(request), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-                Text(fmtDurationOrPending(request.durationMs), color = MaterialTheme.colorScheme.onSurfaceVariant, fontFamily = FontFamily.Monospace)
+                Text(pathText(request), maxLines = if (largeText) 2 else 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                if (!largeText) Text(fmtDurationOrPending(request.durationMs), color = MaterialTheme.colorScheme.onSurfaceVariant, fontFamily = FontFamily.Monospace)
+            }
+            if (largeText) {
+                Text(hostOf(request.url), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                Text("Duration ${fmtDurationOrPending(request.durationMs)}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontFamily = FontFamily.Monospace)
             }
             Row {
-                Text(fmtStatusOnly(request), color = Color(statusTextColor(request.status, request.error != null)), fontFamily = FontFamily.Monospace)
+                Text(fmtStatusOnly(request), color = Color(Theme.statusForeground(LocalContext.current, request.status, request.error != null)), fontFamily = FontFamily.Monospace)
                 Spacer(Modifier.width(8.dp))
-                Text(hostOf(request.url), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                if (!largeText) Text(hostOf(request.url), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                if (largeText) Spacer(Modifier.weight(1f))
                 Text(fmtSize(request.responseBodySize), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
             }
         }
+        if (selectionMode && selected) Icon(
+            painterResource(R.drawable.hakka_ic_check), null,
+            Modifier.padding(end = 8.dp).size(18.dp), tint = MaterialTheme.colorScheme.primary,
+        )
         if (!selectionMode) Icon(painterResource(R.drawable.hakka_ic_chevron_right), null, Modifier.padding(end = 8.dp).size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
     HorizontalDivider(Modifier.padding(horizontal = 16.dp))

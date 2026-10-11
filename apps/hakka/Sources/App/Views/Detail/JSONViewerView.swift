@@ -46,8 +46,13 @@ struct JSONViewerView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .frame(maxHeight: 460) // ui-token-check-ignore: pane cap
-                .background(Color.secondary.opacity(0.08))
-                .clipShape(RoundedRectangle(cornerRadius: 4))
+                .background(ThemeTokens.Palette.surfaceRaised)
+                .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+                .overlay {
+                    RoundedRectangle(cornerRadius: Radius.md)
+                        .strokeBorder(ThemeTokens.Palette.border)
+                        .allowsHitTesting(false)
+                }
             }
         } else {
             Text("This body did not parse as JSON.")
@@ -55,8 +60,8 @@ struct JSONViewerView: View {
                 .foregroundStyle(.secondary)
                 .padding(Spacing.md)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.secondary.opacity(0.08))
-                .clipShape(RoundedRectangle(cornerRadius: 4))
+                .background(ThemeTokens.Palette.surfaceRaised)
+                .clipShape(RoundedRectangle(cornerRadius: Radius.md))
         }
     }
 }

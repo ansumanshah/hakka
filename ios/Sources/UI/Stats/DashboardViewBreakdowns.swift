@@ -34,13 +34,13 @@ extension DashboardView {
 
                             Text(Fmt.formatDuration(entry.avgMs))
                                 .font(.caption.monospacedDigit())
-                                .foregroundStyle(entry.avgMs > 1000 ? Theme.warning : Theme.textTertiary)
+                                .foregroundStyle(entry.avgMs > 1000 ? Theme.warningText : Theme.textTertiary)
                                 .frame(width: 50, alignment: .trailing)
 
                             if entry.errorCount > 0 {
                                 Text("\(entry.errorCount) err")
                                     .font(.caption2.weight(.medium))
-                                    .foregroundStyle(Theme.error)
+                                    .foregroundStyle(Theme.errorText)
                             }
                         }
                         .padding(.vertical, Theme.s2)
@@ -124,7 +124,7 @@ extension DashboardView {
                                 Spacer()
                                 Text(Fmt.formatDuration(req.duration ?? 0))
                                     .font(.caption.monospacedDigit().weight(.medium))
-                                    .foregroundStyle(req.duration ?? 0 > 1000 ? Theme.warning : Theme.textSecondary)
+                                    .foregroundStyle(req.duration ?? 0 > 1000 ? Theme.warningText : Theme.textSecondary)
                                 Image(systemName: "chevron.right")
                                     .font(.caption2.weight(.semibold))
                                     .foregroundStyle(Theme.textTertiary)

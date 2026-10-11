@@ -149,7 +149,7 @@ export const BodySearch: Component<BodySearchProps> = (props) => {
           </button>
         </Show>
         <Show when={query() && total() === 0}>
-          <span style="font-size:var(--hakka-font-xs);color:var(--hakka-status-error);white-space:nowrap">
+          <span style="font-size:var(--hakka-font-xs);color:var(--hakka-status-text-error);white-space:nowrap">
             No matches
           </span>
         </Show>

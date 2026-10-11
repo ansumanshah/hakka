@@ -33,7 +33,9 @@ enum MCPHTTPRequestParser {
         guard let requestLine = lines.first else { throw ParseError.invalidRequest }
 
         let requestLineParts = requestLine.split(separator: " ", maxSplits: 2)
-        guard requestLineParts.count >= 2 else {
+        guard requestLineParts.count == 3,
+              requestLineParts[2] == "HTTP/1.1" || requestLineParts[2] == "HTTP/1.0",
+              requestLineParts[1].hasPrefix("/") else {
             throw ParseError.invalidRequest
         }
         let method = String(requestLineParts[0])

@@ -1,7 +1,6 @@
 import Foundation
-import Testing
-
 @testable import HakkaServer
+import Testing
 
 /// `MCPValue` is the currency type every other MCP test depends on — id
 /// round-tripping in particular matters because a JSON-RPC client matches
@@ -37,6 +36,13 @@ struct MCPValueTests {
     func subscriptOnNonObjectIsNil() {
         #expect(MCPValue.string("x")["key"] == nil)
         #expect(MCPValue.array([]).objectValue == nil)
+    }
+
+    @Test("integer access rejects fractions and out-of-range numbers without trapping", arguments: [
+        1.5, -1.5, 1e300, -1e300, Double.infinity, -Double.infinity, Double.nan,
+    ])
+    func invalidIntegerIsNil(value: Double) {
+        #expect(MCPValue.number(value).intValue == nil)
     }
 
     private struct Fixture: Encodable, Equatable {

@@ -46,6 +46,39 @@ object Theme {
     val error: Int = Color.parseColor(GeneratedTokens.statusError)
     val pending: Int = Color.parseColor(GeneratedTokens.statusPending)
 
+    // Foreground roles preserve the separate status and method fill palette.
+    internal fun successText(ctx: Context): Int =
+        Color.parseColor(if (isDark(ctx)) GeneratedTokens.statusSuccess else GeneratedTokens.statusLightSuccess)
+    internal fun infoText(ctx: Context): Int =
+        Color.parseColor(if (isDark(ctx)) GeneratedTokens.statusInfo else GeneratedTokens.statusLightInfo)
+    internal fun warningText(ctx: Context): Int =
+        Color.parseColor(if (isDark(ctx)) GeneratedTokens.statusWarning else GeneratedTokens.statusLightWarning)
+    internal fun errorText(ctx: Context): Int =
+        Color.parseColor(if (isDark(ctx)) GeneratedTokens.statusError else GeneratedTokens.statusLightError)
+    internal fun pendingText(ctx: Context): Int =
+        Color.parseColor(if (isDark(ctx)) GeneratedTokens.statusPending else GeneratedTokens.statusLightPending)
+
+    internal fun statusForeground(ctx: Context, code: Int?, hasError: Boolean = false): Int = when {
+        hasError -> errorText(ctx)
+        code == null -> pendingText(ctx)
+        code in 200..299 -> successText(ctx)
+        code in 300..399 -> warningText(ctx)
+        code >= 400 -> errorText(ctx)
+        else -> pendingText(ctx)
+    }
+
+    internal fun methodForeground(ctx: Context, method: String): Int {
+        val token = when (method) {
+            "GET" -> if (isDark(ctx)) GeneratedTokens.methodGet else GeneratedTokens.methodLightGet
+            "POST" -> if (isDark(ctx)) GeneratedTokens.methodPost else GeneratedTokens.methodLightPost
+            "PUT" -> if (isDark(ctx)) GeneratedTokens.methodPut else GeneratedTokens.methodLightPut
+            "PATCH" -> if (isDark(ctx)) GeneratedTokens.methodPatch else GeneratedTokens.methodLightPatch
+            "DELETE" -> if (isDark(ctx)) GeneratedTokens.methodDelete else GeneratedTokens.methodLightDelete
+            else -> if (isDark(ctx)) GeneratedTokens.methodOther else GeneratedTokens.methodLightOther
+        }
+        return Color.parseColor(token)
+    }
+
     // HTTP method badges
     val methodGet: Int = Color.parseColor(GeneratedTokens.methodGet)
     val methodPost: Int = Color.parseColor(GeneratedTokens.methodPost)
@@ -77,10 +110,12 @@ object Theme {
     // Steel (info) is reserved for the 3xx/info semantic — never for accent.
     fun accent(ctx: Context): Int =
         Color.parseColor(if (isDark(ctx)) GeneratedTokens.darkAccent else GeneratedTokens.lightAccent)
+    internal fun accentText(ctx: Context): Int =
+        Color.parseColor(if (isDark(ctx)) GeneratedTokens.darkAccentText else GeneratedTokens.lightAccentText)
     fun tabInactive(ctx: Context): Int = textSecondary(ctx)
 
-    // Badge text — always white on colored badges
-    val badgeText: Int = Color.WHITE
+    // Text on the existing bright status and accent fills.
+    val badgeText: Int = Color.parseColor(GeneratedTokens.statusOnWarm)
 
     // Search highlight — dim (non-focused matches)
     fun searchHighlight(ctx: Context): Int =

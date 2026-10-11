@@ -40,12 +40,20 @@ struct GitHeaderBar: View {
             Divider()
             Button("New Branch…") { showingNewBranch = true }
         } label: {
-            Label(git.currentBranch ?? "detached HEAD", systemImage: "arrow.triangle.branch")
+            Label(branchLabel, systemImage: "arrow.triangle.branch")
                 .font(.callout.weight(.medium))
+                .lineLimit(1)
+                .truncationMode(.middle)
         }
         .menuStyle(.borderlessButton)
-        .fixedSize()
-        .accessibilityLabel("Current branch: \(git.currentBranch ?? "detached HEAD")")
+        .help(branchLabel)
+        .accessibilityLabel("Current branch: \(branchLabel)")
+    }
+
+    private var branchLabel: String {
+        if let currentBranch = git.currentBranch { return currentBranch }
+        if git.status != nil { return "detached HEAD" }
+        return git.isRefreshing ? "Loading branch…" : "Branch unavailable"
     }
 
     private func remoteButton(systemImage: String, label: String, isRunning: Bool, start: @escaping () -> Void, cancel: @escaping () -> Void) -> some View {

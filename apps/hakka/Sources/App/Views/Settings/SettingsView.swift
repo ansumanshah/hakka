@@ -6,6 +6,9 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
+            Section {
+                WorkspaceHeaderView(title: "Settings", subtitle: "Appearance and local agent access")
+            }
             Section("Appearance") {
                 Picker("Theme", selection: $appearance) {
                     ForEach(AppAppearance.allCases) { appearance in
@@ -18,6 +21,6 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .padding(Spacing.lg)
-        .frame(width: 480)  // ui-token-check-ignore: window chrome
+        .frame(width: 540)  // ui-token-check-ignore: window chrome
     }
 }

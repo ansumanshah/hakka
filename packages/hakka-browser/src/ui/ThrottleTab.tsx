@@ -59,12 +59,10 @@ export const ThrottleTab: Component<PanelProps> = () => {
     ThrottleEngine.setProfile(profile)
   }
 
-  // var(--hakka-status-on) is the text-on-solid-status token (same idiom as
-  // .hakka-badge/.hakka-row-checkbox in styles.ts) — status-error isn't
-  // re-themed for light mode, so literal white stays correct in both themes.
+  // The warm on-solid foreground stays readable on the error fill in both themes.
   const offlineBadge =
     'display:inline-block;font-size:var(--hakka-font-xs);font-weight:700;' +
-    'color:var(--hakka-status-on);background:var(--hakka-status-error);border-radius:var(--hakka-radius-sm);padding:1px var(--hakka-space-sm)'
+    'color:var(--hakka-status-on-warm);background:var(--hakka-status-error);border-radius:var(--hakka-radius-sm);padding:1px var(--hakka-space-sm)'
 
   return (
     <div class="hakka-pane">

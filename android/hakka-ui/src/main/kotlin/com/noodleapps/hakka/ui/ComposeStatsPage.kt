@@ -31,6 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -124,8 +125,8 @@ internal fun ComposeStatsPage(activity: Activity) {
         item { PerformanceSection(metrics) }
         item { OverviewSection(requests) }
         item { BreakdownSection("Domains", domainRows(activity, requests)) }
-        item { BreakdownSection("Methods", methodRows(requests)) }
-        item { BreakdownSection("Status", statusRows(requests)) }
+        item { BreakdownSection("Methods", methodRows(activity, requests)) }
+        item { BreakdownSection("Status", statusRows(activity, requests)) }
         item { SlowestSection(activity, requests) }
         item { DurationSection(requests) }
         item { SizeSection(requests) }
@@ -138,17 +139,17 @@ private fun PerformanceSection(metrics: ComposePerformanceMetrics) {
     StatsSection("Performance") {
         StatsCards(listOf(
             StatsCard("FPS", metrics.fpsDisplay, MaterialTheme.colorScheme.onSurface),
-            StatsCard("Jank", metrics.jankDisplay, Color(Theme.warning)),
-            StatsCard("Frozen", metrics.frozenDisplay, Color(Theme.error)),
+            StatsCard("Jank", metrics.jankDisplay, Color(Theme.warningText(LocalContext.current))),
+            StatsCard("Frozen", metrics.frozenDisplay, Color(Theme.errorText(LocalContext.current))),
         ))
         StatsCards(listOf(
-            StatsCard("Memory", metrics.memoryDisplay, Color(Theme.info)),
+            StatsCard("Memory", metrics.memoryDisplay, Color(Theme.infoText(LocalContext.current))),
             StatsCard("CPU", metrics.cpuDisplay, MaterialTheme.colorScheme.onSurface),
-            StatsCard("Network", metrics.networkDisplay, Color(Theme.methodPut)),
+            StatsCard("Network", metrics.networkDisplay, Color(Theme.methodForeground(LocalContext.current, "PUT"))),
         ))
         StatsCards(listOf(
-            StatsCard("Received", metrics.receivedDisplay, Color(Theme.info)),
-            StatsCard("Sent", metrics.sentDisplay, Color(Theme.methodPost)),
+            StatsCard("Received", metrics.receivedDisplay, Color(Theme.infoText(LocalContext.current))),
+            StatsCard("Sent", metrics.sentDisplay, Color(Theme.methodForeground(LocalContext.current, "POST"))),
         ))
     }
 }
@@ -160,8 +161,8 @@ private fun OverviewSection(requests: List<NetworkRequest>) {
     StatsSection("Overview") {
         StatsCards(listOf(
             StatsCard("Total", requests.size.toString(), MaterialTheme.colorScheme.onSurface),
-            StatsCard("Success", successful.toString(), Color(Theme.success)),
-            StatsCard("Errors", failures.toString(), if (failures > 0) Color(Theme.error) else Color(Theme.pending)),
+            StatsCard("Success", successful.toString(), Color(Theme.successText(LocalContext.current))),
+            StatsCard("Errors", failures.toString(), if (failures > 0) Color(Theme.errorText(LocalContext.current)) else Color(Theme.pendingText(LocalContext.current))),
         ))
     }
 }
@@ -188,7 +189,7 @@ private fun SlowestSection(activity: Activity, requests: List<NetworkRequest>) {
     if (slowest.isNotEmpty()) StatsSection("Slowest") {
         slowest.forEach { request ->
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(request.method.name, color = Color(methodColor(request.method.name)), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                Text(request.method.name, color = Color(Theme.methodForeground(activity, request.method.name)), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.width(8.dp))
                 Text(pathText(request), modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(fmtDuration(request.durationMs!!), color = Color(durationColor(activity, request.durationMs)), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
@@ -202,9 +203,9 @@ private fun DurationSection(requests: List<NetworkRequest>) {
     val durations = requests.mapNotNull { it.durationMs }
     if (durations.isNotEmpty()) StatsSection("Duration") {
         StatsCards(listOf(
-            StatsCard("Avg", fmtDuration(durations.average().toLong()), Color(Theme.info)),
-            StatsCard("Min", fmtDuration(durations.min()), Color(Theme.success)),
-            StatsCard("Max", fmtDuration(durations.max()), Color(Theme.warning)),
+            StatsCard("Avg", fmtDuration(durations.average().toLong()), Color(Theme.infoText(LocalContext.current))),
+            StatsCard("Min", fmtDuration(durations.min()), Color(Theme.successText(LocalContext.current))),
+            StatsCard("Max", fmtDuration(durations.max()), Color(Theme.warningText(LocalContext.current))),
         ))
     }
 }
@@ -215,8 +216,8 @@ private fun SizeSection(requests: List<NetworkRequest>) {
     if (sizes.isNotEmpty()) StatsSection("Response Size") {
         val total = sizes.sum()
         StatsCards(listOf(
-            StatsCard("Total", fmtSize(total), Color(Theme.methodPut)),
-            StatsCard("Avg", fmtSize(total / sizes.size), Color(Theme.info)),
+            StatsCard("Total", fmtSize(total), Color(Theme.methodForeground(LocalContext.current, "PUT"))),
+            StatsCard("Avg", fmtSize(total / sizes.size), Color(Theme.infoText(LocalContext.current))),
         ))
     }
 }
@@ -260,14 +261,14 @@ private fun domainRows(activity: Activity, requests: List<NetworkRequest>): List
     .map { (host, grouped) ->
         val average = grouped.mapNotNull { it.durationMs }.average().takeIf { !it.isNaN() }?.toLong() ?: 0
         val errors = grouped.count { it.error != null || (it.status ?: 0) >= 400 }
-        BreakdownRow(host, grouped.size, if (errors > 0) "$errors err" else fmtDuration(average), if (errors > 0) Color(Theme.error) else Color(Theme.textSecondary(activity)))
+        BreakdownRow(host, grouped.size, if (errors > 0) "$errors err" else fmtDuration(average), if (errors > 0) Color(Theme.errorText(activity)) else Color(Theme.textSecondary(activity)))
     }
 
-private fun methodRows(requests: List<NetworkRequest>): List<BreakdownRow> = requests
+private fun methodRows(activity: Activity, requests: List<NetworkRequest>): List<BreakdownRow> = requests
     .groupingBy { it.method.name }.eachCount().entries.sortedByDescending { it.value }
-    .map { (method, count) -> BreakdownRow(method, count, "", Color(methodColor(method))) }
+    .map { (method, count) -> BreakdownRow(method, count, "", Color(Theme.methodForeground(activity, method))) }
 
-private fun statusRows(requests: List<NetworkRequest>): List<BreakdownRow> = requests
+private fun statusRows(activity: Activity, requests: List<NetworkRequest>): List<BreakdownRow> = requests
     .groupingBy { request ->
         when {
             request.error != null -> "Error"
@@ -277,11 +278,11 @@ private fun statusRows(requests: List<NetworkRequest>): List<BreakdownRow> = req
     }.eachCount().entries.sortedByDescending { it.value }
     .map { (status, count) ->
         val color = when (status) {
-            "2xx" -> Color(Theme.success)
-            "3xx" -> Color(Theme.info)
-            "4xx" -> Color(Theme.warning)
-            "5xx", "Error" -> Color(Theme.error)
-            else -> Color(Theme.pending)
+            "2xx" -> Color(Theme.successText(activity))
+            "3xx" -> Color(Theme.infoText(activity))
+            "4xx" -> Color(Theme.warningText(activity))
+            "5xx", "Error" -> Color(Theme.errorText(activity))
+            else -> Color(Theme.pendingText(activity))
         }
         BreakdownRow(status, count, "", color)
     }

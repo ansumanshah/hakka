@@ -15,7 +15,7 @@ struct TrafficColumnConfigStoreTests {
     @Test func defaultColumnsPrioritizeRequestOutcomeAtCompactWidths() {
         let store = TrafficColumnConfigStore(defaults: freshDefaults())
         #expect(store.columns.map(\.column) == TrafficColumnConfigStore.defaultOrder)
-        #expect(store.visibleColumnsInOrder == [.method, .path, .status, .duration])
+        #expect(store.visibleColumnsInOrder == [.method, .host, .path, .status, .duration])
     }
 
     @Test func reorderSurvivesSaveAndLoad() {
@@ -81,7 +81,7 @@ struct TrafficColumnConfigStoreTests {
 
         store.resetToDefault()
         #expect(store.columns.map(\.column) == TrafficColumnConfigStore.defaultOrder)
-        #expect(store.visibleColumnsInOrder == [.method, .path, .status, .duration])
+        #expect(store.visibleColumnsInOrder == [.method, .host, .path, .status, .duration])
         #expect(store.headerColumns.isEmpty)
     }
 

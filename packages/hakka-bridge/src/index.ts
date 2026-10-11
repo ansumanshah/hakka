@@ -17,6 +17,12 @@ export {
 export { BridgeHub, type BridgeHubOptions, type IngestResult, type RecordListener } from './BridgeHub'
 export {
   parseBridgeMessage,
+  isPerformanceRecord,
+  MAX_DIAGNOSTIC_FRAME_BYTES,
+  MAX_DIAGNOSTIC_RECORD_BYTES,
+  MAX_DIAGNOSTIC_BATCH,
+  type BridgePerformanceMessage,
+  type PerformanceRecord,
   type BridgeControlMessage,
   type BridgeMessage,
   type BridgeRequestMessage,

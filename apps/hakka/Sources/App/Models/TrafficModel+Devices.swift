@@ -58,7 +58,7 @@ extension TrafficModel {
     /// honest to filter by until one exists.
     func selectDevice(_ device: ConnectedDevice) {
         guard let label = device.label else { return }
-        let term = "device:\(label)"
+        let term = "device:\"\(label)\""
         searchText = searchText.trimmingCharacters(in: .whitespaces) == term ? "" : term
     }
 

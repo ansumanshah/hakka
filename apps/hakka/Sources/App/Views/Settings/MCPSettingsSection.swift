@@ -4,22 +4,30 @@ import SwiftUI
 /// Controls the opt-in loopback MCP server and explains access to captured data.
 struct MCPSettingsSection: View {
     @Environment(AppModel.self) private var model
-    @State private var isToggling = false
-    @State private var copiedURL = false
+    @State private var copiedItem: String?
+    @State private var copyTask: Task<Void, Never>?
 
     var body: some View {
         Section {
             Toggle("Enable MCP Server", isOn: toggleBinding)
-                .disabled(isToggling)
+                .disabled(model.mcp.isChangingState)
+            LabeledContent("Status") {
+                Text(status)
+                    .foregroundStyle(.secondary)
+            }
             if model.mcp.isRunning, let port = model.mcp.boundPort {
-                LabeledContent("Port") {
-                    Text(String(port))
-                        .monospaced()
-                        .foregroundStyle(.secondary)
-                }
-                LabeledContent("URL") {
+                LabeledContent("Endpoint") {
                     urlRow(port: port)
                 }
+                Button {
+                    copy(Self.configuration(port: port), item: "configuration")
+                } label: {
+                    Label(copiedItem == "configuration" ? "Configuration copied" : "Copy MCP configuration",
+                          systemImage: copiedItem == "configuration" ? "checkmark" : "doc.on.doc")
+                }
+                Text("Add this configuration to your AI tool’s MCP settings, then connect while Hakka is open.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             if let startupError = model.mcp.startupError {
                 Text(startupError)
@@ -33,6 +41,17 @@ struct MCPSettingsSection: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
+        .onDisappear { copyTask?.cancel() }
+    }
+
+    private var status: String {
+        if model.mcp.isStarting {
+            return "Starting…"
+        }
+        if model.mcp.isStopping {
+            return "Stopping…"
+        }
+        return model.mcp.isRunning ? "Ready · local access" : "Off"
     }
 
     private func urlRow(port: UInt16) -> some View {
@@ -42,45 +61,53 @@ struct MCPSettingsSection: View {
                 .foregroundStyle(.secondary)
                 .textSelection(.enabled)
             Button {
-                copy(Self.url(port: port))
+                copy(Self.url(port: port), item: "endpoint")
             } label: {
-                Image(systemName: copiedURL ? "checkmark" : "doc.on.doc")
+                Image(systemName: copiedItem == "endpoint" ? "checkmark" : "doc.on.doc")
+                    .frame(minWidth: ControlHeight.chip, minHeight: ControlHeight.chip)
             }
             .buttonStyle(.plain)
-            .help("Copy URL")
+            .help("Copy endpoint URL")
+            .accessibilityLabel(copiedItem == "endpoint" ? "Endpoint copied" : "Copy endpoint URL")
         }
     }
 
-    /// A `Binding` rather than a plain `Toggle(_:isOn:)` over a stored
-    /// `Bool`: the toggle has no state of its own, it reflects and drives
-    /// `model.mcp.isRunning` directly, so a failed `start()` (which leaves
-    /// `isRunning` false) snaps the switch back off on its own instead of
-    /// the UI lying about a server that never actually came up.
     private var toggleBinding: Binding<Bool> {
         Binding(
             get: { model.mcp.isRunning },
             set: { shouldRun in
-                isToggling = true
                 Task {
                     if shouldRun {
                         await model.mcp.start()
                     } else {
                         await model.mcp.stop()
                     }
-                    isToggling = false
                 }
-            },
+            }
         )
     }
 
-    private func copy(_ text: String) {
+    private func copy(_ text: String, item: String) {
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
-        copiedURL = true
-        Task {
-            try? await Task.sleep(for: .seconds(1.5))
-            copiedURL = false
+        guard NSPasteboard.general.setString(text, forType: .string) else { return }
+        copyTask?.cancel()
+        copiedItem = item
+        copyTask = Task {
+            do { try await Task.sleep(for: .seconds(1.5)) } catch { return }
+            copiedItem = nil
         }
+    }
+
+    static func configuration(port: UInt16) -> String {
+        """
+        {
+          "mcpServers": {
+            "hakka-desktop": {
+              "url": "\(url(port: port))"
+            }
+          }
+        }
+        """
     }
 
     private static func url(port: UInt16) -> String {

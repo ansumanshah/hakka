@@ -51,23 +51,39 @@ struct RequestMethodURLBar: View {
             Button {
                 Task { await model.sendActiveRequest() }
             } label: {
-                if model.editor.isSending {
+                if model.editor.isSending || isConnecting {
                     ProgressView()
-                        .controlSize(.regular)
-                        .frame(minWidth: 44)
+                        .controlSize(.small)
+                        .frame(minWidth: 44, minHeight: ControlHeight.icon)
                 } else {
-                    Label("Send", systemImage: "arrow.up").frame(minWidth: 44)
+                    CaptureActionLabel(actionTitle, systemImage: isWebSocket ? (model.webSocket.state.isOpen ? "stop.fill" : "link") : "arrow.up", isProminent: !isDisconnecting)
                 }
             }
             .keyboardShortcut(.return, modifiers: .command)
             .controlSize(.regular)
-            .buttonStyle(.borderedProminent)
-            .disabled(model.editor.isSending || spec.url.isEmpty)
-            .accessibilityLabel(model.editor.isSending ? "Sending request" : "Send request")
-            .help("Send request (⌘↩)")
+            .captureGlassButtonStyle(prominent: !isDisconnecting)
+            .disabled(model.editor.isSending || isConnecting || spec.url.isEmpty)
+            .accessibilityLabel(model.editor.isSending ? "Sending request" : "\(actionTitle)\(isWebSocket ? " WebSocket" : " request")")
+            .help("\(actionTitle)\(isWebSocket ? " WebSocket" : " request") (⌘↩)")
         }
         .frame(minHeight: ControlHeight.bar + Spacing.md)
         .padding(.horizontal, Layout.gutter)
+    }
+
+    private var isWebSocket: Bool {
+        WebSocketURL.isWebSocketURL(spec.url) && spec.session == nil
+    }
+
+    private var isConnecting: Bool {
+        isWebSocket && model.webSocket.state == .connecting
+    }
+
+    private var isDisconnecting: Bool {
+        isWebSocket && model.webSocket.state.isOpen
+    }
+
+    private var actionTitle: String {
+        isWebSocket ? (isConnecting ? "Connecting" : (isDisconnecting ? "Disconnect" : "Connect")) : "Send"
     }
 
     /// Routes a paste into the URL field: a curl command imports through

@@ -16,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -92,10 +93,10 @@ internal fun HakkaDetailCompose(activity: Activity, request: NetworkRequest, onC
 }
 
 @Composable private fun DetailTitle(request: NetworkRequest) = Row(verticalAlignment = Alignment.CenterVertically) {
-    Text(request.method.name, color = Color(methodColor(request.method.name)), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+    Text(request.method.name, color = Color(Theme.methodForeground(LocalContext.current, request.method.name)), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
     Spacer(Modifier.width(8.dp))
     Text(pathText(request), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-    request.status?.let { Text("$it", color = Color(barColor(it)), fontWeight = FontWeight.Bold) }
+    request.status?.let { Text("$it", color = Color(Theme.statusForeground(LocalContext.current, it)), fontWeight = FontWeight.Bold) }
 }
 
 @Composable private fun OverviewPage(request: NetworkRequest) = Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -108,7 +109,7 @@ internal fun HakkaDetailCompose(activity: Activity, request: NetworkRequest, onC
     if (request.protocol != null || request.tlsVersion != null || request.cipherSuite != null) DetailSection("Connection") {
         DetailRows(listOf("Protocol" to (request.protocol ?: "—"), "Encryption" to (request.tlsVersion ?: "—"), "Cipher" to (request.cipherSuite ?: "—")))
     }
-    request.error?.let { DetailSection("Error") { Text(it, color = Color(Theme.error)) } }
+    request.error?.let { DetailSection("Error") { Text(it, color = Color(Theme.errorText(LocalContext.current))) } }
     if (request.redirectUrls.isNotEmpty()) DetailSection("Redirect chain") { request.redirectUrls.forEach { Text(it, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall) } }
     HeadersSection("Request headers", request.requestHeaders)
     HeadersSection("Response headers", request.responseHeaders)
@@ -204,7 +205,7 @@ internal fun HakkaDetailCompose(activity: Activity, request: NetworkRequest, onC
     DetailSection("Operation") { DetailRows(listOf("Type" to (meta.operationType ?: "Unknown"), "Name" to (meta.operationName ?: "Anonymous"))) }
     meta.query?.takeIf { it.isNotBlank() }?.let { DetailSection("Query") { BodyText(it, null) } }
     DetailSection("Variables") { meta.variables?.let { BodyText(it, "application/json") } ?: Text("None", color = MaterialTheme.colorScheme.onSurfaceVariant) }
-    meta.errors?.let { DetailSection("Errors") { Text(it, color = Color(Theme.error), fontFamily = FontFamily.Monospace) } }
+    meta.errors?.let { DetailSection("Errors") { Text(it, color = Color(Theme.errorText(LocalContext.current)), fontFamily = FontFamily.Monospace) } }
 }
 
 @Composable private fun FramesPage(activity: Activity, request: NetworkRequest) = Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -11,46 +11,31 @@ protocol MCPServerControlling: Sendable {
 
 extension MCPServer: MCPServerControlling {}
 
-/// Owns the native MCP server's on/off lifecycle for the Settings toggle
-/// (`MCPSettingsSection`). Off by default and never started automatically —
-/// `HakkaApp.swift`'s startup `.task` starts `traffic`/`rules`/`logs`/
-/// `storage` unconditionally because live capture is this app's whole
-/// point, but the MCP server opens a local port that gives an AI agent read
-/// access to captured traffic and every open collection, so it only ever
-/// starts from an explicit toggle a person flips.
-///
-/// The traffic side of `MCPTrafficSource` needs no adapter of its own —
-/// `TrafficStore` already conforms via the extension in `HakkaServer`'s
-/// `MCPTrafficSource.swift`, so `init(trafficStore:collectionModel:port:)`
-/// passes it straight through. The collection side genuinely needs one:
-/// `CollectionModel` is `@MainActor` UI state with a single `directoryURL?`,
-/// not the multi-directory shape `MCPCollectionDirectoryProvider` expects —
-/// see `MCPCollectionDirectoryAdapter`.
+/// Owns the opt-in MCP listener and reports its current connection state to Settings.
 @MainActor
 @Observable
 final class MCPServerModel {
     private(set) var isRunning = false
+    private(set) var isStarting = false
+    private(set) var isStopping = false
+    var isChangingState: Bool {
+        isStarting || isStopping
+    }
+
+    private var lifecycleID = UUID()
     private(set) var boundPort: UInt16?
-    /// Set on a failed `start()`, cleared on the next successful one. Never
-    /// silently swallowed — a bind failure (another process already holding
-    /// the port, a sandbox denial) has to surface here rather than leaving
-    /// the Settings toggle looking stuck mid-flip with no explanation.
+    /// The most recent startup failure, cleared when a retry begins.
     private(set) var startupError: String?
 
     private let server: MCPServerControlling
 
-    /// Real construction: builds the collection adapter from live app state
-    /// and hands both sources to a real `MCPServer`. Defaults to
-    /// `mcpDefaultPort` rather than an ephemeral `0` — unlike the test
-    /// suite's own throwaway servers, the Settings pane wants a fixed,
-    /// memorable port so a URL an agent saved once keeps working the next
-    /// time the toggle is flipped on.
+    /// Uses a stable loopback port so saved agent configurations keep working.
     convenience init(trafficStore: TrafficStore, collectionModel: CollectionModel, port: UInt16 = mcpDefaultPort, additionalTools: [any MCPTool] = []) {
         self.init(server: MCPServer(
             trafficSource: trafficStore,
             collectionDirectoryProvider: MCPCollectionDirectoryAdapter(collectionModel: collectionModel),
             port: port,
-            additionalTools: additionalTools,
+            additionalTools: additionalTools
         ))
     }
 
@@ -60,12 +45,24 @@ final class MCPServerModel {
     }
 
     func start() async {
-        guard !isRunning else { return }
+        guard !isRunning, !isChangingState else { return }
+        let id = UUID()
+        lifecycleID = id
+        isStarting = true
+        startupError = nil
+        defer {
+            if lifecycleID == id {
+                isStarting = false
+            }
+        }
         do {
-            boundPort = try await server.start()
+            let port = try await server.start()
+            guard lifecycleID == id else { return }
+            boundPort = port
             isRunning = true
             startupError = nil
         } catch {
+            guard lifecycleID == id else { return }
             isRunning = false
             boundPort = nil
             startupError = "MCP server failed to start: \(error.localizedDescription)"
@@ -73,6 +70,11 @@ final class MCPServerModel {
     }
 
     func stop() async {
+        guard !isStopping else { return }
+        lifecycleID = UUID()
+        isStarting = false
+        isStopping = true
+        defer { isStopping = false }
         await server.stop()
         isRunning = false
         boundPort = nil

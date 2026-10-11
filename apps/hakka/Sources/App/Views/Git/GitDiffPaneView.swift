@@ -9,6 +9,7 @@ struct GitDiffPaneView: View {
         Group {
             if let selection {
                 DiffContent(git: git, selection: selection)
+                    .id("\(selection.fromStagedSection ? "staged" : "unstaged"):\(selection.entry.path)")
             } else {
                 EmptyStateView(systemImage: "doc.text.magnifyingglass", title: "Select a file", message: "Pick a changed file to see its diff.")
             }
@@ -21,16 +22,18 @@ private struct DiffContent: View {
     let selection: GitDiffSelection
     private var entry: GitStatusEntry { selection.entry }
     @State private var diffText: String?
-    @State private var isLoading = false
+    @State private var isLoading = true
 
     var body: some View {
         ScrollView([.vertical, .horizontal]) {
             Text(diffText ?? "")
                 .font(.caption.monospaced())
                 .textSelection(.enabled)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: true, vertical: true)
                 .padding(Spacing.lg)
         }
+        .defaultScrollAnchor(.topLeading)
         .overlay {
             if isLoading {
                 ProgressView()
@@ -44,6 +47,7 @@ private struct DiffContent: View {
             }
         }
         .task(id: selection) {
+            diffText = nil
             isLoading = true
             let text = await git.diff(for: selection)
             guard !Task.isCancelled else { return }

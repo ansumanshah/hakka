@@ -19,22 +19,8 @@ public enum MCPHandleResult: Sendable, Equatable {
     case noResponse
 }
 
-/// Dispatches one JSON-RPC 2.0 request to `initialize`, `tools/list`, or
-/// `tools/call` and builds the response — the whole MCP surface this server
-/// exposes. An actor so `MCPHTTPServer` can hand it concurrent connections
-/// without any handler-side locking; it holds no mutable state of its own
-/// beyond `registry`, which is itself an actor.
-///
-/// This is a stateless request/response transport: unlike MCP's
-/// "Streamable HTTP" transport (session IDs, an SSE stream, a required
-/// `initialize` handshake before anything else is accepted), every POST
-/// here is handled independently with no session tracked between requests.
-/// A GUI app has no natural place to keep a long-lived per-client session
-/// (there is no persistent connection the way stdio or a WebSocket gives
-/// you one), and a coding agent driving this tool set only ever needs
-/// request/response semantics — so `tools/list`/`tools/call` work whether
-/// or not the caller sent `initialize` first, which a stricter session-aware
-/// server would reject.
+/// Dispatches independent JSON-RPC requests to the tool registry.
+/// This stateless HTTP endpoint does not require a prior initialize request.
 public actor MCPRequestHandler {
     private let registry: MCPToolRegistry
     private let serverName: String
@@ -108,6 +94,11 @@ public actor MCPRequestHandler {
             )
         }
         let arguments = params["arguments"] ?? .object([:])
+        guard arguments.objectValue != nil else {
+            return .response(
+                MCPResponseBuilder.failure(id: id, code: MCPErrorCode.invalidParams, message: "`arguments` must be an object")
+            )
+        }
         let result = await tool.call(arguments)
         return .response(MCPResponseBuilder.success(id: id, result: result.asMCPValue))
     }

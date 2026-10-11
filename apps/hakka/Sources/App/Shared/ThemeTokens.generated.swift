@@ -20,8 +20,9 @@ enum ThemeTokens {
         static let border = adaptive(light: NSColor(srgbRed: 0.8863, green: 0.8667, blue: 0.8235, alpha: 1), dark: NSColor(srgbRed: 0.2078, green: 0.1882, blue: 0.1647, alpha: 1))
         static let text = adaptive(light: NSColor(srgbRed: 0.1294, green: 0.1255, blue: 0.1098, alpha: 1), dark: NSColor(srgbRed: 0.9294, green: 0.9176, blue: 0.8941, alpha: 1))
         static let textSecondary = adaptive(light: NSColor(srgbRed: 0.3412, green: 0.3255, blue: 0.2902, alpha: 1), dark: NSColor(srgbRed: 0.6588, green: 0.6353, blue: 0.5882, alpha: 1))
-        static let textTertiary = adaptive(light: NSColor(srgbRed: 0.5451, green: 0.5216, blue: 0.4784, alpha: 1), dark: NSColor(srgbRed: 0.4314, green: 0.4118, blue: 0.3725, alpha: 1))
+        static let textTertiary = adaptive(light: NSColor(srgbRed: 0.4510, green: 0.4235, blue: 0.3765, alpha: 1), dark: NSColor(srgbRed: 0.5529, green: 0.5294, blue: 0.4706, alpha: 1))
         static let accent = adaptive(light: NSColor(srgbRed: 0.8784, green: 0.4627, blue: 0.1020, alpha: 1), dark: NSColor(srgbRed: 0.9333, green: 0.5137, blue: 0.1255, alpha: 1))
+        static let accentText = adaptive(light: NSColor(srgbRed: 0.6314, green: 0.3098, blue: 0.0000, alpha: 1), dark: NSColor(srgbRed: 0.9333, green: 0.5137, blue: 0.1255, alpha: 1))
     }
 
     /// Semantic status text colors resolve against the active macOS appearance.
@@ -35,7 +36,7 @@ enum ThemeTokens {
         static let success = adaptive(light: NSColor(srgbRed: 0.0902, green: 0.4510, blue: 0.3098, alpha: 1), dark: NSColor(srgbRed: 0.2275, green: 0.6627, blue: 0.5059, alpha: 1))
         static let info = adaptive(light: NSColor(srgbRed: 0.1961, green: 0.3804, blue: 0.5608, alpha: 1), dark: NSColor(srgbRed: 0.4275, green: 0.6078, blue: 0.7882, alpha: 1))
         static let warning = adaptive(light: NSColor(srgbRed: 0.5020, green: 0.3765, blue: 0.0000, alpha: 1), dark: NSColor(srgbRed: 0.8510, green: 0.6471, blue: 0.0784, alpha: 1))
-        static let error = adaptive(light: NSColor(srgbRed: 0.6863, green: 0.1882, blue: 0.1647, alpha: 1), dark: NSColor(srgbRed: 0.8863, green: 0.3333, blue: 0.2902, alpha: 1))
+        static let error = adaptive(light: NSColor(srgbRed: 0.6863, green: 0.1882, blue: 0.1647, alpha: 1), dark: NSColor(srgbRed: 0.9020, green: 0.3569, blue: 0.3137, alpha: 1))
         static let pending = adaptive(light: NSColor(srgbRed: 0.3843, green: 0.3686, blue: 0.3294, alpha: 1), dark: NSColor(srgbRed: 0.5529, green: 0.5294, blue: 0.4706, alpha: 1))
         static let on = Color(nsColor: NSColor(srgbRed: 1.0000, green: 1.0000, blue: 1.0000, alpha: 1))
         static let onWarm = Color(nsColor: NSColor(srgbRed: 0.0902, green: 0.0745, blue: 0.0627, alpha: 1))
@@ -53,7 +54,7 @@ enum ThemeTokens {
         static let post = adaptive(light: NSColor(srgbRed: 0.6314, green: 0.3098, blue: 0.0000, alpha: 1), dark: NSColor(srgbRed: 0.9333, green: 0.5137, blue: 0.1255, alpha: 1))
         static let put = adaptive(light: NSColor(srgbRed: 0.1961, green: 0.3804, blue: 0.5608, alpha: 1), dark: NSColor(srgbRed: 0.4275, green: 0.6078, blue: 0.7882, alpha: 1))
         static let patch = adaptive(light: NSColor(srgbRed: 0.4588, green: 0.2510, blue: 0.5569, alpha: 1), dark: NSColor(srgbRed: 0.6588, green: 0.4980, blue: 0.7686, alpha: 1))
-        static let delete = adaptive(light: NSColor(srgbRed: 0.6863, green: 0.1882, blue: 0.1647, alpha: 1), dark: NSColor(srgbRed: 0.8863, green: 0.3333, blue: 0.2902, alpha: 1))
+        static let delete = adaptive(light: NSColor(srgbRed: 0.6863, green: 0.1882, blue: 0.1647, alpha: 1), dark: NSColor(srgbRed: 0.9020, green: 0.3569, blue: 0.3137, alpha: 1))
         static let other = adaptive(light: NSColor(srgbRed: 0.3843, green: 0.3686, blue: 0.3294, alpha: 1), dark: NSColor(srgbRed: 0.5529, green: 0.5294, blue: 0.4706, alpha: 1))
     }
 

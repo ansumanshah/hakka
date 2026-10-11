@@ -133,7 +133,7 @@ extension DashboardView {
         return HStack(spacing: Theme.s8) {
             Text(label)
                 .font(.caption.monospaced().weight(.medium))
-                .foregroundStyle(color)
+                .foregroundStyle(Theme.foreground(for: color))
                 .frame(width: 32, alignment: .leading)
 
             GeometryReader { geo in

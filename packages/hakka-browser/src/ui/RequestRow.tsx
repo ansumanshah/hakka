@@ -130,8 +130,12 @@ export const RequestRow: Component<RequestRowProps> = (props) => {
       </Show>
       <span class={`hakka-method-badge ${methodClass(props.req.method)}`}>{props.req.method.toUpperCase()}</span>
       <div class="hakka-row-url">
-        <div class="hakka-row-path">{pathDisplay()}</div>
-        <div class="hakka-row-host">{host()}</div>
+        <div class="hakka-row-path" title={props.req.url}>
+          {pathDisplay()}
+        </div>
+        <div class="hakka-row-host" title={host()}>
+          {host()}
+        </div>
       </div>
       <div class="hakka-row-meta">
         {/* One wrapper for 0-5 optional badges (runtime/cache/graphql/mock/live) —

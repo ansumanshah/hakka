@@ -13,10 +13,10 @@ struct TrafficStatusBar: View {
             value(Fmt.bytes(stats.totalBytes), label: "received")
             Spacer(minLength: 0)
         }
-        .font(.caption2.monospacedDigit())
+        .font(.caption.monospacedDigit())
         .foregroundStyle(.secondary)
         .padding(.horizontal, Layout.gutter)
-        .frame(height: ControlHeight.chip)
+        .frame(minHeight: ControlHeight.md)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Traffic summary: \(visibleCount) visible of \(stats.count), \(stats.errorCount) errors, \(Fmt.bytes(stats.totalBytes)) received")
     }

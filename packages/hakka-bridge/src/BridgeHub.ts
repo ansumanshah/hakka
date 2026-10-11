@@ -1,6 +1,6 @@
 import type { FrameworkSpan, LogEntry, NetworkRequest, StorageSnapshot } from 'hakka-core'
 
-import { parseBridgeMessage, type BridgeMessage } from './protocol'
+import { parseBridgeMessage, type BridgeMessage, type PerformanceRecord } from './protocol'
 
 export interface BridgeHubOptions {
   /** Max records retained in the buffer; oldest are dropped. Default 1000. */
@@ -20,6 +20,7 @@ export type IngestResult =
   | { kind: 'request'; request: NetworkRequest }
   | { kind: 'span'; span: FrameworkSpan }
   | { kind: 'console'; entries: LogEntry[] }
+  | { kind: 'performance'; entries: PerformanceRecord[] }
   | { kind: 'storage'; snapshot: StorageSnapshot }
   | { kind: 'control' }
   | null
@@ -104,6 +105,9 @@ export class BridgeHub {
     if (message.type === 'console') {
       return { kind: 'console', entries: message.payload }
     }
+
+    // Metrics are a live relay; the receiving diagnostics store owns retention.
+    if (message.type === 'performance') return { kind: 'performance', entries: message.payload }
 
     if (message.type === 'storage') {
       this.bufferStorage(message.payload)

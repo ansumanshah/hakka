@@ -35,39 +35,36 @@ struct ProjectOverviewView: View {
 
     private var commandBar: some View {
         HStack(spacing: Spacing.sm) {
-            VStack(alignment: .leading, spacing: Spacing.xxs) {
-                Text("Requests")
-                    .font(.headline)
-                Text(requestCountText)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+            WorkspaceHeaderView(title: "Requests", subtitle: requestCountText)
 
             Spacer()
 
             Button {
                 Task { await model.openCollectionDirectory() }
             } label: {
-                Label(model.collection.directoryURL == nil ? "Open" : "Open Another", systemImage: "folder")
+                CaptureActionLabel(model.collection.directoryURL == nil ? "Open" : "Open Another", systemImage: "folder")
             }
             .controlSize(.regular)
+            .captureGlassButtonStyle()
 
             Button {
                 model.select(.proxy)
             } label: {
-                Label("Capture", systemImage: "record.circle")
+                CaptureActionLabel("Capture", systemImage: "record.circle")
             }
             .controlSize(.regular)
+            .captureGlassButtonStyle()
 
             Button {
                 model.newRequest()
             } label: {
-                Label("New Request", systemImage: "plus")
+                CaptureActionLabel("New Request", systemImage: "plus", isProminent: true)
             }
-            .buttonStyle(.borderedProminent)
+            .captureGlassButtonStyle(prominent: true)
             .controlSize(.regular)
         }
         .padding(.horizontal, Layout.gutter)
+        .padding(.vertical, Spacing.lg)
         .frame(minHeight: ControlHeight.bar)
     }
 
@@ -83,22 +80,24 @@ struct ProjectOverviewView: View {
             TableColumn("Name") { row in
                 Text(row.request.name)
                     .lineLimit(1)
+                    .help(row.request.name)
             }
             .width(min: 140, ideal: 220)
 
             TableColumn("URL") { row in
                 Text(row.request.url.isEmpty ? "No URL" : row.request.url)
                     .font(.caption.monospaced())
-                    .foregroundStyle(row.request.url.isEmpty ? .tertiary : .secondary)
+                    .foregroundStyle(row.request.url.isEmpty ? ThemeTokens.Palette.textTertiary : ThemeTokens.Palette.textSecondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
+                    .help(row.request.url)
             }
             .width(min: 220, ideal: 420)
 
             TableColumn("Folder") { row in
                 Text(row.folderPath ?? "—")
                     .font(.caption)
-                    .foregroundStyle(row.folderPath == nil ? .tertiary : .secondary)
+                    .foregroundStyle(row.folderPath == nil ? ThemeTokens.Palette.textTertiary : ThemeTokens.Palette.textSecondary)
                     .lineLimit(1)
             }
             .width(min: 100, ideal: 160)

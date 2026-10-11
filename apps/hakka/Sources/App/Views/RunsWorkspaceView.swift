@@ -6,6 +6,7 @@ struct RunsWorkspaceView: View {
     var body: some View {
         VStack(spacing: 0) {
             WorkspaceHeaderView(title: "Runs", subtitle: "Results from your latest folder run.")
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(Layout.gutter)
             Divider()
             if model.folderRun.isRunning {
@@ -16,6 +17,14 @@ struct RunsWorkspaceView: View {
                     FolderRunSummaryView(summary: summary)
                         .padding(Layout.gutter)
                 }
+            } else if model.folderRun.lastRunWasEmpty {
+                EmptyStateView(
+                    systemImage: "tray",
+                    title: "No requests in this folder",
+                    message: "Add requests to the folder, then run it again to see response times and test results.",
+                    actionTitle: "Go to Requests",
+                    action: { model.select(.requests) }
+                )
             } else {
                 EmptyStateView(
                     systemImage: "checklist",

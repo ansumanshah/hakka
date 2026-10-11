@@ -1,8 +1,9 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { assembleTraceTree, summarizeTraceGroup } from 'hakka-core'
+import { assembleTraceTree, scrubRequestsForShare, summarizeTraceGroup } from 'hakka-core'
 import { z } from 'zod'
 
 import type { RequestStore } from '../RequestStore.js'
+import { scrubSpansForShare } from '../scrubSpansForShare.js'
 import type { SpanStore } from '../SpanStore.js'
 import { textResult } from './toolResult.js'
 
@@ -16,8 +17,10 @@ export function registerGetTraceTool(server: McpServer, store: RequestStore, spa
         'Get the full trace (request hops + framework spans) for one logical operation: a browser fetch, the ' +
         "server work it triggered, and that work's upstream calls, correlated by `correlationId`/`traceId`. " +
         'Pass either `requestId` (any hop in the trace) or `correlationId` directly. Returns the same waterfall ' +
-        'bars + badge summary the UI renders. Read-only: no bridge traffic.',
+        'bars + badge summary the UI renders. Share-time scrubbing is applied before deriving the trace; ' +
+        'pass unredacted: true to opt out. Read-only: no bridge traffic.',
       inputSchema: {
+        unredacted: z.boolean().optional().default(false).describe('Skip share-time scrubbing. Default false.'),
         requestId: z
           .string()
           .optional()
@@ -31,7 +34,7 @@ export function registerGetTraceTool(server: McpServer, store: RequestStore, spa
       },
     },
     (args) => {
-      const { requestId, correlationId, verbose = false } = args
+      const { requestId, correlationId, verbose = false, unredacted = false } = args
 
       if (!requestId && !correlationId) {
         return textResult({ error: 'invalid_args', message: 'One of requestId or correlationId is required' }, true)
@@ -55,10 +58,18 @@ export function registerGetTraceTool(server: McpServer, store: RequestStore, spa
         return textResult({ error: 'not_found', groupId }, true)
       }
 
-      const trace = assembleTraceTree(requests, spans, { verbose })
-      const traceSummary = summarizeTraceGroup(requests, spans)
+      const requestResult = unredacted ? { requests, removed: [] } : scrubRequestsForShare(requests)
+      const spanResult = unredacted ? { spans, removed: [] } : scrubSpansForShare(spans)
+      const trace = assembleTraceTree(requestResult.requests, spanResult.spans, { verbose })
+      const traceSummary = summarizeTraceGroup(requestResult.requests, spanResult.spans)
 
-      return textResult({ groupId, requests, trace, traceSummary })
+      return textResult({
+        groupId,
+        requests: requestResult.requests,
+        trace,
+        traceSummary,
+        redaction: { applied: !unredacted, removed: [...requestResult.removed, ...spanResult.removed] },
+      })
     },
   )
 }

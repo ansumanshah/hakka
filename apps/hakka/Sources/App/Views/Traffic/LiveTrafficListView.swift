@@ -16,6 +16,7 @@ struct LiveTrafficListView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            TrafficCaptureStrip()
             LiveTrafficHeader(
                 savedViewStore: savedViewStore,
                 query: searchBinding,
@@ -30,7 +31,7 @@ struct LiveTrafficListView: View {
                     EmptyStateView(
                         systemImage: "antenna.radiowaves.left.and.right",
                         title: "Waiting for traffic",
-                        message: "Requests captured from a connected Hakka SDK appear here as they arrive."
+                        message: "Requests from configured proxy clients and connected Hakka SDKs appear here as they arrive."
                     )
                     .transition(.opacity)
                 } else {
@@ -157,25 +158,14 @@ struct LiveTrafficListView: View {
     }
 
     private var noMatchesView: some View {
-        VStack(spacing: Spacing.lg) {
-            Image(systemName: "line.3.horizontal.decrease.circle")
-                .font(.largeTitle)
-                .foregroundStyle(.secondary)
-            Text("No matching requests")
-                .font(.headline)
-            Text("\(model.traffic.requests.count) captured requests are hidden by the current filters.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-            Button("Reset Filters") {
-                model.traffic.searchText = ""
-                model.traffic.errorsOnly = false
-                model.traffic.noiseScope.clear()
+        EmptyStateView(
+            systemImage: "line.3.horizontal.decrease.circle",
+            title: "No matching requests",
+            message: "\(model.traffic.requests.count) captured requests are hidden by the current filters.",
+            actionTitle: "Reset Filters",
+            action: {
+                model.traffic.resetWorkspaceFilters()
             }
-            .buttonStyle(.bordered)
-        }
-        .padding(Layout.gutter)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .chromeMaterial(.panel)
+        )
     }
 }

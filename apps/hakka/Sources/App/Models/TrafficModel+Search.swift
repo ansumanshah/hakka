@@ -12,10 +12,10 @@ extension TrafficModel {
     /// filtering (and its hidden-row tallies) on top of this set.
     var searchMatchedRequests: [NetworkRequest] {
         let trimmed = searchText.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { return requests.reversed() }
+        guard !trimmed.isEmpty else { return requests.filter(workspaceMatches).reversed() }
 
         let compiled = compiledQuery(for: trimmed)
-        var matched = requests.filter(compiled.match)
+        var matched = requests.filter { workspaceMatches($0) && compiled.match($0) }
         // `device:` has no reach into `TrafficQueryCompiler` — the compiler
         // works over a bare `NetworkRequest`, which carries no device
         // identity (see `DeviceLabelIndex`), so the model applies this term
