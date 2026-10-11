@@ -91,7 +91,7 @@ export async function main(): Promise<void> {
 
   const server = new McpServer({
     name: 'hakka',
-    version: '0.1.1',
+    version: '0.2.0',
   })
 
   const listener = createBridgeListener(store, bridgeUrl, spanStore, diagnosticStore)

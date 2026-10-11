@@ -14,9 +14,9 @@ must also add the native SDK dependencies to `android/app/build.gradle`:
 
 ```groovy
 dependencies {
-    debugImplementation("com.noodleapps.hakka:hakka-network:0.1.1")
-    releaseImplementation("com.noodleapps.hakka:hakka-network-noop:0.1.1")
-    debugImplementation("com.noodleapps.hakka:hakka-ui:0.1.1")
+    debugImplementation("com.noodleapps.hakka:hakka-network:0.2.0")
+    releaseImplementation("com.noodleapps.hakka:hakka-network-noop:0.2.0")
+    debugImplementation("com.noodleapps.hakka:hakka-ui:0.2.0")
 }
 ```
 

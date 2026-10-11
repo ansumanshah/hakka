@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to release (e.g., 0.1.1). Must match apps/hakka/version.env MARKETING_VERSION.'
+        description: 'Version to release (e.g., 0.2.0). Must match apps/hakka/version.env MARKETING_VERSION.'
         required: true
 
 permissions:

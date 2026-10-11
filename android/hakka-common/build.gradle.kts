@@ -9,7 +9,7 @@ repositories {
 }
 
 group = "com.noodleapps.hakka"
-version = "0.1.1"
+version = "0.2.0"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
@@ -37,7 +37,7 @@ mavenPublishing {
     if (providers.gradleProperty("signingInMemoryKey").isPresent) {
         signAllPublications()
     }
-    coordinates("com.noodleapps.hakka", "hakka-common", "0.1.1")
+    coordinates("com.noodleapps.hakka", "hakka-common", "0.2.0")
     pom {
         name.set("Hakka Common")
         description.set("Shared Hakka record contracts, config, storage, and export helpers")

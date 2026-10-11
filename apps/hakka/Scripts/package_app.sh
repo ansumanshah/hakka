@@ -22,7 +22,7 @@ APP_IDENTITY=${APP_IDENTITY:-}
 if [[ -f "$ROOT/version.env" ]]; then
   source "$ROOT/version.env"
 else
-  MARKETING_VERSION=${MARKETING_VERSION:-0.1.1}
+  MARKETING_VERSION=${MARKETING_VERSION:-0.2.0}
   BUILD_NUMBER=${BUILD_NUMBER:-2}
 fi
 
