@@ -35,6 +35,9 @@ jobs:
       # BreakpointEngine tests park real threads and starve libdispatch when
       # they run alongside the other suites on a shared runner.
       - run: swift test --no-parallel
+      - name: Build the repository-root manifest that SwiftPM consumers resolve
+        working-directory: .
+        run: swift build
       - name: Validate podspec
         run: pod ipc spec Hakka.podspec >/dev/null
       - name: Create release tag at the selected commit
