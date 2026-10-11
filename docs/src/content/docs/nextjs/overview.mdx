@@ -213,7 +213,7 @@ See [Bridge overview](/bridge/overview/) for how the hub works.
 
 ## Dev-only
 
-`register` is a no-op in production (`NODE_ENV === 'production'`) unless you override `runtime` explicitly. The client side (`hakka-node/next/client`) also self-skips in production and on the server — it runs only in a browser in dev.
+`register` is a no-op in production (`NODE_ENV === 'production'`) unless you override `runtime` explicitly. The client side (`hakka-node/next/client`) runs only in a browser in dev: in a production build your bundler resolves its `production` export condition to a no-op module, so no overlay chunk is emitted at all. In the example app that drops `.next/static` from 1236 KB to 640 KB. The `force` option therefore only applies to builds that do not resolve that condition.
 
 ## Options
 
@@ -248,20 +248,15 @@ export const register = () =>
 
 ### Edge runtime
 
-For routes running on the edge runtime, pass `runtime: 'edge'`. `captureHttp` is automatically disabled (no Node `http` module on edge):
+The default `register` export handles the Edge runtime on its own: `NEXT_RUNTIME === 'edge'` starts `fetch`-only capture. The Edge sandbox cannot host the bridge (no `ws`, no `node:crypto`), so in development `register` relays each Edge record to a small Node route that forwards it to the hub. Add that route once:
 
-```ts title="instrumentation.ts"
-import { register as base } from 'hakka-node/next'
+```ts title="app/api/%5F%5Fhakka/edge-relay/route.ts"
+import { createEdgeRelayHandler } from 'hakka-node/next/server'
 
-export const register = async () => {
-  if (process.env.NEXT_RUNTIME === 'edge') {
-    const { startServerCapture } = await import('hakka-node/next/server')
-    startServerCapture({ runtime: 'edge', captureHttp: false, embedBridge: false })
-  }
-}
+export const POST = createEdgeRelayHandler()
 ```
 
-The default `register` export handles this automatically — `NEXT_RUNTIME === 'edge'` triggers `fetch`-only capture with no embedded hub.
+The folder is `%5F%5Fhakka` because Next treats `_`-prefixed folders as private. The route answers 404 in production. `register` adds the relay path to `ignorePatterns` so the relay request is never captured itself, and the first Edge capture logs a warning if the route is missing. If you set `bridgeUrl` in `register`, pass the same value to `createEdgeRelayHandler({ bridgeUrl })`. To send Edge records somewhere else, pass your own `sink` to `register`.
 
 ## Runtime filter
 
