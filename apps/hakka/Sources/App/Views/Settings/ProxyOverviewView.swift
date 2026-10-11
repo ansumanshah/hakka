@@ -9,7 +9,7 @@ struct ProxyOverviewView: View {
     var body: some View {
         Section("Capture") {
             LabeledContent("Status", value: proxy.state == .stopped ? "Stopped" : proxy.message)
-            LabeledContent("Desktop bridge", value: bridgeRunning ? "Ready" : "Offline")
+            LabeledContent("Desktop bridge", value: bridgeRunning ? "Listening; confirm delivery in Live Traffic" : "Offline")
             LabeledContent("Listen address", value: "127.0.0.1:\(proxy.port)")
                 .textSelection(.enabled)
             LabeledContent("Captured requests", value: String(proxy.capturedCount))
@@ -18,6 +18,8 @@ struct ProxyOverviewView: View {
             LabeledContent("Local network", value: proxy.allowLAN ? "Allowed" : "This Mac only")
             LabeledContent("Automatic Mac routing", value: proxy.routeThisMac ? "Enabled for capture" : "Off")
             LabeledContent("HTTPS certificate", value: proxy.certificatePath == nil ? "Not available yet" : "Available for device setup")
+            LabeledContent("Device certificate trust", value: "Not measured")
+            LabeledContent("Device HTTPS capture", value: "Verify a new decrypted request in Live Traffic")
             if proxy.isSystemProxyRoutingRecoveryPending {
                 Label("Previous proxy settings need recovery. Open Connections to restore them.", systemImage: "exclamationmark.triangle")
                     .foregroundStyle(ThemeTokens.Status.warning)

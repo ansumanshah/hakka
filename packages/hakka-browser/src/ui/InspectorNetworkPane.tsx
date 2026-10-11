@@ -9,6 +9,7 @@ import { Show } from 'solid-js'
 import { Detail } from './Detail'
 import { FilterBar } from './FilterBar'
 import { RequestList } from './RequestList'
+import { resetRequestFilters } from './resetRequestFilters'
 import type {
   FilterState,
   FilterViewModel,
@@ -68,13 +69,18 @@ export const InspectorNetworkPane: Component<InspectorNetworkPaneProps> = (props
         {/* Scope hint — the header HAR/OTel/Postman buttons export exactly this visible subset */}
         <Show when={props.isFiltered() && !props.selectionSnap().selectMode}>
           <div class="hakka-filter-bar hakka-filter-sub">
-            <span style="font-size:var(--hakka-font-xs);color:var(--hakka-text-tertiary);white-space:nowrap">
+            <span class="hakka-filter-scope">
               Showing {props.filteredRequests().length} of {props.requestCount()} — exports apply to the visible list
             </span>
           </div>
         </Show>
         <RequestList
           requests={props.filteredRequests()}
+          hasCapturedRequests={props.requestCount() > 0}
+          onResetFilters={() => {
+            resetRequestFilters(props.filters)
+            props.onRequestKindFilterChange('all')
+          }}
           groups={props.requestGroups()}
           traceView={props.filterSnap().groupBy === 'trace'}
           selected={props.selected()}

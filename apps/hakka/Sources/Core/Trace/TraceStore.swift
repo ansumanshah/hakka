@@ -1,3 +1,4 @@
+import Foundation
 import HakkaCommon
 
 /// One trace's accumulated requests + spans, keyed by trace id
@@ -55,6 +56,7 @@ public actor TraceStore {
 
     private var order: [String] = [] // trace ids, oldest-touched first
     private var traces: [String: Trace] = [:]
+    private var requestSubscribers: [String: [UUID: AsyncStream<Trace?>.Continuation]] = [:]
     private let capacity: Int
 
     public init(capacity: Int = TraceStore.defaultCapacity) {
@@ -88,9 +90,43 @@ public actor TraceStore {
         traces.values.first { trace in trace.requests.contains { $0.id == requestID } }
     }
 
+    /// Observes the current trace for one request, including evidence arriving
+    /// after that request. Slow consumers retain only the latest snapshot.
+    public func subscribeTrace(forRequestID requestID: String) -> AsyncStream<Trace?> {
+        let subscriberID = UUID()
+        let (stream, continuation) = AsyncStream<Trace?>.makeStream(bufferingPolicy: .bufferingNewest(1))
+        requestSubscribers[requestID, default: [:]][subscriberID] = continuation
+        continuation.onTermination = { [weak self] _ in
+            Task { await self?.removeSubscriber(subscriberID, forRequestID: requestID) }
+        }
+        continuation.yield(trace(forRequestID: requestID))
+        return stream
+    }
+
     public func clear() {
         order.removeAll()
         traces.removeAll()
+        for subscribers in requestSubscribers.values {
+            for continuation in subscribers.values {
+                continuation.yield(nil)
+            }
+        }
+    }
+
+    private func removeSubscriber(_ id: UUID, forRequestID requestID: String) {
+        requestSubscribers[requestID]?.removeValue(forKey: id)
+        if requestSubscribers[requestID]?.isEmpty == true {
+            requestSubscribers.removeValue(forKey: requestID)
+        }
+    }
+
+    private func publish(_ trace: Trace, isEvicted: Bool = false) {
+        for request in trace.requests {
+            guard let subscribers = requestSubscribers[request.id] else { continue }
+            for continuation in subscribers.values {
+                continuation.yield(isEvicted ? nil : trace)
+            }
+        }
     }
 
     /// Moves `id` to most-recently-touched and evicts the oldest trace when
@@ -102,9 +138,12 @@ public actor TraceStore {
             order.remove(at: existingIndex)
         }
         order.append(id)
+        publish(trace)
         while order.count > capacity {
             let evicted = order.removeFirst()
-            traces.removeValue(forKey: evicted)
+            if let trace = traces.removeValue(forKey: evicted) {
+                publish(trace, isEvicted: true)
+            }
         }
     }
 }

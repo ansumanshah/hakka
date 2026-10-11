@@ -26,7 +26,7 @@ extension DashboardView {
         VStack(alignment: .leading, spacing: Theme.s6) {
             Text(value)
                 .font(.title3.monospacedDigit().weight(.bold))
-                .foregroundStyle(color)
+                .foregroundStyle(Theme.foreground(for: color))
             Text(title)
                 .font(.caption)
                 .foregroundStyle(Theme.textTertiary)
@@ -39,7 +39,7 @@ extension DashboardView {
         VStack(spacing: Theme.s4) {
             Text(value)
                 .font(.title3.monospacedDigit().weight(.bold))
-                .foregroundStyle(color)
+                .foregroundStyle(Theme.foreground(for: color))
                 .lineLimit(1)
                 .minimumScaleFactor(0.72)
             Text(title)

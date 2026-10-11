@@ -115,6 +115,7 @@ public final class HakkaBridgeClient: @unchecked Sendable {
     public func stop() {
         lock.lock()
         isStopped = true
+        pendingFrames.removeAll()
         lock.unlock()
         queue.async { [weak self] in self?.closeConnection() }
     }
@@ -137,6 +138,21 @@ public final class HakkaBridgeClient: @unchecked Sendable {
     public func sendConsole(_ entries: [LogEntry]) {
         guard !entries.isEmpty, let frame = encodeFrame(entries, type: "console") else { return }
         queue.async { [weak self] in self?.deliver(frame) }
+    }
+
+    /// Forward up to 100 canonical performance records through this connection.
+    /// Unsupported record types are omitted; invalid metric batches are discarded.
+    /// This opt-in operation does not start or stop performance collectors.
+    public func sendPerformance(_ records: [any ContractRecord]) {
+        guard let frame = encodePerformanceBridgeFrame(records) else { return }
+        queue.async { [weak self] in self?.deliver(frame) }
+    }
+
+    /// Attach explicitly with `performance.addSink(client.performanceSink())`.
+    /// Retain the returned subscription while forwarding is desired. The sink
+    /// weakly references this client and has no collector lifecycle ownership.
+    public func performanceSink() -> RecordSink {
+        { [weak self] record in self?.sendPerformance([record]) }
     }
 
     /// Encode a named storage snapshot as a `{"type":"storage",...}` frame
@@ -226,6 +242,7 @@ public final class HakkaBridgeClient: @unchecked Sendable {
 
     private func deliver(_ frame: String) {
         lock.lock()
+        guard !isStopped else { lock.unlock(); return }
         let currentTask = task
         lock.unlock()
         guard let currentTask,
@@ -265,6 +282,7 @@ public final class HakkaBridgeClient: @unchecked Sendable {
 
     private func enqueue(_ frame: String) {
         lock.lock()
+        guard !isStopped else { lock.unlock(); return }
         if pendingFrames.count >= Self.maxQueueSize {
             pendingFrames.removeFirst()
         }

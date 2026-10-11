@@ -17,6 +17,8 @@ struct HakkaApp: App {
                     // (see its own doc comment), so the hand-off happens here.
                     appDelegate.pauseInbox = model.pauseInbox
                     appDelegate.proxy = model.proxy
+                    appDelegate.simulatorSetup = model.simulatorSetup
+                    appDelegate.deviceSetup = model.deviceSetup
                     appDelegate.editor = model.editor
                     await model.proxy.recoverSystemProxyRouting()
                     // All five loops run for the scene's lifetime: the rules,

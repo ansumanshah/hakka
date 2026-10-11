@@ -1,0 +1,52 @@
+{
+  "type": "performance",
+  "payload": [
+    {
+      "id": "frame-1",
+      "schemaVersion": 1,
+      "timestamp": 1732000000000,
+      "kind": "metric.frame",
+      "durationMs": 18.5,
+      "refreshRateHz": 60,
+      "slow": true,
+      "frozen": false,
+      "tags": {},
+      "sessionId": "fixture-session"
+    },
+    {
+      "id": "memory-1",
+      "schemaVersion": 1,
+      "timestamp": 1732000000010,
+      "kind": "metric.memory",
+      "pssBytes": 2048,
+      "heapUsedBytes": 1024,
+      "heapMaxBytes": 4096,
+      "tags": {}
+    },
+    {
+      "id": "cpu-1",
+      "schemaVersion": 1,
+      "timestamp": 1732000000020,
+      "kind": "metric.cpu",
+      "processCpuPercent": 175.5,
+      "tags": {}
+    },
+    {
+      "id": "network-1",
+      "schemaVersion": 1,
+      "timestamp": 1732000000030,
+      "kind": "metric.network_usage",
+      "rxBytes": 4096,
+      "txBytes": 1024,
+      "tags": {}
+    },
+    {
+      "id": "js-1",
+      "schemaVersion": 1,
+      "timestamp": 1732000000040,
+      "kind": "metric.js_thread",
+      "eventLoopDelayMs": 3.5,
+      "tags": {}
+    }
+  ]
+}

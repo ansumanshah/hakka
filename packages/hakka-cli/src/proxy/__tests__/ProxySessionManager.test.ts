@@ -46,6 +46,37 @@ describe('ProxySessionManager', () => {
     await expect(manager.stop('test')).resolves.toMatchObject({ state: 'stopped' })
   })
 
+  test('reports export failures from shutdown and retains failed status', async () => {
+    const manager = new ProxySessionManager()
+    const executable = sidecar()
+    await manager.start({
+      sessionId: 'export-failure',
+      port: await port(),
+      mitmdumpPath: executable,
+      harOutput: join(executable, '..', 'missing', 'capture.har'),
+    })
+    await expect(manager.stop('export-failure')).rejects.toThrow()
+    expect(manager.status('export-failure')).toMatchObject({ state: 'failed', error: expect.any(String) })
+    await expect(manager.close()).rejects.toThrow()
+    await expect(manager.start({ sessionId: 'export-failure', mitmdumpPath: executable })).rejects.toThrow(
+      'already running',
+    )
+  })
+
+  test('cancels startup without waiting for a readiness timeout', async () => {
+    const manager = new ProxySessionManager()
+    const starting = manager.start({
+      sessionId: 'cancel',
+      port: await port(),
+      mitmdumpPath: sidecar(10_000),
+      startupTimeoutMs: 1_500,
+    })
+    const startedStoppingAt = Date.now()
+    await expect(manager.stop('cancel')).resolves.toMatchObject({ state: 'stopped' })
+    await expect(starting).resolves.toMatchObject({ state: 'stopped' })
+    expect(Date.now() - startedStoppingAt).toBeLessThan(1_000)
+  }, 4_000)
+
   test('requires explicit restart before changing mappings on a running session', async () => {
     const manager = new ProxySessionManager()
     await manager.start({ sessionId: 'maps', port: await port(), mitmdumpPath: sidecar() })

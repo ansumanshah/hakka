@@ -1,0 +1,27 @@
+{
+  "type": "performance",
+  "payload": [
+    {
+      "id": "memory-missing",
+      "schemaVersion": 1,
+      "timestamp": 1732000000050,
+      "kind": "metric.memory",
+      "tags": {},
+      "sessionId": "fixture-session"
+    },
+    {
+      "id": "cpu-missing",
+      "schemaVersion": 1,
+      "timestamp": 1732000000060,
+      "kind": "metric.cpu",
+      "tags": {}
+    },
+    {
+      "id": "network-missing",
+      "schemaVersion": 1,
+      "timestamp": 1732000000070,
+      "kind": "metric.network_usage",
+      "tags": {}
+    }
+  ]
+}

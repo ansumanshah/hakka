@@ -1,14 +1,11 @@
 import Foundation
 import HakkaCore
 
-/// No CLI equivalent exists — `hakka mcp` only ever sees live traffic over
-/// the bridge, never a collection on disk. This is the surface the task
-/// exists for: an agent can now see the API client side (saved requests,
-/// folders) that only this desktop app owns.
+/// Summarizes the collections currently open in the desktop app.
 public struct MCPListCollectionsTool: MCPTool {
     public let name = "list_collections"
     public let description =
-        "List the API-client collections currently open in Hakka for macOS — each one's saved-request tree, " +
+        "List the API-client collections currently open in Hakka for macOS — each one's saved-request and folder counts, " +
         "not live traffic. Empty when no collection directory is open yet."
     public let inputSchema: MCPValue = .object(["type": .string("object"), "properties": .object([:])])
 

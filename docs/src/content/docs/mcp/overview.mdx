@@ -21,6 +21,8 @@ import { Steps, Aside, CardGrid, LinkCard } from '@astrojs/starlight/components'
 your app ⇄ bridge hub ⇄ hakka mcp ⇄ Claude Code (or any MCP client)
 ```
 
+The [macOS app also offers a local HTTP MCP server](/desktop/overview/#desktop-mcp-access). Its default endpoint is `http://127.0.0.1:8990`; it is separate from the WebSocket capture bridge on port 8989 and the CLI stdio server.
+
 It is pull-based: agents call tools on demand. There are no push notifications when new traffic arrives.
 
 ## The loop
@@ -111,14 +113,14 @@ so agents can consume fields without parsing presentation text.
 
 ### See
 
-| Tool              | What it does                                                                                                                                                                    |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `list_requests`   | Paginated, newest-first list (`limit` 1–500, `offset`). Scrubbed for share by default — `unredacted: true` opts out.                                                            |
-| `get_request`     | A single request by `id`, with full headers, body, and timing. Scrubbed for share by default — `unredacted: true` opts out.                                                     |
-| `search_requests` | Filter by `method`, `status` (minimum code), `urlContains`, `runtime`, `errorOnly`, plus the advanced `query` DSL. Scrubbed for share by default — `unredacted: true` opts out. |
-| `stats`           | Aggregate counts: totals, error rate, status-code and method breakdown, slowest.                                                                                                |
-| `clear`           | Empty the in-memory store. Does not disconnect the bridge or stop capture.                                                                                                      |
-| `get_trace`       | Full request+span trace for one correlated operation (`requestId` or `correlationId`), assembled from both stores.                                                              |
+| Tool              | What it does                                                                                                                                                                                                           |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `list_requests`   | Paginated, newest-first list (`limit` 1–500, `offset`). Scrubbed for share by default — `unredacted: true` opts out.                                                                                                   |
+| `get_request`     | A single request by `id`, with full headers, body, and timing. Scrubbed for share by default — `unredacted: true` opts out.                                                                                            |
+| `search_requests` | Filter by `method`, `status` (minimum code), `urlContains`, `runtime`, `errorOnly`, plus the advanced `query` DSL. Scrubbed for share by default — `unredacted: true` opts out.                                        |
+| `stats`           | Aggregate totals, error rate, durations, per-host summaries, and slowest request. The slowest request is scrubbed for share by default — `unredacted: true` opts out.                                                  |
+| `clear`           | Empty the in-memory store. Does not disconnect the bridge or stop capture.                                                                                                                                             |
+| `get_trace`       | Full request+span trace for one correlated operation (`requestId` or `correlationId`), assembled from both stores. Requests and span names/attributes are scrubbed for share by default — `unredacted: true` opts out. |
 
 Use `list_requests` with `{ "summary": true, "limit": 50 }` to select requests without loading headers or bodies into agent context. Each summary includes `id`, scrubbed `url`, `method`, and available `status`, `duration`, and `runtime` fields. Pagination and redaction metadata stay the same. Omit `summary` or set it to `false` for full records, then use `get_request` with an `id` for individual details. `unredacted: true` also applies to summary URLs.
 
@@ -127,6 +129,24 @@ For incremental reads, call `list_requests` with `{ "cursor": "", "summary": tru
 Evicting any request or clearing the store expires prior cursors with `cursor_expired`. Restart with `cursor: ""` and replace the local view; never interpret expiry as an empty, complete page. Cursors also expire when the MCP store restarts. Malformed cursors return `invalid_cursor`. A cursor cannot be combined with a nonzero `offset`; omitting it keeps existing newest-first offset pagination and full-record output unchanged.
 
 ### Diagnose
+
+`list_logs` and `list_performance` read the bounded diagnostics received by this
+MCP server over its existing bridge connection. Both accept `{ "limit": 25 }`
+(1–50), return newest arrivals first, and report `retained`, page `omitted`, store
+`evicted`, and rejected-input `invalid` counts. An invalid frame counts once;
+invalid entries in an otherwise accepted batch count individually. Each stream
+retains at most 500 entries; ingress accepts at most 100 entries per frame,
+256 KiB per frame and 8 KiB per input entry.
+
+Logs are untrusted captured text, truncated to 512 characters after best-effort
+pattern scrubbing. Metadata, categories, tags, sessions and private source fields
+are omitted; returned IDs are opaque hashes. Performance uses the existing v1
+`metric.frame`, `metric.memory`, `metric.cpu`, `metric.network_usage` and
+`metric.js_thread` records. Missing optional measurements stay absent; process
+CPU can exceed 100% on multiple cores. These are upstream store observations:
+source identity is unverified, and target correlation, producer dropped samples
+and sample interval are unavailable. Empty output does not establish that capture
+is running or that no measurements were lost. These tools do not start capture.
 
 | Tool           | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -164,12 +184,12 @@ Evicting any request or clearing the store expires prior cursors with `cursor_ex
 </Aside>
 
 <Aside type="caution" title="Share scrubbing">
-  `list_requests`, `get_request`, `search_requests`, `export_evidence`, and `generate_repro` all pattern-match and strip
-  likely secrets (bearer tokens, JWTs, API keys in query strings, cookies, Basic-auth URLs, common credential field
-  names, email addresses) before returning — every one of these tools hands bodies straight into your agent's context.
-  Every result carries a `redaction` field saying what ran and what it found; pass `unredacted: true` to see a request
-  exactly as captured. This is pattern matching, not a secret scanner — see [Share Scrubbing](/spec/share-scrubbing/)
-  for exactly what it does and does not catch.
+  `list_requests`, `get_request`, `search_requests`, `get_trace`, `stats`, `export_evidence`, and `generate_repro` all
+  pattern-match and strip likely secrets (bearer tokens, JWTs, API keys in query strings, cookies, Basic-auth URLs,
+  common credential field names, email addresses) before returning — every one of these tools hands bodies straight into
+  your agent's context. These results carry a `redaction` field saying what ran and what it found; pass `unredacted:
+  true` to see a request exactly as captured. This is pattern matching, not a secret scanner — see [Share
+  Scrubbing](/spec/share-scrubbing/) for exactly what it does and does not catch.
 </Aside>
 
 ## Runtime targets and control results
@@ -204,20 +224,20 @@ Read on demand. Re-read it for fresh traffic; there is no streaming update.
 `hakka mcp` keeps two independent in-memory ring buffers, both scoped to the MCP process (cleared on restart):
 
 - **RequestStore** — captured `NetworkRequest`s, capacity set by `HAKKA_MCP_MAX_REQUESTS` (default 500). Requests arrive incomplete and get updated in place by `id` as they complete, so it's indexed for that.
-- **SpanStore** — captured framework/OTel spans, fixed capacity of 500. A span is emitted once, complete, and never updated, so it's a simpler append-only buffer rather than a reuse of RequestStore's id-keyed update logic.
+- **SpanStore** — captured framework/OTel spans, capacity also set by `HAKKA_MCP_MAX_REQUESTS` (default 500). A span is emitted once, complete, and never updated, so it's a simpler append-only buffer rather than a reuse of RequestStore's id-keyed update logic.
 
 `get_trace` and `export_evidence` read from both stores to assemble a correlated request+span trace.
 
 ## CLI flags and environment
 
-| Flag / variable          | Default               | Description                                |
-| ------------------------ | --------------------- | ------------------------------------------ |
-| `--url <ws-url>`         | `ws://localhost:8989` | Bridge hub WebSocket URL to use            |
-| `--port <port>`          | —                     | Shorthand for `ws://localhost:<port>`      |
-| `--no-serve`             | —                     | Never host a hub; only connect as a client |
-| `HAKKA_BRIDGE_URL`       | `ws://localhost:8989` | Bridge hub WebSocket URL                   |
-| `HAKKA_MCP_SERVE`        | `1`                   | Set `0` to disable in-process hub hosting  |
-| `HAKKA_MCP_MAX_REQUESTS` | `500`                 | In-memory store capacity (ring buffer)     |
+| Flag / variable          | Default               | Description                                                     |
+| ------------------------ | --------------------- | --------------------------------------------------------------- |
+| `--url <ws-url>`         | `ws://localhost:8989` | Bridge hub WebSocket URL to use                                 |
+| `--port <port>`          | —                     | Shorthand for `ws://localhost:<port>`                           |
+| `--no-serve`             | —                     | Never host a hub; only connect as a client                      |
+| `HAKKA_BRIDGE_URL`       | `ws://localhost:8989` | Bridge hub WebSocket URL                                        |
+| `HAKKA_MCP_SERVE`        | `1`                   | Set `0` to disable in-process hub hosting                       |
+| `HAKKA_MCP_MAX_REQUESTS` | `500`                 | Ring buffer capacity: integer 1–100,000; invalid values use 500 |
 
 CLI flags take precedence over environment variables. Remote (non-local) bridge URLs are never hosted; `hakka mcp` connects to them as a client.
 
@@ -227,7 +247,7 @@ Sensitive headers (auth tokens, cookies, and similar) are stripped by Hakka at c
 
 ## Local-first
 
-`hakka mcp` runs entirely on your machine. No traffic leaves localhost. No account or cloud service is involved.
+`hakka mcp` runs on your machine and has no default cloud upload. Captures travel to the configured bridge URL, which is local by default; remote bridge URLs are supported. Your MCP client or agent provider handles returned data according to its own configuration. Hakka requires no cloud account.
 
 ## Next steps
 

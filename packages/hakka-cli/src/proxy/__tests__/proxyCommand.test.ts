@@ -1,4 +1,8 @@
 import { describe, expect, it } from 'bun:test'
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import { parseProxyArgs } from '../../proxyCommand'
 
@@ -55,5 +59,64 @@ describe('advanced proxy command configuration', () => {
     expect(() => parseProxyArgs(['--network-profile', 'slow-3g', '--latency-ms', '1'])).toThrow(
       'does not accept custom',
     )
+  })
+})
+
+describe('proxy command live status', () => {
+  it('flushes the latest burst count while capture remains idle and active', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'hakka-proxy-status-'))
+    const executable = join(directory, 'mitmdump')
+    const command = join(directory, 'command.ts')
+    let child: ReturnType<typeof Bun.spawn> | undefined
+    try {
+      writeFileSync(
+        executable,
+        `#!/usr/bin/env bun
+console.log('{"type":"ready"}')
+setTimeout(() => {
+  for (let index = 0; index < 3; index++) {
+    console.log(JSON.stringify({
+      type: 'flow', id: 'burst-' + index, method: 'GET',
+      url: 'http://example.test/' + index, startedAt: 1, endedAt: 2,
+      requestHeaders: [], status: 200,
+    }))
+  }
+}, 100)
+setInterval(() => {}, 1000)
+`,
+      )
+      chmodSync(executable, 0o755)
+      const source = fileURLToPath(new URL('../../proxyCommand.ts', import.meta.url))
+      writeFileSync(
+        command,
+        `import { runProxyCommand } from ${JSON.stringify(source)}
+await runProxyCommand(${JSON.stringify(['--mitmdump', executable, '--duration-ms', '700', '--json'])})
+`,
+      )
+      child = Bun.spawn([process.execPath, command], { stdout: 'pipe', stderr: 'pipe' })
+      const [output, diagnostics, code] = await Promise.all([
+        new Response(child.stdout).text(),
+        new Response(child.stderr).text(),
+        child.exited,
+      ])
+      expect(diagnostics).toBe('')
+      expect(code).toBe(0)
+      const events = output
+        .trim()
+        .split('\n')
+        .map((line) => JSON.parse(line) as { status: string; records?: number })
+      const lastLiveUpdate = events.findIndex((event) => event.status === 'status' && event.records === 3)
+      const stopped = events.findIndex((event) => event.status === 'stopped')
+      expect(lastLiveUpdate).toBeGreaterThan(events.findIndex((event) => event.status === 'started'))
+      expect(lastLiveUpdate).toBeLessThan(stopped)
+      expect(events[stopped]).toMatchObject({ records: 3 })
+      expect(events.slice(stopped + 1)).toEqual([])
+    } finally {
+      if (child) {
+        child.kill()
+        await child.exited
+      }
+      rmSync(directory, { recursive: true, force: true })
+    }
   })
 })

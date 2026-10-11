@@ -11,6 +11,7 @@ struct WorkspaceSidebarHeader: View {
                 Text(model.collection.collection.name)
                     .font(.headline)
                     .lineLimit(1)
+                    .help(model.collection.collection.name)
                 Text(model.collection.directoryURL?.lastPathComponent ?? "Local workspace")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -38,11 +39,6 @@ struct WorkspaceSidebarHeader: View {
             .accessibilityLabel("Project options")
         }
         .padding(.vertical, Spacing.sm)
-        .contextMenu {
-            Button(model.collection.directoryURL == nil ? "Open Collection…" : "Open Another Collection…") {
-                Task { await model.openCollectionDirectory() }
-            }
-        }
         .accessibilityElement(children: .contain)
     }
 }

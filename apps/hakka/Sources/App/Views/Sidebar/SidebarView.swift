@@ -17,6 +17,7 @@ struct SidebarView: View {
             SidebarProjectSection()
             SidebarDiagnosticsSection()
             SidebarDevicesSection()
+            SidebarTrafficScopes()
         }
         .listStyle(.sidebar)
         .symbolRenderingMode(.monochrome)
@@ -81,7 +82,7 @@ private struct SidebarCaptureSection: View {
                 .tag(SidebarSelection.rules)
             Label("Runs", systemImage: "checklist")
                 .tag(SidebarSelection.runs)
-            Label("Proxy", systemImage: "network")
+            Label("Proxy Capture", systemImage: "network")
                 .tag(SidebarSelection.proxy)
         }
     }
@@ -121,11 +122,11 @@ private struct SidebarDevicesSection: View {
         let scopedSearch = model.traffic.searchText.trimmingCharacters(in: .whitespaces)
 
         if !summaries.isEmpty {
-            Section("Devices") {
+            Section("Bridge Peers") {
                 ForEach(summaries) { summary in
                     DeviceRowView(
                         summary: summary,
-                        isScoped: summary.device.label.map { scopedSearch == "device:\($0)" } ?? false
+                        isScoped: summary.device.label.map { scopedSearch == "device:\"\($0)\"" } ?? false
                     ) {
                         model.traffic.selectDevice(summary.device)
                         model.select(.traffic)

@@ -16,10 +16,15 @@ struct DeviceRowView: View {
                 connectionDot
                 Text(summary.device.displayName)
                     .lineLimit(1)
+                if isScoped {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(ThemeTokens.Palette.accentText)
+                        .accessibilityHidden(true)
+                }
                 Spacer()
                 if summary.errorCount > 0 {
                     Text("\(summary.errorCount)")
-                        .font(.caption2.weight(.semibold))
+                        .font(.caption.weight(.semibold))
                         .foregroundStyle(ThemeTokens.Status.error)
                 }
                 Text("\(summary.requestCount)")
@@ -30,8 +35,9 @@ struct DeviceRowView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .foregroundStyle(isScoped ? Color.accentColor : .primary)
+        .foregroundStyle(isScoped ? ThemeTokens.Palette.accentText : ThemeTokens.Palette.text)
         .accessibilityLabel(accessibilityLabel)
+        .accessibilityAddTraits(isScoped ? .isSelected : [])
         .help(summary.device.label == nil ? "Connected to the bridge; no captured traffic received from this peer yet." : accessibilityLabel)
     }
 

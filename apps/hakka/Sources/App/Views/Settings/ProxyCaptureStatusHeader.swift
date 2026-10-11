@@ -33,22 +33,33 @@ struct ProxyCaptureStatusHeader: View {
             Spacer(minLength: Spacing.sm)
 
             if proxy.isActive {
-                Button("View Traffic", action: showConnection)
-                    .controlSize(.regular)
-                Button("Stop", systemImage: "stop.fill") {
-                    Task { _ = await proxy.stop() }
+                Button(action: showConnection) {
+                    CaptureActionLabel("View Traffic")
                 }
+                .captureGlassButtonStyle()
+                .controlSize(.regular)
+                Button {
+                    Task { _ = await proxy.stop() }
+                } label: {
+                    CaptureActionLabel("Stop", systemImage: "stop.fill")
+                }
+                .captureGlassButtonStyle()
                 .controlSize(.regular)
                 .disabled(proxy.state == .stopping)
                 .accessibilityIdentifier("proxy.stop")
             } else if !bridgeRunning {
-                Button("Show Connection", action: showConnection)
-                    .controlSize(.regular)
-            } else {
-                Button("Start", systemImage: "play.fill") {
-                    proxy.start(bridgePort: bridgePort ?? 8989)
+                Button(action: showConnection) {
+                    CaptureActionLabel("Show Connection")
                 }
-                .buttonStyle(.borderedProminent)
+                .captureGlassButtonStyle()
+                .controlSize(.regular)
+            } else {
+                Button {
+                    proxy.start(bridgePort: bridgePort ?? 8989)
+                } label: {
+                    CaptureActionLabel("Start", systemImage: "play.fill", isProminent: true)
+                }
+                .captureGlassButtonStyle(prominent: true)
                 .controlSize(.regular)
                 .disabled(!bridgeRunning)
                 .accessibilityIdentifier("proxy.start")
@@ -62,7 +73,7 @@ struct ProxyCaptureStatusHeader: View {
 
     private var title: String {
         switch proxy.state {
-        case .stopped: "Proxy ready"
+        case .stopped: "Capture stopped"
         case .starting: "Starting capture…"
         case .running: "Capturing traffic"
         case .stopping: "Stopping capture…"

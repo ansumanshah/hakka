@@ -228,7 +228,7 @@ const StorageSection: Component<SectionProps> = (props) => {
                       <button
                         class="hakka-btn"
                         // ui-token-check-ignore-next-line: icon-button hit-target trim, not a spacing rung
-                        style="padding:2px var(--hakka-space-sm);color:var(--hakka-status-error)"
+                        style="padding:2px var(--hakka-space-sm);color:var(--hakka-status-text-error)"
                         title="Delete"
                         onClick={() => handleDelete(item.key)}
                       >

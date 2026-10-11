@@ -33,9 +33,9 @@ struct DetailOverviewSection: View {
             if let error = record.error {
                 Label(error, systemImage: "exclamationmark.triangle")
                     .font(.caption)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(ThemeTokens.Status.error)
             }
-            HStack(spacing: Spacing.xl) {
+            LazyVGrid(columns: [GridItem(.flexible(), alignment: .leading), GridItem(.flexible(), alignment: .leading)], alignment: .leading, spacing: Spacing.lg) {
                 metric("Request", Fmt.bytes(record.requestBodySize))
                 metric("Response", Fmt.bytes(record.responseBodySize))
                 metric("Started", Fmt.time(record.startTime))
@@ -51,9 +51,15 @@ struct DetailOverviewSection: View {
 
     private func metric(_ label: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: Spacing.xxs) {
-            Text(label).font(.caption2).foregroundStyle(.tertiary)
-            Text(value).font(.caption)
+            Text(label).font(.caption).foregroundStyle(ThemeTokens.Palette.textSecondary)
+            Text(value)
+                .font(.callout)
+                .foregroundStyle(ThemeTokens.Palette.text)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
     }
 }
 

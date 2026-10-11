@@ -5,6 +5,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { DEFAULT_BRIDGE_PORT, startBridgeServer, type BridgeServer } from 'hakka-bridge'
 
 import { createBridgeListener, DEFAULT_BRIDGE_URL } from './bridgeListener.js'
+import { DiagnosticStore } from './DiagnosticStore.js'
 import { RequestStore } from './RequestStore.js'
 import { registerResources } from './resources.js'
 import { SpanStore } from './SpanStore.js'
@@ -45,7 +46,7 @@ export function planServe(bridgeUrl: string, serve: boolean): ServePlan {
   let port = DEFAULT_BRIDGE_PORT
   try {
     const u = new URL(bridgeUrl)
-    if (u.hostname) host = u.hostname
+    if (u.hostname) host = u.hostname.replace(/^\[|\]$/g, '')
     if (u.port) port = Number.parseInt(u.port, 10) || port
   } catch {
     // keep local defaults
@@ -54,28 +55,36 @@ export function planServe(bridgeUrl: string, serve: boolean): ServePlan {
   return { host, port, shouldServe: serve && isLocal }
 }
 
+/** Invalid retention settings fall back instead of crashing or allocating an unbounded buffer. */
+export function resolveCapacity(value: string | undefined): number {
+  const capacity = Number(value)
+  return value?.trim() && Number.isSafeInteger(capacity) && capacity > 0 && capacity <= 100_000 ? capacity : 500
+}
+
 export async function main(): Promise<void> {
   const cli = parseArgs()
   const bridgeUrl = cli.url ?? process.env.HAKKA_BRIDGE_URL ?? DEFAULT_BRIDGE_URL
-  const capacity = parseInt(process.env.HAKKA_MCP_MAX_REQUESTS ?? '500', 10) || 500
+  const capacity = resolveCapacity(process.env.HAKKA_MCP_MAX_REQUESTS)
   const envServeDisabled = process.env.HAKKA_MCP_SERVE === '0' || process.env.HAKKA_MCP_SERVE === 'false'
   const serve = cli.serve ?? !envServeDisabled
   const plan = planServe(bridgeUrl, serve)
 
   const store = new RequestStore(capacity)
   const spanStore = new SpanStore(capacity)
+  const diagnosticStore = new DiagnosticStore()
 
   // If the port is already taken (another hub running), fall back to a pure client.
   let hostedHub: BridgeServer | undefined
   if (plan.shouldServe) {
     try {
-      hostedHub = await startBridgeServer({ port: plan.port })
+      hostedHub = await startBridgeServer({ port: plan.port, host: plan.host === '::1' ? '::1' : '127.0.0.1' })
       process.stderr.write(
         `[hakka] hosting a bridge hub on ws://localhost:${hostedHub.port} — point your app here (no separate hakka-bridge needed)\n`,
       )
-    } catch {
+    } catch (error: unknown) {
+      const detail = error instanceof Error ? error.message : String(error)
       process.stderr.write(
-        `[hakka] a bridge hub is already running on port ${plan.port} — connecting to it as a client\n`,
+        `[hakka] could not host a bridge hub on port ${plan.port}: ${detail} — connecting as a client\n`,
       )
     }
   }
@@ -85,9 +94,9 @@ export async function main(): Promise<void> {
     version: '0.1.1',
   })
 
-  const listener = createBridgeListener(store, bridgeUrl, spanStore)
+  const listener = createBridgeListener(store, bridgeUrl, spanStore, diagnosticStore)
 
-  const closeTools = registerTools(server, store, listener, spanStore)
+  const closeTools = registerTools(server, store, listener, spanStore, diagnosticStore)
   registerResources(server, store)
 
   let shuttingDown = false

@@ -22,6 +22,8 @@ export const STYLES = `${TOKENS}
   font-family: var(--hakka-font-sans);
   font-size: var(--hakka-font-md);
   color: var(--hakka-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   /* Suppresses WebKit/Blink's tap-highlight flash on tapped elements;
      inherited property, so declaring it here covers the whole shadow tree —
      :hover/:active states are the real feedback instead. */
@@ -45,6 +47,13 @@ button, input, select, textarea {
   outline: 2px solid var(--hakka-accent);
   outline-offset: 1px;
   border-radius: var(--hakka-radius-md);
+}
+
+@media (forced-colors: active) {
+  :focus-visible,
+  .hakka-search:focus-visible {
+    outline-color: Highlight;
+  }
 }
 
 /* ── Scrollbars — themed inside the Shadow DOM ── */
@@ -90,7 +99,7 @@ button, input, select, textarea {
 .hakka-repl-output { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--hakka-font-mono); font-size: var(--hakka-font-xs); line-height: 1.5; }
 .hakka-repl-input { color: var(--hakka-text-tertiary); }
 .hakka-repl-output { margin-top: var(--hakka-space-xs); }
-.hakka-repl-output.error, .hakka-page-error { color: var(--hakka-status-error); }
+.hakka-repl-output.error, .hakka-page-error { color: var(--hakka-status-text-error); }
 .hakka-repl-composer,
 .hakka-page-search { display: flex; gap: var(--hakka-space-sm); align-items: stretch; flex-shrink: 0; }
 .hakka-repl-textarea { min-height: var(--hakka-ctl-h-tap); resize: vertical; flex: 1; }
@@ -99,7 +108,7 @@ button, input, select, textarea {
 .hakka-page-outline,
 .hakka-page-detail { overflow: auto; min-width: 0; }
 .hakka-page-node { display: block; width: 100%; min-height: var(--hakka-ctl-h); border: 0; border-bottom: 1px solid var(--hakka-border); background: transparent; color: var(--hakka-text); text-align: left; font-family: var(--hakka-font-mono); font-size: var(--hakka-font-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.hakka-page-node:hover { color: var(--hakka-accent); }
+.hakka-page-node:hover { color: var(--hakka-accent-text); }
 .hakka-page-text { margin: var(--hakka-space-sm) 0; color: var(--hakka-text-tertiary); font-size: var(--hakka-font-sm); overflow-wrap: anywhere; }
 .hakka-page-grid { display: grid; grid-template-columns: minmax(84px, 0.8fr) minmax(0, 1.2fr); gap: var(--hakka-space-xs) var(--hakka-space-md); font-size: var(--hakka-font-xs); overflow-wrap: anywhere; }
 .hakka-page-grid code { color: var(--hakka-text-tertiary); font-family: var(--hakka-font-mono); }
@@ -137,14 +146,14 @@ button, input, select, textarea {
   box-shadow: 0 4px 14px rgba(0,0,0,0.35);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
   font-size: var(--hakka-font-xl);
-  color: var(--hakka-accent);
+  color: var(--hakka-accent-text);
 }
 .hakka-toggle:hover {
   transform: scale(1.08);
   box-shadow: 0 4px 16px rgba(0,0,0,0.4);
 }
 .hakka-toggle:active {
-  transform: scale(0.95);
+  transform: scale(0.96);
 }
 .hakka-badge {
   position: absolute;
@@ -155,7 +164,7 @@ button, input, select, textarea {
   padding: 0 var(--hakka-space-xs);
   border-radius: var(--hakka-radius-pill);
   background: var(--hakka-status-error);
-  color: var(--hakka-status-on);
+  color: var(--hakka-status-on-warm);
   font-size: var(--hakka-font-xs);
   font-variant-numeric: tabular-nums;
   font-weight: 700;
@@ -640,7 +649,14 @@ button, input, select, textarea {
   flex-shrink: 0;
 }
 .hakka-filter-sub {
-  padding-top: 0;
+  padding: 0 var(--hakka-space-xl) var(--hakka-space-md);
+}
+.hakka-filter-scope {
+  font-size: var(--hakka-font-sm);
+  color: var(--hakka-text-secondary);
+  line-height: 1.5;
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
 }
 /* One hairline closes the whole filter group, on the list itself. */
 .hakka-list {
@@ -668,20 +684,15 @@ button, input, select, textarea {
   gap: var(--hakka-space-sm);
   flex-wrap: wrap;
   min-height: var(--hakka-ctl-h);
+  justify-content: flex-end;
 }
 .hakka-filter-cluster-spacer {
   flex: 1;
 }
-/* Panel rows follow the Settings grammar: label anchored left, controls
-   right-aligned; overflow chip lines wrap right-aligned under the first. */
-.hakka-filter-cluster {
-  justify-content: flex-end;
-  align-items: center;
-}
 /* Only the row's LEADING label anchors left — the range row's inline labels
    ("–", "Size kb") must stay beside their inputs, not scatter the line. */
 .hakka-filter-cluster > .hakka-filter-label:first-child {
-  margin-right: auto;
+  margin-inline-end: auto;
 }
 /* Hairline between sections — the same softened rule the panel's own top
    border uses, closing each label|controls row like a Settings row. */
@@ -772,11 +783,10 @@ button, input, select, textarea {
   color: var(--hakka-text-secondary);
   background: color-mix(in srgb, var(--hakka-text-tertiary) var(--hakka-tint-hover), transparent);
 }
-/* Active segment fills with its tone at low opacity — status classes speak
-   in their semantic color (jade 2xx, steel 3xx, turmeric 4xx, chili 5xx). */
+/* Active segments keep the accent tint and use readable content text. */
 .hakka-seg-btn.on {
-  color: var(--hakka-accent);
-  background: color-mix(in srgb, currentColor var(--hakka-tint-active), transparent);
+  color: var(--hakka-text);
+  background: color-mix(in srgb, var(--hakka-accent) var(--hakka-tint-active), transparent);
 }
 /* Search input sits inside .hakka-search-wrap so the magnifier icon can be
    absolutely positioned over its left edge without eating into the input's
@@ -784,13 +794,13 @@ button, input, select, textarea {
 .hakka-search-wrap {
   position: relative;
   flex: 1;
-  min-width: 120px;
+  min-width: 0;
   display: flex;
   align-items: center;
 }
 .hakka-search-icon {
   position: absolute;
-  left: var(--hakka-space-lg);
+  inset-inline-start: var(--hakka-space-lg);
   display: flex;
   align-items: center;
   color: var(--hakka-text-tertiary);
@@ -800,6 +810,8 @@ button, input, select, textarea {
    Filters chips, the ⓘ help button) — keeps the search input the same
    height as the chips beside it instead of each sizing off its own padding. */
 .hakka-search {
+  flex: 1;
+  min-width: 0;
   width: 100%;
   height: var(--hakka-ctl-h-xl);
   box-sizing: border-box;
@@ -809,44 +821,40 @@ button, input, select, textarea {
   color: var(--hakka-text);
   font-family: var(--hakka-font-mono);
   font-size: var(--hakka-font-sm);
-  padding: 0 96px 0 36px; /* ui-token-check-ignore: leading icon inset + trailing AI/ⓘ/funnel controls */
+  padding-block: 0;
+  padding-inline: var(--hakka-ctl-h-xl) var(--hakka-space-md);
   outline: none;
 }
-/* Trailing controls INSIDE the search field (AI toggle, ⓘ syntax help, the
-   Filters funnel) ride its right edge as quiet ghosts. Scoped (0,2,0)
-   overrides below beat both the width-based min-height bump and the
-   coarse-pointer .hakka-btn reset near the end of this sheet. */
+/* Search actions occupy their own flex space so labels never run underneath
+   them. The shared control height preserves compact, distinct hit targets. */
 .hakka-search-trailing {
-  position: absolute;
-  right: var(--hakka-space-md);
-  top: 50%;
-  transform: translateY(-50%);
   display: flex;
+  flex-shrink: 0;
   align-items: center;
-  gap: var(--hakka-space-xxs);
+  gap: var(--hakka-space-xs);
+  padding-inline-end: var(--hakka-space-md);
 }
 .hakka-search-trailing .hakka-btn,
 .hakka-search-trailing .hakka-chip {
-  height: auto;
-  min-height: 0;
-  border-color: transparent;
-  background: none;
+  height: var(--hakka-ctl-h-md);
+  min-width: var(--hakka-ctl-h-md);
+  min-height: var(--hakka-ctl-h-md);
+  border-color: var(--hakka-border);
+  background: var(--hakka-surface-raised);
   padding: var(--hakka-space-xxs) var(--hakka-space-xs);
   font-size: var(--hakka-font-xs);
 }
 .hakka-search-trailing .hakka-chip.active {
   background: color-mix(in srgb, var(--hakka-accent) var(--hakka-tint-active), transparent);
-  color: var(--hakka-accent);
+  color: var(--hakka-text);
 }
-/* Borderless full-bleed field — focus speaks through a hairline accent
-   underline instead of a box border. */
-.hakka-search:focus {
-  box-shadow: inset 0 -1px 0 var(--hakka-accent);
+/* Keep a full perimeter focus indicator inside the search field. */
+.hakka-search:focus-visible {
+  outline: 2px solid var(--hakka-accent);
+  outline-offset: -2px;
 }
-/* The datalist "list" attribute makes Chromium draw its own ▼ picker
-   indicator inside the input — it collides with the trailing AI/ⓘ/funnel
-   controls and clips the placeholder. Suggestions still work; only the
-   native glyph goes. */
+/* Search suggestions retain their keyboard path without a redundant picker
+   glyph beside the explicit search actions. */
 .hakka-search::-webkit-calendar-picker-indicator {
   display: none !important;
 }
@@ -864,7 +872,7 @@ button, input, select, textarea {
   font-size: var(--hakka-font-xs);
   font-weight: 600;
   padding: 0 var(--hakka-space-md);
-  transition: all 0.12s;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
   white-space: nowrap;
 }
 .hakka-chip:hover {
@@ -874,16 +882,16 @@ button, input, select, textarea {
 .hakka-chip.active {
   background: color-mix(in srgb, var(--hakka-accent) var(--hakka-tint-active), transparent);
   border-color: var(--hakka-accent);
-  color: var(--hakka-accent);
+  color: var(--hakka-accent-text);
 }
 /* Method + status quick chips share one visual language: quiet graphite at
    rest, their semantic tone previewed on hover and spoken only when active. */
-.hakka-chip.method-GET { --hakka-tone: var(--hakka-method-get); }
-.hakka-chip.method-POST { --hakka-tone: var(--hakka-method-post); }
-.hakka-chip.method-PUT { --hakka-tone: var(--hakka-method-put); }
-.hakka-chip.method-DELETE { --hakka-tone: var(--hakka-method-delete); }
-.hakka-chip.status-1xx { --hakka-tone: var(--hakka-status-pending); }
-.hakka-chip.status-2xx { --hakka-tone: var(--hakka-status-success); }
+.hakka-chip.method-GET { --hakka-tone: var(--hakka-method-text-get); }
+.hakka-chip.method-POST { --hakka-tone: var(--hakka-method-text-post); }
+.hakka-chip.method-PUT { --hakka-tone: var(--hakka-method-text-put); }
+.hakka-chip.method-DELETE { --hakka-tone: var(--hakka-method-text-delete); }
+.hakka-chip.status-1xx { --hakka-tone: var(--hakka-status-text-pending); }
+.hakka-chip.status-2xx { --hakka-tone: var(--hakka-status-text-success); }
 .hakka-chip[class*='method-'],
 .hakka-chip[class*='status-'] {
   font-family: var(--hakka-font-mono);
@@ -900,14 +908,14 @@ button, input, select, textarea {
 }
 .hakka-chip[class*='method-'].active,
 .hakka-chip[class*='status-'].active {
-  /* Active mirrors the row badge exactly: 40% border, 10% fill. */
+  /* A quiet local tint over a known background preserves label contrast. */
   color: var(--hakka-tone);
   border-color: color-mix(in srgb, currentColor var(--hakka-tint-border), transparent);
-  background: color-mix(in srgb, currentColor var(--hakka-tint-hover), transparent);
+  background: color-mix(in srgb, currentColor 5%, var(--hakka-bg));
 }
 .hakka-chip[class*='method-']:hover:not(.active),
 .hakka-chip[class*='status-']:hover:not(.active) {
-  background: color-mix(in srgb, currentColor var(--hakka-tint-hover), transparent);
+  background: color-mix(in srgb, currentColor 5%, var(--hakka-bg));
 }
 .hakka-chip-sep {
   width: 1px;
@@ -930,7 +938,7 @@ button, input, select, textarea {
 }
 .hakka-search-help-row code {
   font-family: var(--hakka-font-mono);
-  color: var(--hakka-accent);
+  color: var(--hakka-accent-text);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -945,7 +953,7 @@ button, input, select, textarea {
   border-top: 1px solid var(--hakka-border);
   font-size: var(--hakka-font-xs);
   font-weight: 600;
-  color: var(--hakka-accent);
+  color: var(--hakka-accent-text);
   text-decoration: none;
   white-space: nowrap;
 }
@@ -1034,7 +1042,7 @@ button, input, select, textarea {
   align-items: center;
   justify-content: center;
   gap: var(--hakka-space-md);
-  height: 100%;
+  min-height: 100%;
   color: var(--hakka-text-tertiary);
   font-size: var(--hakka-font-md);
   text-align: center;
@@ -1045,13 +1053,15 @@ button, input, select, textarea {
   opacity: 0.5;
 }
 .hakka-empty-title {
-  color: var(--hakka-text-secondary);
-  font-size: var(--hakka-font-md);
+  color: var(--hakka-text);
+  font-size: var(--hakka-font-lg);
   font-weight: 600;
+  text-wrap: balance;
 }
 .hakka-empty-hint {
   color: var(--hakka-text-tertiary);
-  font-size: var(--hakka-font-sm);
+  font-size: var(--hakka-font-md);
+  text-wrap: pretty;
   max-width: 36ch;
   line-height: 1.5;
 }
@@ -1128,12 +1138,12 @@ button, input, select, textarea {
   width: 44px;
   text-align: center;
 }
-.method-GET { color: var(--hakka-method-get); }
-.method-POST { color: var(--hakka-method-post); }
-.method-PUT { color: var(--hakka-method-put); }
-.method-PATCH { color: var(--hakka-method-patch); }
-.method-DELETE { color: var(--hakka-method-delete); }
-.method-OTHER { color: var(--hakka-method-other); }
+.method-GET { color: var(--hakka-method-text-get); }
+.method-POST { color: var(--hakka-method-text-post); }
+.method-PUT { color: var(--hakka-method-text-put); }
+.method-PATCH { color: var(--hakka-method-text-patch); }
+.method-DELETE { color: var(--hakka-method-text-delete); }
+.method-OTHER { color: var(--hakka-method-text-other); }
 /* Rows: the method is data, not a control — plain colored mono text, no
    chip box (chips stay reserved for interactive controls). Applies at every
    .hakka-list width, and to .hakka-detail-rowback since the Detail header
@@ -1198,11 +1208,11 @@ button, input, select, textarea {
   min-width: 30px;
   text-align: right;
 }
-.status-success { color: var(--hakka-status-success); }
-.status-error { color: var(--hakka-status-error); }
-.status-warning { color: var(--hakka-status-warning); }
-.status-pending { color: var(--hakka-status-pending); }
-.status-info { color: var(--hakka-status-info); }
+.status-success { color: var(--hakka-status-text-success); }
+.status-error { color: var(--hakka-status-text-error); }
+.status-warning { color: var(--hakka-status-text-warning); }
+.status-pending { color: var(--hakka-status-text-pending); }
+.status-info { color: var(--hakka-status-text-info); }
 /* Duration stacked over size — one fixed-width column, both lines right-aligned
    so the mono digits register vertically like the path/host stack beside them. */
 .hakka-row-timing {
@@ -1219,7 +1229,7 @@ button, input, select, textarea {
 }
 .hakka-row-size {
   font-size: var(--hakka-font-xs);
-  color: color-mix(in srgb, var(--hakka-text-tertiary) 75%, transparent);
+  color: var(--hakka-text-tertiary);
   white-space: nowrap;
 }
 /* Gated number tones — duration/size past the configured warn/hot thresholds
@@ -1227,11 +1237,11 @@ button, input, select, textarea {
    the severity stripe. */
 .hakka-row-dur.num-warn,
 .hakka-row-size.num-warn {
-  color: var(--hakka-status-warning);
+  color: var(--hakka-status-text-warning);
 }
 .hakka-row-dur.num-hot,
 .hakka-row-size.num-hot {
-  color: var(--hakka-status-error);
+  color: var(--hakka-status-text-error);
 }
 
 /* ── Desktop table row grid ──
@@ -1345,14 +1355,14 @@ button, input, select, textarea {
   font-weight: 600;
   border-radius: var(--hakka-radius-pill);
   border: 1px solid color-mix(in srgb, currentColor var(--hakka-tint-border), transparent);
-  background: color-mix(in srgb, currentColor var(--hakka-tint-hover), transparent);
+  background: color-mix(in srgb, currentColor 5%, var(--hakka-bg));
   padding: 1px var(--hakka-space-sm);
 }
 .hakka-mocked-tag {
-  color: var(--hakka-status-warning);
+  color: var(--hakka-status-text-warning);
 }
 .hakka-gql-tag {
-  color: var(--hakka-method-patch);
+  color: var(--hakka-method-text-patch);
   max-width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1365,7 +1375,7 @@ button, input, select, textarea {
 /* LLM provider badge — host-detected (rows are slim, no bodies), steel like
    the runtime "server" voice: informational, not a status verdict. */
 .hakka-llm-tag {
-  color: var(--hakka-method-put);
+  color: var(--hakka-method-text-put);
 }
 .hakka-initiator {
   font-family: var(--hakka-font-mono);
@@ -1391,37 +1401,28 @@ button, input, select, textarea {
 /* Runtime tags speak in theme voices like every other badge: outlined tint via
    the .hakka-rt-tag base — steel for server, plum for edge. Never a filled pill. */
 .hakka-rt-server {
-  color: var(--hakka-status-info);
+  color: var(--hakka-status-text-info);
 }
 .hakka-rt-edge {
-  color: var(--hakka-method-patch);
+  color: var(--hakka-method-text-patch);
 }
-/* A stream still receiving — jade, softly pulsing (opacity only: compositor-
-   friendly, and stilled entirely under reduced motion). */
+/* The live label stays at full contrast while the stream receives data. */
 .hakka-live-tag {
-  color: var(--hakka-status-success);
-  animation: h-lp 1.6s ease-in-out infinite;
-}
-@keyframes h-lp {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.45; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .hakka-live-tag { animation: none; }
+  color: var(--hakka-status-text-success);
 }
 
 /* Data-cache verdict tones on the same outlined-tint tag base: a HIT is good
    news (jade), STALE is a heads-up (turmeric), MISS stays the neutral tag
    tint — a miss is normal, not a warning. */
 .hakka-cache-hit {
-  color: var(--hakka-status-success);
+  color: var(--hakka-status-text-success);
 }
 .hakka-cache-stale {
-  color: var(--hakka-status-warning);
+  color: var(--hakka-status-text-warning);
 }
 /* A revalidate verdict is a heads-up like STALE, not a HIT — same tone alias. */
 .hakka-cache-revalidate {
-  color: var(--hakka-status-warning);
+  color: var(--hakka-status-text-warning);
 }
 
 /* Request-kind tags (document/rsc/route-handler/server-action) on the same
@@ -1460,13 +1461,13 @@ button, input, select, textarea {
   letter-spacing: 0.3px;
 }
 .hakka-wf-legend-item.rt-client {
-  color: var(--hakka-accent);
+  color: var(--hakka-accent-text);
 }
 .hakka-wf-legend-item.rt-server {
-  color: var(--hakka-status-info);
+  color: var(--hakka-status-text-info);
 }
 .hakka-wf-legend-item.rt-edge {
-  color: var(--hakka-method-patch);
+  color: var(--hakka-method-text-patch);
 }
 
 .hakka-wf-hop {
@@ -1482,19 +1483,27 @@ button, input, select, textarea {
 .hakka-wf-hop:hover {
   background: var(--hakka-surface);
 }
-.hakka-chip.status-3xx,
+.hakka-chip.status-3xx {
+  --hakka-tone: var(--hakka-status-text-info);
+}
 .hakka-wf-hop.rt-server {
   --hakka-tone: var(--hakka-status-info);
 }
-.hakka-chip.method-PATCH,
+.hakka-chip.method-PATCH {
+  --hakka-tone: var(--hakka-method-text-patch);
+}
 .hakka-wf-hop.rt-edge {
   --hakka-tone: var(--hakka-method-patch);
 }
-.hakka-chip.status-4xx,
+.hakka-chip.status-4xx {
+  --hakka-tone: var(--hakka-status-text-warning);
+}
 .hakka-wf-hop.tone-warning {
   --hakka-tone: var(--hakka-status-warning);
 }
-.hakka-chip.status-5xx,
+.hakka-chip.status-5xx {
+  --hakka-tone: var(--hakka-status-text-error);
+}
 .hakka-wf-hop.tone-error {
   --hakka-tone: var(--hakka-status-error);
 }
@@ -1726,10 +1735,10 @@ button, input, select, textarea {
   font-size: var(--hakka-font-xs);
 }
 .hakka-ws-sent .hakka-ws-dir {
-  color: var(--hakka-method-post);
+  color: var(--hakka-method-text-post);
 }
 .hakka-ws-received .hakka-ws-dir {
-  color: var(--hakka-status-success);
+  color: var(--hakka-status-text-success);
 }
 .hakka-ws-data {
   flex: 1;
@@ -1888,11 +1897,9 @@ button, input, select, textarea {
   border: none;
   color: var(--hakka-text-tertiary);
   cursor: pointer;
-  font-family: var(--hakka-font-mono);
-  font-size: var(--hakka-font-xs);
+  font-family: var(--hakka-font-sans);
+  font-size: var(--hakka-font-sm);
   font-weight: 600;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
   padding: 0 var(--hakka-space-md);
   min-height: var(--hakka-ctl-h-xl);
   transition: color 0.12s, opacity 0.15s;
@@ -1920,7 +1927,7 @@ button, input, select, textarea {
   color: var(--hakka-text-secondary);
 }
 .hakka-tab.active {
-  color: var(--hakka-accent);
+  color: var(--hakka-accent-text);
 }
 .hakka-tab.active::before {
   background: var(--hakka-accent);
@@ -2192,7 +2199,7 @@ input.hakka-json-search.no-match {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  color: var(--hakka-status-on);
+  color: var(--hakka-status-on-warm);
   font-size: var(--hakka-font-sm);
   font-weight: 700;
   transition: background 0.1s, border-color 0.1s;
@@ -2216,6 +2223,7 @@ input.hakka-json-search.no-match {
   display: flex;
   align-items: center;
   gap: var(--hakka-space-sm);
+  flex-wrap: wrap;
   padding: var(--hakka-space-sm) var(--hakka-space-xl);
   background: var(--hakka-surface);
   border-top: 1px solid var(--hakka-border);
@@ -2254,7 +2262,7 @@ input.hakka-json-search.no-match {
   color: var(--hakka-text);
 }
 .hakka-action-btn-danger {
-  color: var(--hakka-status-error);
+  color: var(--hakka-status-text-error);
   border-color: var(--hakka-status-error);
 }
 .hakka-action-btn-danger:hover {
@@ -2337,7 +2345,7 @@ input.hakka-json-search.no-match {
 }
 .hakka-saved-filter-remove:hover {
   background: color-mix(in srgb, var(--hakka-status-error) var(--hakka-tint-active), transparent);
-  color: var(--hakka-status-error);
+  color: var(--hakka-status-text-error);
 }
 
 /* ── Shared form/layout primitives (Mock, Breakpoints, Settings, Stats, …) ──
@@ -2652,14 +2660,14 @@ textarea.hakka-input {
   color: var(--hakka-text);
 }
 .hakka-diff-add .hakka-diff-marker {
-  color: var(--hakka-status-success);
+  color: var(--hakka-status-text-success);
 }
 .hakka-diff-remove {
   background: color-mix(in srgb, var(--hakka-status-error) var(--hakka-tint-active), transparent);
   color: var(--hakka-text);
 }
 .hakka-diff-remove .hakka-diff-marker {
-  color: var(--hakka-status-error);
+  color: var(--hakka-status-text-error);
 }
 .hakka-diff-same {
   color: var(--hakka-text-secondary);
@@ -2680,8 +2688,8 @@ textarea.hakka-input {
 }
 .hakka-select-mode-btn.active {
   background: color-mix(in srgb, var(--hakka-accent) var(--hakka-tint-active), transparent);
-  border-color: var(--hakka-accent);
-  color: var(--hakka-accent);
+  border-color: var(--hakka-text);
+  color: var(--hakka-text);
 }
 .hakka-save-filter-btn:hover,
 .hakka-select-mode-btn:hover:not(.active) {
@@ -2706,7 +2714,7 @@ textarea.hakka-input {
        page — a full-screen inspector must never trigger that. The TYPED text
        must stay 16px for that guard; the placeholder is exempt from the zoom
        heuristic, so it drops back to the UI size instead of shouting. */
-    font-size: var(--hakka-font-lg);
+    font-size: 16px; /* ui-token-check-ignore: iOS Safari input zoom threshold */
     /* Full-bleed row grows to the finger-sized constant on a phone. */
     height: var(--hakka-ctl-h-tap);
   }
@@ -2797,6 +2805,25 @@ textarea.hakka-input {
   }
 }
 
+/* Search actions sit close together: use real touch boxes instead of hit
+   extensions that would overlap the neighbouring control or typed text. */
+@media (pointer: coarse) {
+  .hakka-search-trailing .hakka-btn,
+  .hakka-search-trailing .hakka-chip {
+    min-height: var(--hakka-ctl-h-tap);
+    min-width: var(--hakka-ctl-h-tap);
+  }
+  .hakka-search-trailing .hakka-btn::before {
+    content: none;
+  }
+  .hakka-header .hakka-tab {
+    min-height: var(--hakka-ctl-h-tap);
+  }
+  .hakka-header .hakka-tab::after {
+    content: none;
+  }
+}
+
 /* ── Empty state — "Load sample traffic" ── */
 .hakka-empty-actions {
   display: flex;
@@ -2805,10 +2832,11 @@ textarea.hakka-input {
 }
 .hakka-empty-sample-btn {
   background: var(--hakka-accent);
-  color: var(--hakka-status-on);
+  color: var(--hakka-status-on-warm);
   border: none;
   border-radius: var(--hakka-radius-md);
   padding: var(--hakka-space-sm) var(--hakka-space-lg);
+  min-height: var(--hakka-ctl-h-lg);
   font-size: var(--hakka-font-sm);
   font-weight: 600;
   cursor: pointer;
@@ -2913,7 +2941,7 @@ textarea.hakka-input {
   z-index: 2147483647;
 }
 .hakka-crash-bar-text {
-  color: var(--hakka-status-error);
+  color: var(--hakka-status-text-error);
   font-weight: 600;
 }
 .hakka-crash-bar-btn {
@@ -2921,7 +2949,7 @@ textarea.hakka-input {
   height: var(--hakka-ctl-h-lg);
   padding: 0 var(--hakka-space-lg);
   background: var(--hakka-status-error);
-  color: var(--hakka-status-on);
+  color: var(--hakka-status-on-warm);
   border: none;
   border-radius: var(--hakka-radius-md);
   font-size: var(--hakka-font-sm);
@@ -2929,6 +2957,6 @@ textarea.hakka-input {
   cursor: pointer;
 }
 .hakka-crash-bar-btn:hover {
-  opacity: 0.88;
+  box-shadow: inset 0 0 0 1px var(--hakka-status-on-warm); /* ui-token-check-ignore: hover perimeter keeps the solid fill at full contrast */
 }
 `

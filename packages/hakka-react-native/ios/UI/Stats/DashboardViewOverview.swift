@@ -29,7 +29,7 @@ extension DashboardView {
             HStack(alignment: .top, spacing: Theme.s12) {
                 Image(systemName: status.icon)
                     .font(.title3.weight(.bold))
-                    .foregroundStyle(status.color)
+                    .foregroundStyle(Theme.foreground(for: status.color))
                     .frame(width: HakkaMetrics.ControlHeight.field, height: HakkaMetrics.ControlHeight.field)
                     .background(status.color.opacity(0.14))
                     .clipShape(RoundedRectangle(cornerRadius: Theme.radiusM))
@@ -62,7 +62,7 @@ extension DashboardView {
                 .foregroundStyle(Theme.textTertiary)
             Text(value)
                 .font(.caption.weight(.bold))
-                .foregroundStyle(color)
+                .foregroundStyle(Theme.foreground(for: color))
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }

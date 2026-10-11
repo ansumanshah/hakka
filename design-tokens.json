@@ -1,10 +1,10 @@
 {
-  "$comment": "Canonical Hakka color tokens shared by web, iOS, Android, and macOS through scripts/sync-design-tokens.mjs. Shared spacing, radii, typography, control heights, and layout metrics live in that generator. Hex values are RRGGBB (no #). Identity: Wok Hei - warm graphite ground, flame accent, jade/chili/turmeric semantics, heat-ramp timing (dns cold -> download hot). status/method are dark defaults; statusLight/methodLight are macOS text roles on light content. Accent lives per-theme in dark/light.",
+  "$comment": "Canonical Hakka color tokens shared by web, iOS, Android, and macOS through scripts/sync-design-tokens.mjs. Shared spacing, radii, typography, control heights, and layout metrics live in that generator. Hex values are RRGGBB (no #). Identity: Wok Hei - warm graphite ground, flame accent, jade/chili/turmeric semantics, heat-ramp timing (dns cold -> download hot). status/method are dark defaults; statusLight/methodLight are semantic text roles on light content. Accent lives per-theme in dark/light.",
   "status": {
     "success": "3AA981",
     "info": "6D9BC9",
     "warning": "D9A514",
-    "error": "E2554A",
+    "error": "E65B50",
     "pending": "8D8778",
     "on": "FFFFFF",
     "onWarm": "171310"
@@ -14,7 +14,7 @@
     "post": "EE8320",
     "put": "6D9BC9",
     "patch": "A87FC4",
-    "delete": "E2554A",
+    "delete": "E65B50",
     "other": "8D8778"
   },
   "statusLight": {
@@ -46,8 +46,9 @@
     "border": "35302A",
     "text": "EDEAE4",
     "textSecondary": "A8A296",
-    "textTertiary": "6E695F",
-    "accent": "EE8320"
+    "textTertiary": "8D8778",
+    "accent": "EE8320",
+    "accentText": "EE8320"
   },
   "light": {
     "background": "FAF8F4",
@@ -56,8 +57,9 @@
     "border": "E2DDD2",
     "text": "21201C",
     "textSecondary": "57534A",
-    "textTertiary": "8B857A",
-    "accent": "E0761A"
+    "textTertiary": "736C60",
+    "accent": "E0761A",
+    "accentText": "A14F00"
   },
   "codeDark": {
     "key": "A8A296",

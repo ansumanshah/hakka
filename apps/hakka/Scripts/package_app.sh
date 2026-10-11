@@ -32,8 +32,15 @@ if [[ ${#ARCH_LIST[@]} -eq 0 ]]; then
   ARCH_LIST=("$HOST_ARCH")
 fi
 
+STAGING_DIR=$(mktemp -d "${TMPDIR:-/tmp/}hakka-package.XXXXXX")
+trap 'rm -rf "$STAGING_DIR"' EXIT
+BUILD_DIRS=()
 for ARCH in "${ARCH_LIST[@]}"; do
   swift build -c "$CONF" --arch "$ARCH"
+  BUILD_DIR=$(swift build -c "$CONF" --arch "$ARCH" --show-bin-path)
+  BUILD_DIRS+=("$BUILD_DIR")
+  mkdir -p "$STAGING_DIR/$ARCH"
+  cp "$BUILD_DIR/$EXEC_NAME" "$STAGING_DIR/$ARCH/$EXEC_NAME"
 done
 
 APP="$ROOT/${APP_NAME}.app"
@@ -79,10 +86,7 @@ PLIST
 build_product_path() {
   local name="$1"
   local arch="$2"
-  case "$arch" in
-    arm64|x86_64) echo ".build/${arch}-apple-macosx/$CONF/$name" ;;
-    *) echo ".build/$CONF/$name" ;;
-  esac
+  echo "$STAGING_DIR/$arch/$name"
 }
 
 verify_binary_arches() {
@@ -136,7 +140,7 @@ if [[ -d "$APP_RESOURCES_DIR" ]]; then
 fi
 
 # SwiftPM resource bundles are emitted next to the built binary.
-PREFERRED_BUILD_DIR="$(dirname "$(build_product_path "$APP_NAME" "${ARCH_LIST[0]}")")"
+PREFERRED_BUILD_DIR="${BUILD_DIRS[0]}"
 shopt -s nullglob
 SWIFTPM_BUNDLES=("${PREFERRED_BUILD_DIR}/"*.bundle)
 shopt -u nullglob
@@ -147,7 +151,7 @@ if [[ ${#SWIFTPM_BUNDLES[@]} -gt 0 ]]; then
 fi
 
 # Embed frameworks if any exist in the build folder.
-FRAMEWORK_DIRS=(".build/$CONF" ".build/${ARCH_LIST[0]}-apple-macosx/$CONF")
+FRAMEWORK_DIRS=("${BUILD_DIRS[@]}")
 for dir in "${FRAMEWORK_DIRS[@]}"; do
   if compgen -G "${dir}/*.framework" >/dev/null; then
     cp -R "${dir}/"*.framework "$APP/Contents/Frameworks/"

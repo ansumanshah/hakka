@@ -9,6 +9,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 
 import { ProxySessionManager } from '../../proxy/ProxySessionManager.js'
+import { DiagnosticStore } from '../DiagnosticStore.js'
 import type { RequestStore } from '../RequestStore.js'
 import type { SpanStore } from '../SpanStore.js'
 import { registerApplyRuleBundleTool } from './applyRuleBundle.js'
@@ -28,6 +29,8 @@ import { registerGenerateReproTool } from './generateRepro.js'
 import { registerGenerateTestTool } from './generateTest.js'
 import { registerGetRequestTool } from './getRequest.js'
 import { registerGetTraceTool } from './getTrace.js'
+import { registerListLogsTool } from './listLogs.js'
+import { registerListPerformanceTool } from './listPerformance.js'
 import { registerListRequestsTool } from './listRequests.js'
 import { registerListTargetsTool } from './listTargets.js'
 import { registerPageTools } from './pageTools.js'
@@ -48,6 +51,7 @@ export function registerTools(
   store: RequestStore,
   sender: ControlSender,
   spanStore: SpanStore,
+  diagnosticStore: DiagnosticStore = new DiagnosticStore(),
 ): () => Promise<void> {
   const proxySessions = new ProxySessionManager()
   registerProxySessionTools(server, proxySessions)
@@ -58,6 +62,8 @@ export function registerTools(
   registerApplyRuleBundleTool(server, sender)
   registerRunCollectionTool(server)
   registerListRequestsTool(server, store)
+  registerListLogsTool(server, diagnosticStore)
+  registerListPerformanceTool(server, diagnosticStore)
   registerGetRequestTool(server, store)
   registerSearchRequestsTool(server, store)
   registerStatsTool(server, store)

@@ -9,6 +9,7 @@ import { parseBridgeMessage } from 'hakka-bridge'
 import type { ControlCommand, FrameworkSpan, NetworkRequest, RuntimeTarget, RuntimeControlResult } from 'hakka-core'
 import WebSocket from 'ws'
 
+import type { DiagnosticStore } from './DiagnosticStore.js'
 import type { RequestStore } from './RequestStore.js'
 import { RuntimeControlClient } from './RuntimeControlClient.js'
 import type { SpanStore } from './SpanStore.js'
@@ -59,6 +60,7 @@ export function createBridgeListener(
   store: RequestStore,
   url = DEFAULT_BRIDGE_URL,
   spanStore?: SpanStore,
+  diagnosticStore?: DiagnosticStore,
 ): BridgeListener {
   let ws: WebSocket | null = null
   let connected = false
@@ -118,6 +120,7 @@ export function createBridgeListener(
         return
       }
       try {
+        if (diagnosticStore?.ingestFrame(raw)) return
         if (control.receive(JSON.parse(raw))) return
       } catch {
         return

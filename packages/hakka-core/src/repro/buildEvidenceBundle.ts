@@ -8,7 +8,7 @@ import type { TraceBadgeSummary } from '../query/traceSummary'
 import { assembleTraceTree } from '../query/traceTree'
 import type { TraceTree } from '../query/traceTree'
 import { scrubRequestsForShare } from '../utils/shareScrub'
-import type { ShareScrubOptions, ShareScrubSummary } from '../utils/shareScrub'
+import type { ShareScrubOptions, ShareScrubRemoval, ShareScrubSummary } from '../utils/shareScrub'
 import { buildReproBundle } from './buildReproBundle'
 import type { BuildReproBundleOptions, ReproMockRule } from './buildReproBundle'
 
@@ -66,6 +66,8 @@ export interface EvidenceBundleOptions {
   scrub?: boolean
   /** Forwarded to the scrub pass when `scrub` is true (or defaulted true). */
   scrubOptions?: ShareScrubOptions
+  /** Removal counts from caller-scrubbed companion data (e.g. spans). Empty by default; included before size-budget enforcement when scrub is enabled. */
+  additionalRedactionRemovals?: ShareScrubRemoval[]
 }
 
 export interface EvidenceBundle {
@@ -301,6 +303,14 @@ export function buildEvidenceBundle(requests: NetworkRequest[], options: Evidenc
   const { requests: scrubbedInput, removed: redactionRemoved } = scrub
     ? scrubRequestsForShare(requests, options.scrubOptions)
     : { requests: [...requests], removed: [] as ShareScrubSummary['removed'] }
+
+  if (scrub) {
+    for (const removal of options.additionalRedactionRemovals ?? []) {
+      const existing = redactionRemoved.find((item) => item.category === removal.category)
+      if (existing) existing.count += removal.count
+      else redactionRemoved.push({ ...removal })
+    }
+  }
 
   const sorted = [...scrubbedInput].sort(compareRequests)
   const fallbackFocusRequestId = sorted[0]?.id ?? ''

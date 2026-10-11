@@ -75,6 +75,62 @@ describe('Inspector tab bar', () => {
     expect(networkTab?.classList.contains('active')).toBe(true)
   })
 
+  it('moves focus and selection through panel tabs with arrows and Home/End', async () => {
+    const { container } = render(() => <Inspector />)
+    fireEvent.contextMenu(q(container, '.hakka-toggle') as HTMLElement)
+    await flush()
+    const tabs = Array.from(qa(container, '.hakka-header [role="tab"]')) as HTMLButtonElement[]
+    expect(tabs.filter((tab) => tab.tabIndex === 0)).toEqual([tabs[0]])
+
+    fireEvent.keyDown(tabs[0]!, { key: 'ArrowRight' })
+    await flush()
+    expect(document.activeElement).toBe(tabs[1])
+    expect(tabs[1]?.getAttribute('aria-selected')).toBe('true')
+    expect(tabs.filter((tab) => tab.tabIndex === 0)).toEqual([tabs[1]])
+
+    fireEvent.keyDown(tabs[1]!, { key: 'End' })
+    await flush()
+    expect(document.activeElement).toBe(tabs.at(-1))
+    fireEvent.keyDown(tabs.at(-1)!, { key: 'ArrowRight' })
+    await flush()
+    expect(document.activeElement).toBe(tabs[0])
+    fireEvent.keyDown(tabs[0]!, { key: 'ArrowLeft' })
+    await flush()
+    expect(document.activeElement).toBe(tabs.at(-1))
+    fireEvent.keyDown(tabs.at(-1)!, { key: 'Home' })
+    await flush()
+    expect(document.activeElement).toBe(tabs[0])
+  })
+
+  it('explains an empty search result without offering to add sample traffic', async () => {
+    client.ingest(makeRequest({ id: 'filtered-empty', url: 'https://api.example.com/users' }))
+    const { container, getByRole } = render(() => <Inspector />)
+    fireEvent.contextMenu(q(container, '.hakka-toggle') as HTMLElement)
+    await flush()
+    const input = getByRole('combobox', { name: 'Search requests' })
+    fireEvent.input(input, { target: { value: 'url:/no-matching-request' } })
+    await waitFor(() => expect(container.textContent).toContain('No matching requests'))
+    expect(container.textContent).toContain('adjust the filters')
+    expect(container.textContent).not.toContain('No requests captured yet')
+    expect(q(container, '.hakka-empty-sample-btn')).toBeNull()
+  })
+
+  it('announces the method chip state and clears it when pressed again', async () => {
+    const { container, getByRole } = render(() => <Inspector />)
+    fireEvent.contextMenu(q(container, '.hakka-toggle') as HTMLElement)
+    await flush()
+    fireEvent.click(getByRole('button', { name: 'Filters' }))
+    await flush()
+    const method = getByRole('button', { name: 'GET' })
+    expect(method.getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(method)
+    await flush()
+    expect(method.getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(method)
+    await flush()
+    expect(method.getAttribute('aria-pressed')).toBe('false')
+  })
+
   it('clicking Console tab switches to console view', async () => {
     const { container } = render(() => <Inspector />)
 

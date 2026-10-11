@@ -62,7 +62,7 @@ npx hakka-cli mcp --port 9000            # shorthand for ws://localhost:9000
 npx hakka-cli mcp --no-serve             # never host a hub; only connect as a client
 ```
 
-Wire it into an MCP client config (Claude Code `.claude/settings.json`, Claude Desktop `claude_desktop_config.json`, Cursor, ...):
+Wire it into an MCP client config (Claude Code `.mcp.json`, Claude Desktop `claude_desktop_config.json`, Cursor, ...):
 
 ```json
 {
@@ -75,11 +75,11 @@ Wire it into an MCP client config (Claude Code `.claude/settings.json`, Claude D
 }
 ```
 
-| Env var                  | Default               | Description                                           |
-| ------------------------ | --------------------- | ----------------------------------------------------- |
-| `HAKKA_BRIDGE_URL`       | `ws://localhost:8989` | Bridge hub WebSocket URL to subscribe to              |
-| `HAKKA_MCP_MAX_REQUESTS` | `500`                 | In-memory store capacity (ring buffer)                |
-| `HAKKA_MCP_SERVE=0`      | unset                 | Disable in-process hub hosting (same as `--no-serve`) |
+| Env var                  | Default               | Description                                                     |
+| ------------------------ | --------------------- | --------------------------------------------------------------- |
+| `HAKKA_BRIDGE_URL`       | `ws://localhost:8989` | Bridge hub WebSocket URL to subscribe to                        |
+| `HAKKA_MCP_MAX_REQUESTS` | `500`                 | Ring buffer capacity: integer 1–100,000; invalid values use 500 |
+| `HAKKA_MCP_SERVE=0`      | unset                 | Disable in-process hub hosting (same as `--no-serve`)           |
 
 Read tools: `list_requests`, `get_request`, `search_requests` (see the query DSL below), `stats`, `diagnose`, `clear`, `generate_test`, `generate_repro`. Write tools (relayed to your app over the bridge, dev builds only): `create_mock`, `promote_capture_to_mock`, `delete_mock`, `clear_mocks`, `set_breakpoint`, `delete_breakpoint`, `set_throttle`, `generate_mocks`. All logging goes to **stderr** — stdout is the JSON-RPC channel.
 

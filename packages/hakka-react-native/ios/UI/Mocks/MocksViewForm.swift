@@ -86,7 +86,7 @@ extension MocksView {
                 } label: {
                     Label("Add mock rule", systemImage: "plus")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(isAddEnabled ? .white : Theme.textTertiary)
+                        .foregroundStyle(isAddEnabled ? Theme.onSolid : Theme.textTertiary)
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: Theme.tapMin)
                         .background(isAddEnabled ? Theme.accent : Theme.border)

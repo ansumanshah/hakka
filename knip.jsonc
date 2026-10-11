@@ -17,6 +17,8 @@
         "examples/otel-spans/*.mjs",
         "examples/prod-cohort/demo.mjs",
         "examples/react-native-benchmark/{App.tsx,scripts/*.mjs}",
+        // Launched by the native-proxy Python harness as a subprocess.
+        "native-proxy/scripts/runner_cli.ts",
       ],
     },
     "packages/hakka-core": {

@@ -7,7 +7,7 @@ import SwiftUI
 /// instead of re-deriving this each time.
 struct RequestEditorContainerView: View {
     @Environment(AppModel.self) private var model
-    @State private var activeTab: RequestTab = .params
+    @SceneStorage("hakka.requestEditor.section") private var activeTabRaw = RequestTab.params.rawValue
 
     var body: some View {
         VStack(spacing: 0) {
@@ -15,12 +15,31 @@ struct RequestEditorContainerView: View {
             Divider()
             RequestMethodURLBar(spec: specBinding)
             Divider()
-            RequestTabsView(activeTab: $activeTab)
+            RequestTabsView(activeTab: activeTabBinding)
             Divider()
-            tabContent
-                .padding(.horizontal, Layout.gutter)
-                .padding(.vertical, Spacing.sm)
+            if activeTab == .auth || activeTab == .body {
+                ScrollView {
+                    paddedTabContent
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                }
+            } else {
+                paddedTabContent
+            }
         }
+    }
+
+    private var activeTab: RequestTab {
+        RequestTab(rawValue: activeTabRaw) ?? .params
+    }
+
+    private var activeTabBinding: Binding<RequestTab> {
+        Binding(get: { activeTab }, set: { activeTabRaw = $0.rawValue })
+    }
+
+    private var paddedTabContent: some View {
+        tabContent
+            .padding(.horizontal, Layout.gutter)
+            .padding(.vertical, Spacing.sm)
     }
 
     @ViewBuilder

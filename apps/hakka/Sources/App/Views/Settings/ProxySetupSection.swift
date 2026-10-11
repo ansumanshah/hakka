@@ -3,21 +3,41 @@ import SwiftUI
 
 struct ProxySetupSection: View {
     let proxy: ProxyCaptureModel
-    @State private var target = ProxySetupGuide.Target.mac
+    @State private var target = ProxyDeviceSetupGuide.Target.simulator
+    @State private var simulatorID = ""
 
     var body: some View {
         Section("Setup guide") {
             Picker("Capture from", selection: $target) {
-                ForEach(ProxySetupGuide.Target.allCases) { target in
+                ForEach(ProxyDeviceSetupGuide.Target.allCases) { target in
                     Text(target.rawValue).tag(target)
                 }
             }
             Label(proxy.state == .running ? "Proxy is listening" : "Start capture to open the proxy", systemImage: proxy.state == .running ? "checkmark.circle.fill" : "1.circle")
-            if target != .mac && !proxy.allowLAN {
+            if (target == .iphone || target == .android) && !proxy.allowLAN {
                 Label("Enable local network access before starting capture.", systemImage: "exclamationmark.triangle")
                     .foregroundStyle(.orange)
             }
-            Text(target.instructions).font(.callout).foregroundStyle(.secondary)
+            if target == .simulator {
+                TextField("Simulator UDID (for manual CA command)", text: $simulatorID)
+                    .accessibilityLabel("Simulator UDID")
+            }
+            ForEach(guide.steps) { step in
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    Text(step.title).font(.callout.weight(.semibold))
+                    Text(step.detail).font(.callout).foregroundStyle(.secondary)
+                    if let command = step.command {
+                        Text(command).font(.caption.monospaced()).textSelection(.enabled)
+                        Button("Copy \(step.title) Command") {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(command, forType: .string)
+                        }
+                    }
+                }
+            }
+            ForEach(guide.limitations, id: \.self) { limitation in
+                Text(limitation).font(.caption).foregroundStyle(.secondary)
+            }
             Label(proxy.capturedCount > 0 ? "\(proxy.capturedCount) requests captured in this session" : "Send a request, then inspect it in Live Traffic", systemImage: proxy.capturedCount > 0 ? "checkmark.circle.fill" : "2.circle")
             if proxy.state == .running {
                 HStack {
@@ -46,5 +66,14 @@ struct ProxySetupSection: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
+    }
+
+    private var guide: ProxyDeviceSetupGuide.Guide {
+        ProxyDeviceSetupGuide.guide(
+            target: target, port: proxy.port, allowLAN: proxy.allowLAN,
+            certificatePath: proxy.certificatePath,
+            lanAddress: ProxyDeviceAddress.activeAddresses().first,
+            simulatorID: simulatorID, routeThisMac: proxy.routeThisMac
+        )
     }
 }

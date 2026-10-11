@@ -25,6 +25,18 @@ private func fixture(_ id: String, startTime: Int64) -> NetworkRequest {
 
 @Suite("MCPListRequestsTool")
 struct MCPListRequestsToolTests {
+    @Test("unrepresentable pagination values fall back without crashing the MCP request", arguments: [1e300, -1e300, 1.5])
+    func malformedPagination(value: Double) async {
+        let source = FakeTrafficSource([fixture("a", startTime: 1)])
+        let result = await MCPListRequestsTool(source: source).call(.object([
+            "limit": .number(value), "offset": .number(value),
+        ]))
+        let payload = decodeJSON(result)
+        #expect(payload["count"]?.intValue == 1)
+        #expect(payload["offset"]?.intValue == 0)
+        #expect(!result.isError)
+    }
+
     @Test("lists newest-first, default paging")
     func listsNewestFirst() async {
         let source = FakeTrafficSource([fixture("a", startTime: 1), fixture("b", startTime: 2), fixture("c", startTime: 3)])

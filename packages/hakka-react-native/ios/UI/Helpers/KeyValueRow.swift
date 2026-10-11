@@ -27,19 +27,26 @@ struct KeyValueRow: View {
     var keyColumnWidth: CGFloat? = nil
 
     @Environment(\.hakkaKeyColumnWidth) private var envKeyColumnWidth
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    private var rowLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Theme.s4))
+            : AnyLayout(HStackLayout(alignment: .top, spacing: Theme.s8))
+    }
 
     var body: some View {
-        HStack(alignment: .top, spacing: Theme.s8) {
+        rowLayout {
             Text(key)
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(keyColor)
-                .lineLimit(1)
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
                 .background(
                     GeometryReader { proxy in
                         Color.clear.preference(key: KeyColumnWidth.self, value: proxy.size.width)
                     }
                 )
-                .frame(width: keyColumnWidth ?? envKeyColumnWidth, alignment: .trailing)
+                .frame(width: dynamicTypeSize.isAccessibilitySize ? nil : keyColumnWidth ?? envKeyColumnWidth, alignment: dynamicTypeSize.isAccessibilitySize ? .leading : .trailing)
 
             Group {
                 if selectable {
@@ -92,19 +99,26 @@ struct ColoredKeyValueRow: View {
     /// shrinks to fit the widest key in the surrounding list instead of a
     /// fixed band. Falls back to intrinsic sizing (capped at 116pt) when nil.
     var keyColumnWidth: CGFloat? = nil
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    private var rowLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Theme.s4))
+            : AnyLayout(HStackLayout(alignment: .top, spacing: Theme.s8))
+    }
 
     var body: some View {
-        HStack(alignment: .top, spacing: Theme.s8) {
+        rowLayout {
             SearchHighlightedText(
                 text: key,
                 searchText: searchText,
                 font: .caption2.monospaced().weight(.semibold),
-                color: Theme.info
+                color: Theme.infoText
             )
-            .lineLimit(1)
+            .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
             .background(widthReporter)
-            .frame(width: keyColumnWidth, alignment: .leading)
-            .frame(maxWidth: keyColumnWidth == nil ? 116 : nil, alignment: .leading)
+            .frame(width: dynamicTypeSize.isAccessibilitySize ? nil : keyColumnWidth, alignment: .leading)
+            .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : keyColumnWidth == nil ? 116 : nil, alignment: .leading)
 
             SearchHighlightedText(
                 text: value,

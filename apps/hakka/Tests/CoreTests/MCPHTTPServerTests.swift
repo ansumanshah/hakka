@@ -38,6 +38,20 @@ struct MCPHTTPServerTests {
         #expect(port != 0)
         #expect(await server.boundPort == port)
         #expect(await server.isRunning)
+
+        // Inspect the actual kernel listener, including ephemeral port binding.
+        let inspection = Process()
+        inspection.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
+        inspection.arguments = ["-nP", "-a", "-p", String(getpid()), "-iTCP:\(port)", "-sTCP:LISTEN", "-Fn"]
+        let output = Pipe()
+        inspection.standardOutput = output
+        try inspection.run()
+        let data = output.fileHandleForReading.readDataToEndOfFile()
+        inspection.waitUntilExit()
+        #expect(inspection.terminationStatus == 0)
+        let endpoints = String(decoding: data, as: UTF8.self).split(separator: "\n").filter { $0.hasPrefix("n") }
+        #expect(!endpoints.isEmpty)
+        #expect(endpoints.allSatisfy { $0 == "n127.0.0.1:\(port)" })
     }
 
     @Test("a real POST round-trips through the JSON-RPC handler")

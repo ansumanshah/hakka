@@ -118,7 +118,7 @@ extension RequestDetailView {
                             if let code = neighbor.status {
                                 Text("\(code)")
                                     .font(.caption2.monospacedDigit().weight(.semibold))
-                                    .foregroundStyle(Theme.statusColor(for: code))
+                                    .foregroundStyle(Theme.statusTextColor(for: code))
                             }
                         }
                         .padding(.vertical, Theme.s2)

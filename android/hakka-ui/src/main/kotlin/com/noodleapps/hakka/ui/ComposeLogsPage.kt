@@ -43,7 +43,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -122,7 +127,7 @@ internal fun ComposeLogsPage(activity: Activity) {
             FilterChip(selectedLevels.isEmpty(), { selectedLevels = emptyList() }, { Text("All") })
             levels.forEach { level -> FilterChip(level in selectedLevels, {
                 selectedLevels = if (level in selectedLevels) selectedLevels - level else selectedLevels + level
-            }, { Text(level.take(1)) }) }
+            }, { Text(level.lowercase().replaceFirstChar(Char::uppercase)) }) }
         }
 
         if (!isConsole) {
@@ -148,7 +153,12 @@ internal fun ComposeLogsPage(activity: Activity) {
 
 @Composable
 private fun StructuredComposeLogCard(activity: Activity, entry: LogEntry, expanded: Boolean, onToggle: () -> Unit) = Card(
-    Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable {
+    Modifier.fillMaxWidth().heightIn(min = 48.dp).semantics {
+        if (!entry.metadata.isNullOrEmpty()) stateDescription = if (expanded) "Expanded" else "Collapsed"
+    }.clickable(
+        role = Role.Button,
+        onClickLabel = if (entry.metadata.isNullOrEmpty()) "Copy log message" else if (expanded) "Hide metadata" else "Show metadata",
+    ) {
         if (!entry.metadata.isNullOrEmpty()) onToggle() else copyComposeLog(activity, entry.message)
     },
     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
@@ -160,12 +170,12 @@ private fun StructuredComposeLogCard(activity: Activity, entry: LogEntry, expand
             Text(entry.category ?: entry.level.name, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
             Text(formatComposeLogTime(entry.timestamp), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
         }
-        Text(entry.message, fontFamily = FontFamily.Monospace, color = if (entry.level == LogLevel.ERROR) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
+        Text(entry.message, fontFamily = FontFamily.Monospace, color = if (entry.level == LogLevel.ERROR) Color(Theme.errorText(LocalContext.current)) else MaterialTheme.colorScheme.onSurface)
         if (expanded) entry.metadata?.forEach { (key, value) ->
             Text("$key: $value", Modifier.padding(start = 24.dp, top = 3.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-            if (!entry.metadata.isNullOrEmpty()) Text(if (expanded) "Tap to collapse" else "Tap to show metadata", modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
+            if (!entry.metadata.isNullOrEmpty()) Text(if (expanded) "Tap to collapse" else "Tap to show metadata", modifier = Modifier.weight(1f), color = Color(Theme.accentText(LocalContext.current)), style = MaterialTheme.typography.labelMedium)
             TextButton(onClick = { copyComposeLog(activity, entry.message) }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Copy") }
         }
     }
@@ -173,7 +183,7 @@ private fun StructuredComposeLogCard(activity: Activity, entry: LogEntry, expand
 
 @Composable
 private fun ConsoleComposeLogCard(activity: Activity, entry: ConsoleEntry) = Card(
-    Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { copyComposeLog(activity, "${entry.tag}: ${entry.message}") },
+    Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(role = Role.Button, onClickLabel = "Copy console message") { copyComposeLog(activity, "${entry.tag}: ${entry.message}") },
     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
 ) {
     Column(Modifier.padding(12.dp)) {
@@ -183,14 +193,14 @@ private fun ConsoleComposeLogCard(activity: Activity, entry: ConsoleEntry) = Car
             Text(entry.tag, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
             Text(formatComposeLogTime(entry.timestampMs), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
         }
-        Text(entry.message, fontFamily = FontFamily.Monospace, color = if (entry.level == ConsoleLevel.ERROR) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
+        Text(entry.message, fontFamily = FontFamily.Monospace, color = if (entry.level == ConsoleLevel.ERROR) Color(Theme.errorText(LocalContext.current)) else MaterialTheme.colorScheme.onSurface)
     }
 }
 
 @Composable
 private fun LogLevelBadge(level: String, color: Color) = androidx.compose.material3.Surface(
     color = color, shape = androidx.compose.foundation.shape.CircleShape, modifier = Modifier.size(24.dp),
-) { androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) { Text(level.take(1), color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium) } }
+) { androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) { Text(level.take(1), modifier = Modifier.semantics { contentDescription = level.lowercase().replaceFirstChar(Char::uppercase) }, color = Color(android.graphics.Color.parseColor(GeneratedTokens.statusOnWarm)), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium) } }
 
 private fun structuredLevelColor(level: LogLevel): Color = Color(when (level) {
     LogLevel.DEBUG -> android.graphics.Color.parseColor(GeneratedTokens.statusPending)

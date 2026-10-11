@@ -12,36 +12,54 @@ struct SessionCompareRowView: View {
     @State private var showingDetail = false
 
     var body: some View {
-        Button {
-            if isMatchedWithDiffableChange { showingDetail = true }
-        } label: {
-            HStack(alignment: .top, spacing: Spacing.md) {
-                Image(systemName: symbol).foregroundStyle(color).frame(width: 16)
-                VStack(alignment: .leading, spacing: Spacing.xxs) {
-                    HStack(spacing: Spacing.sm) {
-                        Text(key.method.rawValue)
-                            .font(.caption2.weight(.bold))
-                            .foregroundStyle(Fmt.methodColor(key.method))
-                        Text(key.normalizedPath).font(.callout)
-                        if key.ordinal > 1 {
-                            Text("call #\(key.ordinal)").font(.caption2).foregroundStyle(.tertiary)
-                        }
-                    }
-                    ForEach(details, id: \.self) { line in
-                        Text(line).font(.caption).foregroundStyle(.secondary)
-                    }
+        Group {
+            if isMatchedWithDiffableChange {
+                Button {
+                    showingDetail = true
+                } label: {
+                    rowContent
                 }
-                Spacer()
+                .buttonStyle(.plain)
+                .accessibilityHint("Show comparison details")
+            } else {
+                rowContent
             }
         }
-        .buttonStyle(.plain)
         .padding(Spacing.ml)
-        .background(RoundedRectangle(cornerRadius: 8).fill(.quaternary.opacity(0.3)))
+        .background(RoundedRectangle(cornerRadius: Radius.sm).fill(.quaternary.opacity(0.3)))
         .sheet(isPresented: $showingDetail) {
             if case let .matched(pair) = entry {
                 RequestDiffView(before: pair.before, after: pair.after) { showingDetail = false }
             }
         }
+    }
+
+    private var rowContent: some View {
+        HStack(alignment: .top, spacing: Spacing.md) {
+            Image(systemName: symbol).foregroundStyle(color).frame(width: 16)
+            VStack(alignment: .leading, spacing: Spacing.xxs) {
+                HStack(spacing: Spacing.sm) {
+                    Text(key.method.rawValue)
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(Fmt.methodColor(key.method))
+                    Text(key.normalizedPath).font(.callout)
+                    if key.ordinal > 1 {
+                        Text("call #\(key.ordinal)").font(.caption2).foregroundStyle(.tertiary)
+                    }
+                }
+                ForEach(details, id: \.self) { line in
+                    Text(line).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+            if isMatchedWithDiffableChange {
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+            }
+        }
+        .contentShape(Rectangle())
     }
 
     private var key: SessionRequestKey {

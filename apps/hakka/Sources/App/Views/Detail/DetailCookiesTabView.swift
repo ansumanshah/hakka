@@ -43,7 +43,7 @@ struct DetailCookiesTabView: View {
     }
 
     private func sectionTitle(_ text: String) -> some View {
-        Text(text).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+        Text(text).font(.caption.weight(.semibold)).foregroundStyle(ThemeTokens.Palette.textSecondary)
     }
 }
 
@@ -60,7 +60,7 @@ private struct SentCookieRow: View {
                 .frame(width: 140, alignment: .leading)
             Text(pair.value)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(ThemeTokens.Palette.textSecondary)
                 .textSelection(.enabled)
         }
     }
@@ -73,14 +73,14 @@ private struct SetCookieCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
-            HStack(spacing: Spacing.sm) {
-                Text(cookie.name).font(.caption.weight(.semibold))
-                Spacer()
-                flags
-            }
+            Text(cookie.name)
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(ThemeTokens.Palette.text)
+                .textSelection(.enabled)
+            flags
             Text(cookie.value)
                 .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(ThemeTokens.Palette.textSecondary)
                 .textSelection(.enabled)
             VStack(alignment: .leading, spacing: Spacing.xxs) {
                 attributeRow("Domain", cookie.domain)
@@ -91,27 +91,31 @@ private struct SetCookieCard: View {
         }
         .padding(Spacing.ml)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.secondary.opacity(0.06))
-        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .background(ThemeTokens.Palette.surface, in: RoundedRectangle(cornerRadius: Radius.md))
+    }
+
+    private var flags: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: Spacing.xs) { flagContent }
+                .fixedSize()
+            VStack(alignment: .leading, spacing: Spacing.xs) { flagContent }
+        }
     }
 
     @ViewBuilder
-    private var flags: some View {
-        HStack(spacing: Spacing.xs) {
-            if cookie.secure { flag("lock.fill", "Secure", ThemeTokens.Status.success) }
-            if cookie.httpOnly { flag("eye.slash.fill", "HttpOnly", ThemeTokens.Status.info) }
-            if let sameSite = cookie.sameSite { flag("shield.fill", sameSite, ThemeTokens.Status.warning) }
-        }
+    private var flagContent: some View {
+        if cookie.secure { flag("lock.fill", "Secure", ThemeTokens.Status.success) }
+        if cookie.httpOnly { flag("eye.slash.fill", "HttpOnly", ThemeTokens.Status.info) }
+        if let sameSite = cookie.sameSite { flag("shield.fill", sameSite, ThemeTokens.Status.warning) }
     }
 
     private func flag(_ symbol: String, _ label: String, _ tint: Color) -> some View {
         Label(label, systemImage: symbol)
-            .font(.caption2.weight(.medium))
+            .font(.caption.weight(.medium))
             .foregroundStyle(tint)
             .padding(.horizontal, Spacing.sm)
             .padding(.vertical, Spacing.xxs)
-            .background(tint.opacity(0.12))
-            .clipShape(RoundedRectangle(cornerRadius: 4))
+            .background(ThemeTokens.Palette.surfaceRaised, in: RoundedRectangle(cornerRadius: Radius.sm))
     }
 
     @ViewBuilder
@@ -119,12 +123,12 @@ private struct SetCookieCard: View {
         if let value {
             HStack(spacing: Spacing.sm) {
                 Text(label)
-                    .font(.caption2.weight(.medium))
-                    .foregroundStyle(.tertiary)
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(ThemeTokens.Palette.textSecondary)
                     .frame(width: 70, alignment: .leading)
                 Text(value)
-                    .font(.caption2.monospaced())
-                    .foregroundStyle(.secondary)
+                    .font(.caption.monospaced())
+                    .foregroundStyle(ThemeTokens.Palette.textSecondary)
                     .textSelection(.enabled)
             }
         }

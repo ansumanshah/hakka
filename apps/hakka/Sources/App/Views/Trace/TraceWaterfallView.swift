@@ -47,15 +47,35 @@ struct TraceWaterfallView: View {
         }
     }
 
+    @ViewBuilder
     private func row(for bar: TraceBar) -> some View {
+        Group {
+            if bar.kind == .request, let request = bar.request {
+                Button {
+                    onSelectRequest(request.id)
+                } label: {
+                    rowContent(for: bar)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(name(for: bar)), duration \(duration(for: bar))")
+                .accessibilityHint("Show request details")
+            } else {
+                rowContent(for: bar)
+            }
+        }
+        .opacity(bar.verbosity == .verbose ? 0.6 : 1)
+        .help(bar.clockCorrected ? "\(name(for: bar)) — start time corrected for clock skew against its cause" : name(for: bar))
+    }
+
+    private func rowContent(for bar: TraceBar) -> some View {
         let offset = (Double(bar.startTime) - Double(tree.t0)) / span
         let width = max((Double(bar.endTime) - Double(bar.startTime)) / span, 0.02)
         return HStack(spacing: Spacing.sm) {
             Text(name(for: bar))
                 .font(.caption)
                 .lineLimit(1)
-                .frame(width: 220, alignment: .leading)
                 .padding(.leading, CGFloat(bar.depth) * 12)
+                .frame(width: 220, alignment: .leading)
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Capsule()
@@ -70,14 +90,8 @@ struct TraceWaterfallView: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 56, alignment: .trailing)
         }
-        .opacity(bar.verbosity == .verbose ? 0.6 : 1)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
-        .onTapGesture {
-            if bar.kind == .request, let request = bar.request {
-                onSelectRequest(request.id)
-            }
-        }
-        .help(bar.clockCorrected ? "\(name(for: bar)) — start time corrected for clock skew against its cause" : name(for: bar))
     }
 
     private func name(for bar: TraceBar) -> String {

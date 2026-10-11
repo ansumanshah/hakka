@@ -1,23 +1,20 @@
 import HakkaCommon
 import SwiftUI
 
-/// Search field + level chips over `LogsModel`'s `searchText`/`levelFilter` —
-/// the interaction grammar of the iOS inspector's Logs tab
-/// (`ios/Sources/UI/Logs/LogsView.swift`'s `filterBar`/`levelChip`), rebuilt
-/// with the desktop's own capsule-button idiom (`LiveTrafficHeader.modeButton`)
-/// rather than iOS's `HakkaChip` (UIKit-gated, not visible to this module —
-/// see `swiftui-patterns.md`). Split out of `LogsPanelView.swift` to hold the
-/// 200-line budget.
+/// Search and level filters share the workspace's search and control geometry.
 struct LogsFilterBar: View {
+    @Environment(AppModel.self) private var model
     @Bindable var logs: LogsModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
             searchField
-            HStack(spacing: Spacing.sm) {
-                levelChip(nil, label: "All")
-                ForEach(LogLevel.allCases, id: \.rawValue) { level in
-                    levelChip(level, label: level.label)
+            ScrollView(.horizontal, showsIndicators: true) {
+                HStack(spacing: Spacing.sm) {
+                    levelChip(nil, label: "All")
+                    ForEach(LogLevel.allCases, id: \.rawValue) { level in
+                        levelChip(level, label: level.label)
+                    }
                 }
             }
         }
@@ -26,50 +23,19 @@ struct LogsFilterBar: View {
     }
 
     private var searchField: some View {
-        HStack(spacing: Spacing.sm) {
-            Image(systemName: "magnifyingglass")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            TextField("Search message or metadata", text: $logs.searchText)
-                .textFieldStyle(.plain)
-                .font(.callout)
-            if !logs.searchText.isEmpty {
-                Button {
-                    logs.searchText = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill").font(.caption)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-                .accessibilityLabel("Clear search")
-            }
-        }
-        .padding(.horizontal, Spacing.md)
-        .frame(height: ControlHeight.field)
-        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: Radius.md))
-        .frame(minWidth: 160)
+        WorkspaceSearchField(
+            prompt: "Search messages and metadata",
+            accessibilityName: "Search logs",
+            text: $logs.searchText,
+            focusToken: model.workspaceSearchFocusToken,
+            helpText: "Press Command-F to search this workspace."
+        )
     }
 
     private func levelChip(_ level: LogLevel?, label: String) -> some View {
-        let isActive = logs.levelFilter == level
-        return Button {
+        WorkspaceFilterChip(title: label, isSelected: logs.levelFilter == level) {
             logs.levelFilter = level
-        } label: {
-            Text(label)
-                .font(.caption2.weight(.semibold))
-                .fixedSize()
-                .padding(.horizontal, Spacing.sm)
-                .padding(.vertical, Spacing.xs)
-                .background(isActive ? chipColor(level).opacity(0.2) : Color.secondary.opacity(0.08), in: Capsule())
-                .foregroundStyle(isActive ? chipColor(level) : .secondary)
         }
-        .buttonStyle(.plain)
         .accessibilityLabel("\(label) level filter")
-        .accessibilityAddTraits(isActive ? .isSelected : [])
-    }
-
-    private func chipColor(_ level: LogLevel?) -> Color {
-        guard let level else { return .accentColor }
-        return Fmt.logLevelColor(level)
     }
 }

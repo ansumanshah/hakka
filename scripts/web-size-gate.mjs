@@ -81,8 +81,12 @@ const NAMED = {
     // The 2026-09-30 capture privacy/lifecycle fixes measure 156.10 KB on
     // Node 24.20.0 (+1.72 KB). Keep about 1% headroom for that safety cost;
     // the eager entry stays 3.42 KB under its unchanged 5 KB budget.
+    // The 2026-10-11 inspector polish (generated theme palettes, filter reset,
+    // keyboard and toolbar work) measures 158.23 KB in CI (+0.23 KB over the
+    // prior cap). Raise to 160 KB for about 1% headroom; eager/worker caps
+    // stay fixed.
     label: 'IIFE (<script>)',
-    budget: Number(process.env.HAKKA_WEB_GLOBAL_BUDGET) || 158 * 1024,
+    budget: Number(process.env.HAKKA_WEB_GLOBAL_BUDGET) || 160 * 1024,
   },
   'worker.js': {
     // workerCapture.ts's own build (vite.config.ts's `worker` mode, `hakka-browser/worker`)

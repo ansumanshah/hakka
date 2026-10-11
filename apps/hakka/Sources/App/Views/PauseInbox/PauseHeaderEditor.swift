@@ -44,10 +44,17 @@ struct PauseHeaderEditor: View {
                     Button {
                         pairs.removeAll { $0.id == pair.id }
                     } label: {
-                        Image(systemName: "minus.circle")
+                        Label(
+                            pair.name.isEmpty ? "Delete header" : "Delete header \(pair.name)",
+                            systemImage: "minus.circle"
+                        )
+                        .labelStyle(.iconOnly)
+                        .frame(width: ControlHeight.icon, height: ControlHeight.icon)
+                        .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.borderless)
                     .foregroundStyle(.secondary)
+                    .help(pair.name.isEmpty ? "Delete header" : "Delete header \(pair.name)")
                 }
             }
             Button {

@@ -8,32 +8,82 @@ struct AssertionRow: View {
     let onDelete: () -> Void
 
     var body: some View {
-        HStack(spacing: Spacing.md) {
-            Toggle(isOn: $assertion.enabled) { EmptyView() }
-                .labelsHidden()
-                .toggleStyle(.checkbox)
-            Picker("", selection: kindBinding) {
-                ForEach(AssertionTargetKind.allCases) { Text($0.rawValue).tag($0) }
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: Spacing.md) {
+                enabledToggle
+                targetPicker
+                if kindBinding.wrappedValue.needsDetail {
+                    detailField.fixedSize(horizontal: true, vertical: false)
+                }
+                operatorPicker
+                expectedField.fixedSize(horizontal: true, vertical: false)
+                deleteButton
             }
-            .labelsHidden()
-            .frame(width: 110)
-            if kindBinding.wrappedValue.needsDetail {
-                TextField(kindBinding.wrappedValue == .header ? "Header name" : "$.path", text: detailBinding)
-                    .textFieldStyle(.roundedBorder)
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                HStack(spacing: Spacing.md) {
+                    enabledToggle
+                    targetPicker
+                    operatorPicker
+                    Spacer(minLength: 0)
+                    deleteButton
+                }
+                HStack(spacing: Spacing.md) {
+                    if kindBinding.wrappedValue.needsDetail {
+                        detailField
+                    }
+                    expectedField
+                }
             }
-            Picker("", selection: $assertion.op) {
-                ForEach(AssertionOperator.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-            }
-            .labelsHidden()
-            .frame(width: 120)
-            TextField("Expected", text: $assertion.expected)
-                .textFieldStyle(.roundedBorder)
-            Button(action: onDelete) {
-                Image(systemName: "minus.circle").foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
         }
         .opacity(assertion.enabled ? 1 : 0.5)
+    }
+
+    private var enabledToggle: some View {
+        Toggle("Enable assertion", isOn: $assertion.enabled)
+            .labelsHidden()
+            .toggleStyle(.checkbox)
+    }
+
+    private var targetPicker: some View {
+        Picker("Assertion target", selection: kindBinding) {
+            ForEach(AssertionTargetKind.allCases) { Text($0.rawValue).tag($0) }
+        }
+        .labelsHidden()
+        .pickerStyle(.menu)
+        .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private var operatorPicker: some View {
+        Picker("Comparison", selection: $assertion.op) {
+            ForEach(AssertionOperator.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+        }
+        .labelsHidden()
+        .pickerStyle(.menu)
+        .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private var detailField: some View {
+        TextField(kindBinding.wrappedValue == .header ? "Header name" : "$.path", text: detailBinding)
+            .textFieldStyle(.roundedBorder)
+            .accessibilityLabel(kindBinding.wrappedValue == .header ? "Header name" : "JSON path")
+    }
+
+    private var expectedField: some View {
+        TextField("Expected", text: $assertion.expected)
+            .textFieldStyle(.roundedBorder)
+            .accessibilityLabel("Expected value")
+    }
+
+    private var deleteButton: some View {
+        Button(action: onDelete) {
+            Label("Delete assertion", systemImage: "minus.circle")
+                .labelStyle(.iconOnly)
+                .foregroundStyle(.secondary)
+                .frame(width: ControlHeight.icon, height: ControlHeight.icon)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.borderless)
+        .help("Delete assertion")
     }
 
     private var kindBinding: Binding<AssertionTargetKind> {

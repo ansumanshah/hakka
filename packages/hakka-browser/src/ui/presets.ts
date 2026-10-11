@@ -14,29 +14,14 @@
  * inline-style mechanism and inline always beats a stylesheet rule. Call
  * `setPreset('navy')` (the default) to fall back to plain CSS-rule overrides.
  *
- * Presets are curated bundles over the "Surfaces + text" and "JSON syntax
- * colors" token groups ONLY — status/method/timing stay constant across every
- * preset by design (DESIGN.md: picked mid-luminance to survive any ground,
- * so a request's meaning reads the same whichever preset is active).
+ * Presets use canonical theme palettes for content and semantic text roles.
+ * Status/method fills and timing colors keep their shared meaning across presets.
  */
 import { loadUiState, saveUiState } from './persist'
+import { DARK_THEME_TOKENS, LIGHT_THEME_TOKENS } from './theme-palettes.generated'
 
-const MANAGED_KEYS = [
-  'bg',
-  'surface',
-  'surface-raised',
-  'border',
-  'text',
-  'text-secondary',
-  'text-tertiary',
-  'accent',
-  'code-string',
-  'code-number',
-  'code-boolean',
-  'code-null',
-  'code-highlight',
-] as const
-type ManagedKey = (typeof MANAGED_KEYS)[number]
+type ManagedKey = keyof typeof DARK_THEME_TOKENS
+const MANAGED_KEYS = Object.keys(DARK_THEME_TOKENS) as ManagedKey[]
 type PresetTokens = Partial<Record<ManagedKey, string>>
 
 export type PresetName = 'navy' | 'light' | 'high-contrast' | 'amber' | 'matrix' | 'paper'
@@ -62,26 +47,13 @@ const PRESET_COLOR_SCHEME: Record<PresetName, 'dark' | 'light'> = {
 }
 
 // navy = {} (no overrides) so switching back to navy is pixel-identical to
-// tokens.css's built-in :host block. light mirrors tokens.css's existing
-// :host([theme='light']) block verbatim.
+// tokens.css's built-in :host block and host-page CSS overrides. Light uses
+// the same generated palette as the attribute-driven light theme.
 const PRESETS: Record<PresetName, PresetTokens> = {
   navy: {},
-  light: {
-    bg: '#FAF8F4',
-    surface: '#F2EFE8',
-    'surface-raised': '#FFFFFF',
-    border: '#E2DDD2',
-    text: '#21201C',
-    'text-secondary': '#57534A',
-    'text-tertiary': '#8B857A',
-    accent: '#E0761A',
-    'code-string': '#B4552A',
-    'code-number': '#2B6CB0',
-    'code-boolean': '#8548AB',
-    'code-null': '#8548AB',
-    'code-highlight': '#F5E5C0',
-  },
+  light: LIGHT_THEME_TOKENS,
   'high-contrast': {
+    ...DARK_THEME_TOKENS,
     bg: '#000000',
     surface: '#0D0D0D',
     'surface-raised': '#1A1A1A',
@@ -90,36 +62,46 @@ const PRESETS: Record<PresetName, PresetTokens> = {
     'text-secondary': '#E6E6E6',
     'text-tertiary': '#B3B3B3',
     accent: '#FF9500',
+    'accent-text': '#FF9500',
+    'code-key': '#E6E6E6',
   },
   amber: {
+    ...DARK_THEME_TOKENS,
     bg: '#160F00',
     surface: '#211700',
     'surface-raised': '#2C1F00',
     border: '#4D3900',
     text: '#FFC864',
     'text-secondary': '#E0AC5C',
-    'text-tertiary': '#8C6A2E',
+    'text-tertiary': '#AC8239',
     accent: '#FFB000',
+    'accent-text': '#FFB000',
+    'code-key': '#E0AC5C',
   },
   matrix: {
+    ...DARK_THEME_TOKENS,
     bg: '#000000',
     surface: '#040A04',
     'surface-raised': '#081208',
     border: '#1A3D1A',
     text: '#00FF41',
     'text-secondary': '#00CC33',
-    'text-tertiary': '#227A2E',
+    'text-tertiary': '#288F36',
     accent: '#00FF41',
+    'accent-text': '#00FF41',
+    'code-key': '#00CC33',
   },
   paper: {
+    ...LIGHT_THEME_TOKENS,
     bg: '#F5F0E1',
     surface: '#EDE6D3',
     'surface-raised': '#FFFDF7',
     border: '#D9CFB0',
     text: '#2B2620',
     'text-secondary': '#5C5340',
-    'text-tertiary': '#8A8066',
+    'text-tertiary': '#6D6551',
     accent: '#B5651D',
+    'code-key': '#5C5340',
     'code-string': '#A2603A',
     'code-number': '#3D6A94',
     'code-boolean': '#7A5A8C',

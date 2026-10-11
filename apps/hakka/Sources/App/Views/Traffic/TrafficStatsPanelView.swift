@@ -1,18 +1,7 @@
 import HakkaCore
 import SwiftUI
 
-/// Surfaces `TrafficStatsAccumulator`'s running totals (SPEC.md §2 footnote
-/// 27: the accumulator "compute[s] exactly what SPEC §2 calls for... live,
-/// on every `TrafficStore.append`", but before this view the only consumer
-/// was `LiveTrafficHeader`'s single request-count line). Every row below
-/// reads a field `TrafficStats` already carries — count, error rate, p50/p95
-/// duration, byte totals — nothing here computes a metric of its own.
-///
-/// A popover off a toolbar button, not a new tab: `SidebarSelection` has no
-/// `.stats` case, and adding one is out of this view's scope (see the
-/// workstream brief). `TrafficColumnPickerView` is the pattern this follows —
-/// a small fixed-width popover fed a value type directly rather than reading
-/// `AppModel` itself, so it stays trivial to preview and test.
+/// Readable totals from the existing traffic accumulator, shown in a native popover.
 struct TrafficStatsPanelView: View {
     let stats: TrafficStats
 
@@ -21,35 +10,28 @@ struct TrafficStatsPanelView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text("Stats")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, Spacing.lg)
-                .padding(.top, Spacing.ml)
-            VStack(spacing: Spacing.sm) {
-                row("Requests", content.requestCount, index: 0)
-                row("Errors", content.errorSummary, valueColor: stats.errorCount > 0 ? ThemeTokens.Status.error : nil, index: 1)
+        VStack(alignment: .leading, spacing: Spacing.lg) {
+            Text("Traffic Stats")
+                .font(.headline)
+                .foregroundStyle(ThemeTokens.Palette.text)
+                .accessibilityAddTraits(.isHeader)
+            VStack(spacing: Spacing.lg) {
+                row("Requests", content.requestCount)
+                row("Errors", content.errorSummary, valueColor: stats.errorCount > 0 ? ThemeTokens.Status.error : nil)
                 Divider()
-                row("p50 duration", content.p50Duration, index: 2)
-                row("p95 duration", content.p95Duration, index: 3)
+                row("p50 duration", content.p50Duration)
+                row("p95 duration", content.p95Duration)
                 Divider()
-                row("Total bytes", content.totalBytes, index: 4)
+                row("Total bytes", content.totalBytes)
             }
-            .padding(Spacing.lg)
         }
-        .frame(width: 220)
+        .padding(Layout.gutter)
+        .background(ThemeTokens.Palette.surfaceRaised)
+        .frame(width: 280) // ui-token-check-ignore: statistics popover reading measure
     }
 
-    /// `index` staggers this row's reveal the same way `DetailTimingSection`
-    /// staggers its waterfall bars — the panel is a fresh view each time the
-    /// toolbar's stats button opens the popover, so the reveal replays on
-    /// every open rather than firing once and never again. The values
-    /// themselves (`content`, refreshed live from `TrafficStatsAccumulator`
-    /// on every captured request) are never wrapped in animation — that data
-    /// updates on the traffic hot path and must snap, not tween.
-    private func row(_ label: String, _ value: String, valueColor: Color? = nil, index: Int) -> some View {
-        TrafficStatRow(label: label, value: value, valueColor: valueColor, index: index)
+    private func row(_ label: String, _ value: String, valueColor: Color? = nil) -> some View {
+        TrafficStatRow(label: label, value: value, valueColor: valueColor)
     }
 }
 
@@ -57,32 +39,17 @@ private struct TrafficStatRow: View {
     let label: String
     let value: String
     let valueColor: Color?
-    let index: Int
-
-    @State private var isVisible = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
     var body: some View {
         HStack {
             Text(label)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(.callout)
+                .foregroundStyle(ThemeTokens.Palette.textSecondary)
             Spacer()
             Text(value)
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(valueColor ?? .primary)
+                .font(.callout.monospacedDigit().weight(.medium))
+                .foregroundStyle(valueColor ?? ThemeTokens.Palette.text)
         }
-        .opacity(isVisible ? 1 : 0)
-        .offset(y: isVisible ? 0 : 4)
-        .onAppear {
-            guard !reduceMotion else {
-                isVisible = true
-                return
-            }
-            withAnimation(.easeOut(duration: 0.4).delay(Double(index) * 0.05)) {
-                isVisible = true
-            }
-        }
+        .accessibilityElement(children: .combine)
     }
 }
 
