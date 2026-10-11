@@ -11,7 +11,7 @@ struct StorageEntryRow: View {
     let value: String
 
     var body: some View {
-        HStack(alignment: .top, spacing: Spacing.md) {
+        GridRow(alignment: .top) {
             Text(key)
                 .font(.caption.weight(.medium))
                 .foregroundStyle(.secondary)

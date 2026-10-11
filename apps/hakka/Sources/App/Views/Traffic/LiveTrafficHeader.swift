@@ -17,28 +17,38 @@ struct LiveTrafficHeader: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
-            HStack(alignment: .top, spacing: Spacing.md) {
-                WorkspaceHeaderView(title: "Live Traffic", subtitle: statusText)
-                    .help(statusText)
-                Spacer(minLength: Spacing.sm)
-                actionsMenu
-            }
-            searchField
-            HStack(spacing: Spacing.md) {
+            HStack(spacing: Spacing.sm) {
+                searchField
                 Toggle("Errors only", isOn: errorsOnlyBinding)
-                    .toggleStyle(.button)
+                    .toggleStyle(.switch)
                     .font(.caption)
                     .fixedSize()
                     .accessibilityHint("Shows only requests with a 4xx, 5xx, or transport error")
+                actionsMenu
+            }
+            HStack(spacing: Spacing.sm) {
                 TrafficFocusMenu()
                 Spacer(minLength: Spacing.sm)
+            }
+            if model.traffic.selectedDomain != nil || model.traffic.selectedSource != nil {
+                HStack(spacing: Spacing.sm) {
+                    Text([model.traffic.selectedSource?.displayName, model.traffic.selectedDomain].compactMap { $0 }.joined(separator: " · "))
+                        .lineLimit(1).truncationMode(.middle)
+                    Spacer(minLength: Spacing.sm)
+                    Button("Clear Scope") {
+                        model.traffic.selectedDomain = nil
+                        model.traffic.selectedSource = nil
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
             if showsTokenRow {
                 tokenRow
             }
         }
         .padding(.horizontal, Layout.gutter)
-        .padding(.vertical, Spacing.lg)
+        .padding(.vertical, Spacing.md)
         .controlSize(.regular)
         .alert("Save Traffic View", isPresented: $isPresentingSaveView) {
             TextField("Name", text: $savedViewName)

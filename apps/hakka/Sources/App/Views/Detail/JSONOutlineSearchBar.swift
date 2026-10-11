@@ -11,21 +11,45 @@ struct JSONOutlineSearchBar: View {
 
     var body: some View {
         HStack(spacing: Spacing.md) {
-            Picker("JSON search field", selection: $scope) {
-                ForEach(JSONOutlineSearch.Scope.allCases) { scope in
-                    Text(scope.rawValue).tag(scope)
+            Menu {
+                Picker("JSON search field", selection: $scope) {
+                    ForEach(JSONOutlineSearch.Scope.allCases) { option in
+                        Text(option.rawValue).tag(option)
+                    }
                 }
+                .labelsHidden()
+            } label: {
+                Text(scope.rawValue)
+                    .font(.callout)
             }
-            .labelsHidden()
+            .menuStyle(.borderlessButton)
             .controlSize(.regular)
-            .frame(width: 92)
+            .padding(.horizontal, Spacing.md)
+            .frame(width: 86, height: ControlHeight.icon) // ui-token-check-ignore: compact search scope width
+            .background(ThemeTokens.Palette.surfaceRaised, in: RoundedRectangle(cornerRadius: Radius.md))
+            .overlay {
+                RoundedRectangle(cornerRadius: Radius.md)
+                    .strokeBorder(ThemeTokens.Palette.border)
+                    .allowsHitTesting(false)
+            }
+            .accessibilityLabel("JSON search field: \(scope.rawValue)")
 
-            Image(systemName: "magnifyingglass")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            TextField(scope.placeholder, text: $searchText)
-                .textFieldStyle(.roundedBorder)
-                .font(.callout.monospaced())
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: "magnifyingglass")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                TextField(scope.placeholder, text: $searchText)
+                    .textFieldStyle(.plain)
+                    .font(.callout)
+            }
+            .padding(.horizontal, Spacing.md)
+            .frame(minHeight: ControlHeight.icon)
+            .background(ThemeTokens.Palette.surfaceRaised, in: RoundedRectangle(cornerRadius: Radius.md))
+            .overlay {
+                RoundedRectangle(cornerRadius: Radius.md)
+                    .strokeBorder(ThemeTokens.Palette.border)
+                    .allowsHitTesting(false)
+            }
             if !searchText.isEmpty {
                 Button {
                     searchText = ""

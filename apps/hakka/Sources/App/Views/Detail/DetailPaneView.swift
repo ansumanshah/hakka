@@ -9,8 +9,7 @@ struct DetailPaneView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// The request the promote-to-mock sheet was opened for — set by
-    /// `DetailActionBar`'s Mock button instead of that button installing
-    /// directly (gap-audit-2026-08-22.md item 2).
+    /// `DetailActionBar`'s Create Mock action instead of installing directly.
     @State private var promoteRequest: NetworkRequest?
 
     var body: some View {
@@ -193,7 +192,7 @@ struct DetailPaneView: View {
                 }
             } else if let id = model.traffic.selectedRequestID, let request = model.traffic.request(id: id) {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: Spacing.xl) {
+                    VStack(alignment: .leading, spacing: Spacing.lg) {
                         HStack {
                             DetailActionBar(
                                 request: request,
@@ -210,7 +209,8 @@ struct DetailPaneView: View {
                         NetworkRequestDetailView(record: request, deviceLabel: model.traffic.deviceLabel(for: request.id))
                             .id(request.id)
                     }
-                    .padding(Spacing.xl)
+                    .padding(.horizontal, Layout.gutter)
+                    .padding(.vertical, Spacing.lg)
                 }
             } else {
                 EmptyStateView(

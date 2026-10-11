@@ -251,6 +251,12 @@ struct ProxyCaptureView: View {
                             chooseFile { proxy.nodePath = $0 }
                         }
                     }
+                    HStack {
+                        TextField("mitmdump executable (optional)", text: $proxy.mitmdumpPath)
+                        Button("Choose mitmdump…") {
+                            chooseFile { proxy.mitmdumpPath = $0 }
+                        }
+                    }
                     Text("Use an installed hakka executable or built cli.mjs. Install mitmproxy separately. These paths are passed directly to the process, without a shell.")
                         .font(.caption)
                         .foregroundStyle(.secondary)

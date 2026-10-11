@@ -14,13 +14,13 @@ struct MultipartPartRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
             HStack(spacing: Spacing.md) {
-                Toggle(isOn: $part.enabled) { EmptyView() }
+                Toggle("Enable multipart part", isOn: $part.enabled)
                     .labelsHidden()
                     .toggleStyle(.checkbox)
                 TextField("Name", text: $part.name)
                     .textFieldStyle(.plain)
                     .frame(maxWidth: .infinity)
-                Picker("", selection: kindBinding) {
+                Picker("Part type", selection: kindBinding) {
                     Text("Text").tag(false)
                     Text("File").tag(true)
                 }
@@ -28,10 +28,14 @@ struct MultipartPartRow: View {
                 .labelsHidden()
                 .frame(width: 120)
                 Button(action: onDelete) {
-                    Image(systemName: "minus.circle")
+                    Label("Delete multipart part", systemImage: "minus.circle")
+                        .labelStyle(.iconOnly)
                         .foregroundStyle(.secondary)
+                        .frame(width: ControlHeight.icon, height: ControlHeight.icon)
+                        .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.borderless)
+                .help("Delete multipart part")
             }
             if isFile {
                 fileValueRow

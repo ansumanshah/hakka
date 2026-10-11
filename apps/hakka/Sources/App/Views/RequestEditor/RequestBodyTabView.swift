@@ -49,11 +49,13 @@ struct RequestBodyTabView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
-            Picker("", selection: kindBinding) {
-                ForEach(availableKinds) { Text($0.rawValue).tag($0) }
+            ViewThatFits(in: .horizontal) {
+                bodyKindPicker
+                    .pickerStyle(.segmented)
+                    .fixedSize(horizontal: true, vertical: false)
+                bodyKindPicker
+                    .pickerStyle(.menu)
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
 
             switch spec.body {
             case .none:
@@ -78,6 +80,14 @@ struct RequestBodyTabView: View {
                 RequestGrpcMessageEditor(spec: $spec)
             }
         }
+    }
+
+    private var bodyKindPicker: some View {
+        Picker("Body type", selection: kindBinding) {
+            ForEach(availableKinds) { Text($0.rawValue).tag($0) }
+        }
+        .labelsHidden()
+        .accessibilityLabel("Body type")
     }
 
     /// A gRPC draft only ever sends a `.grpcMessage` body (ADR 0012) — the

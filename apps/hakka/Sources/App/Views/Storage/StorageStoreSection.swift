@@ -28,7 +28,7 @@ struct StorageStoreSection: View {
                     .foregroundStyle(ThemeTokens.Palette.textSecondary)
                     .padding(.top, Spacing.xs)
             } else {
-                VStack(alignment: .leading, spacing: Spacing.xs) {
+                Grid(alignment: .topLeading, horizontalSpacing: Spacing.md, verticalSpacing: Spacing.xs) {
                     ForEach(sortedEntries, id: \.key) { entry in
                         StorageEntryRow(key: entry.key, value: entry.value)
                     }

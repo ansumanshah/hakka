@@ -2,6 +2,12 @@ import AppKit
 import Darwin
 import Observation
 
+/// Restores the user's draft and the exact persisted preference independently.
+struct ProxyTLSConfigurationSnapshot {
+    let draft: TLSHostScope
+    let persistedValue: Any?
+}
+
 @MainActor
 @Observable
 final class ProxyCaptureModel {
@@ -9,6 +15,7 @@ final class ProxyCaptureModel {
 
     var cliPath: String
     var nodePath: String
+    var mitmdumpPath: String
     var port = 8080
     var allowLAN = false
     /// Routes this Mac through the local proxy after the sidecar confirms it is listening.
@@ -17,9 +24,13 @@ final class ProxyCaptureModel {
     var enableBreakpoints = false
     var mappings = ProxyMappingFile()
     var tlsHostScope = TLSHostScope()
+    private var launchedTLSHostScope: TLSHostScope?
+    var activeTLSHostScope: TLSHostScope? { isActive ? launchedTLSHostScope : nil }
     var scriptConfiguration = ProxyScriptConfiguration()
     var bandwidthConfiguration = ProxyBandwidthConfiguration()
     let routingConfiguration: ProxyRoutingConfiguration
+    var deviceSetupCaptureIdentity: UUID { captureGeneration }
+    var deviceSetupProcessIdentity: ObjectIdentifier? { process.map(ObjectIdentifier.init) }
     private(set) var state = State.stopped
     private(set) var message = "Capture traffic from an app or device configured to use this proxy."
     private(set) var certificatePath: String?
@@ -32,7 +43,7 @@ final class ProxyCaptureModel {
     private(set) var isRecoveringSystemProxyRouting = false
     @ObservationIgnored var onBreakpointReady: (@MainActor @Sendable () async -> Void)?
     @ObservationIgnored private var captureGeneration = UUID()
-    @ObservationIgnored private var process: Process?
+    private var process: Process?
     @ObservationIgnored private var reader: Task<Void, Never>?
     @ObservationIgnored private var stopDeadline: Task<Void, Never>?
     @ObservationIgnored private var privateRoutingConfigurationURL: URL?
@@ -60,6 +71,7 @@ final class ProxyCaptureModel {
         }
         cliPath = defaults.string(forKey: "hakka.proxy.cli") ?? Self.findCLI()
         nodePath = defaults.string(forKey: "hakka.proxy.node") ?? Self.findNode()
+        mitmdumpPath = defaults.string(forKey: "hakka.proxy.mitmdump") ?? ""
         if let data = try? Data(contentsOf: configurationDirectory.appendingPathComponent("mappings.json")),
            let saved = try? JSONDecoder().decode(ProxyMappingFile.self, from: data)
         {
@@ -73,6 +85,19 @@ final class ProxyCaptureModel {
 
     var mappingURL: URL {
         configurationDirectory.appendingPathComponent("mappings.json")
+    }
+
+    func snapshotSetupTLSConfiguration() -> ProxyTLSConfigurationSnapshot? {
+        ProxyTLSConfigurationSnapshot(draft: tlsHostScope, persistedValue: defaults.object(forKey: "hakka.proxy.tlsScope"))
+    }
+
+    func restoreSetupTLSConfiguration(_ snapshot: ProxyTLSConfigurationSnapshot, appliedScope: TLSHostScope) {
+        if tlsHostScope == appliedScope { tlsHostScope = snapshot.draft }
+        if let data = defaults.data(forKey: "hakka.proxy.tlsScope"),
+           let persisted = try? JSONDecoder().decode(TLSHostScope.self, from: data), persisted == appliedScope {
+            if let value = snapshot.persistedValue { defaults.set(value, forKey: "hakka.proxy.tlsScope") }
+            else { defaults.removeObject(forKey: "hakka.proxy.tlsScope") }
+        }
     }
 
     func start(bridgePort: UInt16 = 8989) {
@@ -96,6 +121,10 @@ final class ProxyCaptureModel {
             fail(error.localizedDescription); return
         }
         guard FileManager.default.fileExists(atPath: cliPath) else { fail("Choose the installed Hakka CLI or its built cli.mjs file."); return }
+        if !mitmdumpPath.isEmpty, !FileManager.default.isExecutableFile(atPath: mitmdumpPath) {
+            fail("Choose an executable mitmdump file, or leave the field empty to use the installed runtime.")
+            return
+        }
         do {
             let scriptPath = try scriptConfiguration.prepareForLaunch()
             try FileManager.default.createDirectory(at: configurationDirectory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
@@ -106,10 +135,12 @@ final class ProxyCaptureModel {
             try mappings.write(to: mappingURL)
             defaults.set(cliPath, forKey: "hakka.proxy.cli")
             defaults.set(nodePath, forKey: "hakka.proxy.node")
+            defaults.set(mitmdumpPath, forKey: "hakka.proxy.mitmdump")
             try defaults.set(JSONEncoder().encode(tlsHostScope), forKey: "hakka.proxy.tlsScope")
             try defaults.set(JSONEncoder().encode(bandwidthConfiguration), forKey: "hakka.proxy.bandwidth")
             var arguments = ["proxy", "--json", "--port", String(port), "--config-dir", configurationDirectory.path,
                              "--bridge-url", "ws://127.0.0.1:\(bridgePort)", "--routing-config", routingURL.path]
+            if !mitmdumpPath.isEmpty { arguments += ["--mitmdump", mitmdumpPath] }
             if let scriptPath {
                 arguments += ["--script", scriptPath]
             }
@@ -137,6 +168,7 @@ final class ProxyCaptureModel {
             capturedCount = 0
             let (child, events) = try ProxyProcessStream.launch(executable: executable, arguments: arguments)
             process = child
+            launchedTLSHostScope = tlsHostScope
             reader = Task { [weak self] in
                 for await event in events {
                     guard let self else { return }
@@ -200,6 +232,14 @@ final class ProxyCaptureModel {
         if let process, process.isRunning {
             kill(process.processIdentifier, SIGKILL)
         }
+        for _ in 0 ..< 20 {
+            guard process?.isRunning == true else { return true }
+            do { try await Task.sleep(for: .milliseconds(100)) } catch { break }
+        }
+        guard process?.isRunning != true else {
+            fail("The proxy has not confirmed termination. Capture ownership remains active; retry Stop.")
+            return false
+        }
         return true
     }
 
@@ -221,14 +261,15 @@ final class ProxyCaptureModel {
                     await onBreakpointReady?()
                 }
             case "started":
+                guard state != .stopping else { return }
                 cleanupPrivateRoutingConfiguration()
                 state = .running
                 message = "Listening on \(status.host ?? "127.0.0.1"):\(status.port ?? port)"
                 routeThisMacIfRequested()
             case "stopped":
                 cleanupPrivateRoutingConfiguration()
-                state = .stopped
-                message = "Stopped · \(capturedCount) captured requests"
+                state = process?.isRunning == true ? .stopping : .stopped
+                message = state == .stopping ? "Waiting for proxy termination…" : "Stopped · \(capturedCount) captured requests"
             case "error":
                 cleanupPrivateRoutingConfiguration()
                 restoreSystemProxyRouting()
@@ -237,8 +278,11 @@ final class ProxyCaptureModel {
             default: break
             }
         case let .failure(reason):
-            Task { [weak self] in await self?.stop() }
-            fail(reason)
+            Task { [weak self] in
+                guard let self else { return }
+                _ = await shutdown()
+                fail(reason)
+            }
         case let .exited(code):
             cleanupPrivateRoutingConfiguration()
             stopDeadline?.cancel()
@@ -264,6 +308,8 @@ final class ProxyCaptureModel {
 
     /// Called once at app launch before a new capture can apply a route.
     private var hasAttemptedRoutingRecovery = false
+    /// Agent starts must wait until launch recovery has inspected the prior routing journal.
+    var isSystemProxyRoutingRecoveryChecked: Bool { hasAttemptedRoutingRecovery && !isRecoveringSystemProxyRouting }
 
     func recoverSystemProxyRouting() async {
         guard !hasAttemptedRoutingRecovery else { return }

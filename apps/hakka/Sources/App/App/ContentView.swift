@@ -5,6 +5,7 @@ struct ContentView: View {
     @Environment(AppModel.self) private var model
     @AppStorage(InspectorPlacement.placementKey) private var inspectorPlacementRaw = InspectorPlacement.trailing.rawValue
     @AppStorage(InspectorPlacement.visibilityKey) private var isInspectorVisible = true
+    @State private var showingEnvironmentEditor = false
 
     var body: some View {
         workspace
@@ -46,9 +47,14 @@ struct ContentView: View {
                     )
                 }
             }
+            .sheet(isPresented: $showingEnvironmentEditor) {
+                EnvironmentEditorSheet()
+            }
             .toolbar {
                 ToolbarItem(placement: .status) {
-                    WorkspaceStatusView(compact: false)
+                    WorkspaceStatusView(compact: false) {
+                        showingEnvironmentEditor = true
+                    }
                 }
                 if #available(macOS 26.0, *) {
                     ToolbarSpacer(.fixed, placement: .primaryAction)
@@ -89,7 +95,7 @@ struct ContentView: View {
                 sidebar
             } detail: {
                 CenterPaneView()
-                    .background(Color(nsColor: .windowBackgroundColor))
+                    .background(ThemeTokens.Palette.background)
             }
         } else if isInspectorVisible, inspectorPlacement == .bottom {
             NavigationSplitView {
@@ -97,10 +103,10 @@ struct ContentView: View {
             } detail: {
                 VSplitView {
                     CenterPaneView()
-                        .background(Color(nsColor: .windowBackgroundColor))
+                        .background(ThemeTokens.Palette.background)
                         .frame(minHeight: 250) // ui-token-check-ignore: split pane minimum
                     DetailPaneView()
-                        .background(Color(nsColor: .textBackgroundColor))
+                        .background(ThemeTokens.Palette.background)
                         .frame(minHeight: 220) // ui-token-check-ignore: split pane minimum
                 }
             }
@@ -109,19 +115,19 @@ struct ContentView: View {
                 sidebar
             } content: {
                 CenterPaneView()
-                    .background(Color(nsColor: .windowBackgroundColor))
-                    .navigationSplitViewColumnWidth(min: 360, ideal: 520)
+                    .background(ThemeTokens.Palette.background)
+                    .navigationSplitViewColumnWidth(min: 360, ideal: 590)
             } detail: {
                 DetailPaneView()
-                    .background(Color(nsColor: .textBackgroundColor))
-                    .navigationSplitViewColumnWidth(min: 320, ideal: 440)
+                    .background(ThemeTokens.Palette.background)
+                    .navigationSplitViewColumnWidth(min: 320, ideal: 434)
             }
         } else {
             NavigationSplitView {
                 sidebar
             } detail: {
                 CenterPaneView()
-                    .background(Color(nsColor: .windowBackgroundColor))
+                    .background(ThemeTokens.Palette.background)
             }
         }
     }

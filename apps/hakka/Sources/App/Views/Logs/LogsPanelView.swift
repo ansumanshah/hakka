@@ -65,7 +65,7 @@ struct LogsPanelView: View {
     private var countText: String {
         let total = model.logs.entries.count
         let visible = model.logs.filteredEntries.count
-        return visible == total ? "\(total) logs" : "\(visible) of \(total)"
+        return visible == total ? "\(total) \(total == 1 ? "log" : "logs")" : "\(visible) of \(total)"
     }
 
     /// Chronological, oldest to newest — unlike `LiveTrafficListView` (a

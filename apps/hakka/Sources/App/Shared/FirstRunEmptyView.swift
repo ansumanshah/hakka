@@ -3,6 +3,7 @@ import SwiftUI
 
 /// Setup guidance shown until the desktop receives its first capture.
 struct FirstRunEmptyView: View {
+    @Environment(AppModel.self) private var app
     @Environment(\.openURL) private var openURL
     @State private var didCopySnippet = false
     @State private var selectedTarget = SetupSnippet.Target.web
@@ -15,6 +16,14 @@ struct FirstRunEmptyView: View {
                         .font(.title2.weight(.semibold))
                         .accessibilityAddTraits(.isHeader)
                     Text("Capture development traffic locally, then select a request to inspect its headers, body, and timing.")
+                        .font(.callout)
+                        .foregroundStyle(ThemeTokens.Palette.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    Button("Capture with a Proxy", systemImage: "network") { app.select(.proxy) }
+                        .buttonStyle(.borderedProminent)
+                    Text("Connect iOS Simulator or an iPhone through Hakka’s proxy without an app SDK. Setup guides explain routing and HTTPS trust. Apps that bypass proxies or pin certificates may not be captured.")
                         .font(.callout)
                         .foregroundStyle(ThemeTokens.Palette.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)

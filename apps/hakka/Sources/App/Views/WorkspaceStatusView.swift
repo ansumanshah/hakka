@@ -5,6 +5,7 @@ struct WorkspaceStatusView: View {
     @Environment(AppModel.self) private var model
     @State private var showingContext = false
     let compact: Bool
+    let onEditEnvironment: () -> Void
 
     var body: some View {
         Button {
@@ -12,23 +13,23 @@ struct WorkspaceStatusView: View {
         } label: {
             HStack(spacing: Spacing.sm) {
                 Image(systemName: "network")
+                    .imageScale(.small)
                     .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: Spacing.xxs) {
-                    Text(compact ? captureLabel : model.environment.selected?.name ?? "Local")
+                if !compact {
+                    Text(model.environment.selected?.name ?? "Local")
                         .font(.callout.weight(.medium))
-                    if !compact {
-                        HStack(spacing: Spacing.xs) {
-                            Image(systemName: model.traffic.startupError != nil && model.proxy.state != .running
-                                  ? "exclamationmark.triangle.fill" : "circle.fill")
-                                .font(.caption2)
-                                .foregroundStyle(captureTone)
-                                .accessibilityHidden(true)
-                            Text(captureLabel)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .help(model.environment.selected?.name ?? "Local")
                 }
+                Circle()
+                    .fill(captureTone)
+                    .frame(width: Spacing.sm, height: Spacing.sm)
+                    .accessibilityHidden(true)
+                Text(captureLabel)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
         }
         .help("\(captureLabel) · Environment and connections")
@@ -36,7 +37,10 @@ struct WorkspaceStatusView: View {
         .popover(isPresented: $showingContext) {
             VStack(alignment: .leading, spacing: Spacing.lg) {
                 Text("Environment").font(.headline)
-                EnvironmentPickerView()
+                EnvironmentPickerView(onEdit: {
+                    showingContext = false
+                    onEditEnvironment()
+                })
                 Divider()
                 LabeledContent("Capture", value: captureLabel)
                 LabeledContent("Devices", value: String(model.traffic.deviceSummaries.count))

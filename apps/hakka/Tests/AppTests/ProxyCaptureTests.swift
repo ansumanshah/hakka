@@ -1,10 +1,88 @@
 import Foundation
-import HakkaServer
-import Testing
 @testable import HakkaApp
+import HakkaServer
+import Observation
+import Synchronization
+import Testing
 
 @Suite("Native proxy capture")
 struct ProxyCaptureTests {
+    @Test @MainActor func invalidExplicitEnginePathDoesNotLaunch() throws {
+        let proxy = ProxyCaptureModel(defaults: try #require(UserDefaults(suiteName: UUID().uuidString)))
+        proxy.cliPath = "/usr/bin/true"
+        proxy.mitmdumpPath = "/does-not-exist/hakka-fixture-mitmdump"
+        proxy.start()
+        #expect(proxy.state == .failed)
+        #expect(!proxy.isActive)
+        #expect(proxy.lastError?.contains("executable mitmdump") == true)
+    }
+
+    @Test @MainActor func failedCaptureBecomesObservableAsInactiveAfterChildExit() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let release = directory.appendingPathComponent("release")
+        let script = directory.appendingPathComponent("fake-cli")
+        try Data("#!/bin/sh\nprintf '{\"status\":\"error\",\"message\":\"Startup failed\"}\\n'\nwhile [ ! -e '\(release.path)' ]; do /bin/sleep 0.05; done\n".utf8).write(to: script)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: script.path)
+        let proxy = try ProxyCaptureModel(defaults: #require(UserDefaults(suiteName: UUID().uuidString)), directory: directory)
+        proxy.cliPath = script.path
+        defer { try? Data().write(to: release) }
+        proxy.start()
+        for _ in 0 ..< 100 where proxy.state != .failed {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(proxy.state == .failed)
+        #expect(proxy.isActive)
+        let changed = Mutex(false)
+        withObservationTracking {
+            _ = proxy.isActive
+        } onChange: {
+            changed.withLock { $0 = true }
+        }
+        try Data().write(to: release)
+        for _ in 0 ..< 100 where proxy.isActive {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(!proxy.isActive)
+        #expect(changed.withLock { $0 })
+        #expect(proxy.state == .failed)
+        #expect(proxy.lastError == "Startup failed")
+    }
+
+    @Test @MainActor func malformedChildOutputRemainsAFailureAfterCleanup() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let script = directory.appendingPathComponent("fake-cli")
+        try Data("#!/bin/sh\nprintf 'invalid-status\\n'\nexec /bin/sleep 30\n".utf8).write(to: script)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: script.path)
+        let proxy = ProxyCaptureModel(defaults: try #require(UserDefaults(suiteName: UUID().uuidString)), directory: directory)
+        proxy.cliPath = script.path
+        proxy.start()
+        for _ in 0..<100 where proxy.state != .failed { try await Task.sleep(for: .milliseconds(50)) }
+        #expect(proxy.state == .failed)
+        #expect(!proxy.isActive)
+        #expect(proxy.lastError == "The proxy returned an invalid status message.")
+    }
+
+    @Test @MainActor func shutdownConfirmsExitOfATermResistantChild() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let script = directory.appendingPathComponent("fake-cli")
+        try Data("#!/usr/bin/python3\nimport signal,time\nsignal.signal(signal.SIGTERM, signal.SIG_IGN)\nprint('{\"status\":\"started\"}', flush=True)\ntime.sleep(30)\n".utf8).write(to: script)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: script.path)
+        let proxy = ProxyCaptureModel(defaults: try #require(UserDefaults(suiteName: UUID().uuidString)), directory: directory)
+        proxy.cliPath = script.path
+        proxy.start()
+        for _ in 0..<100 where proxy.state == .starting { try await Task.sleep(for: .milliseconds(20)) }
+        #expect(proxy.state == .running)
+        #expect(await proxy.shutdown())
+        #expect(!proxy.isActive)
+        #expect(proxy.state == .stopped)
+    }
+
     @Test @MainActor func bandwidthArgumentsUseCanonicalProfilesAndCustomLimits() throws {
         let model = ProxyCaptureModel(defaults: try #require(UserDefaults(suiteName: UUID().uuidString)))
         model.bandwidthConfiguration = ProxyBandwidthConfiguration(profile: .fast3G)

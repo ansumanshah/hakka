@@ -16,6 +16,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// before `AppModel` exists, so this cannot be injected via `init`.
     var pauseInbox: PauseInboxModel?
     var proxy: ProxyCaptureModel?
+    var simulatorSetup: SimulatorCaptureSetup?
+    var deviceSetup: ProxyDeviceSetupModel?
     var editor: RequestEditorModel?
 
     func applicationShouldTerminate(_: NSApplication) -> NSApplication.TerminateReply {
@@ -30,6 +32,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard pauseInbox?.hasPending == true || proxy != nil else { return .terminateNow }
         Task { @MainActor in
             await pauseInbox?.abortAllForTermination()
+            await simulatorSetup?.cancelAndWait()
+            deviceSetup?.stop()
             let restored = await proxy?.shutdown() ?? true
             NSApp.reply(toApplicationShouldTerminate: restored)
         }

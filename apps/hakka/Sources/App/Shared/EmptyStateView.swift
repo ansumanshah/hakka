@@ -41,10 +41,12 @@ struct EmptyStateView: View {
                     .frame(maxWidth: 360) // ui-token-check-ignore: empty-state reading measure
             }
             if let actionTitle, let action {
-                Button(actionTitle, action: action)
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.regular)
-                    .padding(.top, Spacing.xs)
+                Button(action: action) {
+                    CaptureActionLabel(actionTitle, isProminent: true)
+                }
+                .captureGlassButtonStyle(prominent: true)
+                .controlSize(.regular)
+                .padding(.top, Spacing.xs)
             }
         }
         .padding(Spacing.xxxl)

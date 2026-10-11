@@ -11,8 +11,8 @@ import Observation
 @MainActor
 @Observable
 final class TrafficColumnConfigStore {
-    static let defaultOrder: [TrafficColumn] = [.method, .path, .status, .duration, .host, .size, .device]
-    static let defaultVisibleColumns: Set<TrafficColumn> = [.method, .path, .status, .duration]
+    static let defaultOrder: [TrafficColumn] = [.method, .host, .path, .status, .duration, .size, .device]
+    static let defaultVisibleColumns: Set<TrafficColumn> = [.method, .host, .path, .status, .duration]
 
     private(set) var columns: [TrafficColumnState]
     private(set) var headerColumns: [TrafficHeaderColumn]

@@ -8,6 +8,7 @@ import SwiftUI
 struct EnvironmentEditorSheet: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
+    @AppStorage(AppAppearance.storageKey) private var appearance = AppAppearance.system
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
@@ -30,20 +31,33 @@ struct EnvironmentEditorSheet: View {
         .padding(Spacing.xxl)
         .frame(width: 480, height: 420) // ui-token-check-ignore: sheet size
         .controlSize(.small)
+        .preferredColorScheme(appearance.colorScheme)
     }
 
     private var header: some View {
         HStack {
             Text("Environments").font(.headline)
             Spacer()
-            Picker("", selection: pickerSelection) {
-                ForEach(model.environment.environments) { Text($0.name).tag(String?.some($0.id)) }
+            if model.environment.environments.isEmpty {
+                Text("No environments")
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: 160, alignment: .trailing)
+            } else {
+                Picker("Environment", selection: pickerSelection) {
+                    Text("None").tag(String?.none)
+                    ForEach(model.environment.environments) { Text($0.name).tag(String?.some($0.id)) }
+                }
+                .labelsHidden()
+                .frame(maxWidth: 160)
             }
-            .labelsHidden()
-            .frame(maxWidth: 160)
             Button { model.environment.addEnvironment() } label: {
-                Image(systemName: "plus")
+                Label("Add Environment", systemImage: "plus")
+                    .labelStyle(.iconOnly)
+                    .frame(width: ControlHeight.icon, height: ControlHeight.icon)
+                    .contentShape(Rectangle())
             }
+            .buttonStyle(.borderless)
+            .help("Add Environment")
         }
     }
 
@@ -62,10 +76,18 @@ struct EnvironmentEditorSheet: View {
                         Button {
                             $variable.secret.wrappedValue.toggle()
                         } label: {
-                            Image(systemName: variable.secret ? "lock.fill" : "lock.open")
+                            Label(
+                                variable.secret ? "Make variable non-secret" : "Make variable secret",
+                                systemImage: variable.secret ? "lock.fill" : "lock.open"
+                            )
+                            .labelStyle(.iconOnly)
+                            .frame(width: ControlHeight.icon, height: ControlHeight.icon)
+                            .contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain)
-                        .help("Secret")
+                        .buttonStyle(.borderless)
+                        .accessibilityValue(variable.secret ? "Secret" : "Not secret")
+                        .accessibilityAddTraits(variable.secret ? .isSelected : [])
+                        .help(variable.secret ? "Make variable non-secret" : "Make variable secret")
                     }
                     .padding(.vertical, Spacing.xs)
                     Divider()

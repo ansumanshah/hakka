@@ -58,7 +58,7 @@ struct StoragePanelView: View {
     private var countText: String {
         let total = model.storage.stores.count
         let visible = model.storage.visibleStores.count
-        return visible == total ? "\(total) stores" : "\(visible) of \(total)"
+        return visible == total ? "\(total) \(total == 1 ? "store" : "stores")" : "\(visible) of \(total)"
     }
 
     private var emptyMessage: String {

@@ -42,23 +42,25 @@ struct ProjectOverviewView: View {
             Button {
                 Task { await model.openCollectionDirectory() }
             } label: {
-                Label(model.collection.directoryURL == nil ? "Open" : "Open Another", systemImage: "folder")
+                CaptureActionLabel(model.collection.directoryURL == nil ? "Open" : "Open Another", systemImage: "folder")
             }
             .controlSize(.regular)
+            .captureGlassButtonStyle()
 
             Button {
                 model.select(.proxy)
             } label: {
-                Label("Capture", systemImage: "record.circle")
+                CaptureActionLabel("Capture", systemImage: "record.circle")
             }
             .controlSize(.regular)
+            .captureGlassButtonStyle()
 
             Button {
                 model.newRequest()
             } label: {
-                Label("New Request", systemImage: "plus")
+                CaptureActionLabel("New Request", systemImage: "plus", isProminent: true)
             }
-            .buttonStyle(.borderedProminent)
+            .captureGlassButtonStyle(prominent: true)
             .controlSize(.regular)
         }
         .padding(.horizontal, Layout.gutter)

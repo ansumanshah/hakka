@@ -14,24 +14,44 @@ struct TraceAffordanceButton: View {
     @State private var showSheet = false
 
     var body: some View {
-        Group {
-            if let trace, trace.isMultiTarget {
+        HStack(spacing: 0) {
+            if trace?.isMultiTarget == true {
                 Button {
                     showSheet = true
                 } label: {
-                    Label("Trace", systemImage: "point.3.connected.trianglepath.dotted")
+                    CaptureActionLabel("Trace", systemImage: "point.3.connected.trianglepath.dotted", isProminent: false)
                 }
-                .sheet(isPresented: $showSheet) {
+                .captureGlassButtonStyle()
+            }
+        }
+        .sheet(isPresented: $showSheet) {
+            if let trace {
+                VStack(spacing: 0) {
+                    HStack(spacing: Spacing.md) {
+                        Text("Trace")
+                            .font(.headline)
+                        Spacer()
+                        Button("Done") { showSheet = false }
+                            .keyboardShortcut(.cancelAction)
+                    }
+                    .padding(Spacing.lg)
+                    Divider()
                     TraceWaterfallView(trace: trace) { id in
                         traffic.selectedRequestID = id
                         showSheet = false
                     }
-                    .frame(minWidth: 560, minHeight: 360)  // ui-token-check-ignore: sheet size
                 }
+                .frame(minWidth: 560, minHeight: 360)  // ui-token-check-ignore: sheet size
             }
         }
         .task(id: requestID) {
-            trace = await traffic.traceStore.trace(forRequestID: requestID)
+            trace = nil
+            let updates = await traffic.traceStore.subscribeTrace(forRequestID: requestID)
+            for await update in updates {
+                guard !Task.isCancelled else { break }
+                trace = update
+                if update == nil { showSheet = false }
+            }
         }
     }
 }

@@ -35,7 +35,7 @@ struct DetailIdentityHeader: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .help(record.url)
         }
-        .padding(.vertical, Spacing.lg)
+        .padding(.vertical, Spacing.sm)
         .frame(minHeight: ControlHeight.bar, alignment: .leading)
     }
 }

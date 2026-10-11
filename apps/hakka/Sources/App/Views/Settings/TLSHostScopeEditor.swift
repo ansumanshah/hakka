@@ -5,12 +5,21 @@ struct TLSHostScopeEditor: View {
 
     var body: some View {
         Picker("TLS scope", selection: $scope.mode) {
-            ForEach(TLSHostScopeMode.allCases, id: \.self) { mode in Text(mode.title).tag(mode) }
+            ForEach(TLSHostScopeMode.allCases, id: \.self) { mode in
+                Text(mode == .bypass ? "Bypass listed hosts" : "Capture only listed hosts").tag(mode)
+            }
         }
         Text(scope.mode == .bypass
             ? "Bypassed hosts stay encrypted and are forwarded without TLS interception. This may help a pinned app, but does not promise compatibility."
             : "Only listed hosts are TLS-intercepted; all other TLS traffic is forwarded encrypted.")
             .font(.callout).foregroundStyle(.secondary)
+        if scope.enabledHosts.isEmpty {
+            Text(scope.mode == .bypass
+                ? "No hosts are bypassed. HTTPS traffic using this proxy is intercepted."
+                : "No hosts are selected. HTTPS traffic is forwarded encrypted.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+        }
         ForEach($scope.entries) { $entry in
             HStack {
                 Toggle("Enable host", isOn: $entry.isEnabled).labelsHidden()

@@ -16,6 +16,7 @@ struct LiveTrafficListView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            TrafficCaptureStrip()
             LiveTrafficHeader(
                 savedViewStore: savedViewStore,
                 query: searchBinding,
@@ -30,7 +31,7 @@ struct LiveTrafficListView: View {
                     EmptyStateView(
                         systemImage: "antenna.radiowaves.left.and.right",
                         title: "Waiting for traffic",
-                        message: "Requests captured from a connected Hakka SDK appear here as they arrive."
+                        message: "Requests from configured proxy clients and connected Hakka SDKs appear here as they arrive."
                     )
                     .transition(.opacity)
                 } else {
@@ -163,9 +164,7 @@ struct LiveTrafficListView: View {
             message: "\(model.traffic.requests.count) captured requests are hidden by the current filters.",
             actionTitle: "Reset Filters",
             action: {
-                model.traffic.searchText = ""
-                model.traffic.errorsOnly = false
-                model.traffic.noiseScope.clear()
+                model.traffic.resetWorkspaceFilters()
             }
         )
     }

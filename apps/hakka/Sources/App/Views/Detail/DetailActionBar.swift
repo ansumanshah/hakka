@@ -3,9 +3,8 @@ import HakkaCommon
 import HakkaCore
 import SwiftUI
 
-/// The captured-request action bar: replay, copy as code, mock, promote to
-/// collection — the same action grammar the inspector's other surfaces pin
-/// to every request. Copy emits the record verbatim; capture-time redaction
+/// Primary request controls with explanation and mock creation in the menu.
+/// Copy emits the record verbatim; capture-time redaction
 /// has already removed anything the SDK was told to scrub.
 struct DetailActionBar: View {
     let request: NetworkRequest
@@ -21,13 +20,15 @@ struct DetailActionBar: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
-            ViewThatFits(in: .horizontal) {
-                actions.labelStyle(.titleAndIcon).fixedSize(horizontal: true, vertical: false)
-                actions.labelStyle(.titleOnly).fixedSize(horizontal: true, vertical: false)
-                actions.labelStyle(.iconOnly)
+            CaptureGlassControls {
+                ViewThatFits(in: .horizontal) {
+                    actions.labelStyle(.titleAndIcon).fixedSize(horizontal: true, vertical: false)
+                    actions.labelStyle(.titleOnly).fixedSize(horizontal: true, vertical: false)
+                    actions.labelStyle(.iconOnly)
+                }
             }
             .controlSize(.regular)
-            .buttonStyle(.bordered)
+            .captureGlassButtonStyle()
             if let note = mockNote ?? copiedLabel {
                 Text(note)
                     .font(.caption)
@@ -44,23 +45,32 @@ struct DetailActionBar: View {
     private var actions: some View {
         HStack(spacing: Spacing.md) {
             Button(action: onReplay) {
-                Label("Replay", systemImage: "arrow.clockwise")
+                CaptureActionLabel("Replay", systemImage: "arrow.clockwise")
             }
             .help("Replay request")
-            Button { isPresentingAnalysis = true } label: {
-                Label("Explain", systemImage: "text.magnifyingglass")
-            }
-            .help("Explain captured request")
             copyAsMenu
-            Button(action: onMock) {
-                Label("Mock", systemImage: "wand.and.stars")
-            }
-            .help("Create mock from request")
             Button(action: onSave) {
-                Label("Save", systemImage: "square.and.arrow.down")
+                CaptureActionLabel("Save", systemImage: "square.and.arrow.down")
             }
             .accessibilityLabel("Save to Collection")
             .help("Save to Collection")
+            Menu {
+                Button { isPresentingAnalysis = true } label: {
+                    Label("Explain", systemImage: "text.magnifyingglass")
+                }
+                Button(action: onMock) {
+                    Label("Create Mock", systemImage: "wand.and.stars")
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .frame(width: Spacing.lg)
+                    .frame(minHeight: ControlHeight.icon)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .captureMenuLabelStyle(iconOnly: true)
+            .accessibilityLabel("More request actions")
+            .help("More request actions")
         }
     }
 
@@ -72,9 +82,11 @@ struct DetailActionBar: View {
                 }
             }
         } label: {
-            Label("Copy as", systemImage: "doc.on.doc")
+            CaptureActionLabel("Copy as", systemImage: "doc.on.doc")
         }
-        .menuStyle(.borderedButton)
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.visible)
+        .captureMenuLabelStyle()
         .help("Copy request as code")
         .fixedSize()
     }

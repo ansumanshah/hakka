@@ -62,9 +62,9 @@ struct RulesView: View {
             Button {
                 showingAddRule = true
             } label: {
-                Label("Add rule", systemImage: "plus")
+                CaptureActionLabel("Add Rule", systemImage: "plus", isProminent: true)
             }
-            .buttonStyle(.borderedProminent)
+            .captureGlassButtonStyle(prominent: true)
             .controlSize(.regular)
         }
         .padding(.horizontal, Layout.gutter)
