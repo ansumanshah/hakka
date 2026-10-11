@@ -115,16 +115,18 @@ the traffic panel and the third option isn't a placeholder, it's `app/api/demo/e
 
 Edge capture (`hakka-node/next`'s Edge branch, `packages/hakka-node/src/next/edgeCapture.ts`)
 has no embedded bridge of its own — the Edge sandbox can't use `ws` or `node:crypto`, the
-two things the embedded hub needs. Without a `sink`, every `runtime: 'edge'` record is
-captured then silently discarded, which is exactly why the README used to make a claim the
-app couldn't back up.
+two things the embedded hub needs. So in development `register()` relays each `runtime: 'edge'`
+record, same-origin, to `app/api/%5F%5Fhakka/edge-relay/route.ts`, a plain Node-runtime route
+that is one line:
 
-This example's fix: `instrumentation.ts` passes a `sink` that POSTs each Edge-tagged record,
-same-origin, to `app/api/__hakka/edge-relay/route.ts` — a plain Node-runtime route that hands
-it to the same bridge hub the server capture already streams into, via its own send-only
-bridge client. One extra peer on the same hub, nothing more. If your own app has Edge routes
-and you want their captures live in the overlay too, copy this pattern: a `sink` on the Edge
-branch, and a tiny Node-runtime relay route on the other end.
+```ts
+export const POST = createEdgeRelayHandler({ bridgeUrl: process.env.HAKKA_BRIDGE_URL })
+```
+
+It hands each record to the same bridge hub the server capture already streams into, via its
+own send-only bridge client. One extra peer on the same hub, nothing more. If your own app has
+Edge routes and you want their captures live in the overlay too, add that route. `register()`
+keeps the relay request out of capture and warns once if the route is missing.
 
 This example ships **both** wirings. `instrumentation-client.ts` is the canonical Next 15.3+
 path shown above and starts the overlay on its own (an earlier `sideEffects` packaging bug made
@@ -138,9 +140,9 @@ Running both is harmless: `hakka-browser`'s `start()` ignores a second call.
 // app/hakka-overlay.tsx
 'use client'
 import { useEffect } from 'react'
-import { startHakkaClient } from 'hakka-node/next/client'
+import { startClientCapture } from 'hakka-node/next/client'
 export function HakkaOverlay() {
-  useEffect(() => startHakkaClient(), [])
+  useEffect(() => startClientCapture(), [])
   return null
 }
 ```
@@ -175,7 +177,7 @@ This is the whole difference: `instrumentation.ts` passes `embedBridge: false` t
 `hakkaRegister()` instead of the default `true`, so the dev server never hosts its own hub — it
 connects purely as a client to whatever hub already owns `ws://localhost:8989`, which is the
 desktop app's own hub, listening on that same default port. **The browser overlay needs no
-change** — `app/hakka-overlay.tsx`'s `startHakkaClient()` also defaults to `ws://localhost:8989`,
+change** — `app/hakka-overlay.tsx`'s `startClientCapture()` also defaults to `ws://localhost:8989`,
 so with nothing embedding a hub server-side, it connects straight to the desktop app's hub too,
 as a second peer. Two peers, one hub, no relay mesh, no double-streaming.
 
@@ -231,9 +233,10 @@ This is a **dev-time** tool. For production telemetry, use Hakka's OpenTelemetry
 
 ## Production: zero overhead
 
-`next build && next start` (v16.3.1, Node 26.7, M4 Mac): overlay component ships but its
-`import('hakka-browser')` call is dead-code-eliminated behind `NODE_ENV==='production'`, so the
-browser never fetches it; `register()` returns before starting server capture or the embedded
+`next build && next start` (v16.3.1, Node 26.7, M4 Mac): the bundler resolves
+`hakka-node/next/client` to its `production` no-op export, so no overlay chunk is emitted
+(`.next/static` is 640 KB instead of 1236 KB with the overlay shipped, Next 16.4.0); `register()` returns
+before starting server capture or the embedded
 bridge (nothing on :8989); prod HTML/stdout carry no Hakka runtime activity, only the page's own
 "Hakka" branding text. `curl -w '%{time_total}'`, 600 requests to `/` per config, warmed up, run
 in two interleaved 300-request blocks (A1/B1/A2/B2):
