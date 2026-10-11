@@ -23,7 +23,11 @@ export interface ClientCaptureOptions {
   bridgeUrl?: string
   /** Options forwarded to `hakka-browser`'s `start()`. */
   start?: Record<string, unknown>
-  /** Start even in production (default false — dev-only). */
+  /**
+   * Start even when `NODE_ENV` is `production` (default false, dev-only).
+   * Has no effect in a bundle that resolves the `production` export condition,
+   * where this entry is a no-op (see `client.noop.ts`).
+   */
   force?: boolean
   /**
    * How long to wait for `import('hakka-browser')` to settle before warning
