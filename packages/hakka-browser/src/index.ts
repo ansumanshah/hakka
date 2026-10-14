@@ -262,7 +262,7 @@ export async function show(): Promise<void> {
   saveUiState({ open: true })
   if (!uiLoading) {
     // Dynamic import => code-split: the UI is not in the main/host bundle.
-    uiLoading = import('./register').then(() => undefined)
+    uiLoading = import('./register').then((ui) => ui.registerInspectorElement())
   }
   const loading = uiLoading
   await loading

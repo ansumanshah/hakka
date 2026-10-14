@@ -9,7 +9,7 @@ const register = vi.hoisted(() => {
 })
 vi.mock('../register', async () => {
   await register.pending
-  return {}
+  return { registerInspectorElement: () => {} }
 })
 
 import { destroy, show } from '../index'

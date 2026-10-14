@@ -43,8 +43,7 @@
   ],
   "type": "module",
   "sideEffects": [
-    "**/*.css",
-    "./src/register.ts"
+    "**/*.css"
   ],
   "main": "./dist/hakka-browser.js",
   "module": "./dist/hakka-browser.js",
