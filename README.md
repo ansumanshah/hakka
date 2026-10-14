@@ -18,7 +18,7 @@ JavaScript integrations share [`hakka-core`](./packages/hakka-core). Native SDKs
 
 ## Packages
 
-Seven npm packages, plus native SDKs for Android and iOS. The first public release, `0.2.0`, is being prepared; check [GitHub Releases](https://github.com/ansumanshah/hakka/releases) for published artifacts.
+Seven npm packages, plus native SDKs for Android and iOS. The first public release is `0.2.0`. The Swift Package is live at the `v0.2.0` tag. The npm packages and Android Maven artifacts are not published yet, so the npm badges above will not resolve until they are; check [GitHub Releases](https://github.com/ansumanshah/hakka/releases) for what has shipped.
 
 ### Engine
 
@@ -34,7 +34,7 @@ Seven npm packages, plus native SDKs for Android and iOS. The first public relea
 | [`hakka-browser`](./packages/hakka-browser)           | Drop-in browser overlay (Solid, Shadow DOM, Web Worker store). Also ships `hakka-browser/vite`, `/webpack`, `/rspack` (dev-time auto-inject plugins), `/elements/*` (six standalone inspector pieces as framework-agnostic custom elements — request list, detail, waterfall, filter bar, stats, JSON tree), and `/react` (thin React wrappers over those elements). | ![Stable](https://img.shields.io/badge/stable-3aa981) |
 | [`hakka-node`](./packages/hakka-node)                 | Framework-agnostic Node server capture (Express, Fastify, Hono, raw `http`) with client↔server trace correlation. Also ships `hakka-node/next` (+ `/next/server`, `/next/client`) — zero-config full-stack Next.js capture, server + client traffic in one UI.                                                                                                       | ![Stable](https://img.shields.io/badge/stable-3aa981) |
 
-Beta: React Native uses native capture on iOS and Android. Its coordinated 0.2.0 npm release is still being prepared.
+Beta: React Native uses native capture on iOS and Android. The npm package is not published yet.
 
 ### Native SDKs
 
@@ -43,7 +43,7 @@ Beta: React Native uses native capture on iOS and Android. Its coordinated 0.2.0
 | [`android/`](./android) (Kotlin, Maven `com.noodleapps.hakka`) | OkHttp interceptor, optional native inspector surface, FPS/memory/CPU collectors, noop release artifacts. | ![Alpha](https://img.shields.io/badge/alpha-6b7280) |
 | [`ios/`](./ios) (Swift Package)                                | URLProtocol capture, optional SwiftUI inspector, performance collectors, noop release targets.            | ![Alpha](https://img.shields.io/badge/alpha-6b7280) |
 
-Alpha: native SDKs are available from source. Maven publication and the coordinated 0.2.0 Swift Package release are pending. The existing `v0.1.0` source tag predates this release.
+Alpha: the Swift Package is available at `v0.2.0`. Android Maven publication is pending, so build the Android SDK from source until it lands. The `v0.1.0` source tag predates the Swift Package manifest and cannot be used as a dependency.
 
 ### Tooling & Embedding
 
@@ -173,13 +173,23 @@ Headless (capture only, no UI): `.addInterceptor(HakkaInterceptor())`.
 
 ### iOS (Swift Package Manager)
 
-Add the `ios/` package and select the products you need: `HakkaNetwork`, `HakkaNetworkNoop`, `HakkaPerformance`, `HakkaPerformanceNoop`, `HakkaUI`.
+In Xcode, choose File > Add Package Dependencies, enter `https://github.com/ansumanshah/hakka`, and set the rule to Up to Next Major Version from `0.2.0`. Or add it to `Package.swift`:
+
+```swift
+.package(url: "https://github.com/ansumanshah/hakka", from: "0.2.0")
+```
+
+Select the products you need: `HakkaNetwork`, `HakkaNetworkNoop`, `HakkaPerformance`, `HakkaPerformanceNoop`, `HakkaUI`. Link `HakkaNetworkNoop` in release configurations.
 
 ```swift
 import HakkaNetwork
+import HakkaUI
 
-HakkaInterceptor().start()
+HakkaInterceptor.shared.start() // capture
+BubbleWindow.shared.show()      // optional floating inspector button (HakkaUI)
 ```
+
+Use `HakkaInterceptor.shared`: the inspector reads from it, so a separately constructed `HakkaInterceptor()` captures traffic the UI never shows.
 
 ## Examples
 

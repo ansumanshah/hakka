@@ -5,7 +5,29 @@ description: Swift products, URLProtocol capture, and optional UI/performance pa
 
 import { Badge } from '@astrojs/starlight/components'
 
-<Badge text="Alpha" variant="note" /> Works from source today; the SPM semver tag isn't published yet.
+<Badge text="Alpha" variant="note" /> Available as a Swift Package at the `v0.2.0` tag.
+
+## Install
+
+In Xcode, choose **File > Add Package Dependencies**, enter `https://github.com/ansumanshah/hakka`, and set the rule to
+Up to Next Major Version from `0.2.0`. In a `Package.swift` manifest:
+
+```swift
+.package(url: "https://github.com/ansumanshah/hakka", from: "0.2.0")
+```
+
+Link `HakkaNetwork` (and `HakkaUI` for the inspector) in debug configurations and `HakkaNetworkNoop` in release.
+
+```swift
+import HakkaNetwork
+import HakkaUI
+
+HakkaInterceptor.shared.start() // capture
+BubbleWindow.shared.show()      // optional floating inspector button
+```
+
+Use `HakkaInterceptor.shared`. The inspector reads from it, so a separately constructed `HakkaInterceptor()` captures
+traffic that the UI never shows.
 
 iOS capture uses `URLProtocol` and a Swift `CaptureProcessor` for serial
 post-processing. URLProtocol callbacks should capture facts and return control;
