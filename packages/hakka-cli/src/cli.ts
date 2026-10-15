@@ -46,27 +46,30 @@ function runInstall(pm: PackageManager, specs: string[], dev = false): boolean {
   return result.status === 0
 }
 
-/** Install a set of package specs (or just print the command with --no-install / on failure). */
-function install(specs: string[], opts: { dev?: boolean; skip: boolean }): void {
+/** What `install` did: ran it successfully, only printed it (--no-install), or ran it and it failed. */
+type InstallOutcome = 'installed' | 'skipped' | 'failed'
+
+/** Install a set of package specs (or just print the command with --no-install). */
+function install(specs: string[], opts: { dev?: boolean; skip: boolean }): InstallOutcome {
   const pm = detectPackageManager()
   const cmdStr = installCommand(pm, specs, opts.dev)
   if (opts.skip) {
     log(`Install:`)
     log(`  ${c.cyan(cmdStr)}\n`)
-    return
+    return 'skipped'
   }
   log(`Installing with ${c.bold(pm)}…`)
-  const ok = runInstall(pm, specs, opts.dev)
-  if (!ok) {
-    log(`  ${c.yellow('•')} auto-install failed — run this yourself:`)
-    log(`  ${c.cyan(cmdStr)}\n`)
-  } else {
-    log(`  ${c.green('•')} installed ${specs.join(', ')}\n`)
+  if (!runInstall(pm, specs, opts.dev)) {
+    process.stderr.write(`hakka init: the install command failed: ${cmdStr}\nFix the error above, then run it again.\n`)
+    return 'failed'
   }
+  log(`  ${c.green('•')} installed ${specs.join(', ')}\n`)
+  return 'installed'
 }
 
-function nextSteps(...lines: string[]): void {
-  log(`${c.green("You're capturing.")} Next steps:`)
+/** Only claims capture is live when the packages actually installed. */
+function nextSteps(outcome: InstallOutcome, ...lines: string[]): void {
+  log(outcome === 'installed' ? `${c.green("You're capturing.")} Next steps:` : `Next steps, once installed:`)
   for (const line of lines) log(`  ${c.dim('→')} ${line}`)
 }
 
@@ -74,9 +77,10 @@ function appDir(): string {
   return existsSync(join(cwd, 'src')) ? 'src' : '.'
 }
 
-function initNext(skipInstall: boolean): void {
+function initNext(skipInstall: boolean): number {
   log(`Detected ${c.bold('Next.js')}.\n`)
-  install(['hakka-node', 'hakka-browser'], { skip: skipInstall })
+  const outcome = install(['hakka-node', 'hakka-browser'], { skip: skipInstall })
+  if (outcome === 'failed') return 1
   const dir = appDir()
   log(`Wiring (two one-line files):`)
   const a = writeIfAbsent(
@@ -91,22 +95,27 @@ function initNext(skipInstall: boolean): void {
   report(join(dir, 'instrumentation-client.ts'), b)
   log()
   nextSteps(
+    outcome,
     `run ${c.cyan('next dev')}`,
     `open the overlay in your browser — server + client requests show up in one UI`,
   )
+  return 0
 }
 
-function initVite(skipInstall: boolean): void {
+function initVite(skipInstall: boolean): number {
   log(`Detected ${c.bold('Vite')}.\n`)
-  install(['hakka-browser'], { skip: skipInstall })
+  const outcome = install(['hakka-browser'], { skip: skipInstall })
+  if (outcome === 'failed') return 1
   log(`Add the plugin to your ${c.cyan('vite.config')} (overlay auto-injects in dev):\n`)
   log(c.dim(`  import hakka from 'hakka-browser/vite'\n  export default defineConfig({ plugins: [hakka()] })\n`))
-  nextSteps(`run ${c.cyan('vite')}`, `open the overlay in your browser`)
+  nextSteps(outcome, `run ${c.cyan('vite')}`, `open the overlay in your browser`)
+  return 0
 }
 
-function initReactNative(expo: boolean, skipInstall: boolean): void {
+function initReactNative(expo: boolean, skipInstall: boolean): number {
   log(`Detected ${c.bold(expo ? 'Expo' : 'React Native')}.\n`)
-  install(['hakka-react-native'], { skip: skipInstall })
+  const outcome = install(['hakka-react-native'], { skip: skipInstall })
+  if (outcome === 'failed') return 1
   log(`Render the monitor near your app root (dev only):\n`)
   log(c.dim(`  import { Hakka } from 'hakka-react-native'\n  Hakka.start()\n  await Hakka.show({ as: 'bubble' })\n`))
   if (expo) {
@@ -115,23 +124,27 @@ function initReactNative(expo: boolean, skipInstall: boolean): void {
     log(`Then run ${c.cyan('npx expo prebuild')} (or ${c.cyan('expo run:ios')} / ${c.cyan('expo run:android')}).\n`)
   }
   nextSteps(
+    outcome,
     expo ? `rebuild the dev client (${c.cyan('expo run:ios')} / ${c.cyan('expo run:android')})` : `rebuild the app`,
     `shake the device or tap the bubble to open the inspector`,
   )
+  return 0
 }
 
-function initWeb(skipInstall: boolean): void {
+function initWeb(skipInstall: boolean): number {
   log(`No framework detected — using the ${c.bold('drop-in')} setup.\n`)
-  install(['hakka-browser'], { skip: skipInstall })
+  const outcome = install(['hakka-browser'], { skip: skipInstall })
+  if (outcome === 'failed') return 1
   log(`Then:`)
   log(c.dim(`  import { start } from 'hakka-browser'\n  start()\n`))
   log(`…or a single script tag (no build step, skip the install above):`)
   log(c.dim(`  <script async src="https://unpkg.com/hakka-browser/dist/hakka-browser.global.js"></script>`))
   log(c.dim(`  <script>addEventListener('load', () => Hakka.start())</script>\n`))
-  nextSteps(`reload the page`, `open the overlay`)
+  nextSteps(outcome, `reload the page`, `open the overlay`)
+  return 0
 }
 
-function init(args: string[]): void {
+function init(args: string[]): number {
   const skipInstall = args.includes('--no-install') || args.includes('--dry-run')
   log(`\n${c.bold('Hakka')} — setting up the network inspector\n`)
   const pkg = readPkg()
@@ -247,7 +260,7 @@ async function main(): Promise<void> {
       await usage()
       break
     case 'init':
-      init(rest)
+      process.exitCode = init(rest)
       break
     case 'run': {
       const { runCommand } = await import('./runCommand.js')
@@ -330,7 +343,23 @@ async function main(): Promise<void> {
 
 // npm bins are symlinks, so an argv[1] === import.meta.url guard would make the
 // installed command a silent no-op. Nothing imports this module, so always run.
+/**
+ * One line, no stack trace. Every error that reaches here is one the user can
+ * act on (a port in use, Chrome not running, a bad flag), so the message is the
+ * useful part. Set HAKKA_DEBUG=1 to see the stack.
+ */
+function describeFailure(err: unknown): string {
+  if (!(err instanceof Error)) return String(err)
+  if (process.env.HAKKA_DEBUG) return err.stack ?? err.message
+  if ('code' in err && err.code === 'EADDRINUSE') {
+    // Node puts the port on the error; other runtimes only mention it in the message.
+    const port = 'port' in err && typeof err.port === 'number' ? err.port : /(\d{2,5})\D*$/.exec(err.message)?.[1]
+    return `${port === undefined ? 'That port' : `Port ${port}`} is already in use. Stop whatever is using it or pick another with --port <number>.`
+  }
+  return err.message
+}
+
 main().catch((err: unknown) => {
-  process.stderr.write(`hakka: fatal: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}\n`)
+  process.stderr.write(`hakka: ${describeFailure(err)}\n`)
   process.exit(1)
 })

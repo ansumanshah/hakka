@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test'
 import diagnosticsChannel from 'node:diagnostics_channel'
 import http from 'node:http'
 import type { Server } from 'node:http'
@@ -132,6 +132,52 @@ describe('register — dev-only gating', () => {
       const handle = register({ bridge: false })
       expect(handle).toBeUndefined()
     } finally {
+      process.env.NODE_ENV = ORIGINAL
+    }
+  })
+
+  // Order matters: the hint is printed at most once per process, so the
+  // silent-in-production check must run before anything trips it.
+  test('stays silent when NODE_ENV=production', () => {
+    const ORIGINAL = process.env.NODE_ENV
+    process.env.NODE_ENV = 'production'
+    const warn = spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      expect(register({ bridge: false })).toBeUndefined()
+      expect(warn).not.toHaveBeenCalled()
+    } finally {
+      warn.mockRestore()
+      process.env.NODE_ENV = ORIGINAL
+    }
+  })
+
+  test('explains the no-op once when NODE_ENV is unset or not production', () => {
+    const ORIGINAL = process.env.NODE_ENV
+    delete process.env.NODE_ENV
+    const warn = spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      expect(register({ bridge: false })).toBeUndefined()
+      process.env.NODE_ENV = 'staging'
+      expect(register({ bridge: false })).toBeUndefined()
+      expect(warn).toHaveBeenCalledTimes(1)
+      expect(String(warn.mock.calls[0]?.[0])).toBe(
+        "hakka-node: capture is off because NODE_ENV is not 'development'. Pass { force: true } to enable it.",
+      )
+    } finally {
+      warn.mockRestore()
+      process.env.NODE_ENV = ORIGINAL
+    }
+  })
+
+  test('stays silent under test runners (NODE_ENV=test)', () => {
+    const ORIGINAL = process.env.NODE_ENV
+    process.env.NODE_ENV = 'test'
+    const warn = spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      expect(register({ bridge: false })).toBeUndefined()
+      expect(warn).not.toHaveBeenCalled()
+    } finally {
+      warn.mockRestore()
       process.env.NODE_ENV = ORIGINAL
     }
   })

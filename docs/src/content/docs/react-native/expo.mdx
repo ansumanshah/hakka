@@ -18,10 +18,34 @@ import { Tabs, TabItem, Steps, Aside, CardGrid, LinkCard } from '@astrojs/starli
 ## Install
 
 <Tabs syncKey="pkg-manager">
-  <TabItem label="npm">```bash npm install hakka-react-native ```</TabItem>
-  <TabItem label="pnpm">```bash pnpm add hakka-react-native ```</TabItem>
-  <TabItem label="yarn">```bash yarn add hakka-react-native ```</TabItem>
-  <TabItem label="bun">```bash bun add hakka-react-native ```</TabItem>
+  <TabItem label="npm">
+
+```bash
+npm install hakka-react-native
+```
+
+  </TabItem>
+  <TabItem label="pnpm">
+
+```bash
+pnpm add hakka-react-native
+```
+
+  </TabItem>
+  <TabItem label="yarn">
+
+```bash
+yarn add hakka-react-native
+```
+
+  </TabItem>
+  <TabItem label="bun">
+
+```bash
+bun add hakka-react-native
+```
+
+  </TabItem>
 </Tabs>
 
 Then install the Expo development client:
@@ -46,6 +70,11 @@ React Native UI peer is required.
      }
    }
    ```
+
+   The plugin default is `uiDelivery: "play"`, which does not bundle the inspector.
+   With the default, `expo run:android` builds fine but `Hakka.show()` does not open the
+   inspector from a local build. Set `uiDelivery` to `"bundled"` for local development
+   and installs outside Google Play.
 
    Use `uiDelivery: "bundled"` for local development and installs outside Google
    Play. This includes the inspector in the app, so `expo run:android` can open it.
@@ -85,6 +114,9 @@ React Native UI peer is required.
 
    if (__DEV__) Hakka.start()
    ```
+
+   With Expo Router there is no `index.js` to edit. Call `Hakka.start()` at the top of
+   `src/app/_layout.tsx` (or `app/_layout.tsx`), before your other imports run requests.
 
    From an app button or your own debug menu, call
    `await Hakka.show({ as: 'sheet' })` and check that it returns `true`.

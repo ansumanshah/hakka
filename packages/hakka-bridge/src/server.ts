@@ -83,6 +83,14 @@ export interface BridgeServerOptions {
   advertise?: boolean
   /** Instance name shown to LAN browsers. Default: the machine's hostname. */
   advertiseName?: string
+  /**
+   * Let the process exit while this hub is the only thing left running, the
+   * way Node's `unref()` does for a timer. Default `false`. `hakka-node`
+   * embeds its hub with this on, so a plain script with capture enabled still
+   * exits once its own work is done, while a server that keeps listening keeps
+   * the hub reachable for as long as it runs.
+   */
+  unref?: boolean
   /** Override for tests; defaults to `startBridgeAdvertise` from `./discovery`. */
   createAdvertisement?: (options: BridgeAdvertiseOptions) => BridgeAdvertisement
 }
@@ -197,8 +205,12 @@ export function startBridgeServer(options: BridgeServerOptions = {}): Promise<Br
       client.ping()
     }
   }, heartbeatIntervalMs)
+  if (options.unref) heartbeat.unref?.()
 
   wss.on('connection', (socket, req) => {
+    // An accepted peer is a live handle too; under `unref` it must not be
+    // what keeps the process running either.
+    if (options.unref) req.socket?.unref?.()
     // Reject before anything else touches the socket: no buffer replay, no
     // message listener. Checked here rather than `ws`'s `verifyClient`
     // handshake hook so origin and token checks share one `req` and one
@@ -285,6 +297,9 @@ export function startBridgeServer(options: BridgeServerOptions = {}): Promise<Br
       reject(err)
     })
     wss.on('listening', () => {
+      // `ws` owns the listening http server it created for `port`; it is not
+      // part of the typed surface, so reach for it defensively.
+      if (options.unref) (wss as unknown as { _server?: { unref?: () => void } })._server?.unref?.()
       const address = wss.address()
       const boundPort = typeof address === 'object' && address !== null ? address.port : requestedPort
 

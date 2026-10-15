@@ -131,6 +131,7 @@ const DEFAULT_BRIDGE_URL = 'ws://localhost:8989'
 const DEFAULT_KILL_SWITCH_POLL_MS = 30_000
 
 let active: HakkaNodeCapture | null = null
+let hasExplainedNoop = false
 let embeddedBridge: { close: () => void | Promise<void> } | null = null
 
 /**
@@ -183,7 +184,7 @@ async function startEmbeddedBridge(url: string, stoppedRef: { stopped: boolean }
   }
   try {
     const { startBridgeServer } = await import('hakka-bridge')
-    const server = await startBridgeServer({ port })
+    const server = await startBridgeServer({ port, unref: true })
     if (stoppedRef.stopped) {
       void server.close()
       return
@@ -306,6 +307,17 @@ export function stopCapture(): void {
  * no-op'd.
  */
 export function register(options: HakkaNodeOptions = {}): HakkaNodeCapture | undefined {
-  if (process.env.NODE_ENV !== 'development' && !options.force) return undefined
+  const env = process.env.NODE_ENV
+  if (env !== 'development' && !options.force) {
+    // Production builds and test runners are the quiet no-op. Anywhere else (unset,
+    // `staging`, ...) a silent no-op reads as "capture is broken".
+    if (env !== 'production' && env !== 'test' && !hasExplainedNoop) {
+      hasExplainedNoop = true
+      console.warn(
+        "hakka-node: capture is off because NODE_ENV is not 'development'. Pass { force: true } to enable it.",
+      )
+    }
+    return undefined
+  }
   return startCapture({ runtime: 'server', ...options })
 }

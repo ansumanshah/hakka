@@ -109,6 +109,16 @@ interface QueuedFrame {
   bytes: number
 }
 
+/** True when `url` parses and uses a scheme the `ws` client accepts (ws, wss, http, https). */
+function isWebSocketUrl(url: string): boolean {
+  try {
+    const { protocol } = new URL(url)
+    return protocol === 'ws:' || protocol === 'wss:' || protocol === 'http:' || protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 export function createBridgeClient(opts: BridgeClientOptions = {}): BridgeClient {
   const url = opts.url ?? DEFAULT_BRIDGE_URL
   const maxQueueBytes = opts.maxQueueBytes ?? DEFAULT_MAX_QUEUE_BYTES
@@ -196,6 +206,9 @@ export function createBridgeClient(opts: BridgeClientOptions = {}): BridgeClient
       retry = Math.min(retry * 2, 30_000)
       open()
     }, retry)
+    // Reconnecting is background work: it must never be what keeps a script
+    // that has finished everything else from exiting.
+    timer.unref?.()
   }
 
   const open = (): void => {
@@ -208,6 +221,9 @@ export function createBridgeClient(opts: BridgeClientOptions = {}): BridgeClient
       return
     }
     ws = socket
+    // Same rule for the connection itself: once the TCP socket exists, stop
+    // it from holding the event loop open.
+    socket.on('upgrade', (response) => response.socket?.unref?.())
     const control = new RuntimeControlReceiver(
       'server',
       handleControl ? RUNTIME_CONTROL_CAPABILITIES.filter((kind) => kind !== 'request.replay') : [],
@@ -242,7 +258,14 @@ export function createBridgeClient(opts: BridgeClientOptions = {}): BridgeClient
     })
   }
 
-  open()
+  // A URL without a ws:// or wss:// scheme can never connect, so retrying it
+  // forever would only hide the mistake. Say so once and stay offline.
+  if (isWebSocketUrl(url)) {
+    open()
+  } else {
+    closed = true
+    console.warn(`hakka-node: bridgeUrl "${url}" is not a WebSocket URL. Use the form ${DEFAULT_BRIDGE_URL}.`)
+  }
 
   return {
     get connected() {

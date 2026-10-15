@@ -1,7 +1,7 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { existsSync, writeFileSync } from 'node:fs'
 import { createServer, isIP } from 'node:net'
-import { resolve } from 'node:path'
+import { delimiter, join, resolve } from 'node:path'
 import { createInterface } from 'node:readline'
 
 import { buildHar, serializeSession } from 'hakka-core'
@@ -228,8 +228,14 @@ function parseEvent(line: string): ProxyFlowEvent | null {
   }
 }
 
-function commandExists(path: string): boolean {
-  return path.includes('/') ? existsSync(path) : true
+/** A path is checked directly; a bare command name is looked up on PATH, the way spawn would. */
+function commandExists(command: string): boolean {
+  if (command.includes('/') || command.includes('\\')) return existsSync(command)
+  const suffixes = process.platform === 'win32' ? ['', '.exe', '.cmd'] : ['']
+  return (process.env.PATH ?? '')
+    .split(delimiter)
+    .filter(Boolean)
+    .some((dir) => suffixes.some((suffix) => existsSync(join(dir, command + suffix))))
 }
 
 /** Starts a local mitmdump sidecar. It changes neither the system proxy nor trust store. */
@@ -251,7 +257,7 @@ export async function startProxyCapture(options: ProxyOptions = {}): Promise<Pro
   const mitmdump = options.mitmdumpPath ?? 'mitmdump'
   if (!commandExists(mitmdump))
     throw new Error(
-      `mitmdump was not found at ${mitmdump}. Install mitmproxy (for example: brew install mitmproxy) or pass --mitmdump <path>.`,
+      `mitmdump was not found at ${mitmdump}. Install mitmproxy (brew install mitmproxy, or pipx install mitmproxy) or pass --mitmdump <path>.`,
     )
   if (options.routingConfig && options.upstreamProxy)
     throw new Error('--routing-config cannot be combined with --upstream-proxy.')

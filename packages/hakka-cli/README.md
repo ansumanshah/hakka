@@ -1,6 +1,6 @@
 # hakka (CLI)
 
-Five commands: `init` wires the [Hakka](https://github.com/ansumanshah/hakka) network inspector into your app, `diagnose` prints a ranked diagnosis of a saved capture, `assert` gates CI on it, `mcp` exposes live captured traffic to AI agents over the Model Context Protocol, and `cdp` streams Chrome DevTools Protocol captures to a bridge hub. `mcp`/`cdp` are also importable directly as `hakka-cli/mcp` and `hakka-cli/cdp` for embedding.
+The main commands: `init` wires the [Hakka](https://github.com/ansumanshah/hakka) network inspector into your app, `diagnose` prints a ranked diagnosis of a saved capture, `assert` gates CI on it, `mcp` exposes live captured traffic to AI agents over the Model Context Protocol, and `cdp` streams Chrome DevTools Protocol captures to a bridge hub. `run`, `proxy`, `team`, `ci-baseline` and `sim` cover collections, proxy capture, team sync, CI baselines and simulator attach. `hakka --version` prints the version and `hakka <command> --help` prints usage. `mcp`/`cdp` are also importable directly as `hakka-cli/mcp` and `hakka-cli/cdp` for embedding.
 
 ## `hakka init`
 
@@ -10,7 +10,7 @@ Detects your framework and does the setup.
 npx hakka-cli init
 ```
 
-- **Next.js** — creates `instrumentation.ts` + `instrumentation-client.ts` (server + client capture, embedded bridge) and prints the install command.
+- **Next.js** — creates `instrumentation.ts` + `instrumentation-client.ts` (server + client capture, embedded bridge) and runs the install command.
 - **Vite** — prints the `hakka-browser/vite` plugin snippet for `vite.config`.
 - **Expo / React Native** — prints the `hakka-react-native` monitor snippet.
 - **Anything else** — the `hakka-browser` drop-in (`start()` or a CDN `<script>`).
@@ -100,7 +100,13 @@ npx hakka-cli cdp --url ws://127.0.0.1:9222/devtools/page/ABC123
 npx hakka-cli cdp --bridge-url ws://host:8989       # stream to a non-default bridge
 ```
 
-Requires Chrome running with `--remote-debugging-port=<port>` (default `9222`). Runs until Ctrl+C.
+Requires Chrome running with `--remote-debugging-port=<port>` (default `9222`). Chrome ignores that flag on your default profile, so pass a separate profile directory. Runs until Ctrl+C.
+
+```bash
+/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
+  --remote-debugging-port=9222 \
+  --user-data-dir=/tmp/hakka-chrome-profile
+```
 
 | Flag                  | Effect                                                        |
 | --------------------- | ------------------------------------------------------------- |

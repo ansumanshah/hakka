@@ -110,7 +110,7 @@ await server.close()
 Opening the hub up beyond loopback (`host: '0.0.0.0'` or a specific LAN IP) is how you let
 a physical iOS/Android device on the same Wi-Fi reach it. Once open, `startBridgeServer`
 also advertises itself via mDNS/Bonjour as `_hakka._tcp.local`, carrying the WebSocket
-port — the Atlantis-style "no address to type" pitch: instead of copying an IP into
+port, so there is no address to type: instead of copying an IP into
 `HakkaConfig.bridgeURL` (iOS) or `HakkaInterceptor.Builder.bridgeUrl` (Android), the
 native SDK can look for the hub itself.
 

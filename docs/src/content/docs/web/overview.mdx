@@ -85,7 +85,7 @@ bun add hakka-browser
    }
    ```
 
-3. **Verify it works** — run your dev server, open the page in a browser or on a real device. Look for the Hakka pill in the bottom-right corner. Tap it for a quick recent-requests summary, or long-press (or right-click) it to open the full inspector and see any network requests made by the page.
+3. **Verify it works** — run your dev server, open the page in a browser or on a real device. Look for the floating launcher button in the bottom-right corner. Tap it for a quick recent-requests summary, or long-press (or right-click) it to open the full inspector and see any network requests made by the page.
 
    <div class="hakka-shot">
      <iframe
@@ -116,14 +116,19 @@ The `./global` export is available via `import 'hakka-browser/global'` in bundle
 
 ## `start()` options
 
-| Option           | Type                    | Default      | Description                                                                                                                       |
-| ---------------- | ----------------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| `overlay`        | `boolean \| 'launcher'` | `'launcher'` | `'launcher'` shows a small trigger button. `true` opens the inspector immediately. `false` hides all UI — call `show()` yourself. |
-| `resourceTiming` | `boolean`               | `true`       | Enrich captures with the Performance Timeline (DNS, TLS, connect, TTFB).                                                          |
-| `captureBeacons` | `boolean`               | `true`       | Capture `navigator.sendBeacon` calls.                                                                                             |
-| `console`        | `boolean`               | `true`       | Capture `console.log/warn/error/info/debug` output.                                                                               |
-| `logToConsole`   | `boolean`               | `false`      | Mirror each captured request to DevTools console via `console.table`.                                                             |
-| `gates`          | `Partial<NumberGates>`  | see below    | Thresholds that tint the duration/size columns in request rows.                                                                   |
+| Option             | Type                                         | Default      | Description                                                                                                                                           |
+| ------------------ | -------------------------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `overlay`          | `boolean \| 'launcher'`                      | `'launcher'` | `'launcher'` shows a small trigger button. `true` opens the inspector immediately. `false` hides all UI — call `show()` yourself.                     |
+| `resourceTiming`   | `boolean`                                    | `true`       | Enrich captures with the Performance Timeline (DNS, TLS, connect, TTFB).                                                                              |
+| `captureBeacons`   | `boolean`                                    | `true`       | Capture `navigator.sendBeacon` calls.                                                                                                                 |
+| `console`          | `boolean`                                    | `true`       | Capture `console.log/warn/error/info/debug` output.                                                                                                   |
+| `logToConsole`     | `boolean`                                    | `false`      | Mirror each captured request to DevTools console via `console.table`.                                                                                 |
+| `gates`            | `Partial<NumberGates>`                       | see below    | Thresholds that tint the duration/size columns in request rows.                                                                                       |
+| `trace`            | `boolean \| { propagateOrigins?: string[] }` | `false`      | Send an `x-hakka-trace` header so a browser fetch links to the server work it triggers. `true` is same-origin only. Needs `hakka-node` on the server. |
+| `captureWorkers`   | `boolean`                                    | `false`      | Relay requests from Web Workers that run the `hakka-browser/worker` shim into the store.                                                              |
+| `redactBodyFields` | `string[]`                                   | none         | JSON body keys (case-insensitive) whose values are redacted, for example `['password', 'token']`.                                                     |
+| `slimEcho`         | `boolean`                                    | `true`       | Keep bodies off the main thread; the list and `getLogs()` carry sizes, `getBody()` fetches bytes on demand.                                           |
+| `enabled`          | `boolean`                                    | `true`       | `false` turns `start()` into a no-op.                                                                                                                 |
 
 All `HakkaConfig` fields (`maxRequests`, `maxAge`, `maxBodySize`, `ignoreHosts`, `ignorePatterns`, `redactHeaders`) are also accepted and forwarded to the core engine.
 
