@@ -1,5 +1,11 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { compileQuery, generateMockRules, parseRangeFilters, parseSearchTokens } from 'hakka-core'
+import {
+  compileQuery,
+  generateMockRules,
+  parseRangeFilters,
+  parseSearchTokens,
+  scrubRequestsForShare,
+} from 'hakka-core'
 import { z } from 'zod'
 
 import type { RequestStore } from '../RequestStore.js'
@@ -43,12 +49,20 @@ export function registerGenerateMocksTool(server: McpServer, store: RequestStore
           .optional()
           .default(false)
           .describe('When true, also send each generated rule as a mock.add command over the bridge'),
+        unredacted: z
+          .boolean()
+          .optional()
+          .default(false)
+          .describe(
+            'Skip share-time scrubbing. By default secrets in URLs and bodies are replaced with [REDACTED] ' +
+              'before the rules are built, so a rule for a URL with a scrubbed query param will not match it. Default false.',
+          ),
       },
     },
     async (args) => {
       const targets = sender.getTargets?.()
       const targetId = args.targetId ?? (targets?.length === 1 ? targets[0]?.id : undefined)
-      const { query, method, urlContains, limit = 50, apply = false } = args
+      const { query, method, urlContains, limit = 50, apply = false, unredacted = false } = args
 
       let pool = store.getAll()
       if (query && query.trim()) {
@@ -68,7 +82,8 @@ export function registerGenerateMocksTool(server: McpServer, store: RequestStore
         pool = pool.slice(0, limit)
       }
 
-      const rules = generateMockRules(pool, { idPrefix: 'mcp-gen' })
+      const { requests } = unredacted ? { requests: pool } : scrubRequestsForShare(pool)
+      const rules = generateMockRules(requests, { idPrefix: 'mcp-gen' })
 
       if (!apply) {
         return textResult({ applied: 0, rules })

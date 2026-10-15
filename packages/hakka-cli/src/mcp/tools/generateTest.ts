@@ -1,5 +1,5 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { compileQuery, parseRangeFilters, parseSearchTokens } from 'hakka-core'
+import { compileQuery, parseRangeFilters, parseSearchTokens, scrubRequestsForShare } from 'hakka-core'
 import { generateTestFile } from 'hakka-core/test'
 import { z } from 'zod'
 
@@ -44,10 +44,15 @@ export function registerGenerateTestTool(server: McpServer, store: RequestStore)
           .optional()
           .default('vitest')
           .describe("Which test runner's globals the generated file imports from. Default: vitest."),
+        unredacted: z
+          .boolean()
+          .optional()
+          .default(false)
+          .describe('Skip share-time scrubbing and generate from requests exactly as captured. Default false.'),
       },
     },
     (args) => {
-      const { query, urlContains, method, limit = 50, suiteName, framework = 'vitest' } = args
+      const { query, urlContains, method, limit = 50, suiteName, framework = 'vitest', unredacted = false } = args
 
       let pool = store.getAll()
       if (query && query.trim()) {
@@ -67,8 +72,9 @@ export function registerGenerateTestTool(server: McpServer, store: RequestStore)
         pool = pool.slice(0, limit)
       }
 
-      const code = generateTestFile(pool, { suiteName, framework })
-      return textResult({ count: pool.length, code })
+      const { requests, removed } = unredacted ? { requests: pool, removed: [] } : scrubRequestsForShare(pool)
+      const code = generateTestFile(requests, { suiteName, framework })
+      return textResult({ count: requests.length, code, redaction: { applied: !unredacted, removed } })
     },
   )
 }

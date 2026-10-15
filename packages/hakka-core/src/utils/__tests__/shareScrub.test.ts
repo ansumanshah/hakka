@@ -287,3 +287,71 @@ describe('describeShareScrub', () => {
     expect(text.toLowerCase()).toContain('not applied')
   })
 })
+
+describe('share-time scrub gaps — OAuth, presigned URLs, userinfo, fragments, form and SSE bodies', () => {
+  test.each(['client_secret', 'refresh_token', 'code', 'sig', 'signature', 'X-Amz-Signature', 'X-Amz-Security-Token'])(
+    'redacts the %s query param',
+    (param) => {
+      const { url } = scrubUrlForShare(`https://bucket.s3.amazonaws.com/file.pdf?${param}=${SECRET}&page=2`)
+      expect(url).not.toContain(SECRET)
+      expect(url).toContain('page=2')
+    },
+  )
+
+  test('redacts a token-only userinfo segment with no colon', () => {
+    const { url, removed } = scrubUrlForShare(`https://ghp_${SECRET}@github.com/org/repo.git`)
+    expect(url).not.toContain(SECRET)
+    expect(url).toBe('https://[REDACTED]@github.com/org/repo.git')
+    expect(removed).toEqual([{ category: 'basicAuthUrl', count: 1 }])
+  })
+
+  test('redacts userinfo on a non-http scheme', () => {
+    const { url } = scrubUrlForShare(`wss://user:${SECRET}@realtime.example.com/socket`)
+    expect(url).not.toContain(SECRET)
+  })
+
+  test('an @ in the path or query is not mistaken for userinfo', () => {
+    const { url, removed } = scrubUrlForShare('https://api.example.com/users/@ansuman?page=2')
+    expect(url).toBe('https://api.example.com/users/@ansuman?page=2')
+    expect(removed).toEqual([])
+  })
+
+  test('redacts a sensitive param in the URL fragment', () => {
+    const { url, removed } = scrubUrlForShare(
+      `https://app.example.com/callback#access_token=${SECRET}&token_type=bearer`,
+    )
+    expect(url).not.toContain(SECRET)
+    expect(url).toContain('token_type=bearer')
+    expect(removed).toEqual([{ category: 'apiKeyQueryParam', count: 1 }])
+  })
+
+  test('redacts known keys in a form-encoded body and keeps the rest', () => {
+    const { body } = scrubBodyForShare(
+      `grant_type=password&username=ansuman&password=${SECRET}&client_secret=${SECRET}`,
+    )
+    expect(body).not.toContain(SECRET)
+    expect(body).toContain('grant_type=password')
+    expect(body).toContain('username=ansuman')
+  })
+
+  test('redacts known keys in a request whose Content-Type is form-encoded', () => {
+    const { request } = scrubNetworkRequestForShare(
+      baseRequest({
+        requestHeaders: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        requestBody: `refresh_token=${SECRET}&scope=read%20write`,
+      }),
+    )
+    expect(request.requestBody).not.toContain(SECRET)
+    expect(request.requestBody).toContain('scope=read%20write')
+  })
+
+  test('scrubs JSON fields inside each SSE data line', () => {
+    const stream = ['event: message', `data: {"delta":"hi","api_key":"${SECRET}"}`, '', 'data: [DONE]', ''].join('\n')
+    const { body, removed } = scrubBodyForShare(stream)
+    expect(body).not.toContain(SECRET)
+    expect(body).toContain('"delta":"hi"')
+    expect(body).toContain('event: message')
+    expect(body).toContain('data: [DONE]')
+    expect(removed).toEqual([{ category: 'jsonField', count: 1 }])
+  })
+})

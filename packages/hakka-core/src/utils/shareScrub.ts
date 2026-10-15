@@ -32,6 +32,7 @@ const MAX_DEPTH = 100
 export type ShareScrubCategory =
   | 'header'
   | 'jsonField'
+  | 'formField'
   | 'bearerToken'
   | 'jwt'
   | 'apiKeyQueryParam'
@@ -101,6 +102,16 @@ export const DEFAULT_SHARE_SCRUB_QUERY_PARAMS: readonly string[] = [
   'session',
   'sessionid',
   'session_id',
+  // OAuth: client credentials, refresh tokens, authorization codes, implicit-flow id tokens.
+  'client_secret',
+  'refresh_token',
+  'id_token',
+  'code',
+  // Signed / presigned URLs (generic, AWS S3, Azure SAS `sig`): the signature IS the credential.
+  'sig',
+  'signature',
+  'x-amz-signature',
+  'x-amz-security-token',
 ]
 
 /** Header names scrubbed at share time. Starts from `DEFAULT_SENSITIVE_HEADERS` (capture-time's own default) since a header sensitive enough to redact at capture is at least as sensitive at share time. */
@@ -143,17 +154,17 @@ function mergeRemovals(into: ShareScrubRemoval[], category: ShareScrubCategory, 
   }
 }
 
-/** Redact "user:pass@" Basic-auth credentials embedded directly in a URL. Blanks the whole userinfo segment (username included) rather than just the password — a username in a URL is itself often an account identifier worth treating as sensitive, and splitting the replacement adds a false-negative risk for no real benefit. */
+/** Redact credentials embedded directly in a URL's userinfo, on any scheme (`https://user:pass@`, `wss://user:pass@`, and the colon-less `https://ghp_TOKEN@` token form). Blanks the whole userinfo segment (username included) rather than just the password — a username in a URL is itself often an account identifier worth treating as sensitive, and splitting the replacement adds a false-negative risk for no real benefit. The authority stops at the first `/`, `?` or `#`, so an `@` in a path or query is never taken for userinfo. */
 function scrubBasicAuthInUrl(url: string): { url: string; removed: ShareScrubRemoval[] } {
   const removed: ShareScrubRemoval[] = []
-  const match = /^(https?:\/\/)([^/@\s]+):([^/@\s]+)@/i.exec(url)
+  const match = /^([a-z][a-z0-9+.-]*:\/\/)([^/?#@\s]+)@/i.exec(url)
   if (!match) return { url, removed }
   const scrubbed = url.replace(match[0], `${match[1]}${REDACTION_PLACEHOLDER}@`)
   mergeRemovals(removed, 'basicAuthUrl', 1)
   return { url: scrubbed, removed }
 }
 
-/** Redact query string param values whose name matches the scrub list. */
+/** Redact query string (and `#fragment` param, e.g. an implicit-flow `#access_token=`) values whose name matches the scrub list. */
 function scrubQueryParams(url: string, paramNames: readonly string[]): { url: string; removed: ShareScrubRemoval[] } {
   const removed: ShareScrubRemoval[] = []
   const lowerNames = new Set(paramNames.map((n) => n.toLowerCase()))
@@ -168,10 +179,25 @@ function scrubQueryParams(url: string, paramNames: readonly string[]): { url: st
   }
 
   let count = 0
-  for (const key of parsed.searchParams.keys()) {
+  for (const key of new Set(parsed.searchParams.keys())) {
     if (lowerNames.has(key.toLowerCase())) {
       parsed.searchParams.set(key, REDACTION_PLACEHOLDER)
       count++
+    }
+  }
+  const fragment = parsed.hash.slice(1)
+  if (fragment.includes('=')) {
+    const fragmentParams = new URLSearchParams(fragment)
+    let fragmentCount = 0
+    for (const key of new Set(fragmentParams.keys())) {
+      if (lowerNames.has(key.toLowerCase())) {
+        fragmentParams.set(key, REDACTION_PLACEHOLDER)
+        fragmentCount++
+      }
+    }
+    if (fragmentCount > 0) {
+      parsed.hash = fragmentParams.toString()
+      count += fragmentCount
     }
   }
   if (count === 0) return { url, removed }
@@ -320,6 +346,65 @@ function scrubJsonValue(
   return value
 }
 
+// `a=1&b=2` with no whitespace: the shape of an application/x-www-form-urlencoded body.
+const FORM_BODY_RE = /^[^=&\s]+=[^&\s]*(?:&[^=&\s]+=[^&\s]*)*$/
+// Any line starting with `data:` — the shape of a text/event-stream body.
+const SSE_DATA_LINE_RE = /^data:/m
+
+function decodeFormKey(rawKey: string): string {
+  try {
+    return decodeURIComponent(rawKey.replace(/\+/g, ' '))
+  } catch {
+    return rawKey
+  }
+}
+
+/** Blank the value of every `key=value` pair whose decoded key is scrub-listed, leaving every other pair byte-for-byte as captured. */
+function scrubFormBody(body: string, fieldNames: Set<string>, removed: ShareScrubRemoval[]): string {
+  let count = 0
+  const out = body
+    .split('&')
+    .map((pair) => {
+      const eq = pair.indexOf('=')
+      if (eq <= 0) return pair
+      const rawKey = pair.slice(0, eq)
+      if (!fieldNames.has(decodeFormKey(rawKey).toLowerCase())) return pair
+      count++
+      return `${rawKey}=${REDACTION_PLACEHOLDER}`
+    })
+    .join('&')
+  mergeRemovals(removed, 'formField', count)
+  return out
+}
+
+/** Scrub each SSE `data:` line whose payload is a JSON object/array the same way a JSON body is scrubbed; every other line passes through for the pattern scan. */
+function scrubSseBody(
+  body: string,
+  fieldNames: Set<string>,
+  options: ShareScrubOptions,
+  removed: ShareScrubRemoval[],
+): string {
+  return body
+    .split('\n')
+    .map((line) => {
+      const match = /^(data:\s?)(.*?)(\r?)$/.exec(line)
+      if (!match) return line
+      const [, prefix, payload, carriageReturn] = match
+      try {
+        const parsed: unknown = JSON.parse(payload)
+        if (parsed === null || typeof parsed !== 'object') return line
+        const lineRemoved: ShareScrubRemoval[] = []
+        const scrubbed = scrubJsonValue(parsed, fieldNames, options, lineRemoved, 0)
+        if (lineRemoved.length === 0) return line
+        for (const r of lineRemoved) mergeRemovals(removed, r.category, r.count)
+        return `${prefix}${JSON.stringify(scrubbed)}${carriageReturn}`
+      } catch {
+        return line
+      }
+    })
+    .join('\n')
+}
+
 /**
  * Scrub a request/response body for sharing. Tries JSON first (field-name scrub +
  * pattern scan on every string leaf, recursively — nested objects included); falls back
@@ -331,6 +416,7 @@ function scrubJsonValue(
 export function scrubBodyForShare(
   body: string | null | undefined,
   options: ShareScrubOptions = {},
+  contentType?: string,
 ): { body: string | null | undefined; removed: ShareScrubRemoval[] } {
   if (body == null || body === '') return { body, removed: [] }
 
@@ -350,8 +436,33 @@ export function scrubBodyForShare(
     // Not JSON — fall through to the plain-text pattern scan below.
   }
 
-  const { text, removed } = scrubPatternsInText(body, options)
-  return { body: text, removed }
+  // Not a JSON document: an SSE stream (per-line JSON) or a form body (key=value pairs)
+  // still has named fields worth scrubbing before the flat pattern scan.
+  const removed: ShareScrubRemoval[] = []
+  const type = contentType?.toLowerCase() ?? ''
+  let text = body
+  if (type.includes('text/event-stream') || SSE_DATA_LINE_RE.test(body)) {
+    text = scrubSseBody(body, fieldNames, options, removed)
+  } else if (type.includes('application/x-www-form-urlencoded') || FORM_BODY_RE.test(body.trim())) {
+    const formFieldNames = new Set(
+      [...fieldNames, ...DEFAULT_SHARE_SCRUB_QUERY_PARAMS, ...(options.extraQueryParams ?? [])].map((f) =>
+        f.toLowerCase(),
+      ),
+    )
+    text = scrubFormBody(body, formFieldNames, removed)
+  }
+
+  const scanned = scrubPatternsInText(text, options)
+  for (const r of scanned.removed) mergeRemovals(removed, r.category, r.count)
+  return { body: scanned.text, removed }
+}
+
+function findContentType(headers: Record<string, string> | undefined): string | undefined {
+  if (!headers) return undefined
+  for (const [k, v] of Object.entries(headers)) {
+    if (k.toLowerCase() === 'content-type') return v
+  }
+  return undefined
 }
 
 /**
@@ -382,10 +493,18 @@ export function scrubNetworkRequestForShare(
   )
   for (const r of resHeaderValuesRemoved) mergeRemovals(removed, r.category, r.count)
 
-  const { body: requestBody, removed: reqBodyRemoved } = scrubBodyForShare(request.requestBody, options)
+  const { body: requestBody, removed: reqBodyRemoved } = scrubBodyForShare(
+    request.requestBody,
+    options,
+    findContentType(request.requestHeaders),
+  )
   for (const r of reqBodyRemoved) mergeRemovals(removed, r.category, r.count)
 
-  const { body: responseBody, removed: resBodyRemoved } = scrubBodyForShare(request.responseBody, options)
+  const { body: responseBody, removed: resBodyRemoved } = scrubBodyForShare(
+    request.responseBody,
+    options,
+    findContentType(request.responseHeaders),
+  )
   for (const r of resBodyRemoved) mergeRemovals(removed, r.category, r.count)
 
   // GraphQL variables are already-parsed JSON (not a serialized body string), so they
@@ -455,6 +574,8 @@ function categoryLabel(category: ShareScrubCategory, count: number): string {
       return `header${plural}`
     case 'jsonField':
       return `JSON field${plural}`
+    case 'formField':
+      return `form field${plural}`
     case 'bearerToken':
       return `bearer token${plural}`
     case 'jwt':
