@@ -561,6 +561,22 @@ class MockEngine {
   }
 
   /**
+   * True when a rewrite rule can change the real response. Only then does an interceptor need
+   * to buffer the response body; a request-only rewrite hands back the real, streaming response.
+   */
+  rewritesResponse(rule: MockRule): boolean {
+    if (rule.mode === 'rewrite' && rule.rewriteResponse) return true
+    const m = rule.modify
+    if (!m) return false
+    return (
+      m.status != null ||
+      (m.setResponseHeaders != null && Object.keys(m.setResponseHeaders).length > 0) ||
+      (m.removeResponseHeaders?.length ?? 0) > 0 ||
+      (m.replaceBody?.length ?? 0) > 0
+    )
+  }
+
+  /**
    * Resolves the response body for a matched mock-mode rule, awaiting
    * `bodyProvider` when present. Falls back to the static body if it throws.
    */
