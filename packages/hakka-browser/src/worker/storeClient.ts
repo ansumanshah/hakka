@@ -76,6 +76,9 @@ export interface StoreClient {
   destroy(): void
 }
 
+/** Window (about one frame) in which live echoes after the first are held to be delivered as one batch. */
+const ECHO_BATCH_MS = 16
+
 export interface StoreClientOptions {
   config?: StoreConfig
   /** Force the in-process backend even when a Worker is available (tests, SSR). */
@@ -232,11 +235,43 @@ export function createWorkerClient(worker: Worker, opts: StoreClientOptions): St
     worker.terminate()
   }
 
+  // Request echoes arrive as one postMessage per record, i.e. one task each. The list
+  // view-model coalesces per microtask, which drains after every task, so without this it
+  // would recompute once per record. Leading + trailing edge: the first echo after an idle
+  // gap is delivered immediately (a lone update must not wait a frame), and echoes arriving
+  // within the next frame are held and delivered together, so every subscriber callback in a
+  // batch runs inside one task and shares one recompute.
+  let echoBuffer: NetworkRequest[] = []
+  let echoTimer: ReturnType<typeof setTimeout> | undefined
+  let lastEchoFlush = 0
+  const flushEchoes = () => {
+    echoTimer = undefined
+    lastEchoFlush = Date.now()
+    const batch = echoBuffer
+    echoBuffer = []
+    for (const req of batch) fan.emitRequest(req)
+  }
+  const onEcho = (req: NetworkRequest) => {
+    const sinceFlush = Date.now() - lastEchoFlush
+    if (echoTimer === undefined && sinceFlush >= ECHO_BATCH_MS) {
+      lastEchoFlush = Date.now()
+      fan.emitRequest(req)
+      return
+    }
+    echoBuffer.push(req)
+    echoTimer ??= setTimeout(flushEchoes, Math.max(0, ECHO_BATCH_MS - sinceFlush))
+  }
+  const dropEchoes = () => {
+    if (echoTimer !== undefined) clearTimeout(echoTimer)
+    echoTimer = undefined
+    echoBuffer = []
+  }
+
   worker.onmessage = (ev: MessageEvent<WorkerToMain>) => {
     const msg = ev.data
     switch (msg.type) {
       case 'request':
-        fan.emitRequest(msg.req)
+        onEcho(msg.req)
         break
       case 'span':
         fan.emitSpan(msg.span)
@@ -265,6 +300,7 @@ export function createWorkerClient(worker: Worker, opts: StoreClientOptions): St
         break
       }
       case 'cleared':
+        dropEchoes()
         fan.emitClear()
         break
     }
@@ -332,6 +368,7 @@ export function createWorkerClient(worker: Worker, opts: StoreClientOptions): St
       if (destroyed) return
       send({ type: 'bridgeDisconnect' })
       destroyed = true
+      dropEchoes()
       worker.onmessage = null
       worker.onerror = null
       // Any in-flight getBody/getSnapshot/etc. caller unwinds with its
