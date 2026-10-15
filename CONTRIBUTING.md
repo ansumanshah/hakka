@@ -159,8 +159,8 @@ Release harness: `examples/react-native-example`
   and several UI modules `require()` optional peers (`async-storage`, `mmkv`) inside
   a module-scope `try`/`catch`. A bundler told the package is side-effect-free may
   legally drop all of that, and capture silently stops. The other six packages
-  declare it because they genuinely are pure (`hakka-browser` lists its CSS and
-  `register.ts` as the exceptions).
+  declare it because they genuinely are pure (`hakka-browser` lists only its CSS
+  as an exception).
 
 ## Versioning & Toolchain Decisions
 
