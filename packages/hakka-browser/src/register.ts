@@ -4,10 +4,14 @@ import { InspectorRoot } from './ui/CrashBoundary'
 import type { InspectorApi } from './ui/Inspector'
 
 /**
- * Register the framework-agnostic <hakka-inspector> custom element.
+ * The framework-agnostic <hakka-inspector> custom element.
  * `@solidjs/element` renders into a Shadow DOM, so overlay styles never collide
- * with the host page. Importing this module registers the element (side
- * effect) — guarded so it's safe to import more than once and on the server.
+ * with the host page.
+ *
+ * Registration is an explicit call, not an import side effect: consumer
+ * bundlers honor this package's `sideEffects` field and drop the body of a
+ * module whose exports go unused, which left the element undefined. Guarded so
+ * it's safe to call more than once and on the server.
  *
  * Renders `InspectorRoot` (Inspector wrapped in the root crash boundary — see
  * CrashBoundary.tsx) rather than `Inspector` directly, so a crash anywhere in
@@ -15,7 +19,8 @@ import type { InspectorApi } from './ui/Inspector'
  */
 const TAG = 'hakka-inspector'
 
-if (typeof customElements !== 'undefined' && !customElements.get(TAG)) {
+export function registerInspectorElement(): void {
+  if (typeof customElements === 'undefined' || customElements.get(TAG)) return
   customElement(TAG, {}, (_props, { element }) =>
     InspectorRoot({
       onReady: (api) => {
