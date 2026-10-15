@@ -12,6 +12,7 @@ import {
   DEFAULT_CONFIG,
   breakpointEngine,
   configureBodyRedaction,
+  getBodyRedactionFields,
   configureTrace,
   enableFetchInterceptor,
   enableXHRInterceptor,
@@ -35,7 +36,7 @@ import type { MountOptions, MountHandle } from './ui/mount'
 import { setNumberGates } from './ui/numberGates'
 import { loadUiState, saveUiState } from './ui/persist'
 import { initStore, destroyStore, store, type BodyPair } from './worker'
-import { HAKKA_WORKER_MESSAGE } from './workerCapture'
+import { HAKKA_WORKER_MESSAGE, redactWorkerRecord } from './workerCapture'
 
 export interface HakkaBrowserOptions extends HakkaConfig {
   /**
@@ -190,7 +191,9 @@ export function start(options: HakkaBrowserOptions = {}): void {
   )
   // Relay traffic captured inside Web Workers (workers that run the
   // `hakka-browser/worker` shim) into the same store. Off by default.
-  if (captureWorkers) teardowns.push(installWorkerRelay(onReq))
+  if (captureWorkers) {
+    teardowns.push(installWorkerRelay((req) => onReq(redactWorkerRecord(req, redactHeaders, getBodyRedactionFields()))))
+  }
   // Restore persisted mock rules so they intercept from the first request,
   // before the Mock panel is ever opened.
   loadMocks()

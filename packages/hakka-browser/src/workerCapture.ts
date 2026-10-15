@@ -14,6 +14,9 @@ import {
   enableFetchInterceptor,
   enableWebSocketInterceptor,
   enableXHRInterceptor,
+  redactHeaders as redactHeaderMap,
+  redactHeaderValues,
+  redactJsonBody,
   type NetworkRequest,
 } from 'hakka-core'
 
@@ -25,6 +28,34 @@ export interface WorkerCaptureOptions {
   maxBodySize?: number
   /** Sensitive header names to redact. Default: hakka-core's default list. */
   redactHeaders?: string[]
+}
+
+/**
+ * Re-apply the host's redaction settings to a record that arrived from a worker.
+ * The worker runs its own copy of hakka-core, so the host's `redactHeaders` and
+ * `redactBodyFields` never reach it; the main thread is the one place that knows both.
+ */
+export function redactWorkerRecord(req: NetworkRequest, headerNames: string[], bodyFields: string[]): NetworkRequest {
+  const out: NetworkRequest = { ...req }
+  if (req.requestHeaders) out.requestHeaders = redactHeaderMap(req.requestHeaders, headerNames)
+  if (req.responseHeaders) out.responseHeaders = redactHeaderMap(req.responseHeaders, headerNames)
+  if (req.responseHeaderValues) out.responseHeaderValues = redactHeaderValues(req.responseHeaderValues, headerNames)
+  if (bodyFields.length > 0) {
+    if (typeof req.requestBody === 'string')
+      out.requestBody = redactJsonBody(req.requestBody, bodyFields) ?? req.requestBody
+    if (typeof req.responseBody === 'string')
+      out.responseBody = redactJsonBody(req.responseBody, bodyFields) ?? req.responseBody
+    if (req.graphql?.variables) {
+      const redacted = redactJsonBody(JSON.stringify(req.graphql.variables), bodyFields)
+      if (redacted) out.graphql = { ...req.graphql, variables: JSON.parse(redacted) as typeof req.graphql.variables }
+    }
+    if (req.messages) {
+      out.messages = req.messages.map((m) =>
+        typeof m.data === 'string' && !m.binary ? { ...m, data: redactJsonBody(m.data, bodyFields) ?? m.data } : m,
+      )
+    }
+  }
+  return out
 }
 
 /** True when running inside a Worker global scope (not the main window). */
