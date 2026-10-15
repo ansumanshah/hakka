@@ -10,7 +10,7 @@ import { Tabs, TabItem, Steps, Aside, Card, CardGrid, LinkCard, Badge } from '@a
   Hakka overlay, tagged by runtime. No proxy, no CA cert, no cloud account.
 </Aside>
 
-`hakka-node`'s `/next` subpath instruments the Next.js server runtime — Server Components, Route Handlers, and Server Actions — and streams captures to the same bridge hub the browser overlay connects to. Server and client requests appear in one UI, tagged by runtime.
+`hakka-node`'s `/next` subpath instruments the Next.js server runtime, Server Components, Route Handlers, and Server Actions, and streams captures to the same bridge hub the browser overlay connects to. Server and client requests appear in one UI, tagged by runtime.
 
 <Badge text="Stable" variant="success" />
 
@@ -88,7 +88,7 @@ The page ends with an eight-step checklist. Each step uses something you just ge
   <TabItem label="npm">
 
 ```bash title="Terminal"
-npm install -D hakka-node
+npm install hakka-node
 npm install hakka-browser
 ```
 
@@ -96,7 +96,7 @@ npm install hakka-browser
   <TabItem label="pnpm">
 
 ```bash title="Terminal"
-pnpm add -D hakka-node
+pnpm add hakka-node
 pnpm add hakka-browser
 ```
 
@@ -137,14 +137,14 @@ bun add hakka-browser
    import 'hakka-node/next/client'
    ```
 
-3. **Verify it works** — run `next dev`, open your app, make any request (page load counts). The Hakka overlay (bottom-right trigger) shows both server and client requests, each tagged `server` or `client`.
+3. **Verify it works**, run `next dev`, open your app, make any request (page load counts). The Hakka overlay (bottom-right trigger) shows both server and client requests, each tagged `server` or `client`.
 
 </Steps>
 
 ![The Hakka overlay listing one client request and two server requests. The browser's call to /api/products is untagged; the Server Component's fetch to api.github.com and the route handler's fetch to jsonplaceholder.typicode.com both carry a SERVER tag.](../../../assets/screenshots/hakka-next-runtime.png)
 
 One user action, the whole chain: the browser's `/api/products` call, the route
-handler's downstream fetch, and the Server Component's own fetch — in one list,
+handler's downstream fetch, and the Server Component's own fetch, in one list,
 each tagged with the runtime it ran on.
 
 ### Older Next (no `instrumentation-client.ts`)
@@ -182,12 +182,12 @@ bundlers resolve that optional peer at build time.
 
 ## What Hakka captures
 
-| Traffic                                                     | Captured     | Body                                                      |
-| ----------------------------------------------------------- | ------------ | --------------------------------------------------------- |
-| `fetch` — Server Components, Route Handlers, Server Actions | Yes          | Full request + response body                              |
-| Node `http`/`https` — axios, got, node-fetch, any SDK       | Yes          | Request + headers only; **response body is NOT captured** |
-| Edge runtime (`runtime: 'edge'`)                            | `fetch` only | Full body                                                 |
-| Non-HTTP (Postgres/Prisma over TCP)                         | No           | —                                                         |
+| Traffic                                                    | Captured     | Body                                                      |
+| ---------------------------------------------------------- | ------------ | --------------------------------------------------------- |
+| `fetch`, Server Components, Route Handlers, Server Actions | Yes          | Full request + response body                              |
+| Node `http`/`https`, axios, got, node-fetch, any SDK       | Yes          | Request + headers only; **response body is NOT captured** |
+| Edge runtime (`runtime: 'edge'`)                           | `fetch` only | Full body                                                 |
+| Non-HTTP (Postgres/Prisma over TCP)                        | No           | none                                                      |
 
 <Aside type="note">
   Node `http`/`https` response bodies are deliberately not captured. Attaching a `data` listener can flip a paused
@@ -197,7 +197,7 @@ bundlers resolve that optional peer at build time.
 
 ## Embedded bridge
 
-`register` starts a bridge hub inside the Next dev server process by default (`embedBridge: true`). The browser overlay connects to the same hub at `ws://localhost:8989`. If the port is already in use — another dev worker or a standalone hub — the embedded start is skipped and the client connects to the existing one.
+`register` starts a bridge hub inside the Next dev server process by default (`embedBridge: true`). The browser overlay connects to the same hub at `ws://localhost:8989`. If the port is already in use, another dev worker or a standalone hub, the embedded start is skipped and the client connects to the existing one.
 
 When a desktop app or another local Hakka app already uses that port, point both peers at a dedicated hub. The server reads `HAKKA_BRIDGE_URL`; the one-line client import reads Next's public `NEXT_PUBLIC_HAKKA_BRIDGE_URL`. They must name the same WebSocket URL:
 
@@ -230,21 +230,21 @@ export const register = () =>
     embedBridge: true, // run the hub in-process. false → use npx hakka-bridge separately.
     bridgeUrl: 'ws://localhost:8989',
     maxBodySize: 262144, // bytes; default 256 KB
-    // Replaces the core default list entirely — it is not merged with it.
+    // Replaces the core default list entirely, it is not merged with it.
     // Spread the defaults explicitly to keep them alongside your own additions.
     redactHeaders: ['authorization', 'proxy-authorization', 'cookie', 'set-cookie', 'x-custom'],
   })
 ```
 
-| Option          | Type                 | Default               | Description                                                                                       |
-| --------------- | -------------------- | --------------------- | ------------------------------------------------------------------------------------------------- |
-| `runtime`       | `'server' \| 'edge'` | `'server'`            | Tag applied to every captured record                                                              |
-| `captureHttp`   | `boolean`            | `true`                | Patch Node `http`/`https`. No-op on edge.                                                         |
-| `captureFetch`  | `boolean`            | `true`                | Patch `globalThis.fetch`                                                                          |
-| `embedBridge`   | `boolean`            | `true`                | Host the bridge hub in-process                                                                    |
-| `bridgeUrl`     | `string`             | `ws://localhost:8989` | Hub WebSocket URL                                                                                 |
-| `maxBodySize`   | `number`             | `262144`              | Max captured body in bytes                                                                        |
-| `redactHeaders` | `string[]`           | core defaults         | Sensitive header names to redact — **replaces** the core default list rather than merging with it |
+| Option          | Type                 | Default               | Description                                                                                      |
+| --------------- | -------------------- | --------------------- | ------------------------------------------------------------------------------------------------ |
+| `runtime`       | `'server' \| 'edge'` | `'server'`            | Tag applied to every captured record                                                             |
+| `captureHttp`   | `boolean`            | `true`                | Patch Node `http`/`https`. No-op on edge.                                                        |
+| `captureFetch`  | `boolean`            | `true`                | Patch `globalThis.fetch`                                                                         |
+| `embedBridge`   | `boolean`            | `true`                | Host the bridge hub in-process                                                                   |
+| `bridgeUrl`     | `string`             | `ws://localhost:8989` | Hub WebSocket URL                                                                                |
+| `maxBodySize`   | `number`             | `262144`              | Max captured body in bytes                                                                       |
+| `redactHeaders` | `string[]`           | core defaults         | Sensitive header names to redact, **replaces** the core default list rather than merging with it |
 
 ### Edge runtime
 
@@ -264,7 +264,7 @@ The overlay runtime filter lets you isolate `server`, `client`, or `edge` traffi
 
 ## Request Insights (span waterfall)
 
-Passing `traceSpans: true` to `register`/`startServerCapture` bridges Next's own OpenTelemetry request-tree spans (`BaseServer.handleRequest`, `AppRouteRouteHandlers.runHandler`, `Render.getServerSideProps`, …) into the inspector as `FrameworkSpan` records, so a request's server-side waterfall shows up alongside its network captures — without hakka-node shipping any OTel SDK code itself. Opt-in; zero cost when off. `hakka-node/next/server`'s `startServerCapture` defaults it to `true` in development.
+Passing `traceSpans: true` to `register`/`startServerCapture` bridges Next's own OpenTelemetry request-tree spans (`BaseServer.handleRequest`, `AppRouteRouteHandlers.runHandler`, `Render.getServerSideProps`, …) into the inspector as `FrameworkSpan` records, so a request's server-side waterfall shows up alongside its network captures, without hakka-node shipping any OTel SDK code itself. Opt-in; zero cost when off. `hakka-node/next/server`'s `startServerCapture` defaults it to `true` in development.
 
 ```ts title="instrumentation.ts"
 import { registerOTel } from '@vercel/otel'
@@ -279,11 +279,11 @@ export async function register() {
 }
 ```
 
-**Why two attach paths exist.** `@opentelemetry/sdk-trace-base` 1.x lets a processor attach to an already-registered provider via `provider.addSpanProcessor()`; 2.x removed that method — processors are constructor-only there. `hakkaSpanProcessor()` is the 2.x-safe path: you construct it and hand it to your SDK's own processor list (`registerOTel({ spanProcessors: [...] })` for `@vercel/otel`, or the equivalent for any other SDK). A duck-typed `attach()` fallback also runs automatically from `enableTraceSpans()` for 1.x setups that never call `hakkaSpanProcessor()` explicitly — it reads `trace.getTracerProvider()`, unwraps one `ProxyTracerProvider.getDelegate()` layer (the standard registration path always wraps the real provider), and calls `addSpanProcessor` if present. If a `hakkaSpanProcessor()` instance already exists in the process, the fallback no-ops rather than installing a second processor that would double-emit every span.
+**Why two attach paths exist.** `@opentelemetry/sdk-trace-base` 1.x lets a processor attach to an already-registered provider via `provider.addSpanProcessor()`; 2.x removed that method, processors are constructor-only there. `hakkaSpanProcessor()` is the 2.x-safe path: you construct it and hand it to your SDK's own processor list (`registerOTel({ spanProcessors: [...] })` for `@vercel/otel`, or the equivalent for any other SDK). A duck-typed `attach()` fallback also runs automatically from `enableTraceSpans()` for 1.x setups that never call `hakkaSpanProcessor()` explicitly, it reads `trace.getTracerProvider()`, unwraps one `ProxyTracerProvider.getDelegate()` layer (the standard registration path always wraps the real provider), and calls `addSpanProcessor` if present. If a `hakkaSpanProcessor()` instance already exists in the process, the fallback no-ops rather than installing a second processor that would double-emit every span.
 
-**`@opentelemetry/api` is an optional peer.** Nothing in `spanProcessor.ts` imports it statically — only via a dynamic `import()` inside the 1.x fallback — so a consumer who never calls `enableTraceSpans()` needs nothing installed and pays zero cost. `@opentelemetry/sdk-trace-base` (which declares the real `SpanProcessor`/`ReadableSpan` types) is never imported at all, even as a type; the module declares a minimal structural subset instead and duck-types against whatever the runtime hands back.
+**`@opentelemetry/api` is an optional peer.** Nothing in `spanProcessor.ts` imports it statically, only via a dynamic `import()` inside the 1.x fallback, so a consumer who never calls `enableTraceSpans()` needs nothing installed and pays zero cost. `@opentelemetry/sdk-trace-base` (which declares the real `SpanProcessor`/`ReadableSpan` types) is never imported at all, even as a type; the module declares a minimal structural subset instead and duck-types against whatever the runtime hands back.
 
-**Request kind classification.** Root spans (no parent) get a `requestKind` of `'rsc'`, `'route-handler'`, `'document'`, or `'server-action'`, derived from (in priority order) an inbound header hint (`next-action` / `rsc: 1`, read at the same point trace propagation reads the incoming trace header) and Next's documented `next.rsc` span attribute. The `AppRender.fetch` span type is dropped at the source — it's the exact same outbound fetch hakka-core's own fetch interceptor already captures with full headers/body, so emitting both would draw one operation twice.
+**Request kind classification.** Root spans (no parent) get a `requestKind` of `'rsc'`, `'route-handler'`, `'document'`, or `'server-action'`, derived from (in priority order) an inbound header hint (`next-action` / `rsc: 1`, read at the same point trace propagation reads the incoming trace header) and Next's documented `next.rsc` span attribute. The `AppRender.fetch` span type is dropped at the source, it's the exact same outbound fetch hakka-core's own fetch interceptor already captures with full headers/body, so emitting both would draw one operation twice.
 
 ## Next steps
 

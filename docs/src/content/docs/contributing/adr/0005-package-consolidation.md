@@ -41,7 +41,7 @@ hakka-rozenite
 ```
 
 The dividing line is **runtime**, not topic. Four packages exist because they
-can never share a dependency set: `hakka-core` (zero runtime dependencies,
+can never share a dependency set: `hakka-core` (one runtime dependency, `fflate`,
 universal), `hakka-browser` (Solid, DOM), `hakka-react-native` (heavy RN
 peers), and `hakka-node` (`ws`, Node built-ins). `hakka-bridge` is the
 transport hub both `hakka-node` and the CLI connect to. `hakka` owns the

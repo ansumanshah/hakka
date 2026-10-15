@@ -12,7 +12,7 @@ import { Tabs, TabItem, Steps, Aside, Card, CardGrid, LinkCard, Badge } from '@a
 
 `hakka-react-native` is the app-facing package for React Native. It provides a TypeScript API, a TurboModule bridge to the native Hakka SDKs and optional monitors. The inspector is rendered by the native iOS and Android SDKs.
 
-<Badge text="Pre-release" variant="caution" /> The packages are not yet published.
+<Badge text="Beta" variant="caution" /> The packages are not yet published.
 
 ## What Hakka captures
 
@@ -98,7 +98,7 @@ the platform clipboard directly.
 
 2.  **Start capture**
 
-    Call `Hakka.start` once, before any network traffic — top of your entry file works well.
+    Call `Hakka.start` once, before any network traffic. The top of your entry file works well. With Expo Router, put it at the top of `src/app/_layout.tsx` or `app/_layout.tsx`.
 
     ```ts title="index.ts"
     import { Hakka } from 'hakka-react-native'

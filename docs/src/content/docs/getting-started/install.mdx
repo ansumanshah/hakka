@@ -22,6 +22,11 @@ Each platform page has a copy-paste quickstart that ends with a captured request
   <LinkCard title="Web" href="/web/overview/" description="A drop-in overlay for any browser app." />
   <LinkCard title="Next.js" href="/nextjs/overview/" description="Server + client traffic in one inspector." />
   <LinkCard
+    title="Node backend"
+    href="/node/overview/"
+    description="fetch and http/https capture for Express, Fastify, Hono, or plain Node."
+  />
+  <LinkCard
     title="React Native"
     href="/react-native/package/"
     description="fetch, XHR, WebSocket + native OkHttp/URLSession."
@@ -39,6 +44,7 @@ Each platform page has a copy-paste quickstart that ends with a captured request
 | ------------ | ----------------------------------------- |
 | Web          | <Badge text="Stable" variant="success" /> |
 | Next.js      | <Badge text="Stable" variant="success" /> |
+| Node backend | <Badge text="Stable" variant="success" /> |
 | React Native | <Badge text="Beta" variant="caution" />   |
 | Android      | <Badge text="Alpha" variant="note" />     |
 | iOS          | <Badge text="Alpha" variant="note" />     |
@@ -61,6 +67,7 @@ packages for 0.2.0 are not published yet, so these commands will fail with a 404
 npm install hakka-react-native   # React Native / Expo
 npm install hakka-browser            # Web
 npm install hakka-node hakka-browser # Next.js
+npm install hakka-node            # Node backend
 npm install hakka-cli            # CLI setup, diagnostics, MCP, and CDP
 ```
 
@@ -71,6 +78,7 @@ npm install hakka-cli            # CLI setup, diagnostics, MCP, and CDP
 pnpm add hakka-react-native   # React Native / Expo
 pnpm add hakka-browser            # Web
 pnpm add hakka-node hakka-browser # Next.js
+pnpm add hakka-node            # Node backend
 pnpm add hakka-cli            # CLI setup, diagnostics, MCP, and CDP
 ```
 
@@ -81,6 +89,7 @@ pnpm add hakka-cli            # CLI setup, diagnostics, MCP, and CDP
 yarn add hakka-react-native   # React Native / Expo
 yarn add hakka-browser            # Web
 yarn add hakka-node hakka-browser # Next.js
+yarn add hakka-node            # Node backend
 yarn add hakka-cli            # CLI setup, diagnostics, MCP, and CDP
 ```
 
@@ -91,6 +100,7 @@ yarn add hakka-cli            # CLI setup, diagnostics, MCP, and CDP
 bun add hakka-react-native   # React Native / Expo
 bun add hakka-browser            # Web
 bun add hakka-node hakka-browser # Next.js
+bun add hakka-node            # Node backend
 bun add hakka-cli            # CLI setup, diagnostics, MCP, and CDP
 ```
 

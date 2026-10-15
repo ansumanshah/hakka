@@ -30,6 +30,22 @@ The MCP source-debugging tools attach only when `HAKKA_CDP_URL` is set to an exp
 
 This is Chromium CDP functionality, not a general phone debugger. A WebView or phone browser needs its own Chromium-compatible remote-debugging target. Safari/WebKit and normal in-page Hakka capture cannot supply scripts, breakpoints, or stepping.
 
+## Attach from the CLI
+
+Start Chrome with a debugging port and a throwaway profile directory (Chrome ignores the port flag on your default profile):
+
+```bash
+/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
+  --remote-debugging-port=9222 \
+  --user-data-dir=/tmp/hakka-chrome-profile
+```
+
+Then attach and stream to a bridge hub:
+
+```bash
+npx hakka-cli cdp --port 9222
+```
+
 ## Install
 
 ```bash

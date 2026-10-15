@@ -5,7 +5,7 @@ description: Set up capture, inspect traffic, and automate Hakka workflows from 
 
 `npx hakka-cli init` reads your project's `package.json` and config files, detects the
 framework, and either creates the required files for you or prints the exact snippet
-to paste. No installs needed to run it.
+to paste. It then runs the install command with your package manager. Pass `--no-install` (or `--dry-run`) to print the command instead.
 
 ```bash
 npx hakka-cli init
@@ -13,6 +13,16 @@ npx hakka-cli init
 
 The package ships an ESM CLI with separate command modules. Proxy capture uses the
 optional external `mitmdump` executable; it is needed only for `hakka proxy`.
+
+## Version and help
+
+```bash
+npx hakka-cli --version      # prints the installed version (also -v)
+npx hakka-cli --help         # lists every command
+npx hakka-cli diagnose --help   # <command> --help prints the usage block
+```
+
+`<command> --help` prints the full usage listing, not a per-command page.
 
 ## Other commands
 
@@ -54,7 +64,7 @@ Expo is checked before React Native because an Expo project has both `expo` and
 
 Requires Next.js 15.3 or later (instrumentation-client hooks).
 
-`npx hakka-cli init` prints the install command and creates two files:
+`npx hakka-cli init` runs the install command with your package manager and creates two files:
 
 ```
 instrumentation.ts          ← server-side capture + embedded bridge
@@ -89,7 +99,7 @@ in one UI. See [/web/overview/](/web/overview/) for overlay options.
 
 ## Vite
 
-`npx hakka-cli init` prints the install command and the plugin snippet to add to
+`npx hakka-cli init` runs the install command with your package manager and prints the plugin snippet to add to
 `vite.config`:
 
 ```bash
@@ -105,7 +115,7 @@ The plugin auto-injects the overlay in dev builds only. No files are created on 
 
 ## Expo
 
-`npx hakka-cli init` prints the install and usage snippet:
+`npx hakka-cli init` runs the install command with your package manager and prints the usage snippet:
 
 ```bash
 npm i hakka-react-native
@@ -167,4 +177,4 @@ For Next.js (the only framework where the CLI writes files), `init` checks each 
 path before writing. If the file already exists it is left untouched and the CLI prints
 a notice. Re-running `npx hakka-cli init` is always safe.
 
-For all other frameworks the CLI only prints instructions — it never touches your files.
+For all other frameworks the CLI only prints snippets. It never edits your files. The install command runs unless you pass `--no-install`.

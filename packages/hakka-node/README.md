@@ -13,18 +13,32 @@ import { register } from 'hakka-node'
 register()
 ```
 
-`register()` starts in development, or with `force: true`. For explicit lifecycle
-control, use `startCapture()` and call the returned handle's `stop()`.
+```sh
+NODE_ENV=development node app.js
+```
+
+`register()` does nothing, silently, unless `NODE_ENV=development` or you pass
+`force: true`. For explicit lifecycle control, use `startCapture()` and call the
+returned handle's `stop()`. Capture keeps the process alive, so call `stop()` at
+the end of a short script.
+
+## Seeing the captures
+
+With `embedBridge: true` (the default) this process hosts the hub on
+`ws://localhost:8989`: open Hakka for macOS or run `npx hakka-cli mcp`. With
+`embedBridge: false`, connect to a hub that is already running. Or pass a `sink`
+function. A `sink` can receive the same record `id` twice for one `fetch` (headers
+first, then the body), so upsert by `id`.
 
 [Node/Bun guide and options](https://hakka.noodleapps.com/node/overview/)
-· [Runnable framework examples](../../examples/framework-servers/)
+· [Runnable framework examples](https://github.com/ansumanshah/hakka/tree/main/examples/framework-servers)
 
 ## Bun
 
 Run the same package with Bun. Outbound fetch, HTTP capture, bodies, redaction,
 and HAR export work on Bun 1.4.2. Native `Bun.serve` handlers need explicit
 `runInTraceContext` wiring for incoming trace headers; undici connection timing
-is unavailable for Bun's fetch. See the [Bun example](../../examples/framework-servers/bun.mjs).
+is unavailable for Bun's fetch. See the [Bun example](https://github.com/ansumanshah/hakka/blob/main/examples/framework-servers/bun.mjs).
 
 ## Next.js (`hakka-node/next`)
 
@@ -87,7 +101,9 @@ Raw database sockets are outside this package's HTTP capture scope.
 ## Desktop mode
 
 Use `register({ embedBridge: false })` to connect to a running desktop hub.
-The default URL is `ws://localhost:8989`.
+The default URL is `ws://localhost:8989`. The first process to start hosts the hub:
+if your dev server starts first, the desktop app reports the port as in use, so
+use `embedBridge: false` whenever the desktop app is running.
 
 ## Options
 

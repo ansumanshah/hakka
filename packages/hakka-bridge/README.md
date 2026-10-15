@@ -1,6 +1,6 @@
 # hakka-bridge
 
-The desktop-side receiver for [`hakka-browser`](../hakka-browser)'s WebSocket bridge. Run it in
+The desktop-side receiver for [`hakka-browser`](https://github.com/ansumanshah/hakka/tree/main/packages/hakka-browser)'s WebSocket bridge. Run it in
 a terminal and every request captured by a `hakka-browser` overlay streams to you,
 live — no browser DevTools tab required.
 
@@ -55,4 +55,4 @@ hub.ingest(rawFrame) // returns the decoded NetworkRequest, or null if malformed
 
 ## License
 
-MIT. See [LICENSE](./LICENSE).
+MIT. See [LICENSE](https://github.com/ansumanshah/hakka/tree/main/LICENSE).

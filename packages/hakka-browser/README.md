@@ -22,7 +22,7 @@ Runs the **same `hakka-core` engine** as `hakka-react-native`, so captures are i
 
 Capture interceptors stay on the main thread (that's where `fetch`/XHR/WebSocket live), but the **store, dedup, retention, filter/search, HAR/OTel serialization, and the desktop-bridge socket all run in a Web Worker** — so the always-on capture barely touches your app's thread. It falls back transparently to an in-process engine where Workers aren't available (SSR, locked-down hosts).
 
-Measured main-thread overhead is **~7.7 µs/request** — about **5× lighter than vConsole** and **6.7× lighter** than running the same engine without the Worker (see `packages/hakka-bench/`, run `bun run --cwd packages/hakka-bench bench`).
+Measured main-thread overhead is **~9.6 µs/request**, about **4.9× lighter than vConsole** (see `packages/hakka-bench/RESULTS.md`; run `bun run --cwd packages/hakka-bench bench`).
 
 ## Use it
 
@@ -47,6 +47,12 @@ import { start } from 'hakka-browser'
 start()
 ```
 
+`start()` options: `overlay` (`'launcher'` default, `true`, or `false`), `resourceTiming`,
+`captureBeacons`, `console`, `logToConsole`, `trace`, `gates`, `captureWorkers`,
+`redactBodyFields`, `slimEcho`, `enabled`, plus the core `HakkaConfig` fields. Named exports
+`show()`, `hide()` and `destroy()` control the overlay. Details in the
+[web guide](https://hakka.noodleapps.com/web/overview/#start-options).
+
 ## Lazy by design
 
 Only the **capture engine + a tiny launcher button (~2.4 KB gz)** load eagerly.
@@ -56,7 +62,7 @@ transparent passthroughs and the overlay never intercepts the page's pointer eve
 so Hakka does not disrupt the host page.
 
 The overlay is the `<hakka-inspector>` custom element, rendered in a Shadow DOM.
-`start({ overlay: false })` captures silently; call `Hakka.show()` from your own
+`start({ overlay: false })` captures silently; call `show()` (`import { show } from 'hakka-browser'`, or `Hakka.show()` from the script tag) from your own
 debug trigger. To keep it out of production entirely, gate the import behind a dev
 check (e.g. `if (import.meta.env.DEV) await import('hakka-browser').then(h => h.start())`).
 

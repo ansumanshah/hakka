@@ -21,7 +21,7 @@ function App() {
 ```
 
 The hook is inactive in production, web, and SSR. The
-[React Native example](../../examples/react-native-example/) includes Metro
+[React Native example](https://github.com/ansumanshah/hakka/tree/main/examples/react-native-example/) includes Metro
 configuration and a `start:rozenite` script.
 
 ## Compatibility
@@ -40,4 +40,4 @@ when updating Rozenite packages.
 - Each request uses one message frame. Sample traffic stays in the panel mirror.
 
 [Full guide](https://hakka.noodleapps.com/embedding/rozenite/)
-· [Transport and build verification](../../examples/rozenite/)
+· [Transport and build verification](https://github.com/ansumanshah/hakka/tree/main/examples/rozenite/)

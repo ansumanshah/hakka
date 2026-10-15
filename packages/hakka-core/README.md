@@ -1,11 +1,11 @@
 # hakka-core
 
-Platform-neutral network-capture engine for [Hakka](https://github.com/ansumanshah/hakka). Zero runtime dependencies, framework-agnostic.
+Platform-neutral network-capture engine for [Hakka](https://github.com/ansumanshah/hakka). One runtime dependency (`fflate`), framework-agnostic.
 
 This package is the shared engine consumed by:
 
-- [`hakka-react-native`](../hakka-react-native) — React Native, with an injected native (OkHttp / URLProtocol) adapter
-- [`hakka-browser`](../hakka-browser) — browsers, with Resource Timing + DOM adapters
+- [`hakka-react-native`](https://github.com/ansumanshah/hakka/tree/main/packages/hakka-react-native) — React Native, with an injected native (OkHttp / URLProtocol) adapter
+- [`hakka-browser`](https://github.com/ansumanshah/hakka/tree/main/packages/hakka-browser) — browsers, with Resource Timing + DOM adapters
 
 ## What's inside
 
