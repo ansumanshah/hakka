@@ -376,4 +376,9 @@ describe('share scrub: hash routes and error messages', () => {
     expect(request.error).not.toContain('sek')
     expect(request.error).not.toContain('abcdefghijklmnop')
   })
+
+  test('leaves a null error untouched', () => {
+    const { request } = scrubNetworkRequestForShare(baseRequest({ error: null as unknown as undefined }))
+    expect(request.error).toBeNull()
+  })
 })

@@ -528,7 +528,7 @@ export function scrubNetworkRequestForShare(
 
   // Error messages often embed the failing URL or an auth header verbatim.
   let error = request.error
-  if (error !== undefined) {
+  if (typeof error === 'string') {
     const queryNames = new Set(
       [...DEFAULT_SHARE_SCRUB_QUERY_PARAMS, ...(options.extraQueryParams ?? [])].map((n) => n.toLowerCase()),
     )
@@ -544,7 +544,7 @@ export function scrubNetworkRequestForShare(
   const scrubbed: NetworkRequest = {
     ...request,
     url,
-    ...(request.error !== undefined ? { error } : {}),
+    ...(typeof request.error === 'string' ? { error } : {}),
     ...(request.requestHeaders !== undefined ? { requestHeaders } : {}),
     ...(request.responseHeaders !== undefined ? { responseHeaders } : {}),
     ...(request.responseHeaderValues !== undefined ? { responseHeaderValues } : {}),
