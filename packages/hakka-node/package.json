@@ -99,10 +99,10 @@
   },
   "devDependencies": {
     "@opentelemetry/api": "^1.9.1",
-    "@types/node": "^26.6.4",
+    "@types/node": "^26.6.5",
     "@types/ws": "^8.18.2",
     "hakka-browser": "0.2.0",
-    "tsdown": "^0.23.0",
+    "tsdown": "^0.23.1",
     "typescript": "^7.0.2"
   },
   "peerDependencies": {
