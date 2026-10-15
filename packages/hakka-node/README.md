@@ -75,7 +75,9 @@ Externalize `hakka-node`, `hakka-bridge`, `hakka-core`, and `ws` for webpack bui
 ### Scope
 
 Fetch includes response bodies. HTTP/HTTPS captures request bodies and response
-metadata/timing without reading response streams. Edge capture covers fetch only.
+metadata/timing without reading response streams. Edge capture covers fetch only and reaches the
+overlay through a one-line relay route, `createEdgeRelayHandler()` from `hakka-node/next/server`
+([Edge setup](https://hakka.noodleapps.com/nextjs/overview/#edge-runtime)).
 Raw database sockets are outside this package's HTTP capture scope.
 
 ## Trace correlation

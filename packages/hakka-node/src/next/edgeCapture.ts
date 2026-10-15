@@ -21,9 +21,9 @@
  * forward records anywhere you like: a KV store polled by a pull route in
  * the shape of `hakka-node/prod`'s `createPullHandler`, a log line, your own
  * relay. Without a sink, `fetch` is still intercepted (and pays that cost)
- * but every record is captured and immediately discarded — `startEdgeCapture`
- * warns about this once in development (see `next/index.ts`) rather than
- * failing silently.
+ * but every record is captured and immediately discarded. `register()` in
+ * `next/index.ts` avoids that in development by defaulting `sink` to the dev
+ * relay (`edgeRelay.ts`).
  */
 import { DEFAULT_CONFIG, enableFetchInterceptor, type NetworkRequest } from 'hakka-core'
 

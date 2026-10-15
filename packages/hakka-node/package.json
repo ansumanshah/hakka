@@ -69,6 +69,10 @@
       "default": "./dist/next/server.mjs"
     },
     "./next/client": {
+      "production": {
+        "types": "./dist/next/client.d.mts",
+        "default": "./dist/next/client.noop.mjs"
+      },
       "source": "./src/next/client.ts",
       "types": "./dist/next/client.d.mts",
       "default": "./dist/next/client.mjs"

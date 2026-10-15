@@ -5,6 +5,7 @@ import type { Server } from 'node:http'
 import type { NetworkRequest } from 'hakka-core'
 
 import { startEdgeCapture, stopEdgeCapture } from '../edgeCapture'
+import { EDGE_RELAY_PATH } from '../edgeRelay'
 import { register } from '../index'
 
 /**
@@ -100,14 +101,73 @@ describe('register — Edge runtime branch', () => {
     expect(warn).not.toHaveBeenCalled()
   })
 
-  test('warns once in development when no sink is configured', async () => {
-    process.env.NEXT_RUNTIME = 'edge'
-    process.env.NODE_ENV = 'development'
+  describe('with no sink configured', () => {
+    let relay: Server
+    let relayPosts: NetworkRequest[]
+    let relayStatus: number
+    let originalOrigin: string | undefined
 
-    await register()
+    beforeEach(async () => {
+      relayPosts = []
+      relayStatus = 202
+      relay = http.createServer((req, res) => {
+        let body = ''
+        req.on('data', (chunk) => (body += chunk))
+        req.on('end', () => {
+          if (req.url === EDGE_RELAY_PATH && relayStatus === 202) relayPosts.push(JSON.parse(body) as NetworkRequest)
+          res.statusCode = req.url === EDGE_RELAY_PATH ? relayStatus : 200
+          res.end('{}')
+        })
+      })
+      const port = await listen(relay)
+      originalOrigin = process.env.HAKKA_EDGE_RELAY_ORIGIN
+      process.env.HAKKA_EDGE_RELAY_ORIGIN = `http://127.0.0.1:${port}`
+    })
 
-    expect(warn).toHaveBeenCalledTimes(1)
-    expect(warn.mock.calls[0]?.[0]).toContain('no `options.sink` was configured')
+    afterEach(() => {
+      relay.close()
+      if (originalOrigin === undefined) delete process.env.HAKKA_EDGE_RELAY_ORIGIN
+      else process.env.HAKKA_EDGE_RELAY_ORIGIN = originalOrigin
+    })
+
+    test('development relays Edge records to the relay route, never the relay request itself', async () => {
+      process.env.NEXT_RUNTIME = 'edge'
+      process.env.NODE_ENV = 'development'
+      await register()
+
+      await fetch(`${process.env.HAKKA_EDGE_RELAY_ORIGIN}/edge-app-call`)
+      await settle()
+
+      // The interceptor emits a pending and a settled record per request (same id); the hub upserts by id.
+      expect(new Set(relayPosts.map((r) => r.id)).size).toBe(1)
+      expect(relayPosts.every((r) => r.url.endsWith('/edge-app-call') && r.runtime === 'edge')).toBe(true)
+      expect(warn).not.toHaveBeenCalled()
+    })
+
+    test('warns once when the relay route is missing', async () => {
+      process.env.NEXT_RUNTIME = 'edge'
+      process.env.NODE_ENV = 'development'
+      relayStatus = 404
+      await register()
+
+      await fetch(`${process.env.HAKKA_EDGE_RELAY_ORIGIN}/first`)
+      await fetch(`${process.env.HAKKA_EDGE_RELAY_ORIGIN}/second`)
+      await settle()
+
+      expect(warn).toHaveBeenCalledTimes(1)
+      expect(warn.mock.calls[0]?.[0]).toContain('createEdgeRelayHandler')
+    })
+
+    test('a forced production capture does not relay unless a sink is passed', async () => {
+      process.env.NEXT_RUNTIME = 'edge'
+      process.env.NODE_ENV = 'production'
+      await register({ force: true })
+
+      await fetch(`${process.env.HAKKA_EDGE_RELAY_ORIGIN}/prod-call`)
+      await settle()
+
+      expect(relayPosts).toHaveLength(0)
+    })
   })
 
   test('stays silent AND does not start capture in production, with no runtime/force', async () => {
