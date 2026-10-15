@@ -57,6 +57,21 @@ trace.finish()
 Native Kotlin and Swift APIs should expose the same concepts before the RN
 wrapper depends on them.
 
+## Naming Conventions
+
+One convention across every `hakka-*` package, so a name tells you where it runs.
+
+- **Packages** are `hakka-<surface>`, where the surface is the runtime or role it serves: `core`, `browser`, `node`, `bridge`, `cli`, `react-native`, `rozenite`.
+- **Subpath exports** are lowercase kebab-case and name a runtime or a bundler: `/vite`, `/webpack`, `/rspack`, `/next`, `/next/server`, `/next/client`, `/elements/<tag-name>`. An entry with no suffix is safe everywhere its package runs. `/server` is Node only and `/client` is browser only. Every package exposes `./package.json`.
+- **Lifecycle functions** are `start<Scope>Capture()` and `stop<Scope>Capture()`, where the scope is `Server`, `Edge`, `Prod`, `Ci` or `Client`. A package's main entry may use the short form: `startCapture()` in `hakka-node`, `start()` in `hakka-browser`. Server-side `start*` functions return a handle with `stop()`; the browser entries (`start()`, `startClientCapture()`) return nothing.
+- **Option types** are `<Scope>CaptureOptions` (`ServerCaptureOptions`, `EdgeCaptureOptions`, `ClientCaptureOptions`). A package's main entry names its type `Hakka<Surface>Options` (`HakkaBrowserOptions`, `HakkaNodeOptions`).
+- **Version constants** are `HAKKA_<PACKAGE>_VERSION` (`HAKKA_BROWSER_VERSION`), with the subpath appended for a subpath entry (`HAKKA_NODE_NEXT_VERSION`). Each is checked against `package.json` by `scripts/version-audit.mjs`.
+- **Custom elements** use the `hakka-<name>` tag, and the matching `/elements/<name>` subpath uses the same name.
+- **Environment variables** are `HAKKA_*`. A value a Next.js browser bundle reads is `NEXT_PUBLIC_HAKKA_*`.
+- **Record runtime tags** are `client`, `server` and `edge`.
+
+Rename a public name only before a release that ships it. After that, add the new name and keep the old one as a deprecated alias for one minor version.
+
 ## Record Family
 
 The canonical record family:

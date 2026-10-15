@@ -21,11 +21,12 @@ changesets, run `bun run version-packages`, then align the native versions and
 source version constants reported by `just version-audit`. Changesets does not
 update Android, iOS, or `apps/hakka/version.env`.
 
-The first coordinated publication is prepared as **0.1.1**. Keep the existing
-`v0.1.0` source tag unchanged. The package versions are already 0.1.1 and their
+The first public release is **0.2.0**; nothing was published to a registry
+before it. Keep the existing `v0.1.0` source tag unchanged. The package versions
+are already 0.2.0 and their
 changes are recorded in the root changelog, so `bun run changeset status` must
 report no pending changesets; running `version-packages` with a leftover
-changeset would move the fixed group to 0.1.2.
+changeset would move the fixed group past 0.2.0.
 
 Check existing tags before choosing a version. The SDK audit checks npm, Android,
 iOS podspecs, source constants, and documented Maven coordinates. It does not
@@ -86,7 +87,7 @@ node scripts/smoke-tarball-install.mjs --web
 Then dispatch a verification-only run at the selected commit or branch:
 
 ```bash
-gh workflow run release-web.yml --ref <verified-ref> -f version=0.1.1 -f publish=false
+gh workflow run release-web.yml --ref <verified-ref> -f version=0.2.0 -f publish=false
 ```
 
 The workflow checks versions and any existing tag target, builds and packs the

@@ -265,7 +265,7 @@ support — that product does not exist today.
 
 ## 6. Release scope and follow-ups
 
-The first registry release candidate is **0.1.1**: seven npm packages
+The first public release is **0.2.0**: seven npm packages
 (`hakka-core`, `hakka-browser`, `hakka-bridge`, `hakka-node`,
 `hakka-react-native`, `hakka-rozenite`, `hakka-cli`), six Android Maven artifacts,
 and the iOS Swift Package. The macOS app uses the same coordinated version.

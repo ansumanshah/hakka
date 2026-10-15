@@ -48,6 +48,21 @@ checkFileVersion(
   /HAKKA_BRIDGE_VERSION\s*=\s*'([^']+)'/,
   'HAKKA_BRIDGE_VERSION constant',
 )
+checkFileVersion(
+  'packages/hakka-browser/src/index.ts',
+  /HAKKA_BROWSER_VERSION\s*=\s*'([^']+)'/,
+  'HAKKA_BROWSER_VERSION constant',
+)
+checkFileVersion(
+  'packages/hakka-node/src/index.ts',
+  /HAKKA_NODE_VERSION\s*=\s*'([^']+)'/,
+  'HAKKA_NODE_VERSION constant',
+)
+checkFileVersion(
+  'packages/hakka-node/src/next/index.ts',
+  /HAKKA_NODE_NEXT_VERSION\s*=\s*'([^']+)'/,
+  'HAKKA_NODE_NEXT_VERSION constant',
+)
 checkFileContains(
   'packages/hakka-react-native/Hakka.podspec',
   /s\.version\s*=\s*package\["version"\]/,

@@ -115,17 +115,17 @@ dependencies {
 
   it('uses real debug and noop release collectors and migrates an all-build opt-in back safely', () => {
     const all = addHakkaAndroidDependencies(appBuildGradle, {
-      version: '0.1.1',
+      version: '0.2.0',
       capture: 'all',
       performance: true,
       uiDelivery: 'bundled',
     })
-    const debug = addHakkaAndroidDependencies(all, { version: '0.1.1', performance: true, uiDelivery: 'bundled' })
-    expect(debug).toContain('debugImplementation("com.noodleapps.hakka:hakka-network:0.1.1")')
-    expect(debug).toContain('releaseImplementation("com.noodleapps.hakka:hakka-network-noop:0.1.1")')
-    expect(debug).toContain('debugImplementation("com.noodleapps.hakka:hakka-performance:0.1.1")')
-    expect(debug).toContain('releaseImplementation("com.noodleapps.hakka:hakka-performance-noop:0.1.1")')
-    expect(debug).toContain('debugImplementation("com.noodleapps.hakka:hakka-ui:0.1.1")')
+    const debug = addHakkaAndroidDependencies(all, { version: '0.2.0', performance: true, uiDelivery: 'bundled' })
+    expect(debug).toContain('debugImplementation("com.noodleapps.hakka:hakka-network:0.2.0")')
+    expect(debug).toContain('releaseImplementation("com.noodleapps.hakka:hakka-network-noop:0.2.0")')
+    expect(debug).toContain('debugImplementation("com.noodleapps.hakka:hakka-performance:0.2.0")')
+    expect(debug).toContain('releaseImplementation("com.noodleapps.hakka:hakka-performance-noop:0.2.0")')
+    expect(debug).toContain('debugImplementation("com.noodleapps.hakka:hakka-ui:0.2.0")')
     expect(debug).not.toContain('    implementation("com.noodleapps.hakka:')
   })
 
@@ -249,9 +249,9 @@ class MainApplication : Application() {
 
   it('defaults to debug capture and a release noop through the plugin entrypoint', () => {
     const result = withHakka({ modResults: { contents: appBuildGradle } })
-    expect(result.modResults.contents).toContain('debugImplementation("com.noodleapps.hakka:hakka-network:0.1.1")')
+    expect(result.modResults.contents).toContain('debugImplementation("com.noodleapps.hakka:hakka-network:0.2.0")')
     expect(result.modResults.contents).toContain(
-      'releaseImplementation("com.noodleapps.hakka:hakka-network-noop:0.1.1")',
+      'releaseImplementation("com.noodleapps.hakka:hakka-network-noop:0.2.0")',
     )
     expect(result.modResults.contents).toContain('android.dynamicFeatures += [":hakkaInspector"]')
   })
