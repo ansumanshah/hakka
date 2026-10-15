@@ -20,9 +20,10 @@
  * separate, genuinely Edge-safe module whose only `hakka-core` dependency is
  * `enableFetchInterceptor` — so real fetch capture runs on Edge too, not just
  * on `nodejs`. There is no embedded bridge on Edge (see `edgeCapture.ts`'s
- * module doc for why), so captures only reach a caller-supplied `options.sink`;
- * without one, capture still runs but every record is discarded, which is why
- * this warns once in development when `sink` is missing.
+ * module doc for why), so captures leave only through `options.sink`. Without
+ * one, development relays them to a Node route (`edgeRelay.ts`, answered by
+ * `createEdgeRelayHandler` in `hakka-node/next/server`), and that route's own
+ * request is added to `ignorePatterns` so it is never captured.
  *
  * `hakkaSpanProcessor()` deliberately does NOT live here even though it's
  * commonly wired right next to `register()` in `instrumentation.ts` — it
@@ -31,6 +32,7 @@
  * the main `hakka-node` entry (or `hakka-node/next/server`) instead — see
  * `examples/next-fullstack/instrumentation.ts`.
  */
+import { createEdgeRelaySink, EDGE_RELAY_IGNORE_PATTERN } from './edgeRelay'
 // Type-only import — erased at compile time, so this entry stays edge-safe.
 import type { ServerCaptureOptions } from './serverCapture'
 
@@ -57,29 +59,25 @@ export async function register(options?: ServerCaptureOptions): Promise<void> {
     // re-applied locally instead of silently behaving differently on Edge.
     if (process.env.NODE_ENV === 'production' && options?.runtime == null && !options?.force) return
     const { startEdgeCapture } = await import('./edgeCapture')
+    // See `edgeCapture.ts`'s module doc: there's no bridge on Edge, so records
+    // leave only through a sink. Without one, development falls back to the
+    // relay route (`createEdgeRelayHandler`), which forwards them to the hub.
+    const sink = options?.sink ?? (process.env.NODE_ENV === 'production' ? undefined : createEdgeRelaySink())
     startEdgeCapture({
       captureFetch: options?.captureFetch,
       sampleRate: options?.sampleRate,
       shouldCapture: options?.shouldCapture,
       maxBodySize: options?.maxBodySize,
       redactHeaders: options?.redactHeaders,
-      ignorePatterns: options?.ignorePatterns,
-      sink: options?.sink,
+      // The relay's own POST must never be captured, or it relays itself forever.
+      ignorePatterns: [...(options?.ignorePatterns ?? []), EDGE_RELAY_IGNORE_PATTERN],
+      sink,
     })
-    // See `edgeCapture.ts`'s module doc: there's no bridge on Edge, so a
-    // caller who didn't pass `sink` gets real capture with nowhere for
-    // records to go. Surfaced in dev only, matching `next/client.ts`'s
-    // pattern for other silent-gap warnings.
-    if (options?.captureFetch !== false && !options?.sink && process.env.NODE_ENV !== 'production') {
-      console.warn(
-        '[hakka] register() is capturing fetch on the Edge runtime, but no `options.sink` was configured — ' +
-          'every record is captured then discarded (there is no embedded bridge on Edge). Pass `sink` to receive them.',
-      )
-    }
   }
 }
 
+export { createEdgeRelaySink, EDGE_RELAY_PATH, EDGE_RELAY_IGNORE_PATTERN, type EdgeRelaySinkOptions } from './edgeRelay'
 export type { ServerCaptureOptions, ServerCapture } from './serverCapture'
 export type { NetworkRequest, RequestRuntime } from 'hakka-core'
 
-export const HAKKA_NODE_NEXT_VERSION = '0.1.1'
+export const HAKKA_NODE_NEXT_VERSION = '0.2.0'

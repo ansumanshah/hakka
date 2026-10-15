@@ -37,7 +37,7 @@ import { loadUiState, saveUiState } from './ui/persist'
 import { initStore, destroyStore, store, type BodyPair } from './worker'
 import { HAKKA_WORKER_MESSAGE } from './workerCapture'
 
-export interface HakkaWebOptions extends HakkaConfig {
+export interface HakkaBrowserOptions extends HakkaConfig {
   /**
    * Overlay entry mode. Default: `'launcher'` — a tiny vanilla button is shown
    * and the (heavy) Solid UI loads lazily only when it is tapped. `true` opens
@@ -133,7 +133,7 @@ function installWorkerRelay(ingest: (req: NetworkRequest) => void): () => void {
  * passthroughs, so the host page's behavior is unaffected. The UI stays unloaded
  * until the launcher is tapped or `show()` is called. Safe on the server (no-op).
  */
-export function start(options: HakkaWebOptions = {}): void {
+export function start(options: HakkaBrowserOptions = {}): void {
   if (!isBrowser() || started || options.enabled === false) return
   started = true
   const {
@@ -400,4 +400,4 @@ export {
   isBridgeActive,
   DEFAULT_DESKTOP_URL,
 } from './desktopBridge'
-export const HAKKA_WEB_VERSION = '0.1.1'
+export const HAKKA_BROWSER_VERSION = '0.2.0'

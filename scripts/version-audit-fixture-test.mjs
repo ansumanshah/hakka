@@ -11,6 +11,9 @@ const requiredFiles = [
   'packages/hakka-cli/src/cdp/index.ts',
   'packages/hakka-core/src/index.ts',
   'packages/hakka-bridge/src/index.ts',
+  'packages/hakka-browser/src/index.ts',
+  'packages/hakka-node/src/index.ts',
+  'packages/hakka-node/src/next/index.ts',
   'packages/hakka-react-native/Hakka.podspec',
   'packages/hakka-react-native/app.plugin.js',
   ...[

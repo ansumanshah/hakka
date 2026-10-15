@@ -1,12 +1,12 @@
 /**
  * hakka-node/next/client — start the browser overlay and connect it to the
  * bridge. One-line setup: `import 'hakka-node/next/client'` in Next 15.3+'s
- * `instrumentation-client.ts` (older Next: call `startHakkaClient()` from a
+ * `instrumentation-client.ts` (older Next: call `startClientCapture()` from a
  * `'use client'` component's effect instead). Browser-only, dev-only, and
  * never imports the server code — see [Setup](/nextjs/overview/#setup).
  *
  * LOAD-BEARING: this file's ENTIRE observable effect is the
- * `startHakkaClient()` call at the bottom, run for its side effect on a bare
+ * `startClientCapture()` call at the bottom, run for its side effect on a bare
  * import — nothing exported here is meant to be consumed as a binding on
  * that path. That makes `package.json`'s `"sideEffects"` declaration
  * load-bearing: it must list `"./dist/next/client.mjs"` explicitly (scoped,
@@ -14,7 +14,7 @@
  * the import is free to tree-shake the whole import away — as happened under
  * Next 16 + Turbopack before this was scoped. See `packages/hakka-node/package.json`.
  */
-export interface HakkaClientOptions {
+export interface ClientCaptureOptions {
   /**
    * Bridge hub URL the overlay connects to. Default `ws://localhost:8989`, or
    * `NEXT_PUBLIC_HAKKA_BRIDGE_URL` when that Next.js public environment value
@@ -23,7 +23,11 @@ export interface HakkaClientOptions {
   bridgeUrl?: string
   /** Options forwarded to `hakka-browser`'s `start()`. */
   start?: Record<string, unknown>
-  /** Start even in production (default false — dev-only). */
+  /**
+   * Start even when `NODE_ENV` is `production` (default false, dev-only).
+   * Has no effect in a bundle that resolves the `production` export condition,
+   * where this entry is a no-op (see `client.noop.ts`).
+   */
   force?: boolean
   /**
    * How long to wait for `import('hakka-browser')` to settle before warning
@@ -35,7 +39,7 @@ export interface HakkaClientOptions {
   settleTimeoutMs?: number
 }
 
-interface HakkaWebModule {
+interface HakkaBrowserModule {
   start: (options?: Record<string, unknown>) => void
   connect: (url?: string) => void
 }
@@ -47,8 +51,8 @@ const CLIENT_COMPONENT_DOC_ANCHOR =
 // an async chunk when they see it statically — a variable specifier reaches
 // the browser as an unresolvable bare `import('hakka-browser')`. Its own
 // top-level function purely so tests can substitute a controlled loader.
-function loadHakkaBrowser(): Promise<HakkaWebModule> {
-  return import('hakka-browser') as Promise<HakkaWebModule>
+function loadHakkaBrowser(): Promise<HakkaBrowserModule> {
+  return import('hakka-browser') as Promise<HakkaBrowserModule>
 }
 
 /**
@@ -57,9 +61,9 @@ function loadHakkaBrowser(): Promise<HakkaWebModule> {
  * `loadHakkaBrowser` is an internal test seam (defaults to the real
  * `loadHakkaBrowser` above) — application code should never pass it.
  */
-export function startHakkaClient(
-  options: HakkaClientOptions = {},
-  loadHakkaBrowser_: () => Promise<HakkaWebModule> = loadHakkaBrowser,
+export function startClientCapture(
+  options: ClientCaptureOptions = {},
+  loadHakkaBrowser_: () => Promise<HakkaBrowserModule> = loadHakkaBrowser,
 ): void {
   if (typeof window === 'undefined') return
   if (!options.force && process.env.NODE_ENV === 'production') return
@@ -117,4 +121,4 @@ export function startHakkaClient(
 }
 
 // Auto-start on bare import (`import 'hakka-node/next/client'`).
-startHakkaClient()
+startClientCapture()

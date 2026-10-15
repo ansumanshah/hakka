@@ -8,6 +8,7 @@ export default defineConfig({
     'next/index': 'src/next/index.ts',
     'next/server': 'src/next/server.ts',
     'next/client': 'src/next/client.ts',
+    'next/client.noop': 'src/next/client.noop.ts',
   },
   format: ['esm'],
   dts: true,

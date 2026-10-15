@@ -4,7 +4,10 @@ This project follows the spirit of Keep a Changelog. Hakka is pre-1.0, and every
 package — npm, Maven, and the Swift Package — moves in lockstep at one version,
 so there is a single entry per release rather than one per package.
 
-## 0.1.1 (unreleased)
+## 0.2.0 (unreleased)
+
+The first public release. Nothing was published to npm, Maven Central or as a
+Swift Package tag before 0.2.0.
 
 ### Added
 
@@ -16,11 +19,11 @@ so there is a single entry per release rather than one per package.
   `hakka-core`, iOS (`HakkaCommon`/`HakkaNetwork`), Android (`hakka-network`), the RN native
   bridges, and the desktop app's Rules surface.
 - A repository-root `Package.swift`, so Swift Package Manager can add Hakka by
-  URL and resolve its six products from the `v0.1.1` tag.
+  URL and resolve its six products from the `v0.2.0` tag.
 
 ### Changed
 
-- Align npm, Maven, Swift, desktop and runtime version reports at 0.1.1.
+- Align npm, Maven, Swift, desktop and runtime version reports at 0.2.0.
 - Use one verified commit and `vVERSION` tag across release workflows.
 - Build the experimental Rozenite panel directly with Vite and TypeScript,
   removing the unused Electron development toolchain.
@@ -50,7 +53,7 @@ so there is a single entry per release rather than one per package.
 
 The existing source tag predates the first registry publication. This baseline
 contains seven npm packages, six Android Maven artifacts, and six Swift Package
-products; the coordinated public release is being prepared as 0.1.1:
+products; the first public release is 0.2.0:
 
 - **npm**, published in dependency order: `hakka-core`, `hakka-bridge`,
   `hakka-browser`, `hakka-node`, `hakka-react-native`, `hakka-rozenite`, and

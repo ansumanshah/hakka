@@ -55,7 +55,7 @@ Keep Node-only imports behind `NEXT_RUNTIME === 'nodejs'`.
 
 ### Overlay pattern: prefer a client component over `instrumentation-client.ts`
 
-A client component can call `startHakkaClient()` from an effect and return its cleanup.
+A client component can call `startClientCapture()` from an effect and return its cleanup.
 [Client component example](https://hakka.noodleapps.com/nextjs/overview/#older-next-no-instrumentation-clientts).
 
 ### Peer-dependency mismatch
@@ -75,7 +75,9 @@ Externalize `hakka-node`, `hakka-bridge`, `hakka-core`, and `ws` for webpack bui
 ### Scope
 
 Fetch includes response bodies. HTTP/HTTPS captures request bodies and response
-metadata/timing without reading response streams. Edge capture covers fetch only.
+metadata/timing without reading response streams. Edge capture covers fetch only and reaches the
+overlay through a one-line relay route, `createEdgeRelayHandler()` from `hakka-node/next/server`
+([Edge setup](https://hakka.noodleapps.com/nextjs/overview/#edge-runtime)).
 Raw database sockets are outside this package's HTTP capture scope.
 
 ## Trace correlation

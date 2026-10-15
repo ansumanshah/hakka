@@ -18,7 +18,7 @@ JavaScript integrations share [`hakka-core`](./packages/hakka-core). Native SDKs
 
 ## Packages
 
-Seven npm packages, plus native SDKs for Android and iOS. The coordinated `0.1.1` release is being prepared; check [GitHub Releases](https://github.com/ansumanshah/hakka/releases) for published artifacts.
+Seven npm packages, plus native SDKs for Android and iOS. The first public release, `0.2.0`, is being prepared; check [GitHub Releases](https://github.com/ansumanshah/hakka/releases) for published artifacts.
 
 ### Engine
 
@@ -34,7 +34,7 @@ Seven npm packages, plus native SDKs for Android and iOS. The coordinated `0.1.1
 | [`hakka-browser`](./packages/hakka-browser)           | Drop-in browser overlay (Solid, Shadow DOM, Web Worker store). Also ships `hakka-browser/vite`, `/webpack`, `/rspack` (dev-time auto-inject plugins), `/elements/*` (six standalone inspector pieces as framework-agnostic custom elements — request list, detail, waterfall, filter bar, stats, JSON tree), and `/react` (thin React wrappers over those elements). | ![Stable](https://img.shields.io/badge/stable-3aa981) |
 | [`hakka-node`](./packages/hakka-node)                 | Framework-agnostic Node server capture (Express, Fastify, Hono, raw `http`) with client↔server trace correlation. Also ships `hakka-node/next` (+ `/next/server`, `/next/client`) — zero-config full-stack Next.js capture, server + client traffic in one UI.                                                                                                       | ![Stable](https://img.shields.io/badge/stable-3aa981) |
 
-Beta: React Native uses native capture on iOS and Android. Its coordinated 0.1.1 npm release is still being prepared.
+Beta: React Native uses native capture on iOS and Android. Its coordinated 0.2.0 npm release is still being prepared.
 
 ### Native SDKs
 
@@ -43,7 +43,7 @@ Beta: React Native uses native capture on iOS and Android. Its coordinated 0.1.1
 | [`android/`](./android) (Kotlin, Maven `com.noodleapps.hakka`) | OkHttp interceptor, optional native inspector surface, FPS/memory/CPU collectors, noop release artifacts. | ![Alpha](https://img.shields.io/badge/alpha-6b7280) |
 | [`ios/`](./ios) (Swift Package)                                | URLProtocol capture, optional SwiftUI inspector, performance collectors, noop release targets.            | ![Alpha](https://img.shields.io/badge/alpha-6b7280) |
 
-Alpha: native SDKs are available from source. Maven publication and the coordinated 0.1.1 Swift Package release are pending. The existing `v0.1.0` source tag predates this release.
+Alpha: native SDKs are available from source. Maven publication and the coordinated 0.2.0 Swift Package release are pending. The existing `v0.1.0` source tag predates this release.
 
 ### Tooling & Embedding
 
@@ -149,13 +149,13 @@ Server and client requests show up in one overlay. Requires Next 15.3+.
 
 ```kotlin
 dependencies {
-    debugImplementation("com.noodleapps.hakka:hakka-network:0.1.1")
-    debugImplementation("com.noodleapps.hakka:hakka-ui:0.1.1")
-    releaseImplementation("com.noodleapps.hakka:hakka-network-noop:0.1.1")
+    debugImplementation("com.noodleapps.hakka:hakka-network:0.2.0")
+    debugImplementation("com.noodleapps.hakka:hakka-ui:0.2.0")
+    releaseImplementation("com.noodleapps.hakka:hakka-network-noop:0.2.0")
 
     // optional performance collectors
-    debugImplementation("com.noodleapps.hakka:hakka-performance:0.1.1")
-    releaseImplementation("com.noodleapps.hakka:hakka-performance-noop:0.1.1")
+    debugImplementation("com.noodleapps.hakka:hakka-performance:0.2.0")
+    releaseImplementation("com.noodleapps.hakka:hakka-performance-noop:0.2.0")
 }
 ```
 

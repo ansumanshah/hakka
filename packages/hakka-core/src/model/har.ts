@@ -13,7 +13,7 @@ const HAR_VERSION = '1.2'
 // it must not claim a single platform's name. Not imported from index.ts's
 // HAKKA_CORE_VERSION to avoid a circular import.
 const CREATOR_NAME = 'hakka-core'
-const CREATOR_VERSION = '0.1.1'
+const CREATOR_VERSION = '0.2.0'
 
 interface HarHeader {
   name: string

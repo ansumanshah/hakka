@@ -304,7 +304,8 @@ if (existsSync(COMPONENTS_DIST)) {
     // Capture privacy/lifecycle fixes measure 97.14 KB on Linux Node 24.20.0;
     // retain about 1% headroom for the shared engine and store-client cost.
     // Solid 2.0 rc.13 measures 97.82 KB on Node 24.20.0; ~1.2% headroom.
-    const budget = Number(process.env.HAKKA_COMPONENTS_SHARED_BUDGET) || 99 * 1024
+    // The pass-through fetch body capture measures 99.22 KB; ~1% headroom.
+    const budget = Number(process.env.HAKKA_COMPONENTS_SHARED_BUDGET) || 100.25 * 1024
     const over = g > budget
     if (over) failed = true
     componentRows.push({ label: 'Shared runtime chunk', raw, gz: g, budget, over })

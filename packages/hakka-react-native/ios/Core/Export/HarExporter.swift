@@ -15,7 +15,7 @@ public enum HarExporter {
                 "version": "1.2",
                 "creator": [
                     "name": "Hakka",
-                    "version": "0.1.1",
+                    "version": "0.2.0",
                 ],
                 "entries": entries,
             ] as [String: Any],
