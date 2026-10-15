@@ -1,5 +1,5 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { analyzeRequests, compileQuery, parseRangeFilters, parseSearchTokens } from 'hakka-core'
+import { analyzeRequests, compileQuery, parseRangeFilters, parseSearchTokens, scrubRequestsForShare } from 'hakka-core'
 import { z } from 'zod'
 
 import type { RequestStore } from '../RequestStore.js'
@@ -27,17 +27,32 @@ export function registerDiagnoseTool(server: McpServer, store: RequestStore): vo
           .min(0)
           .optional()
           .describe('Flag requests slower than this many ms as findings. Default 1000.'),
+        unredacted: z
+          .boolean()
+          .optional()
+          .default(false)
+          .describe(
+            'Skip share-time scrubbing of the URLs and response-body snippets quoted in findings. Default false.',
+          ),
       },
     },
     (args) => {
-      const { query, slowMs } = args
+      const { query, slowMs, unredacted = false } = args
       let pool = store.getAll()
       if (query && query.trim()) {
         const { ranges, rest } = parseRangeFilters(query)
         const predicate = compileQuery({ tokens: parseSearchTokens(rest), ...ranges })
         pool = pool.filter(predicate)
       }
-      return textResult(analyzeRequests(pool, slowMs !== undefined ? { slowMs } : {}))
+      const options = slowMs !== undefined ? { slowMs } : {}
+      if (unredacted) {
+        return textResult({ ...analyzeRequests(pool, options), redaction: { applied: false, removed: [] } })
+      }
+      // Findings quote the URL and a response-body snippet, so analyze scrubbed copies. The raw
+      // request body is kept: the secret-in-body check needs it and only ever reports the field name.
+      const { requests, removed } = scrubRequestsForShare(pool)
+      const analyzable = requests.map((r, i) => ({ ...r, requestBody: pool[i]?.requestBody }))
+      return textResult({ ...analyzeRequests(analyzable, options), redaction: { applied: true, removed } })
     },
   )
 }

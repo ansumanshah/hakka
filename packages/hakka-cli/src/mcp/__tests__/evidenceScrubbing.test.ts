@@ -259,3 +259,84 @@ describe('trace and stats — share-scrubbed agent results', () => {
     await closeAll()
   })
 })
+
+describe('diagnose, generate_test, generate_mocks — scrub by default like the read tools', () => {
+  function leakyAuthFailure(): NetworkRequest {
+    return secretRequest({
+      method: 'GET',
+      status: 401,
+      url: `https://api.example.com/me?api_key=${SECRET}`,
+      requestBody: undefined,
+      responseBody: JSON.stringify({ error: 'invalid key', api_key: SECRET }),
+    })
+  }
+
+  it('diagnose does not echo a query-string key or a response-body secret', async () => {
+    store.add(leakyAuthFailure())
+
+    const payload = await call('diagnose')
+
+    expect(JSON.stringify(payload)).not.toContain(SECRET)
+    expect(payload.findings).toEqual(expect.arrayContaining([expect.objectContaining({ kind: 'auth' })]))
+    expect(payload.redaction).toMatchObject({ applied: true })
+    await closeAll()
+  })
+
+  it('diagnose still flags a plaintext secret in a request body without echoing it', async () => {
+    store.add(secretRequest())
+
+    const payload = await call('diagnose')
+
+    expect(JSON.stringify(payload)).not.toContain(SECRET)
+    expect(payload.findings).toEqual(expect.arrayContaining([expect.objectContaining({ kind: 'secret-in-body' })]))
+    await closeAll()
+  })
+
+  it('diagnose unredacted: true opts out', async () => {
+    store.add(leakyAuthFailure())
+
+    const payload = await call('diagnose', { unredacted: true })
+
+    expect(JSON.stringify(payload)).toContain(SECRET)
+    expect(payload.redaction).toEqual({ applied: false, removed: [] })
+    await closeAll()
+  })
+
+  it('generate_test does not write a query-string key into the generated code', async () => {
+    store.add(leakyAuthFailure())
+
+    const payload = await call('generate_test')
+
+    expect(payload.code).toContain('api.example.com')
+    expect(JSON.stringify(payload)).not.toContain(SECRET)
+    await closeAll()
+  })
+
+  it('generate_test unredacted: true opts out', async () => {
+    store.add(leakyAuthFailure())
+
+    const payload = await call('generate_test', { unredacted: true })
+
+    expect(payload.code).toContain(SECRET)
+    await closeAll()
+  })
+
+  it('generate_mocks does not carry a response-body secret into the rules', async () => {
+    store.add(leakyAuthFailure())
+
+    const payload = await call('generate_mocks')
+
+    expect((payload.rules as unknown[]).length).toBe(1)
+    expect(JSON.stringify(payload)).not.toContain(SECRET)
+    await closeAll()
+  })
+
+  it('generate_mocks unredacted: true opts out', async () => {
+    store.add(leakyAuthFailure())
+
+    const payload = await call('generate_mocks', { unredacted: true })
+
+    expect(JSON.stringify(payload)).toContain(SECRET)
+    await closeAll()
+  })
+})
