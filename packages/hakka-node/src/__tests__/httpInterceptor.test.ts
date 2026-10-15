@@ -795,4 +795,116 @@ describe('http interceptor', () => {
     expect(rec?.requestHeaders?.['X-Late']).toBe('hello')
     expect(rec?.requestHeaders?.['authorization']).toBe('[REDACTED]')
   })
+
+  test('a request body over maxBodySize is dropped (null) with its true size, never stored as an unredactable prefix', async () => {
+    const server = http.createServer((req, res) => {
+      req.resume()
+      req.on('end', () => res.end('ok'))
+    })
+    const port = await listen(server)
+    const records: NetworkRequest[] = []
+    enableHttpInterceptor((r) => records.push(r), 32, [])
+
+    // The 32-byte prefix of this body is invalid JSON, so redacting a truncated
+    // prefix would leave the password readable.
+    const body = JSON.stringify({ password: 'hunter2', pad: 'x'.repeat(100) })
+    await new Promise<void>((resolve, reject) => {
+      const req = http.request(
+        { host: '127.0.0.1', port, path: '/big-body', method: 'POST', headers: { 'content-type': 'application/json' } },
+        (resp) => {
+          resp.resume()
+          resp.on('end', () => resolve())
+        },
+      )
+      req.on('error', reject)
+      req.write(body.slice(0, 20))
+      req.write(body.slice(20, 40))
+      req.end(body.slice(40))
+    })
+    await settle()
+    server.close()
+
+    const rec = records.find((r) => r.url.includes('/big-body'))
+    expect(rec).toBeTruthy()
+    expect(rec?.requestBody).toBeNull()
+    expect(rec?.requestBodySize).toBe(Buffer.byteLength(body, 'utf8'))
+  })
+
+  test('a fire-and-forget request with no response handler still drains, frees its keep-alive socket, and is recorded', async () => {
+    const server = http.createServer((req, res) => {
+      req.resume()
+      req.on('end', () => res.end('x'.repeat(200_000)))
+    })
+    const port = await listen(server)
+    const records: NetworkRequest[] = []
+    enableHttpInterceptor((r) => records.push(r), 1000, [])
+    const agent = new http.Agent({ keepAlive: true, maxSockets: 1 })
+
+    http.request({ host: '127.0.0.1', port, path: '/ping', method: 'POST', agent }).end('ping')
+    const outcome = await Promise.race([
+      new Promise<string>((resolve, reject) => {
+        const req = http.get({ host: '127.0.0.1', port, path: '/after-ping', agent }, (resp) => {
+          resp.resume()
+          resp.on('end', () => resolve('done'))
+        })
+        req.on('error', reject)
+      }),
+      new Promise<string>((resolve) => setTimeout(() => resolve('hung'), 2000)),
+    ])
+    await settle()
+    agent.destroy()
+    server.close()
+
+    expect(outcome).toBe('done')
+    expect(records.some((r) => r.url.includes('/ping') && r.status === 200)).toBe(true)
+    expect(records.some((r) => r.url.includes('/after-ping') && r.status === 200)).toBe(true)
+  })
+
+  test('a caller that attaches its response listener late and reads the body asynchronously still receives the whole body', async () => {
+    const payload = 'y'.repeat(50_000)
+    const server = http.createServer((_req, res) => res.end(payload))
+    const port = await listen(server)
+    const records: NetworkRequest[] = []
+    enableHttpInterceptor((r) => records.push(r), 1000, [])
+
+    const received = await new Promise<string>((resolve, reject) => {
+      const req = http.request({ host: '127.0.0.1', port, path: '/late-reader', method: 'GET' })
+      req.on('response', (resp) => {
+        // Defer reading: an interceptor that resumed the stream on its own
+        // would have discarded these bytes by now.
+        setTimeout(() => {
+          let text = ''
+          resp.setEncoding('utf8')
+          resp.on('data', (c: string) => (text += c))
+          resp.on('end', () => resolve(text))
+        }, 30)
+      })
+      req.on('error', reject)
+      req.end()
+    })
+    await settle()
+    server.close()
+
+    expect(received).toBe(payload)
+    expect(records.some((r) => r.url.includes('/late-reader') && r.status === 200)).toBe(true)
+  })
+
+  test('a request error with no caller error handler still crashes the process, exactly as without Hakka', () => {
+    const script = `
+      import http from 'node:http'
+      import { enableHttpInterceptor } from ${JSON.stringify(new URL('../httpInterceptor.ts', import.meta.url).pathname)}
+      const records = []
+      enableHttpInterceptor((r) => records.push(r), 1000, [])
+      process.on('exit', () => console.log('records=' + records.length))
+      http.get('http://127.0.0.1:1/unhandled')
+      setTimeout(() => console.log('SURVIVED'), 500)
+    `
+    const result = Bun.spawnSync([process.execPath, '-e', script], { stdout: 'pipe', stderr: 'pipe' })
+    const out = result.stdout.toString() + result.stderr.toString()
+    expect(out).toContain('ECONNREFUSED')
+    expect(out).not.toContain('SURVIVED')
+    expect(result.exitCode).not.toBe(0)
+    // Hakka still observed the failure before the default crash behavior ran.
+    expect(out).toContain('records=1')
+  })
 })

@@ -4,8 +4,9 @@
  * by patching `request`/`get` on both modules. See
  * [What it captures](/node/overview/#what-it-captures) for the response-body
  * and phase-timing caveats (stream-safety: never taps the response body
- * stream, only `.once()` listeners on `socket`/`response` and their
- * end/close/aborted counterparts — full bodies are `fetch`-only).
+ * stream, only `.once()` listeners on `socket`, end/close/aborted listeners
+ * on the response, and an `emit` wrapper that observes 'response'/'error'
+ * without changing Node's no-listener defaults — full bodies are `fetch`-only).
  *
  * Trace propagation: when a `correlationId` is active for the current async
  * context (see `trace.ts`), every outgoing call gets BOTH `x-hakka-trace` and
@@ -293,25 +294,26 @@ function instrument(
   // UTF-8 garbage either way.
   let bodyBytes = 0
   const bodyParts: Buffer[] = []
-  // Tracked incrementally rather than re-summing `bodyParts` on every chunk:
-  // that made capture quadratic in the number of writes, on the hot path of
-  // every outgoing request, purely to answer "how much have I kept so far".
-  // Byte-counted (not char-counted) so it lines up with `maxBodySize`, a byte
-  // cap, when the parts are concatenated and truncated at emit time.
-  let keptBytes = 0
+  // Over-cap bodies are dropped whole (`requestBody: null`), never kept as a
+  // truncated prefix: a cut-off JSON prefix no longer parses, so
+  // `redactJsonBody` would hand it back unredacted and a secret near the start
+  // of the body would be stored in clear. This matches hakka-core's fetch
+  // interceptor and the proxy mapper. `bodyBytes` keeps counting past the cap
+  // so `requestBodySize` reports the true size.
   const capture = (chunk: unknown): void => {
-    if (bodyBytes >= maxBodySize || chunk == null || typeof chunk === 'function') return
+    if (chunk == null || typeof chunk === 'function') return
+    const size =
+      typeof chunk === 'string' ? Buffer.byteLength(chunk, 'utf8') : chunk instanceof Uint8Array ? chunk.length : 0
+    if (size === 0) return
+    bodyBytes += size
+    if (bodyBytes > maxBodySize) {
+      bodyParts.length = 0
+      return
+    }
     // Copy rather than hold the caller's own Buffer reference — a chunk
     // could in principle be reused/mutated by the caller after write()
     // returns, and this capture must not observe that.
-    const buf =
-      typeof chunk === 'string' ? Buffer.from(chunk, 'utf8') : Buffer.isBuffer(chunk) ? Buffer.from(chunk) : null
-    if (!buf || buf.length === 0) return
-    bodyBytes += buf.length
-    if (keptBytes < maxBodySize) {
-      bodyParts.push(buf)
-      keptBytes += buf.length
-    }
+    bodyParts.push(typeof chunk === 'string' ? Buffer.from(chunk, 'utf8') : Buffer.from(chunk as Uint8Array))
   }
   const origWrite = req.write.bind(req)
   const origEnd = req.end.bind(req)
@@ -399,7 +401,7 @@ function instrument(
     emitted = true
     const endTime = Date.now()
     const duration = endTime - startTime
-    const rawBody = bodyParts.length > 0 ? Buffer.concat(bodyParts).subarray(0, maxBodySize).toString('utf8') : null
+    const rawBody = bodyBytes <= maxBodySize && bodyParts.length > 0 ? Buffer.concat(bodyParts).toString('utf8') : null
     const redactionFields = getBodyRedactionFields()
     const requestBody = rawBody != null ? (redactJsonBody(rawBody, redactionFields) ?? rawBody) : null
     const record: NetworkRequest = {
@@ -432,7 +434,7 @@ function instrument(
     }
   }
 
-  req.on('response', (res: IncomingMessage) => {
+  const observeResponse = (res: IncomingMessage): void => {
     const responseTime = Date.now()
     ttfbMs = responseTime - startTime
     const { headers: responseHeaders, headerValues: responseHeaderValues } = headersFromResponse(res, redactHeaders)
@@ -451,8 +453,25 @@ function instrument(
     res.on('end', () => finish(true))
     res.on('close', () => finish(false))
     res.on('aborted', () => finish(false))
-  })
-  req.on('error', (err: Error) => emit({ status: null, error: err.message }))
+  }
+  // 'response' and 'error' are observed by wrapping `emit`, not by adding
+  // listeners: a listener of our own would change Node's default behavior.
+  // Node dumps an unread response only when `emit('response')` returns false
+  // (no listener), so an always-attached listener left a fire-and-forget
+  // request's body unread, its keep-alive socket never freed, and the record
+  // never emitted. Likewise `emit('error')` with no listener throws, so an
+  // always-attached 'error' listener silently swallowed failures that crash
+  // the app without Hakka. The wrapper returns the original result untouched.
+  const origEmit = req.emit.bind(req) as (event: string | symbol, ...a: unknown[]) => boolean
+  req.emit = ((event: string | symbol, ...a: unknown[]): boolean => {
+    try {
+      if (event === 'response') observeResponse(a[0] as IncomingMessage)
+      else if (event === 'error') emit({ status: null, error: a[0] instanceof Error ? a[0].message : String(a[0]) })
+    } catch {
+      /* observing must never break the request */
+    }
+    return origEmit(event, ...a)
+  }) as typeof req.emit
   // Node's 'timeout' event only signals that the socket has been idle — it
   // does NOT abort the request, so a real 'response' (or 'error') can still
   // follow. Emitting a terminal record here would set the one-shot `emitted`
