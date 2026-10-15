@@ -289,7 +289,7 @@ describe('describeShareScrub', () => {
 })
 
 describe('share-time scrub gaps — OAuth, presigned URLs, userinfo, fragments, form and SSE bodies', () => {
-  test.each(['client_secret', 'refresh_token', 'code', 'sig', 'signature', 'X-Amz-Signature', 'X-Amz-Security-Token'])(
+  test.each(['client_secret', 'refresh_token', 'sig', 'signature', 'X-Amz-Signature', 'X-Amz-Security-Token'])(
     'redacts the %s query param',
     (param) => {
       const { url } = scrubUrlForShare(`https://bucket.s3.amazonaws.com/file.pdf?${param}=${SECRET}&page=2`)
@@ -353,5 +353,27 @@ describe('share-time scrub gaps — OAuth, presigned URLs, userinfo, fragments, 
     expect(body).toContain('event: message')
     expect(body).toContain('data: [DONE]')
     expect(removed).toEqual([{ category: 'jsonField', count: 1 }])
+  })
+})
+
+describe('share scrub: hash routes and error messages', () => {
+  test('scrubs a query inside a hash-router fragment', () => {
+    const { url } = scrubUrlForShare('https://h.io/#/cb?access_token=abc&x=1')
+    expect(url).not.toContain('abc')
+    expect(url).toContain('x=1')
+  })
+
+  test('keeps a benign code parameter', () => {
+    expect(scrubUrlForShare('https://h.io/p?code=US').url).toContain('code=US')
+  })
+
+  test('scrubs secrets embedded in an error message', () => {
+    const { request } = scrubNetworkRequestForShare(
+      baseRequest({
+        error: 'fetch failed for https://h.io/a?token=sek Authorization: Bearer abcdefghijklmnop.qrst',
+      }),
+    )
+    expect(request.error).not.toContain('sek')
+    expect(request.error).not.toContain('abcdefghijklmnop')
   })
 })

@@ -102,11 +102,10 @@ export const DEFAULT_SHARE_SCRUB_QUERY_PARAMS: readonly string[] = [
   'session',
   'sessionid',
   'session_id',
-  // OAuth: client credentials, refresh tokens, authorization codes, implicit-flow id tokens.
+  // OAuth: client credentials, refresh tokens, implicit-flow id tokens. `code` is left out: it is too common a benign name.
   'client_secret',
   'refresh_token',
   'id_token',
-  'code',
   // Signed / presigned URLs (generic, AWS S3, Azure SAS `sig`): the signature IS the credential.
   'sig',
   'signature',
@@ -185,9 +184,13 @@ function scrubQueryParams(url: string, paramNames: readonly string[]): { url: st
       count++
     }
   }
+  // Hash routers put the query after a `?` inside the fragment (`#/cb?access_token=...`).
   const fragment = parsed.hash.slice(1)
-  if (fragment.includes('=')) {
-    const fragmentParams = new URLSearchParams(fragment)
+  const fragmentQueryAt = fragment.indexOf('?')
+  const fragmentPrefix = fragmentQueryAt >= 0 ? `${fragment.slice(0, fragmentQueryAt)}?` : ''
+  const fragmentQuery = fragmentQueryAt >= 0 ? fragment.slice(fragmentQueryAt + 1) : fragment
+  if (fragmentQuery.includes('=')) {
+    const fragmentParams = new URLSearchParams(fragmentQuery)
     let fragmentCount = 0
     for (const key of new Set(fragmentParams.keys())) {
       if (lowerNames.has(key.toLowerCase())) {
@@ -196,7 +199,7 @@ function scrubQueryParams(url: string, paramNames: readonly string[]): { url: st
       }
     }
     if (fragmentCount > 0) {
-      parsed.hash = fragmentParams.toString()
+      parsed.hash = `${fragmentPrefix}${fragmentParams.toString()}`
       count += fragmentCount
     }
   }
@@ -523,9 +526,25 @@ export function scrubNetworkRequestForShare(
     }
   }
 
+  // Error messages often embed the failing URL or an auth header verbatim.
+  let error = request.error
+  if (error !== undefined) {
+    const queryNames = new Set(
+      [...DEFAULT_SHARE_SCRUB_QUERY_PARAMS, ...(options.extraQueryParams ?? [])].map((n) => n.toLowerCase()),
+    )
+    const { text, removed: errRemoved } = scrubPatternsInText(error, options)
+    const queryScrubbed = text.replace(/([?&#])([\w.-]+)=([^\s&#"'<>]+)/g, (m, sep: string, key: string) =>
+      queryNames.has(key.toLowerCase()) ? `${sep}${key}=${REDACTION_PLACEHOLDER}` : m,
+    )
+    for (const r of errRemoved) mergeRemovals(removed, r.category, r.count)
+    if (queryScrubbed !== text) mergeRemovals(removed, 'apiKeyQueryParam', 1)
+    error = queryScrubbed
+  }
+
   const scrubbed: NetworkRequest = {
     ...request,
     url,
+    ...(request.error !== undefined ? { error } : {}),
     ...(request.requestHeaders !== undefined ? { requestHeaders } : {}),
     ...(request.responseHeaders !== undefined ? { responseHeaders } : {}),
     ...(request.responseHeaderValues !== undefined ? { responseHeaderValues } : {}),

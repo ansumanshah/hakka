@@ -93,8 +93,11 @@ export function registerGenerateMocksTool(server: McpServer, store: RequestStore
         return textResult({ applied: 0, rules, error: 'bridge_disconnected' }, true)
       }
 
+      // Rules installed into the live app must match real traffic, so they are built from
+      // the unscrubbed pool; only the rules echoed back to the agent are scrubbed.
+      const liveRules = unredacted ? rules : generateMockRules(pool, { idPrefix: 'mcp-gen' })
       let applied = 0
-      for (const rule of rules) {
+      for (const rule of liveRules) {
         const sent = await dispatchAcknowledged(sender, targetId, { kind: 'mock.add', rule })
         if (sent) applied++
       }
