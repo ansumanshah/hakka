@@ -285,6 +285,9 @@ export function hide(): void {
 
 /** Stop capture, tear down patches, and remove the overlay + launcher. */
 export function destroy(): void {
+  // Release anything parked at a breakpoint first: once the interceptors are torn down nothing
+  // else resolves those pauses, and with a Worker-backed store its shutdown never reaches this engine.
+  breakpointEngine.resumeAll()
   for (const t of teardowns) t()
   teardowns = []
   disableConsoleMirror()

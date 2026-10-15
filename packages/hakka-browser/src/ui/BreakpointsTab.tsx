@@ -94,12 +94,16 @@ const PausedCard: Component<PausedCardProps> = (props) => {
     const [editHeaders, setEditHeaders] = createSignal<string>(headersToText(entry.response.headers))
     const [editBody, setEditBody] = createSignal<string>(entry.response.body)
 
-    const resume = (): void =>
-      props.onResume(entry.id, {
-        status: Number(editStatus()) || entry.response.status,
-        headers: textToHeaders(editHeaders()),
-        body: editBody(),
-      })
+    // Only fields the user changed are sent: the engine keeps the real response for the rest,
+    // so an untouched binary body or header set is never rebuilt from its text preview.
+    const resume = (): void => {
+      const edits: Partial<PausedResponse> = {}
+      const status = Number(editStatus()) || entry.response.status
+      if (status !== entry.response.status) edits.status = status
+      if (editHeaders() !== headersToText(entry.response.headers)) edits.headers = textToHeaders(editHeaders())
+      if (editBody() !== entry.response.body) edits.body = editBody()
+      props.onResume(entry.id, edits)
+    }
 
     return (
       <div class="hakka-card" style={cardWrap}>
@@ -158,7 +162,14 @@ const PausedCard: Component<PausedCardProps> = (props) => {
 
   const headerEntries = (): Array<[string, string]> => Object.entries(entry.request.headers)
 
-  const resume = (): void => props.onResume(entry.id, { url: editUrl(), body: editBody() || null })
+  // The body shown is a redacted text preview; echoing it back would replace the real body
+  // (FormData, Blob, secrets) with that preview, so only changed fields are sent.
+  const resume = (): void => {
+    const edits: Partial<PausedRequest> = {}
+    if (editUrl() !== entry.request.url) edits.url = editUrl()
+    if (editBody() !== (entry.request.body ?? '')) edits.body = editBody() || null
+    props.onResume(entry.id, edits)
+  }
 
   return (
     <div class="hakka-card" style={cardWrap}>

@@ -45,7 +45,41 @@ describe('BreakpointsTab', () => {
     expect(breakpointEngine.getPaused().length).toBe(0)
     // the resume carried the edited URL
     await Promise.resolve()
-    expect(resolved).toEqual({ type: 'resume', edits: { url: 'https://x.com/checkout?edited=1', body: null } })
+    // Only the field the user changed is sent; the untouched body preview is not echoed back.
+    expect(resolved).toEqual({ type: 'resume', edits: { url: 'https://x.com/checkout?edited=1' } })
+  })
+
+  it('resumes an unedited paused request without echoing the redacted body preview', async () => {
+    const { getByLabelText } = render(() => <BreakpointsTab active={true} />)
+    let resolved: unknown = null
+    void breakpointEngine
+      .pause('req3', 'request', {
+        url: 'https://x.com/login',
+        method: 'POST',
+        headers: {},
+        body: '{"password":"[REDACTED]"}',
+      })
+      .then((a) => (resolved = a))
+    await flush()
+    fireEvent.click(getByLabelText('Resume paused request'))
+    await flush()
+    await Promise.resolve()
+    expect(resolved).toEqual({ type: 'resume', edits: {} })
+  })
+
+  it('sends an edited request body', async () => {
+    const { getByLabelText } = render(() => <BreakpointsTab active={true} />)
+    let resolved: unknown = null
+    void breakpointEngine
+      .pause('req4', 'request', { url: 'https://x.com/login', method: 'POST', headers: {}, body: '{"a":1}' })
+      .then((a) => (resolved = a))
+    await flush()
+    fireEvent.input(getByLabelText('Edit paused body'), { target: { value: '{"a":2}' } })
+    await flush()
+    fireEvent.click(getByLabelText('Resume paused request'))
+    await flush()
+    await Promise.resolve()
+    expect(resolved).toEqual({ type: 'resume', edits: { body: '{"a":2}' } })
   })
 
   it('aborts a paused request', async () => {
@@ -95,10 +129,7 @@ describe('BreakpointsTab', () => {
     await flush()
     expect(breakpointEngine.getPaused().length).toBe(0)
     await Promise.resolve()
-    expect(resolved).toEqual({
-      type: 'resume',
-      edits: { status: 500, headers: { 'content-type': 'application/json' }, body: '{"ok":true}' },
-    })
+    expect(resolved).toEqual({ type: 'resume', edits: { status: 500 } })
   })
 
   it('aborts a paused response', async () => {

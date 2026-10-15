@@ -2,7 +2,7 @@
  * Tests for start() re-applying settings persisted by the Settings tab, so a
  * developer's previous toggles take effect even when the overlay is never opened.
  */
-import { getBodyRedactionFields } from 'hakka-core'
+import { breakpointEngine, getBodyRedactionFields } from 'hakka-core'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 import { start, destroy, isConsoleMirrorEnabled, saveUiState } from '../index'
@@ -150,5 +150,28 @@ describe('start() — capture lifecycle', () => {
     start(QUIET)
     worker.dispatchEvent(new MessageEvent('message', { data }))
     expect(workers.at(-1)!.postMessage.mock.calls.some(([msg]) => msg.type === 'ingest')).toBe(false)
+  })
+})
+
+describe('destroy()', () => {
+  it('releases requests held at a breakpoint when the store runs in a Worker', async () => {
+    // The store lives in the Worker, so its shutdown cannot reach the page's breakpoint engine.
+    class FakeWorker extends EventTarget {
+      onmessage = null
+      onerror = null
+      postMessage = vi.fn()
+      terminate() {}
+    }
+    vi.stubGlobal('Worker', FakeWorker)
+    start(QUIET)
+    const action = breakpointEngine.pause('held', 'request', {
+      url: 'https://x.com/held',
+      method: 'GET',
+      headers: {},
+      body: null,
+    })
+    destroy()
+    await expect(action).resolves.toEqual({ type: 'resume' })
+    expect(breakpointEngine.hasPaused()).toBe(false)
   })
 })

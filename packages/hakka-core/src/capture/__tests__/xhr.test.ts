@@ -447,6 +447,52 @@ describe('enableXHRInterceptor', () => {
     xhr.send('{}')
   })
 
+  it('resume with the handed-out body preview sends the original binary body', (done) => {
+    breakpointEngine.addBreakpoint({ pattern: '/bp-binary', on: 'request', enabled: true })
+    dispose = enableXHRInterceptor(() => {}, 262_144, [])
+
+    const payload = new Uint8Array([1, 2, 3]).buffer
+    const sendSpy = mock(() => {})
+    const xhr = new XMLHttpRequest() as unknown as FakeXHR
+    xhr.__sendSpy = sendSpy
+    xhr.open('POST', 'https://api.example.com/bp-binary')
+
+    setTimeout(() => {
+      const [entry] = breakpointEngine.getPaused()
+      if (entry?.phase !== 'request') throw new Error('expected a request pause')
+      breakpointEngine.resume(entry.id, { url: entry.request.url, body: entry.request.body })
+      setTimeout(() => {
+        expect(sendSpy).toHaveBeenCalledWith(payload)
+        done()
+      }, 10)
+    }, 10)
+
+    xhr.send(payload)
+  })
+
+  it('resume with a null body for an over-cap request still sends the original body', (done) => {
+    breakpointEngine.addBreakpoint({ pattern: '/bp-big', on: 'request', enabled: true })
+    dispose = enableXHRInterceptor(() => {}, 4, [])
+
+    const sendSpy = mock(() => {})
+    const xhr = new XMLHttpRequest() as unknown as FakeXHR
+    xhr.__sendSpy = sendSpy
+    xhr.open('POST', 'https://api.example.com/bp-big')
+
+    setTimeout(() => {
+      const [entry] = breakpointEngine.getPaused()
+      if (entry?.phase !== 'request') throw new Error('expected a request pause')
+      expect(entry.request.body).toBeNull()
+      breakpointEngine.resume(entry.id, { body: null })
+      setTimeout(() => {
+        expect(sendSpy).toHaveBeenCalledWith('a body longer than the cap')
+        done()
+      }, 10)
+    }, 10)
+
+    xhr.send('a body longer than the cap')
+  })
+
   it('emits error record and skips real send on breakpoint abort', (done) => {
     breakpointEngine.clearBreakpoints()
     breakpointEngine.addBreakpoint({ pattern: '/abort-test', on: 'request', enabled: true })

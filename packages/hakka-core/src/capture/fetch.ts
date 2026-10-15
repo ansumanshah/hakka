@@ -1,6 +1,7 @@
 import type { CaptureSource, CaptureSourceContext } from '../contract/captureSource'
 import { createCycleGuard } from '../contract/cycleGuard'
-import { breakpointEngine } from '../engine/BreakpointEngine'
+import { changedRequestEdits, changedResponseEdits } from '../engine/breakpointEdits'
+import { breakpointEngine, type PausedRequest } from '../engine/BreakpointEngine'
 import {
   MOCK_FAILURE_MESSAGES,
   mockEngine,
@@ -21,22 +22,31 @@ import { getBodyRedactionFields, redactJsonBody, redactParsedBody, tryParseJsonB
 import { isSensitiveHeader, redactHeaders as redactCapturedHeaders } from '../utils/headerRedaction'
 import { captureBody } from './bodyCapture'
 import { isOwnBridgeUrl } from './bridgeHosts'
+import { buildEditedFetchRequest } from './editedFetchRequest'
 import { capturePassthroughBody } from './passthroughBody'
 import { readCappedBody, type CappedBody } from './readCappedBody'
 import { captureSseBody } from './sseCapture'
 import { captureInitiator } from './stackTrace'
 
-/** Extract GraphQL metadata from a POST request body (operationName first, else parsed from `query`). */
-function extractGraphQLInfo(method: string, body: string | null | undefined): GraphQLInfo | undefined {
-  if (method !== 'POST' || !body) return undefined
+/**
+ * The recorded form of a request body the interceptor sent as text (a breakpoint or rewrite
+ * edit): redacted, and with GraphQL metadata derived from the redacted value so a redacted
+ * variable never reaches the record through `graphql.variables`.
+ */
+function describeSentBody(
+  method: string,
+  body: string | null,
+  maxBodySize: number,
+  redactionFields: string[],
+): { requestBody: string | null; graphql: GraphQLInfo | undefined } {
+  if (body == null || body.length > maxBodySize) return { requestBody: null, graphql: undefined }
   // Cheap substring pre-check before JSON.parse — a GraphQL body always carries a "query" key.
-  if (!body.includes('"query"')) return undefined
-  try {
-    return extractGraphQLInfoFromParsed(JSON.parse(body))
-  } catch {
-    // not JSON — ignore
+  const looksLikeGraphQL = method.toUpperCase() === 'POST' && body.includes('"query"')
+  const redaction = redactParsedBody(body, tryParseJsonBody(body), redactionFields)
+  return {
+    requestBody: redaction.text,
+    graphql: looksLikeGraphQL ? extractGraphQLInfoFromParsed(redaction.value) : undefined,
   }
-  return undefined
 }
 
 /** Same extraction as extractGraphQLInfo, from an already-parsed value — avoids re-parsing a body the caller already parsed once (shared with redaction). */
@@ -76,6 +86,11 @@ function detectProtocol(url: string): string | undefined {
     // ignore
   }
   return undefined
+}
+
+/** False for statuses the Fetch spec forbids a body on; the Response constructor throws on those. */
+function canStatusHaveBody(status: number): boolean {
+  return status >= 200 && status !== 204 && status !== 205 && status !== 304
 }
 
 let originalFetch: typeof globalThis.fetch | null = null
@@ -361,7 +376,8 @@ export function enableFetchInterceptor(
           mockHeaders.append(name, value)
         }
       }
-      const mockResponse = new Response(bodyStr, {
+      // The Response constructor throws on a body with a null-body status (204/205/304).
+      const mockResponse = new Response(canStatusHaveBody(mockRule.response.status) ? bodyStr : null, {
         status: mockRule.response.status,
         headers: mockHeaders,
       })
@@ -400,146 +416,141 @@ export function enableFetchInterceptor(
       // the awaited call when throttling is off; the 'offline' profile stays active either way.
       if (ThrottleEngine.isActive) await ThrottleEngine.applyDelay()
 
+      // The request actually sent: the caller's own input/init, with only changed parts replaced.
+      let effInput: FetchInput = input
+      let effInit = init
+      const applyRequestChanges = async (changes: Partial<PausedRequest>): Promise<void> => {
+        if (Object.keys(changes).length === 0) return
+        const edited = await buildEditedFetchRequest(effInput, effInit, changes)
+        effInput = edited.input
+        effInit = edited.init
+        if (changes.url != null) url = changes.url
+        if (changes.method != null) method = changes.method.toUpperCase() as HttpMethod
+        if (changes.headers != null) {
+          requestHeaders = {}
+          for (const k of Object.keys(rawRequestHeaders)) delete rawRequestHeaders[k]
+          for (const [k, v] of Object.entries(changes.headers)) {
+            rawRequestHeaders[k] = v
+            requestHeaders[k] = isSensitiveHeader(k, redactHeaders) ? '[REDACTED]' : v
+          }
+        }
+        if (changes.body !== undefined) {
+          requestBodySize = changes.body?.length ?? 0
+          ;({ requestBody, graphql } = describeSentBody(method, changes.body, maxBodySize, redactionFields))
+        }
+      }
+
       if (rewriteRule) {
         // applyDelay() above already passed (no offline abort), so the request
         // will go out — count the hit now.
         mockEngine.recordHit(rewriteRule)
         const sentCtx = await mockEngine.applyRewriteRequest(rewriteRule, reqCtx)
-        const reqChanged = sentCtx !== reqCtx
-        const rwStartMs = Date.now()
-        // Preserve the caller's original init (credentials/signal/mode/cache/etc.) on top of
-        // which the rewrite's url/method/headers/body land — dropping it made a rewritten
-        // request uncancellable and could silently change credentialed-request behavior.
-        // A body is never sent on GET/HEAD, mirroring replayRequest.ts's same guard — the
-        // real fetch() throws a TypeError if one is attached to a rewrite targeting those.
-        const sentMethod = sentCtx.method.toUpperCase()
-        const realResponse = reqChanged
-          ? await savedFetch(sentCtx.url, {
-              ...init,
-              method: sentCtx.method,
-              headers: sentCtx.headers,
-              body: sentMethod === 'GET' || sentMethod === 'HEAD' ? undefined : sentCtx.body,
-            })
-          : await savedFetch(input, init)
-        const ttfbMs = Date.now() - rwStartMs
+        // Only what the rule changed replaces the caller's request; reqCtx.body is a text
+        // preview, so an untouched body keeps the original FormData/Blob/stream object.
+        await applyRequestChanges(
+          changedRequestEdits(
+            { url: reqCtx.url, method: reqCtx.method, headers: reqCtx.headers, body: reqCtx.body ?? null },
+            { url: sentCtx.url, method: sentCtx.method, headers: sentCtx.headers, body: sentCtx.body ?? null },
+          ),
+        )
 
-        const realHeaders: Record<string, string> = {}
-        realResponse.headers.forEach((v, k) => {
-          realHeaders[k] = v
-        })
-        const realBody = await realResponse.clone().text()
+        // A request-only rewrite continues on the ordinary path below: the real response is
+        // returned at headers time and its body captured as it streams, never buffered first.
+        if (mockEngine.rewritesResponse(rewriteRule)) {
+          const rwStartMs = Date.now()
+          const realResponse = await savedFetch(effInput, effInit)
+          const ttfbMs = Date.now() - rwStartMs
 
-        const resInput: MockResponseContext = { status: realResponse.status, headers: realHeaders, body: realBody }
-        const resCtx = await mockEngine.applyRewriteResponse(rewriteRule, resInput, sentCtx)
-        const resChanged = resCtx !== resInput
-
-        const endTime = Date.now()
-        const duration = endTime - startTime
-        const sentBody = sentCtx.body ?? null
-        const sentBodySize = sentBody != null ? sentBody.length : 0
-        // Re-derive GraphQL metadata from the rewritten request, not the original.
-        const rewrittenGraphql = extractGraphQLInfo(sentCtx.method, sentBody)
-
-        const recordedReqHeaders: Record<string, string> = {}
-        for (const [k, v] of Object.entries(sentCtx.headers)) {
-          recordedReqHeaders[k] = isSensitiveHeader(k, redactHeaders) ? '[REDACTED]' : v
-        }
-        const recordedResHeaders: Record<string, string> = {}
-        for (const [k, v] of Object.entries(resCtx.headers)) {
-          recordedResHeaders[k] = isSensitiveHeader(k, redactHeaders) ? '[REDACTED]' : v
-        }
-
-        try {
-          onRequest({
-            id,
-            url: sentCtx.url,
-            method: sentCtx.method as HttpMethod,
-            status: resCtx.status,
-            startTime,
-            endTime,
-            duration,
-            requestHeaders: recordedReqHeaders,
-            responseHeaders: recordedResHeaders,
-            requestBodySize: sentBodySize,
-            responseBodySize: resCtx.body.length,
-            requestBody:
-              sentBody != null && sentBodySize <= maxBodySize
-                ? (redactJsonBody(sentBody, redactionFields) ?? sentBody)
-                : null,
-            responseBody:
-              resCtx.body.length <= maxBodySize ? (redactJsonBody(resCtx.body, redactionFields) ?? resCtx.body) : null,
-            error: null,
-            source: 'fetch',
-            initiator,
-            mocked: false,
-            rewritten: true,
-            graphql: rewrittenGraphql,
-            timing: {
-              dnsMs: undefined,
-              connectMs: undefined,
-              tlsMs: undefined,
-              ttfbMs,
-              downloadMs: undefined,
-              total: duration,
-            },
-            ttfbMs,
-          } as NetworkRequest)
-        } catch {
-          /* never break the real request */
-        }
-
-        // If the response wasn't transformed, hand back the real (intact, possibly binary/streamed)
-        // response — only reconstruct from text when the response was actually rewritten.
-        if (!resChanged) return realResponse
-        const canHaveBody = resCtx.status >= 200 && resCtx.status !== 204 && resCtx.status !== 304
-        try {
-          return new Response(canHaveBody ? resCtx.body : null, {
-            status: resCtx.status,
-            headers: new Headers(resCtx.headers),
+          const realHeaders: Record<string, string> = {}
+          realResponse.headers.forEach((v, k) => {
+            realHeaders[k] = v
           })
-        } catch {
-          return realResponse
+          const realBody = await realResponse.clone().text()
+
+          const resInput: MockResponseContext = { status: realResponse.status, headers: realHeaders, body: realBody }
+          const resCtx = await mockEngine.applyRewriteResponse(rewriteRule, resInput, sentCtx)
+          const resChanged = resCtx !== resInput
+
+          const endTime = Date.now()
+          const duration = endTime - startTime
+
+          const recordedResHeaders: Record<string, string> = {}
+          for (const [k, v] of Object.entries(resCtx.headers)) {
+            recordedResHeaders[k] = isSensitiveHeader(k, redactHeaders) ? '[REDACTED]' : v
+          }
+
+          try {
+            onRequest({
+              id,
+              url,
+              method,
+              status: resCtx.status,
+              startTime,
+              endTime,
+              duration,
+              requestHeaders,
+              responseHeaders: recordedResHeaders,
+              requestBodySize,
+              responseBodySize: resCtx.body.length,
+              requestBody,
+              responseBody:
+                resCtx.body.length <= maxBodySize
+                  ? (redactJsonBody(resCtx.body, redactionFields) ?? resCtx.body)
+                  : null,
+              error: null,
+              source: 'fetch',
+              initiator,
+              mocked: false,
+              rewritten: true,
+              graphql,
+              timing: {
+                dnsMs: undefined,
+                connectMs: undefined,
+                tlsMs: undefined,
+                ttfbMs,
+                downloadMs: undefined,
+                total: duration,
+              },
+              ttfbMs,
+            } as NetworkRequest)
+          } catch {
+            /* never break the real request */
+          }
+
+          // If the response wasn't transformed, hand back the real (intact, possibly binary/streamed)
+          // response — only reconstruct from text when the response was actually rewritten.
+          if (!resChanged) return realResponse
+          try {
+            return new Response(canStatusHaveBody(resCtx.status) ? resCtx.body : null, {
+              status: resCtx.status,
+              headers: new Headers(resCtx.headers),
+            })
+          } catch {
+            return realResponse
+          }
         }
       }
 
-      let effInput: FetchInput = input
-      let effInit = init
       if (breakpointEngine.matches(url, method, 'request')) {
-        const action = await breakpointEngine.pause(id, 'request', {
+        // A Request input's own headers are part of what goes out, so the editor sees them too.
+        const pauseHeaders: Record<string, string> = {}
+        if (effInput instanceof Request) {
+          effInput.headers.forEach((v, k) => {
+            pauseHeaders[k] = v
+          })
+        }
+        const handed: PausedRequest = {
           url,
           method,
-          headers: rawRequestHeaders,
+          headers: { ...pauseHeaders, ...rawRequestHeaders },
           body: requestBody,
-        })
+        }
+        const action = await breakpointEngine.pause(id, 'request', handed)
         if (action.type === 'abort') {
           // Throw with the abort reason — the interceptor's own catch records it, so there's no double-record.
           throw new TypeError('Aborted by Hakka')
         }
-        const e = action.edits
-        if (e) {
-          if (e.url != null) {
-            url = e.url
-            effInput = e.url
-          }
-          if (e.method != null) method = e.method.toUpperCase() as HttpMethod
-          if (e.body !== undefined) {
-            requestBody = e.body
-            requestBodySize = e.body ? e.body.length : 0
-          }
-          if (e.headers != null) {
-            // Re-derive the redacted (recorded) headers from the edited raw set.
-            requestHeaders = {}
-            for (const [k, v] of Object.entries(e.headers)) {
-              requestHeaders[k] = isSensitiveHeader(k, redactHeaders) ? '[REDACTED]' : v
-            }
-          }
-          effInit = {
-            ...init,
-            method,
-            headers: e.headers ?? init?.headers,
-            body: e.body !== undefined ? (e.body ?? undefined) : init?.body,
-          }
-        }
+        await applyRequestChanges(changedRequestEdits(handed, action.edits))
       }
 
       const fetchStartMs = Date.now()
@@ -572,21 +583,17 @@ export function enableFetchInterceptor(
           resBody = ''
         }
 
-        const action = await breakpointEngine.pause(id, 'response', {
-          status: resStatus,
-          headers: rawResHeaders,
-          body: resBody,
-        })
+        const handed = { status: resStatus, headers: rawResHeaders, body: resBody }
+        const action = await breakpointEngine.pause(id, 'response', handed)
         if (action.type === 'abort') {
           // Caught by this interceptor's own catch — records status null + error.
           throw new TypeError('Aborted by Hakka')
         }
-        const e = action.edits
-        if (e) {
-          if (e.status != null) resStatus = e.status
-          if (e.headers != null) resHeaders = e.headers
-          if (e.body !== undefined) resBody = e.body
-        }
+        // The body handed out is a text decoding; echoing it back must not replace a binary body.
+        const e = changedResponseEdits(handed, action.edits)
+        if (e.status != null) resStatus = e.status
+        if (e.headers != null) resHeaders = e.headers
+        if (e.body !== undefined) resBody = e.body
 
         const recordedResHeaders: Record<string, string> = {}
         for (const [k, v] of Object.entries(resHeaders)) {
@@ -627,10 +634,12 @@ export function enableFetchInterceptor(
           /* never break the real request */
         }
 
-        // Reconstruct the response the caller receives with the (edited) values.
-        const canHaveBody = resStatus >= 200 && resStatus !== 204 && resStatus !== 304
+        // Unedited: the real response, with its url, redirected flag, and exact body bytes.
+        if (Object.keys(e).length === 0) return response
+        // Status/header edits keep the real body stream; only an edited body is rebuilt from text.
+        const body = e.body !== undefined ? resBody : response.body
         try {
-          return new Response(canHaveBody ? resBody : null, {
+          return new Response(canStatusHaveBody(resStatus) ? body : null, {
             status: resStatus,
             headers: new Headers(resHeaders),
           })
@@ -673,6 +682,7 @@ export function enableFetchInterceptor(
         source: 'fetch',
         initiator,
         graphql,
+        ...(rewriteRule ? { mocked: false, rewritten: true } : {}),
         timing: {
           dnsMs: undefined,
           connectMs: undefined,

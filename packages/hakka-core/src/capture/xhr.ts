@@ -1,6 +1,7 @@
 import type { CaptureSource, CaptureSourceContext } from '../contract/captureSource'
 import { createCycleGuard } from '../contract/cycleGuard'
-import { breakpointEngine } from '../engine/BreakpointEngine'
+import { changedRequestEdits } from '../engine/breakpointEdits'
+import { breakpointEngine, type PausedRequest } from '../engine/BreakpointEngine'
 import { MOCK_FAILURE_MESSAGES, mockEngine, type MockRequestContext } from '../engine/MockEngine'
 import { ThrottleEngine } from '../engine/ThrottleEngine'
 import { HAKKA_TRACE_HEADER, resolveOutgoingTrace } from '../engine/trace'
@@ -615,10 +616,10 @@ export function enableXHRInterceptor(
     // XHR can't pause mid-flight, so this holds before savedSend; resume re-opens with any
     // URL/method edits then sends, abort emits an error record and never sends.
     if (state && breakpointEngine.matches(state.url, state.method, 'request')) {
-      const pauseData = {
+      const pauseData: PausedRequest = {
         url: state.url,
         method: state.method,
-        headers: state.rawRequestHeaders,
+        headers: { ...state.rawRequestHeaders },
         body: state.requestBody,
       }
       const pendingData = data
@@ -656,18 +657,17 @@ export function enableXHRInterceptor(
             return
           }
 
-          // Resume — apply edits to url/method if provided
-          const e = action.edits as
-            | Partial<{ url: string; method: string; headers: Record<string, string>; body: string | null }>
-            | undefined
+          // Resume — apply only what differs from the pause: the paused body is a redacted text
+          // preview (null for binary or over-cap bodies), never a stand-in for the real one.
+          const e = changedRequestEdits(pauseData, action.edits)
           let reopened = false
-          if (e?.url != null && e.url !== state.url) {
+          if (e.url != null) {
             state.url = e.url
             // Re-open with the new URL so the real request goes to the edited target
             savedOpen.call(xhr, state.method, state.url)
             reopened = true
           }
-          if (e?.method != null) {
+          if (e.method != null) {
             state.method = e.method.toUpperCase() as HttpMethod
             savedOpen.call(xhr, state.method, state.url)
             reopened = true
@@ -677,13 +677,13 @@ export function enableXHRInterceptor(
             // replay every header the caller originally set (state.rawRequestHeaders) so a
             // URL/method-only edit doesn't silently drop Content-Type/Authorization/etc.,
             // then apply any header edits from the breakpoint action on top.
-            const headersToReplay: Record<string, string> = { ...state.rawRequestHeaders, ...e?.headers }
+            const headersToReplay: Record<string, string> = { ...state.rawRequestHeaders, ...e.headers }
             for (const [k, v] of Object.entries(headersToReplay)) {
               savedSetHeader.call(xhr, k, v)
               state.rawRequestHeaders[k] = v
               state.requestHeaders[k] = isSensitiveHeader(k, redactHeaders) ? '[REDACTED]' : v
             }
-          } else if (e?.headers != null) {
+          } else if (e.headers != null) {
             // Not re-opened — the connection's existing headers are untouched; replay only the edits.
             for (const [k, v] of Object.entries(e.headers)) {
               savedSetHeader.call(xhr, k, v)
@@ -691,8 +691,16 @@ export function enableXHRInterceptor(
             }
           }
 
+          if (e.body !== undefined) {
+            state.requestBodySize = e.body?.length ?? 0
+            state.requestBody =
+              e.body != null && e.body.length <= maxBodySize
+                ? (redactJsonBody(e.body, getBodyRedactionFields()) ?? e.body)
+                : null
+          }
+
           state.startTime = Date.now() // reset timing after the pause
-          savedSend.call(xhr, e?.body !== undefined ? e.body : pendingData)
+          savedSend.call(xhr, e.body !== undefined ? e.body : pendingData)
         })
         .catch(() => {
           // Fail-open: if the breakpoint engine rejects, the real request must still go out.
