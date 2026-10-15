@@ -34,7 +34,17 @@ describe('React Native capture', () => {
   it('fails without a native module instead of installing JS fallback interceptors', () => {
     ;(TurboModuleRegistry.get as jest.Mock).mockReturnValue(null)
     const originalFetch = globalThis.fetch
-    expect(() => Hakka.start()).toThrow('TurboModule was not found')
+    let message = ''
+    try {
+      Hakka.start()
+    } catch (error: unknown) {
+      if (error instanceof Error) message = error.message
+    }
+    expect(message).toContain('native module was not found')
+    expect(message).toContain('Expo Go is not supported')
+    expect(message).toContain('pod install')
+    expect(message).toContain('expo prebuild')
+    expect(message).not.toContain('mode')
     expect(Hakka.isActive).toBe(false)
     expect(globalThis.fetch).toBe(originalFetch)
   })
