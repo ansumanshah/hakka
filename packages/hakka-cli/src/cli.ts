@@ -2,8 +2,8 @@
 import { spawnSync } from 'node:child_process'
 // `hakka init`: safe + idempotent — only creates files that don't exist, never edits/clobbers.
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 
 import { parseAssertArgs, assertCommand } from './assert'
 import type { CdpAttachOptions } from './cdp/index'
@@ -212,6 +212,11 @@ async function runCdp(rest: string[]): Promise<void> {
   await runCdpAttach(parseCdpArgs(rest))
 }
 
+function packageVersion(): string {
+  const pkg = createRequire(import.meta.url)('../package.json') as { version: string }
+  return pkg.version
+}
+
 async function usage(): Promise<void> {
   log(`Usage: ${c.cyan('hakka init')}`)
   log('       hakka run <collection-directory|request.hakka> [--json] [--env NAME=value]')
@@ -227,7 +232,15 @@ async function usage(): Promise<void> {
 
 async function main(): Promise<void> {
   const [, , cmd, ...rest] = process.argv
+  if (cmd !== undefined && cmd !== 'help' && cmd !== 'proxy' && (rest.includes('--help') || rest.includes('-h'))) {
+    await usage()
+    return
+  }
   switch (cmd ?? 'init') {
+    case '--version':
+    case '-v':
+      log(packageVersion())
+      break
     case '--help':
     case '-h':
     case 'help':
@@ -315,11 +328,9 @@ async function main(): Promise<void> {
   }
 }
 
-// Run only when invoked as a CLI — not when imported by tests.
-const invokedDirectly = process.argv[1] != null && fileURLToPath(import.meta.url) === process.argv[1]
-if (invokedDirectly) {
-  main().catch((err: unknown) => {
-    process.stderr.write(`hakka: fatal: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}\n`)
-    process.exit(1)
-  })
-}
+// npm bins are symlinks, so an argv[1] === import.meta.url guard would make the
+// installed command a silent no-op. Nothing imports this module, so always run.
+main().catch((err: unknown) => {
+  process.stderr.write(`hakka: fatal: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}\n`)
+  process.exit(1)
+})
