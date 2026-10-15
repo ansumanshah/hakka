@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test'
 import net from 'node:net'
 
 import { mockEngine, type NetworkRequest } from 'hakka-core'
@@ -340,5 +340,23 @@ describe('createBridgeClient — inbound control frames', () => {
 
     await new Promise((r) => setTimeout(r, 150))
     expect(mockEngine.getRules().some((r) => r.id === 'should-not-apply')).toBe(false)
+  })
+})
+
+describe('invalid bridge URL', () => {
+  test('warns once with the expected form instead of retrying silently', async () => {
+    const warn = spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      client = createBridgeClient({ url: 'localhost:8989' })
+      client.send(makeRequest('a'))
+      await new Promise((r) => setTimeout(r, 600))
+      expect(warn).toHaveBeenCalledTimes(1)
+      expect(String(warn.mock.calls[0]?.[0])).toBe(
+        'hakka-node: bridgeUrl "localhost:8989" is not a WebSocket URL. Use the form ws://localhost:8989.',
+      )
+      expect(client.connected).toBe(false)
+    } finally {
+      warn.mockRestore()
+    }
   })
 })

@@ -215,8 +215,9 @@ class HakkaImpl {
 
     if (mode === 'native' && !this.native) {
       throw new Error(
-        `[Hakka] start(mode: "native") requires one of these modules: ${NATIVE_MODULE_NAMES.join(', ')}. ` +
-          'TurboModule was not found.',
+        `[Hakka] The Hakka native module was not found (looked for ${NATIVE_MODULE_NAMES.join(', ')}). ` +
+          'Expo Go is not supported: use a development build. After installing, rebuild the app ' +
+          '(cd ios && pod install, a Gradle sync, or npx expo prebuild) so the native code is linked.',
       )
     }
 

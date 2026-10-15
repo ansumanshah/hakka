@@ -1,14 +1,37 @@
 #!/usr/bin/env node
 import { DEFAULT_BRIDGE_HOST, DEFAULT_BRIDGE_PORT, startBridgeServer } from './server'
 
+const USAGE = `Usage: hakka-bridge [options]
+
+Starts the Hakka bridge hub that SDKs, the browser overlay, and the desktop app connect to.
+
+Options:
+  --port <number>   Port to listen on (default ${DEFAULT_BRIDGE_PORT}, or HAKKA_BRIDGE_PORT)
+  --host <address>  Interface to bind (default ${DEFAULT_BRIDGE_HOST}, or HAKKA_BRIDGE_HOST)
+  --no-mdns         Do not advertise the hub on the LAN (or HAKKA_NO_MDNS=1)
+  -h, --help        Show this help`
+
+/** A bad command line: printed as one line, exit code 2. */
+class UsageError extends Error {}
+
+function isValidPort(value: number): boolean {
+  return Number.isInteger(value) && value > 0 && value < 65_536
+}
+
 function resolvePort(argv: string[]): number {
   const flag = argv.indexOf('--port')
   if (flag >= 0) {
-    const value = Number(argv[flag + 1])
-    if (Number.isInteger(value) && value > 0 && value < 65_536) return value
+    const raw = argv[flag + 1]
+    const value = Number(raw)
+    if (raw === undefined || raw.trim() === '' || !isValidPort(value)) {
+      throw new UsageError(
+        `--port must be a whole number from 1 to 65535, got ${raw === undefined ? 'nothing' : `"${raw}"`}.`,
+      )
+    }
+    return value
   }
   const env = Number(process.env.HAKKA_BRIDGE_PORT)
-  if (Number.isInteger(env) && env > 0 && env < 65_536) return env
+  if (isValidPort(env)) return env
   return DEFAULT_BRIDGE_PORT
 }
 
@@ -32,9 +55,17 @@ function resolveAdvertise(argv: string[]): boolean {
   return true
 }
 
+/** The port `main` tried to bind, for the failure message. */
+let requestedPort = DEFAULT_BRIDGE_PORT
+
 async function main(): Promise<void> {
   const argv = process.argv.slice(2)
+  if (argv.includes('--help') || argv.includes('-h')) {
+    console.log(USAGE)
+    return
+  }
   const port = resolvePort(argv)
+  requestedPort = port
   const host = resolveHost(argv)
   const advertise = resolveAdvertise(argv)
   const server = await startBridgeServer({
@@ -62,4 +93,23 @@ async function main(): Promise<void> {
   process.on('SIGTERM', shutdown)
 }
 
-void main()
+/** One line for the user, never a stack trace: these are expected failures. */
+function describeFailure(error: unknown, port: number): string {
+  const code = error instanceof Error && 'code' in error ? error.code : undefined
+  if (code === 'EADDRINUSE') {
+    return `hakka-bridge: Port ${port} is already in use. Another hub may be running; pick a free one with --port <number>.`
+  }
+  if (code === 'EACCES') {
+    return `hakka-bridge: No permission to listen on port ${port}. Try a port above 1024 with --port.`
+  }
+  return `hakka-bridge: ${error instanceof Error ? error.message : String(error)}`
+}
+
+main().catch((error: unknown) => {
+  if (error instanceof UsageError) {
+    console.error(`hakka-bridge: ${error.message} Run hakka-bridge --help for usage.`)
+    process.exit(2)
+  }
+  console.error(describeFailure(error, requestedPort))
+  process.exit(1)
+})

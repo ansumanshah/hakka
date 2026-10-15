@@ -40,9 +40,12 @@ async function enableNativeWebSocket(module: NonNullable<typeof NativeHakkaMonit
  * Call this before (or after) starting the Hakka interceptor. It is safe
  * to call multiple times; settings are applied additively.
  *
+ * Internal to this package: `NativeCapture` is not exported from
+ * `hakka-react-native`, so import it by relative path.
+ *
  * @example
  * ```ts
- * import { NativeCapture } from 'hakka-react-native'
+ * import { NativeCapture } from './native/nativeCapture'
  *
  * await NativeCapture.configure({ webSocket: true })
  * ```
