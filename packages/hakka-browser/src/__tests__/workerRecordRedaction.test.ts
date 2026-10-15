@@ -39,4 +39,18 @@ describe('redactWorkerRecord', () => {
     expect(out.requestBody).toBeUndefined()
     expect(out.requestHeaders).toBeUndefined()
   })
+
+  test('redacts GraphQL variables and WebSocket text frames', () => {
+    const out = redactWorkerRecord(
+      record({
+        graphql: { operationType: 'mutation', operationName: 'Login', variables: { password: 'hunter2', user: 'a' } },
+        messages: [{ direction: 'sent', data: '{"type":"auth","token":"t-1"}', size: 28, binary: false, timestamp: 1 }],
+      } as Partial<NetworkRequest>),
+      [],
+      ['password', 'token'],
+    )
+    expect(JSON.stringify(out.graphql?.variables)).not.toContain('hunter2')
+    expect(out.graphql?.variables?.user).toBe('a')
+    expect(out.messages?.[0]?.data).not.toContain('t-1')
+  })
 })

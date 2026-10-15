@@ -45,6 +45,15 @@ export function redactWorkerRecord(req: NetworkRequest, headerNames: string[], b
       out.requestBody = redactJsonBody(req.requestBody, bodyFields) ?? req.requestBody
     if (typeof req.responseBody === 'string')
       out.responseBody = redactJsonBody(req.responseBody, bodyFields) ?? req.responseBody
+    if (req.graphql?.variables) {
+      const redacted = redactJsonBody(JSON.stringify(req.graphql.variables), bodyFields)
+      if (redacted) out.graphql = { ...req.graphql, variables: JSON.parse(redacted) as typeof req.graphql.variables }
+    }
+    if (req.messages) {
+      out.messages = req.messages.map((m) =>
+        typeof m.data === 'string' && !m.binary ? { ...m, data: redactJsonBody(m.data, bodyFields) ?? m.data } : m,
+      )
+    }
   }
   return out
 }
