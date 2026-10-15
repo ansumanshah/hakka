@@ -86,7 +86,6 @@
     "@react-native/codegen",
     "@react-native/gradle-plugin",
     "expo",
-    "jest-environment-node",
     "react-native-builder-bob",
     "react-native-mmkv",
     // tsdown loads this optional peer while evaluating its config on Node 22.
