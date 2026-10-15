@@ -109,11 +109,11 @@ interface QueuedFrame {
   bytes: number
 }
 
-/** True when `url` parses and uses the `ws:` or `wss:` scheme. */
+/** True when `url` parses and uses a scheme the `ws` client accepts (ws, wss, http, https). */
 function isWebSocketUrl(url: string): boolean {
   try {
     const { protocol } = new URL(url)
-    return protocol === 'ws:' || protocol === 'wss:'
+    return protocol === 'ws:' || protocol === 'wss:' || protocol === 'http:' || protocol === 'https:'
   } catch {
     return false
   }

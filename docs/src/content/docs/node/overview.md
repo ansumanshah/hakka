@@ -29,7 +29,7 @@ NODE_ENV=development node app.js
 ```
 
 `register()` is **dev-only**: it does nothing unless `NODE_ENV === 'development'`
-or you pass `force: true`. Under `NODE_ENV=production` it stays silent; with `NODE_ENV` unset or set to another value it prints one line saying capture is off. That makes it safe to leave in code that also runs in production. See
+or you pass `force: true`. Under `NODE_ENV=production` or `test` it stays silent; with `NODE_ENV` unset or set to another value it prints one line saying capture is off. That makes it safe to leave in code that also runs in production. See
 [Production safety](/guides/production-safety/).
 
 For frameworks that need explicit start/stop control instead of the dev-only gate, call

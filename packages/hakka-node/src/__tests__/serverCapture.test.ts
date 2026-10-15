@@ -169,6 +169,19 @@ describe('register — dev-only gating', () => {
     }
   })
 
+  test('stays silent under test runners (NODE_ENV=test)', () => {
+    const ORIGINAL = process.env.NODE_ENV
+    process.env.NODE_ENV = 'test'
+    const warn = spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      expect(register({ bridge: false })).toBeUndefined()
+      expect(warn).not.toHaveBeenCalled()
+    } finally {
+      warn.mockRestore()
+      process.env.NODE_ENV = ORIGINAL
+    }
+  })
+
   test('starts capture when force: true is passed, even outside development', async () => {
     const ORIGINAL = process.env.NODE_ENV
     process.env.NODE_ENV = 'production'

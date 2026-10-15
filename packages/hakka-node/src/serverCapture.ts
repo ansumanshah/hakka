@@ -309,9 +309,9 @@ export function stopCapture(): void {
 export function register(options: HakkaNodeOptions = {}): HakkaNodeCapture | undefined {
   const env = process.env.NODE_ENV
   if (env !== 'development' && !options.force) {
-    // Production builds are the documented quiet no-op. Anywhere else (unset,
-    // `test`, `staging`, ...) a silent no-op reads as "capture is broken".
-    if (env !== 'production' && !hasExplainedNoop) {
+    // Production builds and test runners are the quiet no-op. Anywhere else (unset,
+    // `staging`, ...) a silent no-op reads as "capture is broken".
+    if (env !== 'production' && env !== 'test' && !hasExplainedNoop) {
       hasExplainedNoop = true
       console.warn(
         "hakka-node: capture is off because NODE_ENV is not 'development'. Pass { force: true } to enable it.",

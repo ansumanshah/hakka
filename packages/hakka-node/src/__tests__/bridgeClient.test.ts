@@ -344,6 +344,14 @@ describe('createBridgeClient — inbound control frames', () => {
 })
 
 describe('invalid bridge URL', () => {
+  test('connects through an http:// URL, which ws accepts', async () => {
+    const port = await getFreePort()
+    const started = await startHub(port)
+    hub = started.wss
+    client = createBridgeClient({ url: `http://localhost:${port}` })
+    await waitFor(() => client?.connected === true)
+  })
+
   test('warns once with the expected form instead of retrying silently', async () => {
     const warn = spyOn(console, 'warn').mockImplementation(() => {})
     try {
