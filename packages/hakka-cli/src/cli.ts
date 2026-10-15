@@ -232,7 +232,7 @@ async function usage(): Promise<void> {
 
 async function main(): Promise<void> {
   const [, , cmd, ...rest] = process.argv
-  if (cmd !== undefined && cmd !== 'help' && (rest.includes('--help') || rest.includes('-h'))) {
+  if (cmd !== undefined && cmd !== 'help' && cmd !== 'proxy' && (rest.includes('--help') || rest.includes('-h'))) {
     await usage()
     return
   }

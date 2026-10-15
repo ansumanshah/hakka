@@ -1,6 +1,6 @@
-import { describe, expect, test } from 'bun:test'
+import { afterAll, describe, expect, test } from 'bun:test'
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdtempSync, symlinkSync } from 'node:fs'
+import { existsSync, mkdtempSync, rmSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
@@ -9,7 +9,9 @@ const dist = resolve(import.meta.dir, '../../dist/cli.mjs')
 // npm exposes bins as symlinks (node_modules/.bin/hakka), so the entry must run
 // when argv[1] is a symlink to the built file, not only when it is the file itself.
 describe.skipIf(!existsSync(dist))('installed hakka bin', () => {
-  const link = join(mkdtempSync(join(tmpdir(), 'hakka-bin-')), 'hakka')
+  const dir = mkdtempSync(join(tmpdir(), 'hakka-bin-'))
+  const link = join(dir, 'hakka')
+  afterAll(() => rmSync(dir, { recursive: true, force: true }))
   symlinkSync(dist, link)
   const run = (...args: string[]) => spawnSync(process.execPath, [link, ...args], { encoding: 'utf8' })
 
@@ -29,5 +31,10 @@ describe.skipIf(!existsSync(dist))('installed hakka bin', () => {
     const r = run('mcp', '--help')
     expect(r.status).toBe(0)
     expect(r.stdout + r.stderr).toContain('hakka mcp')
+  })
+
+  test('proxy --help keeps its own help output', () => {
+    const r = run('proxy', '--help', '--json')
+    expect(r.stdout).toContain('"status":"help"')
   })
 })
